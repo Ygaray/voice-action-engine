@@ -1,6 +1,7 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A12 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
+**Status:** FROZEN v1.0 + amendments A1–A14 + errata E1–E3 (2026-09-29): approved by Yahir.
+**Orchestrator (A14):** the control plane, session `yahir-gsd-control-plane-f2`. State: `~/Projects/yahir-agentic-tools/yahir-gsd-control-plane/xrepo/vae-bilingual/`. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
 ---
@@ -208,6 +209,28 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 
 **A12 — All tag cuts waived across the whole effort; the agents own tag correctness (2026-09-29, Yahir).** This supersedes A9 and every per-repo human tag gate (including stt-engine's human-gated `:stt` doctrine and YAT's) for the tags this effort produces: `:stt`, YAT, `voice-action-engine` `v1.0.0` / `v1.1.0`, and any patch tags. Each repo's session cuts its tag on green verification. The waiver also covers creating and pushing to the public GitHub repos these tags need; `github.com/Ygaray/voice-action-engine` was created public on 2026-09-29. In exchange, the peers are **jointly responsible** for keeping every tag in sync and correct, via the protocol in §11.
 
+**E1 — Erratum: SB's confirm seam is `MutationGate`, not `MutationTierPolicy` (2026-09-29; found by SB, verified by VAE).** Wherever §5.2, A2 or §6.4 say "SB plugs `MutationTierPolicy`", read: SB plugs **`MutationGate`** (`core/agent/MutationGate.kt:28`, `suspend fun admit(toolName: String, input: JsonObject?): MutationGateDecision`), implemented by `VoiceConfirmGate` (`VoiceConfirmGate.kt:52`, which captures a `PreMutationSnapshot` for undo). `MutationTierPolicy` only classifies risk; the gate consults it. `PreApplyGate` is modeled on the `MutationGate.admit → decision` shape, plus A2's generalization (needs-confirmation + a reason). SB's `CommitSink` source = `VoiceUndoOperations.kt` + `PreMutationSnapshot.kt`.
+
+**E2 — Erratum: the A10 fixture source (2026-09-29; found by SB, verified by VAE).** The A10 fixture is the serialized **`AnthropicToolRegistry.toolDefinitions`** (`AnthropicToolRegistry.kt:150`) plus the **fully composed `SYSTEM_PROMPT`** (`AnthropicAgentLoop.kt:456`, composed with `TAG_DISAMBIGUATION_POLICY` at :443), not `ToolSchemas.kt` directly. SB produces it as a `{system, tools}` JSON file (SB-side JVM test/task) and hands it to VAE before v1.0's `:sample` step, routed through the orchestrator (A14).
+
+**E3 — Erratum: A3 applies to SB too (2026-09-29).** SB's minSdk is also 35, so `language="auto"` is always native-live for SB as well. The SDK_INT < 34 fallback is tested in `:stt` only.
+
+**A13 — Reconvene protocol: two per wave (2026-09-29, Yahir).** Every milestone in this effort pauses for a cross-repo **reconvene** after research + discussion and **before planning**. The control plane runs it (A14).
+- **Per-repo sequence:** `/gsd-new-milestone` (or `/gsd-new-project`) → `/gsd-research-milestone` → `/gsd-discuss-milestone` → **STOP**. Do **not** run the `/gsd-milestone` umbrella, and do not plan or execute, until the orchestrator sends GO.
+- **Check-in:** at the STOP, the session writes `.planning/cross-repo/RECONVENE-BRIEF.md` in its own repo (template in its `HANDOFF.md`) and messages the orchestrator "R<n> ready: <path>". The brief file is the source of truth; the message is just the ping.
+- **R1: all five repos, now.** Wave 0 (`:stt`, VAE v1.0, YAT) and Wave 1 (SB, CT) all check in. For Wave 1, R1 is a **scope-level** check (the engine API doesn't exist yet). After R1:
+  - Wave 0 gets GO → plan + execute.
+  - Wave 1 **parks**: no planning.
+- **R2: Wave 1, when VAE `v1.0.0`, `:stt` and YAT tags are all in the §11 ledger.** SB and CT re-run `/gsd-discuss-milestone` against the real, tagged API, refresh their briefs, and get GO → plan. A CT/SB phase that needs `v1.1.0` is planned only once `v1.1.0` is in the ledger (per-phase gate, enforced by the orchestrator).
+- **R-v1.1: VAE's second milestone.** Same stop + brief after its discussion; the orchestrator reviews it against the other repos' live state. It's a light check-in: no all-peer round unless it finds a conflict.
+- **Orchestrator output per reconvene:** a report under `xrepo/vae-bilingual/reconvene/`, contract amendments for any accepted change (Yahir approves), and a per-repo verdict: `GO`, `GO-WITH-CHANGES <list>` (fold into CONTEXT before planning), or `HOLD <reason>`.
+- **Authority:** Yahir designates the orchestrator in each session at kickoff. From then on, a GO is the sequencing signal. Scope decisions are still Yahir's. The orchestrator gets them during the reconvene and records them here.
+
+**A14 — Control plane is the orchestrator and the sole §11 ledger writer (2026-09-29, Yahir).** The control plane owns: cross-repo sequencing and waves, the reconvenes (A13), contract amendments and errata (the orchestrator drafts, Yahir approves), the §11 ledger, broadcasts, and cross-repo routing. That includes the v1.1 on-device spike verdict (VAE → orchestrator → CT + SB) and the E2 fixture (SB → orchestrator → VAE).
+- **§11 step 5 is replaced:** after steps 1–4, the tagging session **messages the orchestrator the full row** (repo, tag, commit, coordinate(s), contents, evidence path). The orchestrator re-checks that JitPack resolves the tag, commits the row, and broadcasts to every peer. Consumers message their repin rows the same way. **No peer commits to §11.**
+- Peers may talk directly for technical Q&A (e.g. VAE asking SB about its code). Any outcome that touches the contract, a tag, or sequencing goes through the orchestrator.
+- SB keeps §6.4 and answers SB-code questions. It no longer holds the contract.
+
 ## 11. Tag protocol & ledger (A12)
 
 **Before cutting a tag, all must hold:**
@@ -217,9 +240,9 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 4. The tagged commit is pushed and **JitPack builds it successfully** (check the build log / resolve the coordinate from a clean Gradle cache). A tag whose JitPack build fails is not "cut".
 
 **After cutting:**
-5. Append a row to the ledger below (in the same session, committed to this repo) and **broadcast to every peer**: repo, tag, commit, coordinate(s), what it contains, verification evidence path.
+5. *(Replaced by A14.)* Message the orchestrator the full row: repo, tag, commit, coordinate(s), what it contains, verification evidence path. The orchestrator commits the row below and broadcasts it to every peer.
 6. Tags are **immutable**. Never move, delete or re-point a tag. A defect gets a new patch tag (`vX.Y.Z+1`) + a ledger row that marks the old one superseded.
-7. Consumers repin **only** to tags listed in the ledger, and record the repin row (consumer, from → to) here too.
+7. Consumers repin **only** to tags listed in the ledger, and message the repin row (consumer, from → to) to the orchestrator, who records it here.
 
 | Date | Repo | Tag | Commit | Coordinate(s) | Contents | Evidence | Consumers repinned |
 |---|---|---|---|---|---|---|---|
