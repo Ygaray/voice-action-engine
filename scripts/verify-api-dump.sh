@@ -10,7 +10,12 @@
 # "EMPTY-SURFACE DUMP FAILED" and continues; steps b-d still prove the wiring, and the SUMMARY records the finding.
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
-COPY="$(mktemp -d)/repo"; mkdir -p "$COPY"
+WORK="$(mktemp -d)"; COPY="$WORK/repo"; mkdir -p "$COPY"
+# The copy is a full tree plus build outputs: remove it on exit unless KEEP_WORK=1 (debugging).
+trap '[ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$WORK"' EXIT
+# Orchestrator/graph bookkeeping under .planning/ and graphify-out/ changes independently of this script: not compared.
+tree_status() { git -C "$ROOT" status --porcelain -- . ':!.planning' ':!graphify-out'; }
+before_status="$(tree_status)"
 (cd "$ROOT" && git ls-files -co --exclude-standard -z | grep -zv -e '^graphify-out/' -e '^\.planning/graphs/' \
   | tar --null --ignore-failed-read -T - -cf -) | tar -x -C "$COPY"
 if [ -f "$ROOT/local.properties" ]; then cp "$ROOT/local.properties" "$COPY/"; fi
@@ -50,5 +55,7 @@ if ./gradlew -q apiCheck >"$COPY/d.out" 2>&1; then fail "d: removing a public cl
 grep -q 'Removed' "$COPY/d.out" || fail "d: apiCheck failed but did not report 'Removed' (wrong reason)"
 
 cd "$ROOT"
-if git ls-files -co --exclude-standard | grep -E '(^|/)api\.txt$' >/dev/null; then fail "real tree contains an api.txt"; fi
-echo "API DUMP PROOF OK (copy=$COPY, real tree untouched)"
+# Real-tree guard: the working-tree status must be byte-identical to the snapshot taken before the run.
+[ "$(tree_status)" = "$before_status" ] || fail "the real working tree changed during the run"
+if [ "${KEEP_WORK:-0}" = 1 ]; then note="copy kept at $COPY"; else note="copy removed on exit"; fi
+echo "API DUMP PROOF OK (real tree untouched; $note)"
