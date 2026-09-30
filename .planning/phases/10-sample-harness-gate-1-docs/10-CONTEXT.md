@@ -54,6 +54,9 @@ The engine is proven on a real device against SB's real prompt and live on all t
 ### r1-verdict
 - **D-13 [r1-verdict]:** Live legs (Gate-1 on the TESTER, A16 smokes) are KEY-GATED until the orchestrator relays Yahir's OK; build/docs/fixture/wiring-test work proceeds. Gate-1 runs cold on Haiku 4.5; warm re-runs are infra re-runs. _(source: human — orchestrator R1 GO-WITH-CHANGES)_
 
+### a19-clarification
+- **D-14 [a19-clarification]:** A19: README/API document `terminalCall` + `Clarification` rendered as pressable options, and the follow-up pattern (new command with `parentRunId`, choice rendered via the user-turn hook). _(source: human — orchestrator, contract A19)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

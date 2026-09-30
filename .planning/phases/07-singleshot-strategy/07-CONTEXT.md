@@ -50,6 +50,9 @@ A consumer can handle a command with one forced-tool extraction call that is res
 - **D-12 [ext-single-call]:** Needs external research: disable_parallel_tool_use with forced tool_choice and with auto+strict on Anthropic (can auto still return >1 tool_use?); parallel_tool_calls:false with strict + forced + reasoning_effort none on OpenAI; whether require_parameters makes OpenRouter routing fail on parallel_tool_calls _(source: ai-auto)_
 
 
+### a19-clarification
+- **D-13 [a19-clarification]:** A19: in SingleShot, a (forced or auto) call to a terminal tool skips the OutcomeResolver and ends the run as `Completed(terminalCall = …)`. _(source: human — orchestrator, contract A19)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

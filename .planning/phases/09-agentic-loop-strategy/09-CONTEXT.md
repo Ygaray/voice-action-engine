@@ -50,6 +50,9 @@ A consumer can run SB's bounded agentic loop on any cloud provider over its own 
 - **D-12 [ext-loop]:** Needs external research: strict enforcement with parallel tool calls; finish_reason "stop" with populated tool_calls on routed upstreams; reasoning context across turns on OpenAI vs OpenRouter reasoning_details; whether a stable OpenRouter session_id is needed for sticky routing/caching _(source: ai-auto)_
 
 
+### a19-clarification
+- **D-13 [a19-clarification]:** A19: in the agentic loop, a terminal-tool call ends the run after the turn's earlier calls dispatch in order (strike and gate rules unchanged); no tool_result is sent and no further turn starts; commits/held carried; the tier is terminal. Named tests for: terminal-only turn, terminal after a committing call, terminal alongside a held call. _(source: human — orchestrator, contract A19)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

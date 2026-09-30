@@ -67,7 +67,7 @@ Side branches:  2 → 6 (:keystore) ........................ → 10
 **Goal**: A consumer can compose a tier ladder with the DSL and get back a typed outcome that is never thrown, with a full trace attached. Every write goes through one engine-owned gate → commit path, and held actions are reported honestly. All of it is proven with scripted fake strategies, no LLM. This is the keystone: after `v1.0.0` these types can only grow additively.
 **Contract step**: §6.2 step 2 (§5.1; A2, A6, A17; E1)
 **Depends on**: Phase 1
-**Requirements**: CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06, CORE-07, GATE-01, GATE-02, GATE-03, GATE-04, GATE-05, GATE-06, GATE-07, TEL-01, TEL-02
+**Requirements**: CORE-01, CORE-02, CORE-03, CORE-04, CORE-05, CORE-06, CORE-07, CORE-08, CORE-09, GATE-01, GATE-02, GATE-03, GATE-04, GATE-05, GATE-06, GATE-07, TEL-01, TEL-02
 **Success Criteria** (what must be TRUE):
   1. A consumer composes `commandPipeline { tier(...); selector = Linear; policy = ... }` and invokes it with `CommandInput(transcript, "en"|"es"|null, context)`. Scripted fake strategies show the ladder climbing on `Escalate`/`NoMatch` (with `carry` handed to the next tier), stopping on `Completed`/`Failed`, and starting mid-ladder under `TierSelector.Fixed(tier)`.
   2. `TierPolicy` is read from the app's source on every call and enforces `maxTier`, `allowedProviders` and the 6 / 60,000 / 4,096 defaults. `maxIterations < 2` is rejected. `offlineOnly` with no on-device provider available returns a loud `Failed` after zero provider calls.

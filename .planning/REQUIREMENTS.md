@@ -31,6 +31,9 @@
 - [ ] **CORE-06**: Failures carry a typed, open (`Other` leaf) `FailureReason` at least as fine as SB's: auth, billing, rate-limit, overloaded, timeout, network, malformed-response, malformed-tool-args, refusal, max-tokens, no-tool-call, budget-exceeded, tool-failure, not-configured, provider-unavailable — plus the provider request id when one exists. Never CT-style collapse to one opaque bucket.
 - [ ] **CORE-07**: Growing public taxonomies (failure/escalation/hold reasons, events) are open or carry an `Other` leaf, and growing public types are regular classes (not `data class`), so post-tag additions don't break consumers' exhaustive `when` or binary compat. `ProviderId` is a value class with `ANTHROPIC | OPENAI | OPENROUTER | ON_DEVICE` constants.
 
+- [ ] **CORE-08 (A19)**: An app can declare a non-mutating tool as `terminal` (declaring it mutating fails at build time). When the model calls it, the engine sends no tool_result and starts no further turn; earlier calls in that turn dispatch normally, in order; the run ends as `Completed` with a new nullable `terminalCall = TerminalCall(toolName, arguments: JsonObject)` field (`reply` null; commits/held carried; tier terminal). `:core` ships `Clarification(question, options: List<ClarificationOption(id, label)>)` (opaque app ids — CT food rows, SB list ids), a `ToolSpec.clarification(...)` builder and `TerminalCall.asClarification()`.
+- [ ] **CORE-09 (A19)**: `CommandInput` gains `parentRunId: String? = null`; a follow-up command (e.g. the chosen clarification option, rendered by the app's user-turn hook with the original transcript + question + choice) is a new run linked by `parentRunId` in the trace and in `CommitSink`/`onRunClosed`. No prior-transcript resumption in v1.0; the cached prefix is unchanged.
+
 ### Commit, Gate & Undo Seam (steps 2, 6b; A2, A6, A17, E1)
 
 - [ ] **GATE-01**: All writes go through one engine-owned path: strategy produces a prepared step (`Finished | Mutation`) → `PreApplyGate.admit(proposal)` (modeled on SB's `MutationGate.admit`, E1) → `Admit(amended?)` commits via `CommitSink`, or `Hold(reason?)` records a non-committing held proposal. Strategies never write directly. Each pending mutation carries an **app-owned opaque context object** that survives prepare → admit → apply; the gate may amend it (`Admit(amended)` = an amended context/proposal, e.g. SB's `PreMutationSnapshot` + merge authorization via `MutationDispatchContext`) and the engine never inspects it.
@@ -102,7 +105,7 @@
 - [ ] **VER-01**: `:sample` loads the LE-1 fixture (`sb-a10-fixture.json`, sha256 `ebd3ef4a…af4ed3e`) from a **gitignored** path (LE-7), failing loudly at runtime/debug-task time — never at Gradle configuration time — if absent; it provides a fake `ToolExecutor` with canned results, a BYO-key field stored via `:keystore`, and pins OkHttp 5.2.1 so 4.12-compiled engine bytecode runs on 5.x.
 - [ ] **VER-02 (A8/A10 Gate-1)**: On the TESTER (`…-s22-ultra-2`), the agentic loop on Anthropic runs ≥2 turns with turn-1 `cache_creation_input_tokens > 0` and turn-2+ `cache_read_input_tokens > 0` in SB's ballpark (~7,016), confirm gate in canned-admit mode; prefix size and the model's minimum cacheable length are logged.
 - [ ] **VER-03 (A16)**: From `:sample`, one live single-shot smoke call each to Anthropic, OpenAI and OpenRouter (Yahir's real keys) returns a parsed tool call — catching wire-shape errors fakes can't (cf. CT's flat-shape bug). The OpenAI smoke deliberately uses a Chat-Completions-compatible model (`gpt-5.4-mini`, `reasoning_effort: "none"`), and each provider's smoke includes an EDIT-shaped call proving an omitted optional arrives absent (PROV-12).
-- [ ] **VER-04**: README (plus integration doc) is good enough that an AI agent can wire the engine into a new app from it alone: per-module coordinates, a minimal pipeline, each seam, both gate modes, `else` branches on open taxonomies; states explicitly that `Completed(partial = true)` must render as "did X, couldn't finish", never as full success; states which provider/model combos are **uncached in v1.0** (OpenRouter `anthropic/*` ids need explicit `cache_control`, deferred to LATER-02) and which OpenAI models can't use tools on Chat Completions; `:sample` is referenced as the working example.
+- [ ] **VER-04**: README (plus integration doc) is good enough that an AI agent can wire the engine into a new app from it alone: per-module coordinates, a minimal pipeline, each seam, both gate modes, `else` branches on open taxonomies; renders `terminalCall`/`Clarification` as pressable options (A19); states explicitly that `Completed(partial = true)` must render as "did X, couldn't finish", never as full success; states which provider/model combos are **uncached in v1.0** (OpenRouter `anthropic/*` ids need explicit `cache_control`, deferred to LATER-02) and which OpenAI models can't use tools on Chat Completions; `:sample` is referenced as the working example.
 - [ ] **VER-05 (§11)**: `v1.0.0` is cut only when verification is green, the API is additive (Metalava baseline committed), seams honor the contract, the tag is pushed and JitPack builds every module; the full ledger row is **messaged to the orchestrator** (A14), never committed to §11 here.
 
 ## v2 Requirements (deferred)
@@ -165,6 +168,8 @@
 | CORE-05 | Phase 2 | Pending |
 | CORE-06 | Phase 2 | Pending |
 | CORE-07 | Phase 2 | Pending |
+| CORE-08 | Phase 2 | Pending |
+| CORE-09 | Phase 2 | Pending |
 | GATE-01 | Phase 2 | Pending |
 | GATE-02 | Phase 2 | Pending |
 | GATE-03 | Phase 2 | Pending |
@@ -214,8 +219,8 @@
 | VER-05 | Phase 11 | Pending |
 
 **Coverage:**
-- v1 requirements: 63 total
-- Mapped to phases: 63
+- v1 requirements: 65 total
+- Mapped to phases: 65
 - Unmapped: 0 ✓
 
 **Placement notes** (CLN-* and TEL-04 map to the first phase that makes them enforceable):

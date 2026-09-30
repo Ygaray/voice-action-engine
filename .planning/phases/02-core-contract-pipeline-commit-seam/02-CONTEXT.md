@@ -78,6 +78,9 @@ A consumer can compose a tier ladder with the DSL and get back a typed outcome t
 ### r1-verdict
 - **D-21 [r1-verdict]:** A17 payload clarifications are now contract text (1b064a0): verbatim appOutcomeToken alongside kind, monotonic position as identity, committed includes errored applies, high-confidence items commit in the original run. _(source: human — orchestrator R1 GO-WITH-CHANGES)_
 
+### a19-clarification
+- **D-22 [a19-clarification]:** A19 (contract 725d8d7): add `Completed.terminalCall: TerminalCall?` (toolName + arguments JsonObject; additive field, no new CommandOutcome variant), typed `Clarification(question, options: List<ClarificationOption(id, label)>)` with opaque app option ids, `ToolSpec.clarification(...)` builder + `TerminalCall.asClarification()`, and `CommandInput.parentRunId: String? = null` linking follow-up runs in the trace and CommitSink/onRunClosed (CORE-08/09). _(source: human — orchestrator, contract A19)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

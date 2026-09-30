@@ -44,6 +44,9 @@ The engine picks the provider, model and key for each command through app seams,
 - **D-10 [cache-mode]:** EXPLICIT_BREAKPOINTS fires on read+write==0 any turn; AUTOMATIC only on turn ≥2 of the same handle with cacheRead==0 (never on turn 1, OpenAI never reports writes) _(source: ai-auto)_
 
 
+### a19-clarification
+- **D-11 [a19-clarification]:** A19: `ToolSpec` carries `terminal: Boolean = false`; a terminal tool that is also declared mutating fails at build time. _(source: human — orchestrator, contract A19)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 
