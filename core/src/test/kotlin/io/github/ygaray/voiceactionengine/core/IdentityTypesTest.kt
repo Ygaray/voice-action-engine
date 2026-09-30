@@ -85,6 +85,21 @@ class IdentityTypesTest {
         assertTrue(details.toString().contains("req_123"))
     }
 
+    @Test
+    fun blankCredentialKeyIsRejected() {
+        assertThrows(IllegalArgumentException::class.java) { Credential(ProviderId.ANTHROPIC, "") }
+        assertThrows(IllegalArgumentException::class.java) { Credential(ProviderId.ANTHROPIC, "  ") }
+    }
+
+    @Test
+    fun credentialToStringNamesOnlyTheProvider() {
+        val key = "sk-CANARY-KEY-987654321"
+        val credential = Credential(ProviderId.ANTHROPIC, key)
+        assertEquals("Credential(provider=anthropic)", credential.toString())
+        assertEquals(key, credential.apiKey)
+        assertFalse(credential.toString().contains("${key.length}"))
+    }
+
     private companion object {
         const val HTTP_TOO_MANY = 429
     }
