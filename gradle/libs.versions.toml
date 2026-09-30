@@ -1,0 +1,28 @@
+[versions]
+agp = "9.2.1"
+kotlin = "2.3.20"
+detekt = "1.23.8"
+metalava = "0.5.1"
+coroutines = "1.11.0"
+serialization = "1.11.0"
+# A1 COMPILE FLOOR for :providers. NEVER RAISE: consumers pick their own OkHttp. verifyOkHttpCompileFloor enforces it.
+okhttp = "4.12.0"
+junit = "4.13.2"
+datastore = "1.2.1"
+
+[libraries]
+coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+datastore-prefs = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+metalava = { id = "me.tylerbwong.gradle.metalava", version.ref = "metalava" }

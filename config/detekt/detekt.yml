@@ -1,0 +1,3 @@
+# Minimal config for now: invariant rules (imports, comments, exceptions, magic numbers) are added with the gate work.
+build:
+  maxIssues: 0

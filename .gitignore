@@ -43,3 +43,9 @@ captures/
 
 # macOS
 .DS_Store
+
+# SB-derived A10 fixture must never be committed (this repo is public)
+sb-a10-fixture*.json
+
+# graphify output
+/graphify-out/
