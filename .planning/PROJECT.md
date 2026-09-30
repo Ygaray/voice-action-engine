@@ -24,10 +24,10 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 
 **Scaffold & publishing (step 1)**
 - [ ] Multi-module Gradle project: `:core` (pure Kotlin, no HTTP), `:providers` (OkHttp transports, depends on `:core`; A7), `:keystore` (Android AES/GCM BYO-key), `:sample` (debug-only, never published; A10). `:voice-adapter` is v1.1.
-- [ ] Per-module JitPack coordinates `com.github.Ygaray.voice-action-engine:<artifactId>` (E5), verified early with a throwaway probe tag; `ECOSYSTEM.md` updated to match. Mechanism-B JitPack publishing matching `~/Projects/Reusable/android/backup-engine` (`jitpack.yml`, maven-publish); publishable modules resolve from a clean Gradle cache.
+- [ ] Per-module JitPack coordinates `com.github.Ygaray.voice-action-engine:<artifactId>` (E5), verified early by resolving a commit SHA from a clean cache (no throwaway tag — tags are immutable); `ECOSYSTEM.md` updated to match. Mechanism-B JitPack publishing matching `~/Projects/Reusable/android/backup-engine` (`jitpack.yml`, maven-publish); publishable modules resolve from a clean Gradle cache.
 - [ ] detekt with a genuinely clean zero baseline on every library module (tune rules, never bank debt).
 - [ ] Fake-provider test harness so `:core` strategies/pipeline are JVM-testable with no network.
-- [ ] Control-plane registry entries (ecosystem map / deps index) and `ECOSYSTEM.md` kept current.
+- [ ] `ECOSYSTEM.md` kept current. (Control-plane registry/deps-index entries are written by the orchestrator at the v1.0.0 cut — LE-5, single writer.)
 
 **Core contract & pipeline (step 2)**
 - [ ] §5.1 types: `CommandInput`, `CommandStrategy`, `StrategyOutcome` (`Completed | Escalate(reason, carry?) | NoMatch | Failed`), `CommandPipeline` DSL, `TierSelector.Linear` (+ `Fixed` for tests), `TierPolicy` (offlineOnly, maxTier, allowedProviders, cost/turn ceilings).
