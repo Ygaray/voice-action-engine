@@ -1,0 +1,45 @@
+== Phase 1 phase gate  plan=01-06  commit=5fc723786ba2fbe8161ff96e6643845d7af24558  run=2026-09-30 (UTC)
+
+Working-tree check (path-scoped to module, gradle, config, scripts, build files, docs): clean, nothing uncommitted.
+Pre-existing unrelated changes under .planning/graphs/, .planning/config.json, .planning/v1.0-MILESTONE-RUN.md and graphify-out/ were left unstaged.
+
+$ ./gradlew check
+exit=0
+BUILD SUCCESSFUL in 2s
+134 actionable tasks: 27 executed, 4 from cache, 103 up-to-date
+
+$ scripts/verify-negative-controls.sh
+exit=0
+ok lines: 56 (15 source plants x 3 modules, 1 baseline plant, 7 build-file plants, 3 matrix guard legs), FAIL lines: 0
+went red (Visibility must be specified in explicit API mode): core, providers, keystore
+negative-control failures: 0
+(first run, before the docs commit, also 56 ok / 0 failures; after both runs: no ZzPlant.kt, no config/detekt-baseline.xml, git status clean for module/gradle/config paths)
+
+$ scripts/verify-api-dump.sh
+exit=0
+API DUMP PROOF OK (isolated copy, real tree untouched)
+
+$ scripts/verify-repo-hygiene.sh
+exit=0
+HYGIENE OK
+
+$ scripts/jitpack-dry-run.sh   (committed-HEAD mode)
+exit=0
+DRY RUN OK version=dryrun-5fc723786b group=com.github.Ygaray.voice-action-engine
+
+Final live proof
+$ git push origin HEAD:main      (commits only; pre-push file list of 29 paths contained nothing under graphify-out/, .planning/graphs/, fixture names, api.txt, baseline XML, local.properties or keystores)
+  5ee1b4e..5fc7237  HEAD -> main
+$ EVIDENCE_FILE=.../evidence/jitpack-probe.txt scripts/jitpack-live-probe.sh 5fc723786b
+exit=0
+LIVE PROBE PASS ref=5fc723786b
+rung=final sha=5fc723786ba2fbe8161ff96e6643845d7af24558 (recorded in jitpack-probe.txt)
+The configuration-time gate scripts did not break JitPack: same explicit-install build as plan 02's rung-0 pass, now at the final SHA.
+
+Final assertions
+git tag --list                                   -> (empty)
+git ls-remote --tags origin                      -> (empty)
+git ls-files -co --exclude-standard -- '*api.txt' '*sb-a10-fixture*' '*baseline*.xml'  -> (empty)
+git log --name-only --format= 506e394..HEAD | grep graphify-out/ or .planning/graphs/  -> (empty)
+git diff --quiet -- 01-VALIDATION.md             -> unchanged (status draft, nyquist_compliant false; finalizer-owned)
+git merge-base --is-ancestor 5fc723786b origin/main -> yes
