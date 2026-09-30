@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v1.0
 milestone_name: Core Engine
-current_phase: 01
-current_phase_name: scaffold-publishing-proof
-status: planning
-stopped_at: Roadmap + STATE created, REQUIREMENTS traceability filled (60/60)
-last_updated: "2026-09-30T20:54:23.475Z"
-last_activity: 2026-09-29
-last_activity_desc: Roadmap created (10 phases, 60/60 v1 requirements mapped)
-state_head: 506e394c2a365e123dad2f265385b10197cfad55
+current_phase: 1
+current_phase_name: Scaffold & Publishing Proof
+status: executing
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-09-30T21:01:12.691Z"
+last_activity: 2026-09-30
+last_activity_desc: Phase 1 execution started
+state_head: 0feddba71ea91fac831343f822cfbd461341f631
 progress:
   total_phases: 11
   completed_phases: 0
   total_plans: 6
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -25,14 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md · Requirements: .planning/REQUIREMENTS.md (v1.0, 60 reqs)
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Milestone v1.0 (contract §6.2 steps 1–7 → tag `v1.0.0`). Roadmap created; next is `/gsd-research-milestone`. Phase 1 (Scaffold & Publishing Proof) is first once the orchestrator sends GO.
+**Current focus:** Phase 1 — Scaffold & Publishing Proof
 
 ## Current Position
 
-Phase: 01 (scaffold-publishing-proof) — READY TO EXECUTE
-Plan: — (not yet planned)
-Status: Roadmap created. Next: `/gsd-research-milestone` → `/gsd-discuss-milestone` → STOP for R1 (A13); no planning before the orchestrator's GO
-Last activity: 2026-09-29 — Roadmap created (10 phases, 60/60 v1 requirements mapped)
+Phase: 1 (Scaffold & Publishing Proof) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-09-30 — Phase 1 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -56,6 +56,11 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 20 min | 2 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -71,6 +76,8 @@ Recent decisions affecting current work:
   - TEL-04 → Phase 4 (the first phase where key, transcript, args and error bodies all exist).
   - CLN-02 → Phase 9 (once both ports have landed).
 - [Roadmap]: JitPack coordinates are proven by commit SHA in Phase 1, not by a throwaway probe tag (BLD-03 supersedes PROJECT.md's "probe tag"). Tags are immutable.
+- [Phase 1]: explicitApi() DSL (not raw flag) on all published modules; engineGroup/engineVersion held as single values with VERSION env override
+- [Phase 1]: ASSUMPTION: :keystore minSdk 35 / compileSdk 36.1 copied from SB/YAT; confirm with orchestrator before v1.0.0 cut
 
 ### Pending Todos
 
@@ -98,6 +105,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-29
-Stopped at: Roadmap + STATE created, REQUIREMENTS traceability filled (60/60)
+Last session: 2026-09-30T21:01:12.662Z
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
