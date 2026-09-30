@@ -43,3 +43,5 @@ publishing {
         }
     }
 }
+
+apply(from = rootProject.file("gradle/invariants.gradle.kts"))

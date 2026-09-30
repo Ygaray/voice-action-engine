@@ -1,0 +1,6 @@
+// EXPECT: app planning id in comment
+package x
+// T-01-02 leaked id
+/** KDoc with WR-07 */
+/* Phase 12 D-03 */
+class C

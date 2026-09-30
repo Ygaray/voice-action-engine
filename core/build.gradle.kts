@@ -44,6 +44,8 @@ publishing {
     }
 }
 
+apply(from = rootProject.file("gradle/invariants.gradle.kts"))
+
 // detekt negative control. The typed task lives here because applied script plugins cannot see the detekt classes.
 val detektControls = tasks.register<io.gitlab.arturbosch.detekt.Detekt>("detektNegativeControls") {
     setSource(rootProject.file("config/negative-controls/detekt"))

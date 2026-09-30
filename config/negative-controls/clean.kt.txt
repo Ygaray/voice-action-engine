@@ -1,0 +1,11 @@
+// EXPECT: (none)
+package x
+// runCatching println( printStackTrace( mentioned only in a comment; T-x is not an id; Phase 12 alone is fine
+/** KDoc: mentions System.out and @javax.inject.Inject as prose */
+val s = "runCatching { } println(1) @javax.inject.Inject WR-12 okhttp3.internal.Util"
+val raw = """
+    printStackTrace() dagger.hilt T-01-02
+"""
+val c = '"'
+fun printable() = 1 // "print" as identifier prefix is fine
+fun g(printer: Any) = printer.toString()

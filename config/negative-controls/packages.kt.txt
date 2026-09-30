@@ -1,0 +1,5 @@
+// EXPECT: forbidden package (FQ or import)
+package x
+import okhttp3.internal.Util
+import android.util.Log
+fun f() = mockwebserver3.MockResponse()
