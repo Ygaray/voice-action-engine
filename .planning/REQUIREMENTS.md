@@ -19,7 +19,7 @@
 - [ ] **BLD-06 (A1 must-pass)**: `:providers` compiles against OkHttp **4.12.0** (plain `api` floor, no `strictly`/BOM) and the same compiled test classes run green on OkHttp **4.12.0, 5.2.1 and 5.5.0** runtime classpaths inside `./gradlew check` (okhttp + mockwebserver swapped together); a reflective runtime-version guard test proves each leg actually ran the version it claims.
 - [ ] **BLD-07**: Package root is `io.github.ygaray.voiceactionengine.*`, decided in step 1 and never changed.
 - [ ] **BLD-08**: `ECOSYSTEM.md` lists the engine with its per-module coordinates (E5); `graphify-out/` and the A10 fixture path are gitignored. (Control-plane registry/deps-index entries are the orchestrator's, written at the `v1.0.0` cut — LE-5.)
-- [ ] **BLD-09**: A fake-provider test harness (scripted `FakeAiProvider`, recording sinks) lives in `:core`'s **test sources only** (unpublished; orchestrator ruling), so strategies and the pipeline are JVM-testable with no network.
+- [x] **BLD-09**: A fake-provider test harness (scripted `FakeAiProvider`, recording sinks) lives in `:core`'s **test sources only** (unpublished; orchestrator ruling), so strategies and the pipeline are JVM-testable with no network.
 
 ### Core Contract & Pipeline (step 2)
 
@@ -160,7 +160,7 @@
 | BLD-06 | Phase 4 | Pending |
 | BLD-07 | Phase 1 | Pending |
 | BLD-08 | Phase 1 | Pending |
-| BLD-09 | Phase 1 | Pending |
+| BLD-09 | Phase 1 | Complete |
 | CORE-01 | Phase 2 | Pending |
 | CORE-02 | Phase 2 | Pending |
 | CORE-03 | Phase 2 | Pending |
