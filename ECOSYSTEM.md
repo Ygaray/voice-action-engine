@@ -21,6 +21,8 @@
 | SecondBrain | `~/Projects/AndroidApps/Personal/SecondBrain` | *(not yet: Wave 1)* | `gradle/libs.versions.toml` |
 | CalTracker | `~/Projects/AndroidApps/Personal/CalTracker_Android` | *(not yet: Wave 1)* | `app/build.gradle.kts` |
 
+**Repo:** public at `github.com/Ygaray/voice-action-engine` (created 2026-09-29).
+
 **Current published tag:** none. Staged plan (two milestones, A4): `v1.0.0` (contract + pipeline + providers + keystore +
 2 ported strategies), `v1.1.0` (grammar / plan / router / on-device spike). See the contract, L8.
 
