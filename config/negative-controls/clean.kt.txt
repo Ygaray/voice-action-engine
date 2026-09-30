@@ -8,5 +8,6 @@ val raw = """
 """
 val c = '"'
 val nested = "a ${listOf("b")[0]} println(1) runCatching { } ${'}'} System.out"
+fun print(x: Int) = x
 fun printable() = 1 // "print" as identifier prefix is fine
 fun g(printer: Any) = printer.toString()

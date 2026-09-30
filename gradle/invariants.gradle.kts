@@ -12,7 +12,8 @@ data class Rule(val id: String, val regex: Regex)
 // Matched against source text with comments and string/char literals blanked out (planning ids: COMMENT text only).
 val bannedRules = listOf(
     Rule("runCatching", Regex("""\brunCatching\b""")),
-    Rule("println/print", Regex("""(?<![\w.])(println|print)\s*\(""")),
+    // A `fun print(` / `fun println(` declaration is not a call, so it is skipped (a later bare call to it is still flagged).
+    Rule("println/print", Regex("""(?<![\w.])(?<!\bfun\s{1,16})(println|print)\s*\(""")),
     // The rule above skips member calls (`out.print(`), which also lets `kotlin.io.println(` through; this closes that hole.
     // Matching the name after `kotlin.io.` also catches `import kotlin.io.println as p` (alias import), since detekt's
     // ForbiddenMethodCall needs type resolution and this project runs detekt syntax-only.
