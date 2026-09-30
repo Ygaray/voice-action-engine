@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A11 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
+**Status:** FROZEN v1.0 + amendments A1–A12 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
 ---
@@ -205,3 +205,22 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 - **Full real-SB parity** is proven in SB's Wave-1 Gate-1 (§6.4). A gap found there is fixed with a `v1.0.x` patch tag, not a Wave-0 blocker. Option (b), an early SB branch on the engine, is rejected.
 
 **A11 — CalTracker bumps OkHttp to 5.2.1 in Wave 1 (2026-09-29, Yahir).** CT's cost assessment found 2 build-file lines, zero source/test changes, and green on 5.2.1: 1177/1177 relevant tests pass, and the one failure is an unrelated pre-existing flake. MockWebServer 5.x keeps the legacy `okhttp3.mockwebserver` API. `backup-engine` uses OkHttp directly. CT's v1.13 includes the bump; its Gate-1 adds a real barcode lookup + a Drive backup/restore round-trip, because `backup-engine` and `:stt` are AARs built against 4.12 and run on 5.x. SB already runs `backup-engine v1.2.1` on OkHttp 5.2.1 in production. A1's engine floor (4.12) is unchanged. CT's on-device plug-in is conditional on the v1.1 spike, with an explicit N/A-deferred fallback.
+
+**A12 — All tag cuts waived across the whole effort; the agents own tag correctness (2026-09-29, Yahir).** This supersedes A9 and every per-repo human tag gate (including stt-engine's human-gated `:stt` doctrine and YAT's) for the tags this effort produces: `:stt`, YAT, `voice-action-engine` `v1.0.0` / `v1.1.0`, and any patch tags. Each repo's session cuts its tag on green verification. In exchange, the peers are **jointly responsible** for keeping every tag in sync and correct, via the protocol in §11.
+
+## 11. Tag protocol & ledger (A12)
+
+**Before cutting a tag, all must hold:**
+1. The milestone's verification is green (Gate-1 where device-verifiable; full unit suite; detekt clean).
+2. The public API change is strictly additive vs the previous tag (API dump / Metalava diff where available).
+3. The tag honors this contract's seams for its slice; any deviation first goes through a §10 amendment.
+4. The tagged commit is pushed and **JitPack builds it successfully** (check the build log / resolve the coordinate from a clean Gradle cache). A tag whose JitPack build fails is not "cut".
+
+**After cutting:**
+5. Append a row to the ledger below (in the same session, committed to this repo) and **broadcast to every peer**: repo, tag, commit, coordinate(s), what it contains, verification evidence path.
+6. Tags are **immutable**. Never move, delete or re-point a tag. A defect gets a new patch tag (`vX.Y.Z+1`) + a ledger row that marks the old one superseded.
+7. Consumers repin **only** to tags listed in the ledger, and record the repin row (consumer, from → to) here too.
+
+| Date | Repo | Tag | Commit | Coordinate(s) | Contents | Evidence | Consumers repinned |
+|---|---|---|---|---|---|---|---|
+| — | — | — | — | — | *(no tags cut yet)* | — | — |
