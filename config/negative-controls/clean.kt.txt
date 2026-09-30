@@ -7,5 +7,6 @@ val raw = """
     printStackTrace() dagger.hilt T-01-02
 """
 val c = '"'
+val nested = "a ${listOf("b")[0]} println(1) runCatching { } ${'}'} System.out"
 fun printable() = 1 // "print" as identifier prefix is fine
 fun g(printer: Any) = printer.toString()

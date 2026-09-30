@@ -1,0 +1,6 @@
+// EXPECT: runCatching; System.out/err; println/print
+package x
+val a = "${runCatching { 1 }}"
+val b = "${System.out.println(1)}"
+val c = """${runCatching { 2 }}"""
+val d = "x ${listOf("k")[0]} y ${println("z")}"

@@ -30,97 +30,124 @@ val bannedRules = listOf(
     Rule("app planning id in comment", Regex("""\b(T-\d+-\d+|WR-\d+|Phase\s+\d+\s+D-\d+)\b""")),
 )
 
-// Returns (code with literals blanked, comments only), both preserving line structure.
-fun splitCodeAndComments(src: String): Pair<String, String> {
-    val code = StringBuilder()
-    val comments = StringBuilder()
-    var i = 0
-    val n = src.length
-    fun keepNl(c: Char, sb: StringBuilder) {
+// Splits Kotlin source into (code with literal text blanked, comments only), both preserving line structure.
+// Template expressions (`${ ... }`) inside string and raw-string literals are real code, so the lexer switches back
+// to code mode for them (recursively: a template can contain strings, which can contain templates) and only the
+// literal segments are blanked. Otherwise a banned construct could hide in `"${runCatching { x() }}"`.
+class SourceSplitter(private val src: String) {
+    private val code = StringBuilder()
+    private val comments = StringBuilder()
+    private var i = 0
+    private val n = src.length
+
+    fun split(): Pair<String, String> {
+        lexCode(inTemplate = false)
+        return code.toString() to comments.toString()
+    }
+
+    private fun keepNl(c: Char, sb: StringBuilder) {
         sb.append(if (c == '\n') '\n' else ' ')
     }
-    fun blank(count: Int) {
+
+    // Blank `count` chars of the current position's line structure in both outputs.
+    private fun blank(count: Int) {
         repeat(count) {
-            code.append(' ')
-            comments.append(' ')
+            keepNl(src[i], code)
+            keepNl(src[i], comments)
+            i++
         }
     }
-    while (i < n) {
-        val c = src[i]
-        when {
-            src.startsWith("//", i) -> {
-                while (i < n && src[i] != '\n') {
-                    comments.append(src[i])
-                    code.append(' ')
-                    i++
-                }
-            }
-            src.startsWith("/*", i) -> {
-                var depth = 0
-                while (i < n) {
-                    if (src.startsWith("/*", i)) {
-                        depth++
-                        comments.append("  ")
-                        code.append("  ")
-                        i += 2
-                    } else if (src.startsWith("*/", i)) {
-                        depth--
-                        comments.append("  ")
-                        code.append("  ")
-                        i += 2
-                        if (depth == 0) break
-                    } else {
+
+    private fun atTemplateStart() = src[i] == '$' && i + 1 < n && src[i + 1] == '{'
+
+    // Lexes code until EOF, or (inTemplate) until the `}` that closes the enclosing `${`.
+    private fun lexCode(inTemplate: Boolean) {
+        var braces = 0
+        while (i < n) {
+            val c = src[i]
+            when {
+                src.startsWith("//", i) -> {
+                    while (i < n && src[i] != '\n') {
                         comments.append(src[i])
-                        keepNl(src[i], code)
+                        code.append(' ')
                         i++
                     }
                 }
-            }
-            src.startsWith("\"\"\"", i) -> {
-                blank(3)
-                i += 3
-                while (i < n && !src.startsWith("\"\"\"", i)) {
-                    keepNl(src[i], code)
-                    keepNl(src[i], comments)
-                    i++
-                }
-                if (i < n) {
+                src.startsWith("/*", i) -> lexBlockComment()
+                src.startsWith("\"\"\"", i) -> {
                     blank(3)
-                    i += 3
+                    lexString(raw = true)
                 }
-            }
-            c == '"' -> {
-                blank(1)
-                i++
-                while (i < n && src[i] != '"' && src[i] != '\n') {
-                    if (src[i] == '\\') {
-                        blank(1)
-                        i++
-                    }
+                c == '"' -> {
                     blank(1)
-                    i++
+                    lexString(raw = false)
                 }
-                if (i < n && src[i] == '"') {
-                    blank(1)
-                    i++
+                c == '\'' && i + 2 < n && (src[i + 2] == '\'' || src[i + 1] == '\\') -> {
+                    val end = src.indexOf('\'', i + 2).let { if (it < 0) n - 1 else it }
+                    blank(end - i + 1)
                 }
-            }
-            c == '\'' && i + 2 < n && (src[i + 2] == '\'' || src[i + 1] == '\\') -> {
-                val end = src.indexOf('\'', i + 2).let { if (it < 0) n - 1 else it }
-                while (i <= end) {
+                inTemplate && c == '}' && braces == 0 -> {
                     blank(1)
+                    return
+                }
+                else -> {
+                    if (c == '{') braces++
+                    if (c == '}') braces--
+                    code.append(c)
+                    keepNl(c, comments)
                     i++
                 }
             }
-            else -> {
-                code.append(c)
-                keepNl(c, comments)
+        }
+    }
+
+    private fun lexBlockComment() {
+        var depth = 0
+        while (i < n) {
+            if (src.startsWith("/*", i)) {
+                depth++
+                comments.append("  ")
+                code.append("  ")
+                i += 2
+            } else if (src.startsWith("*/", i)) {
+                depth--
+                comments.append("  ")
+                code.append("  ")
+                i += 2
+                if (depth == 0) break
+            } else {
+                comments.append(src[i])
+                keepNl(src[i], code)
                 i++
             }
         }
     }
-    return code.toString() to comments.toString()
+
+    // Positioned just after the opening quote(s). Consumes through the closing quote(s).
+    private fun lexString(raw: Boolean) {
+        while (i < n) {
+            when {
+                raw && src.startsWith("\"\"\"", i) -> {
+                    blank(3)
+                    return
+                }
+                !raw && src[i] == '"' -> {
+                    blank(1)
+                    return
+                }
+                !raw && src[i] == '\n' -> return // unterminated: stop at end of line, like the compiler's recovery
+                !raw && src[i] == '\\' -> blank(if (i + 1 < n) 2 else 1)
+                atTemplateStart() -> {
+                    blank(2)
+                    lexCode(inTemplate = true)
+                }
+                else -> blank(1)
+            }
+        }
+    }
 }
+
+fun splitCodeAndComments(src: String): Pair<String, String> = SourceSplitter(src).split()
 
 fun scanText(label: String, text: String): List<String> {
     val (code, comments) = splitCodeAndComments(text)

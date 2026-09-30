@@ -59,6 +59,7 @@ for m in core providers keystore; do
   expect_red "mockwebserver3 import ($m)"    $m 'import mockwebserver3.MockResponse'                      ":$m:detekt" ":$m:scanBannedConstructs"
   expect_red "runCatching ($m)"              $m 'internal fun p() = runCatching { 1 }'                    ":$m:scanBannedConstructs"
   expect_red "println ($m)"                  $m 'internal fun p() { println("x") }'                       ":$m:scanBannedConstructs"
+  expect_red "runCatching in string template ($m)" $m 'internal fun p() = "${runCatching { 1 }}"'          ":$m:scanBannedConstructs"
   expect_red "FQ kotlin.io.println ($m)"     $m 'internal fun p() { kotlin.io.println("x") }'             ":$m:scanBannedConstructs"
   expect_red "printStackTrace ($m)"         $m 'internal fun p() { Exception("m").printStackTrace() }'   ":$m:scanBannedConstructs"
   expect_red "FQ DI annotation ($m)"         $m '@javax.inject.Inject internal class P'                   ":$m:scanBannedConstructs"
