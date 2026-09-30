@@ -13,6 +13,10 @@ data class Rule(val id: String, val regex: Regex)
 val bannedRules = listOf(
     Rule("runCatching", Regex("""\brunCatching\b""")),
     Rule("println/print", Regex("""(?<![\w.])(println|print)\s*\(""")),
+    // The rule above skips member calls (`out.print(`), which also lets `kotlin.io.println(` through; this closes that hole.
+    // Matching the name after `kotlin.io.` also catches `import kotlin.io.println as p` (alias import), since detekt's
+    // ForbiddenMethodCall needs type resolution and this project runs detekt syntax-only.
+    Rule("kotlin.io print (FQ or import)", Regex("""\bkotlin\s*\.\s*io\s*\.\s*(println|print)\b""")),
     Rule("System.out/err", Regex("""\bSystem\s*\.\s*(out|err)\b""")),
     Rule("printStackTrace", Regex("""\.\s*printStackTrace\s*\(""")),
     Rule("DI annotation (FQ)", Regex("""@\s*(javax\s*\.\s*inject|jakarta\s*\.\s*inject|dagger|androidx\s*\.\s*hilt)\s*\.""")),

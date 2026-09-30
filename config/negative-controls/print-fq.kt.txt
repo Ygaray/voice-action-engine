@@ -1,0 +1,7 @@
+// EXPECT: kotlin.io print (FQ or import)
+package x
+import kotlin.io.println as p
+fun f() {
+    kotlin.io.println("a")
+    kotlin.io.print("b")
+}
