@@ -1,6 +1,11 @@
-// Source-scan gate for constructs detekt cannot see syntax-only (method calls, FQ annotations, comment-only ids).
-// Applied from each published module; the `project.name == "core"` blocks are repo-wide checks hosted on :core so they run once.
+// Invariant gates, applied from each published module.
+// Scanner half: constructs detekt cannot see syntax-only (method calls, FQ annotations, comment-only ids).
+// Structural half: bytecode level, explicit API, module graph, dependency allowlists, DI-artifact denial.
+// The `project.name == "core"` blocks are repo-wide checks hosted on :core so they run once.
 // Applied-script limit: no references to plugin classes here.
+import java.io.File
+import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 data class Rule(val id: String, val regex: Regex)
 
@@ -141,8 +146,156 @@ val scanBanned = tasks.register("scanBannedConstructs") {
 }
 tasks.named("check") { dependsOn(scanBanned) }
 
+// ---- Structural half (all three published modules) ----
+
+// JVM 11 class-file major. Deliberately a constant: no override knob, a knob equal to a wrongly-compiled truth would pass a bad artifact.
+val expectedMajor = 55
+val verifyBytecode = tasks.register("verifyBytecodeLevel") {
+    group = "verification"
+    val isAndroid = plugins.hasPlugin("com.android.library")
+    val artifact: Provider<File> = if (isAndroid) {
+        tasks.named("bundleReleaseAar").flatMap { (it as org.gradle.api.tasks.bundling.AbstractArchiveTask).archiveFile }.map { it.asFile }
+    } else {
+        tasks.named<Jar>("jar").flatMap { it.archiveFile }.map { it.asFile }
+    }
+    dependsOn(if (isAndroid) "bundleReleaseAar" else "jar")
+    doLast {
+        val file = artifact.get()
+        val bad = mutableListOf<String>()
+        var seen = 0
+        fun checkClass(name: String, bytes: ByteArray) {
+            if (!name.endsWith(".class") || name.startsWith("META-INF/versions/")) return
+            seen++
+            val major = ((bytes[6].toInt() and 0xff) shl 8) or (bytes[7].toInt() and 0xff)
+            if (major != expectedMajor) bad += "$name major=$major"
+        }
+        ZipFile(file).use { z ->
+            for (e in z.entries()) {
+                if (e.isDirectory) continue
+                if (e.name == "classes.jar") { // AAR
+                    ZipInputStream(z.getInputStream(e)).use { zis ->
+                        var ze = zis.nextEntry
+                        while (ze != null) {
+                            if (!ze.isDirectory) checkClass(ze.name, zis.readBytes())
+                            ze = zis.nextEntry
+                        }
+                    }
+                } else {
+                    checkClass(e.name, z.getInputStream(e).readBytes())
+                }
+            }
+        }
+        if (seen == 0) throw GradleException("No class files found in $file (vacuous check)")
+        if (bad.isNotEmpty()) throw GradleException("Non-JVM-11 class files in ${file.name}: $bad")
+    }
+}
+
+val verifyExplicitApi = tasks.register("verifyExplicitApiStrict") {
+    group = "verification"
+    val modulePath = project.path
+    val mode = provider { // reflection: applied scripts do not see the Kotlin plugin's classes
+        val ext = project.extensions.getByName("kotlin")
+        (ext.javaClass.getMethod("getExplicitApi").invoke(ext) as Enum<*>?)?.name
+    }
+    doLast {
+        if (mode.orNull != "Strict") throw GradleException("$modulePath: explicitApi is '${mode.orNull}', expected Strict")
+    }
+}
+
+// One-way graph: :sample -> {:providers, :keystore} -> :core.
+val allowedEdges = mapOf(":core" to emptySet<String>(), ":providers" to setOf(":core"), ":keystore" to setOf(":core"))
+val sampleRequiredEdges = setOf(":providers", ":keystore")
+val sampleAllowedEdges = setOf(":core", ":providers", ":keystore")
+val verifyModuleGraph = tasks.register("verifyModuleGraph") {
+    group = "verification"
+    val modulePath = project.path
+    val edges = provider {
+        project.configurations
+            .flatMap { c -> c.dependencies.filterIsInstance<ProjectDependency>().map { it.path } }
+            .filter { it != modulePath }
+            .toSet()
+    }
+    // Resolved at execution time; null means :sample or its implementation configuration is missing (fail, never pass vacuously).
+    val sampleEdges = provider {
+        rootProject.findProject(":sample")
+            ?.configurations?.findByName("implementation")
+            ?.dependencies?.filterIsInstance<ProjectDependency>()?.map { it.path }?.toSet()
+    }
+    doLast {
+        val extra = edges.get() - allowedEdges.getValue(modulePath)
+        if (extra.isNotEmpty()) throw GradleException("$modulePath has forbidden project dependencies $extra")
+        val sample = sampleEdges.orNull
+            ?: throw GradleException(
+                ":sample is missing required project edges $sampleRequiredEdges (graph :sample -> {:providers, :keystore} -> :core)" +
+                    " - :sample or its implementation configuration was not found",
+            )
+        val missing = sampleRequiredEdges - sample
+        if (missing.isNotEmpty()) {
+            throw GradleException(":sample is missing required project edges $missing (graph :sample -> {:providers, :keystore} -> :core)")
+        }
+        val sampleExtra = sample - sampleAllowedEdges
+        if (sampleExtra.isNotEmpty()) throw GradleException(":sample has forbidden project dependencies $sampleExtra")
+    }
+}
+tasks.named("check") { dependsOn(verifyBytecode, verifyExplicitApi, verifyModuleGraph) }
+
+// CLN-01 at the dependency level: no DI framework artifact may resolve on any published module's compile or runtime classpath.
+val deniedDiGroups = setOf("com.google.dagger", "javax.inject", "jakarta.inject", "androidx.hilt", "dagger")
+val verifyNoDi = tasks.register("verifyNoDiArtifacts") {
+    group = "verification"
+    val modulePath = project.path
+    val classpathNames = if (plugins.hasPlugin("com.android.library")) {
+        listOf("releaseCompileClasspath", "releaseRuntimeClasspath")
+    } else {
+        listOf("compileClasspath", "runtimeClasspath")
+    }
+    val classpaths = classpathNames.map { configurations.named(it) }
+    doLast {
+        val hits = classpaths.flatMap { cp ->
+            cp.get().incoming.resolutionResult.allComponents
+                .mapNotNull { it.moduleVersion }
+                .filter { it.group in deniedDiGroups }
+                .map { "${cp.name}: ${it.group}:${it.name}:${it.version}" }
+        }.distinct()
+        if (hits.isNotEmpty()) throw GradleException("$modulePath resolves DI artifacts:\n" + hits.joinToString("\n") { "  $it" })
+    }
+}
+tasks.named("check") { dependsOn(verifyNoDi) }
+
 // Repo-wide checks, hosted on :core so they run once.
 if (project.name == "core") {
+    // :core has no HTTP, Android, DI or other-hub dependency by classpath, not by convention (L7/A7).
+    // A new :core dependency must extend this allowlist deliberately in the same change.
+    val coreAllowed = setOf(
+        "org.jetbrains.kotlin:kotlin-stdlib",
+        "org.jetbrains:annotations",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-bom",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json",
+        "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm",
+        "org.jetbrains.kotlinx:kotlinx-serialization-core",
+        "org.jetbrains.kotlinx:kotlinx-serialization-core-jvm",
+        "org.jetbrains.kotlinx:kotlinx-serialization-bom",
+    )
+    val verifyCoreDeps = tasks.register("verifyCoreDependencyAllowlist") {
+        group = "verification"
+        val classpaths = listOf("compileClasspath", "runtimeClasspath").map { configurations.named(it) }
+        doLast {
+            val offenders = classpaths.flatMap { cp ->
+                cp.get().incoming.resolutionResult.allComponents
+                    .filter { it.id !is org.gradle.api.artifacts.component.ProjectComponentIdentifier } // :core itself
+                    .mapNotNull { it.moduleVersion }
+                    .filter { "${it.group}:${it.name}" !in coreAllowed }
+                    .map { "${cp.name}: ${it.group}:${it.name}:${it.version}" }
+            }.distinct()
+            if (offenders.isNotEmpty()) {
+                throw GradleException(":core classpath has non-allow-listed artifacts:\n" + offenders.joinToString("\n") { "  $it" })
+            }
+        }
+    }
+    tasks.named("check") { dependsOn(verifyCoreDeps) }
+
     val verifyNoBaseline = tasks.register("verifyNoDetektBaseline") {
         group = "verification"
         val root = rootProject.projectDir
@@ -187,4 +340,29 @@ if (project.name == "core") {
         }
     }
     tasks.named("check") { dependsOn(verifyNoBaseline, verifyScanner) }
+}
+
+if (project.name == "providers") {
+    // A1 compile floor: never raise. Consumers pick their own OkHttp; the 5.x pin lives only in :sample.
+    val floor = "4.12.0"
+    val verifyFloor = tasks.register("verifyOkHttpCompileFloor") {
+        group = "verification"
+        val classpaths = listOf("compileClasspath", "testCompileClasspath").map { configurations.named(it) }
+        doLast {
+            val errs = mutableListOf<String>()
+            var seen = 0
+            classpaths.forEach { cp ->
+                cp.get().incoming.resolutionResult.allComponents
+                    .mapNotNull { it.moduleVersion }
+                    .filter { it.group == "com.squareup.okhttp3" && it.name in setOf("okhttp", "okhttp-jvm", "mockwebserver") }
+                    .forEach {
+                        seen++
+                        if (it.version != floor) errs += "${cp.name}: ${it.group}:${it.name}:${it.version} (must be $floor)"
+                    }
+            }
+            if (seen == 0) errs += "no okhttp found on compile classpaths (vacuous)"
+            if (errs.isNotEmpty()) throw GradleException(errs.joinToString("\n"))
+        }
+    }
+    tasks.named("check") { dependsOn(verifyFloor) }
 }
