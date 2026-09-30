@@ -27,3 +27,4 @@
    consumer: PROBE OK (com.github.Ygaray.voice-action-engine:*:7f9db22944 from https://jitpack.io) workdir=/tmp/tmp.SIorknDRSs
 LIVE PROBE PASS ref=7f9db22944  (workdir=/tmp/tmp.GRWvpBO6fc)
 rung=0 sha=7f9db2294461d76832116e33cc0a724f05f445e8 date=2026-09-30T21:06:21Z ref_form=10-char (worked first try; no 40-char retry needed)
+ladder not needed (rung 0 passed)
