@@ -32,7 +32,8 @@ G="$(grep -E '^engineGroup=' gradle.properties | cut -d= -f2)"
 found="$(find "$M2" -type d -name 'voice-action-engine-*' -prune | sed 's#.*/##' | sort | tr '\n' ' ')"
 [ "$found" = "voice-action-engine-core voice-action-engine-keystore voice-action-engine-providers " ] \
   || { echo "DRY RUN FAIL: published artifact set is [$found], expected core/keystore/providers only" >&2; exit 1; }
-if find "$M2" -ipath '*sample*' -o -iname '*test-fixtures*' | grep -q .; then
+# Match artifact names only (-iname), never the full path: the mktemp prefix must not be able to cause a false failure.
+if [ -n "$(find "$M2" -mindepth 1 \( -iname '*sample*' -o -iname '*test-fixtures*' \) -print)" ]; then
   echo "DRY RUN FAIL: a sample or test-fixtures artifact was published" >&2; exit 1
 fi
 for spec in core:jar providers:jar keystore:aar; do
