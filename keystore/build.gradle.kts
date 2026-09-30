@@ -22,7 +22,11 @@ android {
 // AGP 9 built-in Kotlin: no org.jetbrains.kotlin.android plugin.
 kotlin {
     explicitApi()
-    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11) }
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        // Restrict the JDK API surface to 11 (see :core); the build JDK is 17.
+        freeCompilerArgs.add("-Xjdk-release=11")
+    }
 }
 
 dependencies {

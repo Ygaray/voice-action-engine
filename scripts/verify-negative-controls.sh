@@ -44,7 +44,7 @@ expect_red() { # <label> <module> <kotlin-body> <gradle-task>...   (source plant
       *scanBanned*)    marker="Banned constructs" ;;
       *)               marker="FAILED" ;;
     esac
-    expect_task_red "$label" "$marker" "$task"
+    expect_task_red "$label" "${MARKER:-$marker}" "$task"   # MARKER overrides the per-task default
   done
   rm -f "$f"
 }
@@ -64,6 +64,9 @@ for m in core providers keystore; do
   expect_red "printStackTrace ($m)"         $m 'internal fun p() { Exception("m").printStackTrace() }'   ":$m:scanBannedConstructs"
   expect_red "FQ DI annotation ($m)"         $m '@javax.inject.Inject internal class P'                   ":$m:scanBannedConstructs"
   expect_red "planning id comment ($m)"      $m '// T-01-02 leaked'                                       ":$m:detekt" ":$m:scanBannedConstructs"
+done
+for m in core providers; do   # :keystore compiles against android.jar, which legitimately carries newer JDK APIs
+  MARKER="Unresolved reference" expect_red "JDK 16 API (Stream.toList) in a JVM-11 module ($m)" $m 'internal fun p(): List<Int> = java.util.stream.Stream.of(1).toList()' ":$m:compileKotlin"
 done
 touch config/detekt-baseline.xml
 expect_task_red "baseline file" "detekt baseline is forbidden" :core:verifyNoDetektBaseline
@@ -104,7 +107,7 @@ sed -i 's/^okhttp = "4.12.0"/okhttp = "5.2.1"/' gradle/libs.versions.toml
 expect_task_red "OkHttp compile floor raised" "must be 4.12.0" :providers:verifyOkHttpCompileFloor
 restore gradle/libs.versions.toml
 
-sed -i 's/VERSION_11/VERSION_17/g; s/JVM_11/JVM_17/g' core/build.gradle.kts
+sed -i 's/VERSION_11/VERSION_17/g; s/JVM_11/JVM_17/g; s/jdk-release=11/jdk-release=17/g' core/build.gradle.kts
 expect_task_red "core compiled at JVM 17" "Non-JVM-11 class files" :core:verifyBytecodeLevel
 restore core/build.gradle.kts
 
