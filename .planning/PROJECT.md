@@ -12,7 +12,7 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 
 ## Source of Truth
 
-**`CROSS-REPO-SCOPE-CONTRACT.md`** (repo root) — FROZEN v1.0 + amendments A1–A12. This slice is **§6.2** (v1.0 = steps 1–7); the engine seams are **§5.1–5.2**; the tag protocol and ledger are **§11**. It is never edited silently: changes are proposed to the contract owner (secondbrain-2c) and recorded as numbered §10 amendments. Only §11 ledger rows are appended by this repo's session, contract-only commits, `git pull --rebase` first.
+**`CROSS-REPO-SCOPE-CONTRACT.md`** (repo root) — FROZEN v1.0 + amendments A1–A12. This slice is **§6.2** (v1.0 = steps 1–7); the engine seams are **§5.1–5.2**; the tag protocol and ledger are **§11**. It is never edited by this session: changes are proposed to the control plane (yahir-gsd-control-plane-f2, orchestrator) and recorded as numbered §10 amendments / errata. Other sessions commit contract-only changes here, so always `git pull --rebase` before committing.
 
 ## Requirements
 
@@ -32,7 +32,7 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 **Core contract & pipeline (step 2)**
 - [ ] §5.1 types: `CommandInput`, `CommandStrategy`, `StrategyOutcome` (`Completed | Escalate(reason, carry?) | NoMatch | Failed`), `CommandPipeline` DSL, `TierSelector.Linear` (+ `Fixed` for tests), `TierPolicy` (offlineOnly, maxTier, allowedProviders, cost/turn ceilings).
 - [ ] Escalation: `Escalate`/`NoMatch` → next tier; `Completed`/`Failed` → stop; `carry` passes partial work upward.
-- [ ] `PreApplyGate` (any confirm-before-commit policy, returns needs-confirmation + reason; A2) and `CommitSink` (commit + undo) as pipeline-level hooks with suspend-before-commit behavior (A6).
+- [ ] `PreApplyGate` modeled on SB's real seam `MutationGate` (`suspend fun admit(toolName, input) → decision`; erratum E1), generalized per A2 (any confirm-before-commit policy → proceed | needs-confirmation + reason) and `CommitSink` (commit + undo, shaped by SB `VoiceUndoOperations` + `PreMutationSnapshot`) as pipeline-level hooks with suspend-before-commit behavior (A6). A held call reports a non-committing result, never a success.
 - [ ] Telemetry = **trace on every result** (per-tier attempts, escalation reasons, tokens in/out, cache-read/creation tokens, latency) **plus an optional live typed-event callback**. Never carries the API key, transcript, tool arguments or tool_result content.
 
 **Providers (steps 3a/3b)**
@@ -52,11 +52,11 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 - [ ] `AgenticLoopStrategy` (port SB `AnthropicAgentLoop` onto 6a) over `ToolExecutor`, bounded (iterations + token ceiling from policy).
 
 **v1.0 verification bar & tag (step 7; A8 + A10 + §11)**
-- [ ] `:sample` harness: frozen snapshot of SB's real tool schemas + `SYSTEM_PROMPT` (~7k-token prefix) as a fixture, fake `ToolExecutor` with canned results, BYO-key field exercising `:keystore`.
+- [ ] `:sample` harness: frozen fixture JSON `{system, tools}` produced by SB (serialized `AnthropicToolRegistry.toolDefinitions` + fully composed `SYSTEM_PROMPT` incl. `TAG_DISAMBIGUATION_POLICY`; erratum E2; ~7k-token prefix), fake `ToolExecutor` with canned results, BYO-key field exercising `:keystore`.
 - [ ] Breakpoint parity: at least SB's `buildRequestBody` placement — one `cache_control: ephemeral` on the system block (caches tools + system), no breakpoint on messages; a moving message breakpoint only as an addition.
 - [ ] Gate-1 on the TESTER: agentic loop runs 2+ turns, `cache_read_input_tokens > 0` on turn 2+, in SB's ballpark (7,016). OpenAI/OpenRouter agentic is JVM-tested only.
 - [ ] README integration guide good enough that **an AI agent can wire the engine into an app from the README alone**; `:sample` doubles as the reference wiring.
-- [ ] Tag `v1.0.0` per §11: green verification, strictly additive API, contract-honoring, pushed + JitPack builds it; ledger row appended + broadcast to all peers.
+- [ ] Tag `v1.0.0` per §11: green verification, strictly additive API, contract-honoring, pushed + JitPack builds it; tag row messaged to the control plane (single ledger writer, A14) + broadcast to all peers.
 
 **Port cleanups (leave-behinds become requirements)**
 - [ ] No DI-framework annotations in library code (no Hilt `@Inject`/`@Qualifier`/`@IntoMap`); plain constructors/builders, apps wire their own DI.
@@ -78,7 +78,7 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 - `LocalGrammarStrategy` + bilingual `GrammarPack` DSL — v1.1 (§6.2 step 8).
 - `PlanThenExecuteStrategy` — v1.1 (step 9).
 - `TierSelector.Router` — v1.1 (step 10), default off.
-- Bundled on-device model spike (Gemma-2B-class via MediaPipe/LiteRT) — v1.1 (step 11); verdict reported to caltracker-android-9a + secondbrain-2c as soon as it lands.
+- Bundled on-device model spike (Gemma-2B-class via MediaPipe/LiteRT) — v1.1 (step 11); verdict reported to the control plane (yahir-gsd-control-plane-f2) as soon as it lands.
 - `:voice-adapter` (`:stt` → `CommandInput`) — v1.1 (step 12), needs the `:stt` tag.
 - Gemini Nano / AICore implementation — later version on a Pixel 10 (L10); S22s have no AICore.
 - Any dependency on `:stt` or YAT from `:core` (L7).
@@ -90,9 +90,9 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 ## Context
 
 - **Ecosystem:** hub + spokes (see `ECOSYSTEM.md`). Sibling hubs: `stt-engine` (`:stt`, bilingual capture, §6.1) and `yahirandroidtaste` (YAT, §6.3). Consumers in Wave 1: SecondBrain (§6.4, OkHttp 5.2.1) and CalTracker (§6.5, moving to OkHttp 5.2.1 per A11; its v1.13 consumes both engine tags).
-- **Peers (cross-session):** secondbrain-2c (contract owner + SB), stt-engine-46, yahirandroidtaste-99, caltracker-android-9a.
+- **Peers (cross-session):** **yahir-gsd-control-plane-f2 = orchestrator for this effort and the ONLY writer of the §11 ledger** (message it tag rows + the v1.1 spike verdict; never commit ledger rows here). secondbrain-2c (SB), stt-engine-46, yahirandroidtaste-99, caltracker-android-9a. Handoff file: `.planning/cross-repo/HANDOFF.md`.
 - **Port sources (read-only):**
-  - SB `~/Projects/AndroidApps/Personal/SecondBrain/app/src/main/java/com/example/secondbrain/core/agent/`: `AnthropicAgentLoop.kt` (loop, `buildRequestBody`, `SYSTEM_PROMPT`), `AgentLoopResult.kt` (typed `UnavailableReason`, `BudgetBound`), `MutationTierPolicy.kt` (→ PreApplyGate shape), `SecondBrainToolFacade.kt` + `RoomToolFacade.kt` (→ ToolExecutor), `KeystoreCrypto.kt` + `KeystoreCryptoSeam.kt` (→ `:keystore`). Tool schemas: `core/mcp/tools/ToolSchemas.kt` (+ ReadTools/MutationTools).
+  - SB `~/Projects/AndroidApps/Personal/SecondBrain/app/src/main/java/com/example/secondbrain/core/agent/`: `AnthropicAgentLoop.kt` (loop, `buildRequestBody`, `SYSTEM_PROMPT`), `AgentLoopResult.kt` (typed `UnavailableReason`, `BudgetBound`), `MutationGate.kt` + `VoiceConfirmGate.kt` (→ PreApplyGate shape, E1; `MutationTierPolicy.kt` only classifies risk and is consulted by the gate), `VoiceUndoOperations.kt` + `PreMutationSnapshot.kt` (→ CommitSink), `SecondBrainToolFacade.kt` + `RoomToolFacade.kt` (→ ToolExecutor), `KeystoreCrypto.kt` + `KeystoreCryptoSeam.kt` (→ `:keystore`). The A10 fixture is NOT taken from `ToolSchemas.kt`; SB hands over `{system, tools}` JSON (E2).
   - CT `~/Projects/AndroidApps/Personal/CalTracker_Android/app/src/main/java/com/caltracker/app/`: `ai/AiProvider.kt`, `ai/ProviderRouter.kt`, `ai/AnthropicProvider.kt` (+ `Call.await`), `ai/LogFoodRequestBuilder.kt`, `ai/OpenAiLogFoodRequestBuilder.kt`, `mcp/RepositoryToolFacade.kt` (→ OutcomeResolver), `data/security/KeystoreCrypto*.kt`, `di/AiModule.kt`. Ask caltracker-android-9a for anything ambiguous.
 - **Publishing reference:** `~/Projects/Reusable/android/backup-engine` (Mechanism B, `jitpack.yml` openjdk17 + `publishReleasePublicationToMavenLocal`).
 - **Remote:** `github.com/Ygaray/voice-action-engine` (public), `main` tracks `origin/main`. Other peers append §11 ledger rows here → always `git pull --rebase` before committing.
@@ -106,7 +106,7 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 - **Domain-free**: the library names no note/card/food; all app knowledge enters through §5.2 seams.
 - **Quality**: detekt zero baseline on library modules; two-gate UAT where device-verifiable; most of `:core` JVM-tested.
 - **Secrets**: API keys, transcripts, tool args/results never reach logs, telemetry, exceptions or `toString()`.
-- **Process**: contract changes only via §10 amendments through secondbrain-2c; tag cuts are agent-owned under A12 (Yahir confirmed push + tag authority for this effort, 2026-09-29).
+- **Process**: contract changes only via §10 amendments through the control plane; tag cuts are agent-owned under A12 (Yahir confirmed push + tag authority for this effort, 2026-09-29).
 
 ## Key Decisions
 
