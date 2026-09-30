@@ -13,6 +13,10 @@ REPO_URL="${REPO_URL:-https://jitpack.io}"
 VERSION="${VERSION:?set VERSION to the commit SHA or tag}"
 GROUP="${GROUP:-com.github.Ygaray.voice-action-engine}"
 WORK="$(mktemp -d)"; export GRADLE_USER_HOME="$WORK/gradle-home"; mkdir -p "$GRADLE_USER_HOME"
+# The empty dependency cache is hundreds of MB: remove the workdir on exit unless KEEP_WORK=1 (debugging).
+# The wrapper symlink is unlinked first so the recursive remove can never reach the real ~/.gradle/wrapper.
+cleanup_work() { rm -f "$GRADLE_USER_HOME/wrapper"; [ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$WORK"; }
+trap cleanup_work EXIT
 # Reuse only the Gradle DISTRIBUTION (never dependencies) to avoid a ~130 MB download; the dependency cache stays empty.
 if [ -d "$HOME/.gradle/wrapper" ]; then ln -s "$HOME/.gradle/wrapper" "$GRADLE_USER_HOME/wrapper"; fi
 ROOT="$(git rev-parse --show-toplevel)"
@@ -70,4 +74,5 @@ for m in voice-action-engine-providers voice-action-engine-keystore voice-action
 done
 echo "--- :jvmconsumer runtimeClasspath (engine lines)"; grep "voice-action-engine" <<<"$jvm_deps"
 echo "--- :app debugRuntimeClasspath (engine lines)"; grep "voice-action-engine" <<<"$app_deps"
-echo "PROBE OK ($GROUP:*:$VERSION from $REPO_URL) workdir=$WORK"
+if [ "${KEEP_WORK:-0}" = 1 ]; then where="workdir=$WORK (kept)"; else where="workdir removed on exit"; fi
+echo "PROBE OK ($GROUP:*:$VERSION from $REPO_URL) $where"

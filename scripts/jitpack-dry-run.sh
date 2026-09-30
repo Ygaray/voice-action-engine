@@ -10,6 +10,8 @@
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 WORK="$(mktemp -d)"; CLONE="$WORK/clone"; M2="$WORK/m2/repository"; mkdir -p "$CLONE" "$M2"
+# Remove the clone, build outputs and isolated maven-local on exit unless KEEP_WORK=1 (debugging).
+trap '[ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$WORK"' EXIT
 if [ "${WORKTREE:-0}" = "1" ]; then
   (cd "$ROOT" && git ls-files -co --exclude-standard -z | grep -zv -e '^graphify-out/' -e '^\.planning/graphs/' \
     | tar --null --ignore-failed-read -T - -cf -) | tar -x -C "$CLONE"
@@ -45,4 +47,5 @@ for spec in core:jar providers:jar keystore:aar; do
 done
 cd "$ROOT"
 REPO_URL="file://$M2" VERSION="$VERSION" GROUP="$G" "$ROOT/scripts/jitpack-consumer-probe.sh"
-echo "DRY RUN OK version=$VERSION group=$G m2=$M2"
+if [ "${KEEP_WORK:-0}" = 1 ]; then where="m2=$M2 (kept)"; else where="workdir removed on exit"; fi
+echo "DRY RUN OK version=$VERSION group=$G $where"

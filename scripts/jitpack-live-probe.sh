@@ -22,6 +22,8 @@ TIMEOUT_S="${TIMEOUT_S:-1500}"; POLL_S="${POLL_S:-20}"
 GROUP_PATH="com/github/$OWNER/$REPO"
 API="https://jitpack.io/api/builds/com.github.$OWNER/$REPO/$REF"
 WORK="$(mktemp -d)"; LOG="$WORK/build.log"
+# Remove downloaded POMs/logs on exit unless KEEP_WORK=1 (debugging).
+trap '[ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$WORK"' EXIT
 say() { if [ -n "${EVIDENCE_FILE:-}" ]; then printf '%s\n' "$*" | tee -a "$EVIDENCE_FILE"; else printf '%s\n' "$*"; fi; }
 fail() { say "LIVE PROBE FAIL ($REF): $1"; exit "${2:-4}"; }
 first="${MODULES%% *}"
@@ -109,4 +111,5 @@ if [ "${SKIP_CONSUMER:-0}" != 1 ]; then
   fi
   grep -E 'voice-action-engine|PROBE OK' "$WORK/consumer.out" | while IFS= read -r l; do say "   consumer: $l"; done
 fi
-say "LIVE PROBE PASS ref=$REF  (workdir=$WORK)"
+if [ "${KEEP_WORK:-0}" = 1 ]; then where="workdir=$WORK (kept)"; else where="workdir removed on exit"; fi
+say "LIVE PROBE PASS ref=$REF  ($where)"
