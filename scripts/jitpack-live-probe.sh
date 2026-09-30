@@ -49,22 +49,32 @@ while :; do
 done
 say "   api: $(jq -c '{version,status,commit,isTag,modules}' <<<"$json")"
 # 3. Published module set must match exactly (and must never include :sample).
-got="$(jq -r '.modules[]' <<<"$json" | sort | tr '\n' ' ')"
+# Negative guards match against a captured string, never `producer | grep -q`: under pipefail, grep -q exiting early can
+# SIGPIPE the producer (status 141) and make a forbidden-artifact guard read "no match".
+mods="$(jq -r '.modules[]?' <<<"$json")"
+got="$(sort <<<"$mods" | tr '\n' ' ')"
 want="$(tr ' ' '\n' <<<"$MODULES" | sort | tr '\n' ' ')"
 [ "$got" = "$want" ] || fail "api modules [$got] != expected [$want]"
-if jq -r '.modules[]' <<<"$json" | grep -Eiq "$FORBID_RE"; then fail "api modules include a forbidden artifact ($FORBID_RE)"; fi
+if grep -Eiq "$FORBID_RE" <<<"$mods"; then fail "api modules include a forbidden artifact ($FORBID_RE)"; fi
 # 4. Build log: install command, discovered artifacts, served coordinates.
 curl -s -m 120 "https://jitpack.io/$GROUP_PATH/$REF/build.log" > "$LOG" || fail "could not fetch build.log"
 [ -s "$LOG" ] || fail "empty build.log"
-grep -A1 'Running install command' "$LOG" | sed 's/^/   log: /' | while IFS= read -r l; do say "$l"; done
-if grep -A1 'Running install command' "$LOG" | grep -q ':sample'; then fail "install command names :sample"; fi
-grep 'Found artifact:' "$LOG" | sed 's/^/   log: /' | while IFS= read -r l; do say "$l"; done
+# Each listing is captured first: a grep with no match must produce an explicit fail (or be tolerated), not a silent
+# pipefail abort outside the documented exit-code set.
+install_lines="$(grep -A1 'Running install command' "$LOG" || true)"
+[ -n "$install_lines" ] || fail "build.log has no 'Running install command' line"
+while IFS= read -r l; do say "   log: $l"; done <<<"$install_lines"
+if grep -q ':sample' <<<"$install_lines"; then fail "install command names :sample"; fi
+found_lines="$(grep 'Found artifact:' "$LOG" || true)"
+while IFS= read -r l; do if [ -n "$l" ]; then say "   log: $l"; fi; done <<<"$found_lines"
+artifact_block="$(awk '/Build artifacts:/{f=1;next} /^Files:/{f=0} f' "$LOG")"
 for m in $MODULES; do
-  grep -Eq "Found artifact: .*:$m:" "$LOG" || fail "build.log has no 'Found artifact' line for $m"
-  awk '/Build artifacts:/{f=1;next} /^Files:/{f=0} f' "$LOG" | grep -q "^$SERVED_GROUP:$m:" || fail "build.log 'Build artifacts' block lacks $SERVED_GROUP:$m"
+  grep -Eq "Found artifact: .*:$m:" <<<"$found_lines" || fail "build.log has no 'Found artifact' line for $m"
+  grep -q "^$SERVED_GROUP:$m:" <<<"$artifact_block" || fail "build.log 'Build artifacts' block lacks $SERVED_GROUP:$m"
 done
-if grep -E 'Found artifact:' "$LOG" | grep -Eiq "$FORBID_RE"; then fail "build.log found a forbidden artifact ($FORBID_RE)"; fi
-say "   served coordinates:"; awk '/Build artifacts:/{f=1;next} /^Files:/{f=0} f' "$LOG" | sed '/^$/d;s/^/     /' | while IFS= read -r l; do say "$l"; done
+if grep -Eiq "$FORBID_RE" <<<"$found_lines"; then fail "build.log found a forbidden artifact ($FORBID_RE)"; fi
+say "   served coordinates:"
+while IFS= read -r l; do if [ -n "$l" ]; then say "     $l"; fi; done <<<"$artifact_block"
 # 5. Served metadata for every module.
 for m in $MODULES; do
   base="https://jitpack.io/$GROUP_PATH/$m/$REF/$m-$REF"
@@ -72,7 +82,7 @@ for m in $MODULES; do
   if [ "$EXPECT_MODULE_METADATA" = 1 ]; then
     code="$(curl -s -o "$WORK/$m.module" -m 60 -w '%{http_code}' "$base.module")" || code=000; [ "$code" = 200 ] || fail "$m.module -> HTTP $code"
   else : > "$WORK/$m.module"; fi
-  if cat "$WORK/$m.pom" "$WORK/$m.module" | grep -Eiq 'test-?fixtures'; then fail "$m metadata mentions testFixtures"; fi
+  if grep -Eiq 'test-?fixtures' "$WORK/$m.pom" "$WORK/$m.module"; then fail "$m metadata mentions testFixtures"; fi
   say "   $m: pom 200$( [ "$EXPECT_MODULE_METADATA" = 1 ] && echo ', module 200' ) $(grep -o '<packaging>[a-z]*</packaging>' "$WORK/$m.pom" || echo '<packaging>jar(default)</packaging>')"
   case "$m" in *-providers|*-keystore)
     if [ "$CHECK_CORE_DEP" = 1 ]; then
@@ -86,7 +96,8 @@ done
 agg="https://jitpack.io/$GROUP_PATH/$REF/$REPO-$REF.pom"
 code="$(curl -s -o "$WORK/agg.pom" -m 60 -w '%{http_code}' "$agg")" || code=000; [ "$code" = 200 ] || fail "aggregator pom -> HTTP $code ($agg)"
 for m in $MODULES; do grep -q "<artifactId>$m</artifactId>" "$WORK/agg.pom" || fail "aggregator pom lacks $m"; done
-if grep '<artifactId>' "$WORK/agg.pom" | grep -Eiq "$FORBID_RE"; then fail "aggregator pom lists a forbidden artifact ($FORBID_RE)"; fi
+agg_ids="$(grep '<artifactId>' "$WORK/agg.pom" || true)"
+if grep -Eiq "$FORBID_RE" <<<"$agg_ids"; then fail "aggregator pom lists a forbidden artifact ($FORBID_RE)"; fi
 say "   aggregator pom: 200, lists all expected modules, no forbidden artifact"
 # 7. Clean-cache consumer resolution: jar->jar (:providers -> :core) and AAR->jar (:keystore -> :core).
 if [ "${SKIP_CONSUMER:-0}" != 1 ]; then
