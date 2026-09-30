@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A18 + errata E1–E7 (2026-09-29): amendments approved by Yahir. Errata are verified factual corrections recorded by the orchestrator.
+**Status:** FROZEN v1.0 + amendments A1–A19 + errata E1–E7 (2026-09-29): amendments approved by Yahir. Errata are verified factual corrections recorded by the orchestrator.
 **Orchestrator (A14):** the control plane, session `yahir-gsd-control-plane-f2`. State: `~/Projects/yahir-agentic-tools/yahir-gsd-control-plane/xrepo/vae-bilingual/`. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
@@ -256,7 +256,14 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 - **Safety:** an "unchanged since commit" check runs before every restore. If an entity changed after the command, undo **refuses loudly** and never clobbers. An undo either completes or reports exactly what it couldn't restore (it's never silently partial).
 - **Grouping:** entries are grouped by `runId` (A17). The component computes isolation from the entity footprints: isolated actions get an individual Undo, and **every** run with commits gets an "Undo all (N)" for the whole command, including actions entangled with each other.
 - **Adoption:** the VAE pipeline integrates `:undo` in v1.1. At the v1.0 migration SB keeps its per-action undo on the A17 seam, then adopts `:undo` (and gets Undo-all) in its v1.1 phases, porting `VoiceUndoFootprint` / `PreMutationSnapshot` / `VoiceUndoOperations` onto entity adapters (`ReminderArmer` becomes a compensator). CT adopts it in its v1.1 phases (multi-item "Confirm all (N)" → "Undo all (N)"). **YAT v2.4.0** ships a generic "Undo all (N)" affordance on the outcome sheet (props-driven) plus per-item undo, so the UI is ready early.
-- **Later:** once a non-voice app uses `:undo`, extract it to its own hub (control-plane backlog). Don't create the repo now.
+- **Later:** once a non-voice app uses `:undo`, extract it to its own hub (control-plane backlog BL-081). Don't create the repo now.
+
+**A19 — Clarification via pressable options, not a spoken retry (2026-09-30, Yahir's UX decision in SB's session; mechanism proposed by VAE, recorded by the orchestrator).** When the model needs clarification ("Which list?"), the user taps an option instead of speaking again. It lands in **v1.0**, is additive, and adds no new outcome variant.
+- **Engine (domain-free):** `ToolSpec.terminal: Boolean = false`, app-declared. A terminal tool must be non-mutating; declaring it mutating fails at build time. When the model calls a terminal tool, the engine sends no `tool_result` and starts no further turn. Earlier calls in the same turn dispatch normally, in order. The run ends as `Completed` with a new nullable `terminalCall = TerminalCall(toolName, arguments)`, and `reply` is null. Earlier commits and holds are carried as usual, and the tier is terminal. This works in AgenticLoop and SingleShot (for SingleShot, a terminal call skips the `OutcomeResolver`).
+- **Shared shape:** `:core` ships a typed `Clarification(question, options: List<ClarificationOption(id, label)>)` with `ToolSpec.clarification(name = …)` and `TerminalCall.asClarification()`. `id` is opaque to the engine; CT, for example, maps it to a DB food row. SB and CT use it; an app may still declare its own terminal tool.
+- **Follow-up:** `CommandInput.parentRunId: String? = null`. Tapping an option issues a NEW command linked by `parentRunId` (in the trace and in `CommitSink`/`onRunClosed`). The app's user-turn renderer puts the original transcript, the question and the chosen option into the first user message. The cached prefix is unchanged. v1.0 doesn't resume the prior transcript; that can be an additive v1.x option.
+- **UI:** YAT v2.4.0 adds a generic, props-driven "clarification choices" component (question plus option buttons). Selecting an option completes the command, dismissing it cancels, and it is visually informational, never an error. A Material snackbar holds only one action, so this is a compact choice surface.
+- **VAE mapping:** Phase 2 (`Completed.terminalCall`, `CommandInput.parentRunId`, `Clarification`), Phase 3 (`ToolSpec.terminal`), Phases 7 and 9 (strategy handling and tests), and the README.
 
 ## 11. Tag protocol & ledger (A12)
 
