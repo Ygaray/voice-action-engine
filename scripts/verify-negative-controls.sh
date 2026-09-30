@@ -69,6 +69,10 @@ touch config/detekt-baseline.xml
 expect_task_red "baseline file" "detekt baseline is forbidden" :core:verifyNoDetektBaseline
 rm -f config/detekt-baseline.xml
 
+for m in core providers keystore; do
+  expect_task_red "api.txt missing once released ($m)" "api.txt is missing" ":$m:verifyApiDumpPresent" -PvaeAssumeReleased
+done
+
 echo "== Part 2: build-file plants (backup + restore)"
 backup core/build.gradle.kts
 printf '\ndependencies { api("com.squareup.okhttp3:okhttp:4.12.0") }\n' >> core/build.gradle.kts
