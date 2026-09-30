@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A14 + errata E1–E6 (2026-09-29): amendments approved by Yahir. Errata are verified factual corrections recorded by the orchestrator.
+**Status:** FROZEN v1.0 + amendments A1–A14, A17, A18 + errata E1–E6 (A15, A16 pending) (2026-09-29): amendments approved by Yahir. Errata are verified factual corrections recorded by the orchestrator.
 **Orchestrator (A14):** the control plane, session `yahir-gsd-control-plane-f2`. State: `~/Projects/yahir-agentic-tools/yahir-gsd-control-plane/xrepo/vae-bilingual/`. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
@@ -236,6 +236,21 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 - **§11 step 5 is replaced:** after steps 1–4, the tagging session **messages the orchestrator the full row** (repo, tag, commit, coordinate(s), contents, evidence path). The orchestrator re-checks that JitPack resolves the tag, commits the row, and broadcasts to every peer. Consumers message their repin rows the same way. **No peer commits to §11.**
 - Peers may talk directly for technical Q&A (e.g. VAE asking SB about its code). Any outcome that touches the contract, a tag, or sequencing goes through the orchestrator.
 - SB keeps §6.4 and answers SB-code questions. It no longer holds the contract.
+
+**A17 — CommitSink seam refinement + escalate-after-commit safety (2026-09-29, Yahir; raised by VAE, specified by SB from its code, brokered by the orchestrator).** It lands in **v1.0** (§6.2 steps 2/6b). §5.2 `CommitSink` becomes:
+- **Per-action commit notification, sent as each action commits** (not at the end of the run), so actions committed before a cancel, budget stop or error are never lost from undo/audit.
+- Every commit carries a **`runId`** and a per-action payload shaped like SB's `ExecutedToolCall`: tool name, mutating flag, outcome (`committed | held | preview | is_error`), target ids, and the pre-mutation snapshot captured at `PreApplyGate`.
+- **`onRunClosed(runId, terminalOutcome)`** is sent on **every** exit path: done, cancelled, budget exceeded, provider error, escalation exhausted. Consumers decide their Undo offers at run close, because a later action can entangle an earlier one (SB's footprint-isolation rule, `VoiceUndoFootprint.isolatedIndices`).
+- The run result keeps the full **ordered executed-action list**. Consumers use it for outcome classification and retry safety.
+- **Engine rule, no duplicate writes:** a tier that has committed ≥1 action must not hand the command to another tier that would redo it. It either returns `Completed(partial)` / `Failed`, or escalates with `carry` holding the committed actions and the next tier is barred from redoing them (VAE picks the mechanism; it's tested explicitly). Consumers offer Retry only when nothing committed.
+
+**A18 — Run-undo as a standalone, engine-independent `:undo` module (2026-09-29, Yahir).** "Undo everything this command did" becomes a reusable pattern that any app can use, **with or without the voice engine**. It lands in **VAE v1.1** (a new §6.2 step, before `:voice-adapter`).
+- **Module:** `:undo`, pure Kotlin, depending on **nothing** (not even `:core`). Per E5 it has its own coordinate, `com.github.Ygaray.voice-action-engine:undo`, so a non-voice app can depend on it alone. This adds a module and removes nothing (like A7).
+- **Model: a journal/memento.** Before a mutation, the before-state of every touched entity is captured. Undo restores the snapshots in reverse order. Apps supply one adapter **per entity type** (read, write back, re-insert if deleted), not a hand-written inverse per action. Out-of-database side effects (alarms, notifications, files, network calls) register an explicit **compensator**.
+- **Safety:** an "unchanged since commit" check runs before every restore. If an entity changed after the command, undo **refuses loudly** and never clobbers. An undo either completes or reports exactly what it couldn't restore (it's never silently partial).
+- **Grouping:** entries are grouped by `runId` (A17). The component computes isolation from the entity footprints: isolated actions get an individual Undo, and **every** run with commits gets an "Undo all (N)" for the whole command, including actions entangled with each other.
+- **Adoption:** the VAE pipeline integrates `:undo` in v1.1. At the v1.0 migration SB keeps its per-action undo on the A17 seam, then adopts `:undo` (and gets Undo-all) in its v1.1 phases, porting `VoiceUndoFootprint` / `PreMutationSnapshot` / `VoiceUndoOperations` onto entity adapters (`ReminderArmer` becomes a compensator). CT adopts it in its v1.1 phases (multi-item "Confirm all (N)" → "Undo all (N)"). **YAT v2.4.0** ships a generic "Undo all (N)" affordance on the outcome sheet (props-driven) plus per-item undo, so the UI is ready early.
+- **Later:** once a non-voice app uses `:undo`, extract it to its own hub (control-plane backlog). Don't create the repo now.
 
 ## 11. Tag protocol & ledger (A12)
 
