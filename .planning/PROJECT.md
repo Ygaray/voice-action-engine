@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A generic, STT-agnostic Android/JitPack library (`com.github.Ygaray:voice-action-engine`) that turns a spoken command — `CommandInput(transcript, language "en"|"es"|null, context)` — into an app action. Each consumer app composes its own **tier ladder** of strategies (LocalGrammar / SingleShot / PlanThenExecute / AgenticLoop) running over pluggable providers (Anthropic / OpenAI / OpenRouter / on-device), cheap-first and escalating only when needed. It is the shared hub for Yahir's personal apps (SecondBrain, CalTracker, and every future one); it names no app domain.
+A generic, STT-agnostic Android/JitPack library (per-module coordinates `com.github.Ygaray.voice-action-engine:<artifactId>`, erratum E5) that turns a spoken command — `CommandInput(transcript, language "en"|"es"|null, context)` — into an app action. Each consumer app composes its own **tier ladder** of strategies (LocalGrammar / SingleShot / PlanThenExecute / AgenticLoop) running over pluggable providers (Anthropic / OpenAI / OpenRouter / on-device), cheap-first and escalating only when needed. It is the shared hub for Yahir's personal apps (SecondBrain, CalTracker, and every future one); it names no app domain.
 
 **This milestone (v1.0 → tag `v1.0.0`)** = contract §6.2 steps 1–7: scaffold + contract types + pipeline + provider transports + `:keystore` + SingleShot + provider-neutral AgenticLoop + PreApplyGate/CommitSink hooks. It unblocks the Wave-1 migrations of SecondBrain and CalTracker.
 
@@ -12,7 +12,7 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 
 ## Source of Truth
 
-**`CROSS-REPO-SCOPE-CONTRACT.md`** (repo root) — FROZEN v1.0 + amendments A1–A12. This slice is **§6.2** (v1.0 = steps 1–7); the engine seams are **§5.1–5.2**; the tag protocol and ledger are **§11**. It is never edited by this session: changes are proposed to the control plane (yahir-gsd-control-plane-f2, orchestrator) and recorded as numbered §10 amendments / errata. Other sessions commit contract-only changes here, so always `git pull --rebase` before committing.
+**`CROSS-REPO-SCOPE-CONTRACT.md`** (repo root) — FROZEN v1.0 + amendments A1–A14 and errata E1–E6. This slice is **§6.2** (v1.0 = steps 1–7); the engine seams are **§5.1–5.2**; the tag protocol and ledger are **§11**. It is never edited by this session: changes are proposed to the control plane (yahir-gsd-control-plane-f2, orchestrator) and recorded as numbered §10 amendments / errata. Other sessions commit contract-only changes here, so always `git pull --rebase` before committing.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 
 **Scaffold & publishing (step 1)**
 - [ ] Multi-module Gradle project: `:core` (pure Kotlin, no HTTP), `:providers` (OkHttp transports, depends on `:core`; A7), `:keystore` (Android AES/GCM BYO-key), `:sample` (debug-only, never published; A10). `:voice-adapter` is v1.1.
-- [ ] Mechanism-B JitPack publishing matching `~/Projects/Reusable/android/backup-engine` (`jitpack.yml`, maven-publish); publishable modules resolve from a clean Gradle cache.
+- [ ] Per-module JitPack coordinates `com.github.Ygaray.voice-action-engine:<artifactId>` (E5), verified early with a throwaway probe tag; `ECOSYSTEM.md` updated to match. Mechanism-B JitPack publishing matching `~/Projects/Reusable/android/backup-engine` (`jitpack.yml`, maven-publish); publishable modules resolve from a clean Gradle cache.
 - [ ] detekt with a genuinely clean zero baseline on every library module (tune rules, never bank debt).
 - [ ] Fake-provider test harness so `:core` strategies/pipeline are JVM-testable with no network.
 - [ ] Control-plane registry entries (ecosystem map / deps index) and `ECOSYSTEM.md` kept current.
@@ -52,7 +52,7 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 - [ ] `AgenticLoopStrategy` (port SB `AnthropicAgentLoop` onto 6a) over `ToolExecutor`, bounded (iterations + token ceiling from policy).
 
 **v1.0 verification bar & tag (step 7; A8 + A10 + §11)**
-- [ ] `:sample` harness: frozen fixture JSON `{system, tools}` produced by SB (serialized `AnthropicToolRegistry.toolDefinitions` + fully composed `SYSTEM_PROMPT` incl. `TAG_DISAMBIGUATION_POLICY`; erratum E2; ~7k-token prefix). Delivered as LE-1: `~/Projects/AndroidApps/Personal/SecondBrain/.planning/cross-repo/sb-a10-fixture.json` (sha256 `ebd3ef4a…af4ed3e`, 18 tools sorted by name, system 1,614 chars, ≈21.1k chars compact prefix). Copy it into `:sample` resources at step 7 (never reference the SB path at build time); if SB's prompt or tools change before step 7, ask the orchestrator to regenerate it. **Never hard-code a tool count** (it's 18, not 17; erratum E4 pending), fake `ToolExecutor` with canned results, BYO-key field exercising `:keystore`.
+- [ ] `:sample` harness: frozen fixture JSON `{system, tools}` produced by SB (serialized `AnthropicToolRegistry.toolDefinitions` + fully composed `SYSTEM_PROMPT` incl. `TAG_DISAMBIGUATION_POLICY`; erratum E2; ~7k-token prefix). Delivered as LE-1: `~/Projects/AndroidApps/Personal/SecondBrain/.planning/cross-repo/sb-a10-fixture.json` (sha256 `ebd3ef4a…af4ed3e`, 18 tools sorted by name, system 1,614 chars, ≈21.1k chars compact prefix). **Keep it OUT of git (LE-7):** SB's repo is private and this one is public, so the fixture lives at a gitignored path under `:sample`, is loaded at debug-build time, and the build/app fails with a clear error if it's absent (never reference the SB path at build time); if SB's prompt or tools change before step 7, ask the orchestrator to regenerate it. **Never hard-code a tool count** (it's 18, not 17; erratum E4 pending), fake `ToolExecutor` with canned results, BYO-key field exercising `:keystore`.
 - [ ] Breakpoint parity: at least SB's `buildRequestBody` placement — one `cache_control: ephemeral` on the system block (caches tools + system), no breakpoint on messages; a moving message breakpoint only as an addition.
 - [ ] Gate-1 on the TESTER: agentic loop runs 2+ turns, `cache_read_input_tokens > 0` on turn 2+, in SB's ballpark (7,016). OpenAI/OpenRouter agentic is JVM-tested only.
 - [ ] README integration guide good enough that **an AI agent can wire the engine into an app from the README alone**; `:sample` doubles as the reference wiring.
