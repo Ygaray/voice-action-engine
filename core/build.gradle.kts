@@ -23,12 +23,29 @@ kotlin {
 dependencies {
     api(libs.coroutines.core)
     api(libs.serialization.json)
+    testFixturesApi(libs.coroutines.core)
+    testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
+    testImplementation(testFixtures(project(":core")))
 }
 
 // Keep testFixtures out of the published component (otherwise a -test-fixtures jar ships and the .module lists it).
 val javaComponent = components["java"] as AdhocComponentWithVariants
 javaComponent.withVariantsFromConfiguration(configurations["testFixturesApiElements"]) { skip() }
 javaComponent.withVariantsFromConfiguration(configurations["testFixturesRuntimeElements"]) { skip() }
+
+// Proves the variant exclusions above hold: nothing generated for publication may mention test-fixtures.
+val verifyNoTestFixturesPublished = tasks.register("verifyNoTestFixturesPublished") {
+    group = "verification"
+    dependsOn("generateMetadataFileForReleasePublication", "generatePomFileForReleasePublication")
+    val dir = layout.buildDirectory.dir("publications/release")
+    doLast {
+        val files = dir.get().asFile.listFiles { f -> f.name == "module.json" || f.name.endsWith(".xml") }.orEmpty()
+        if (files.isEmpty()) throw GradleException("no generated publication metadata found (vacuous)")
+        val leaks = files.filter { Regex("(?i)test-?fixtures").containsMatchIn(it.readText()) }.map { it.name }
+        if (leaks.isNotEmpty()) throw GradleException("testFixtures leaked into the published component: $leaks")
+    }
+}
 
 val engineGroup: String by rootProject.extra
 val engineVersion: String by rootProject.extra
@@ -103,4 +120,4 @@ val verifyDetektControls = tasks.register("verifyDetektControls") {
         }
     }
 }
-tasks.named("check") { dependsOn(verifyDetektControls) }
+tasks.named("check") { dependsOn(verifyDetektControls, verifyNoTestFixturesPublished) }
