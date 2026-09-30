@@ -19,7 +19,7 @@
 | Consumer | Dev checkout | Pins hub at | Pin file |
 |----------|--------------|-------------|----------|
 | SecondBrain | `~/Projects/AndroidApps/Personal/SecondBrain` | *(not yet: Wave 1)* | `gradle/libs.versions.toml` |
-| CalTracker | `~/Projects/CalTracker_Android` | *(not yet: Wave 1)* | `app/build.gradle.kts` |
+| CalTracker | `~/Projects/AndroidApps/Personal/CalTracker_Android` | *(not yet: Wave 1)* | `app/build.gradle.kts` |
 
 **Current published tag:** none. Staged plan: `v1.0.0` (contract + pipeline + providers + keystore +
 2 ported strategies), `v1.1.0` (grammar / plan / router / on-device spike). See the contract, L8.
