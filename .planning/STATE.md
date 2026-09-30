@@ -5,16 +5,16 @@ milestone_name: Core Engine
 current_phase: 1
 current_phase_name: Scaffold & Publishing Proof
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-09-30T21:07:13.201Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-09-30T21:10:13.926Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 1 execution started
-state_head: d763ff6bad0541f89f4f53396d71193ce9568fa5
+state_head: 49d84196e307c7d971fd24c9b9c07029aa84f81a
 progress:
   total_phases: 11
   completed_phases: 0
   total_plans: 6
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 1 (Scaffold & Publishing Proof) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-09-30 — Phase 1 execution started
 
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 |------|----------|-------|-------|
 | Phase 01 P01 | 20 min | 2 tasks | 21 files |
 | Phase 01 P02 | 6 min | 2 tasks | 2 files |
+| Phase 01 P03 | 10 min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Recent decisions affecting current work:
 - [Phase 1]: explicitApi() DSL (not raw flag) on all published modules; engineGroup/engineVersion held as single values with VERSION env override
 - [Phase 1]: ASSUMPTION: :keystore minSdk 35 / compileSdk 36.1 copied from SB/YAT; confirm with orchestrator before v1.0.0 cut
 - [Phase 01]: Live JitPack probe passed at rung 0 by 10-char SHA 7f9db22944; no fallback (F1-F3) needed, coordinates and module shape unchanged
+- [Phase 1]: Phase 1 plan 03: scanner (not detekt) gates runCatching/print/printStackTrace/FQ DI annotations; detekt control compared as exact (line, rule) set
 
 ### Pending Todos
 
@@ -107,6 +109,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-30T21:07:13.172Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-09-30T21:10:13.898Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
