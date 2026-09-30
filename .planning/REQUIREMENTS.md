@@ -11,8 +11,8 @@
 
 ### Build, Publishing & Quality Gates (step 1)
 
-- [ ] **BLD-01**: Repo builds four modules: `:core` and `:providers` as pure Kotlin/JVM, `:keystore` as an Android library, `:sample` as an unpublished debug app; dependencies point one way (`:sample → {:providers, :keystore} → :core`); `:core` has no HTTP, Android, DI or other-hub dependency (L7, A7).
-- [ ] **BLD-02**: Toolchain matches consumers (Kotlin 2.3.20, AGP 9.2.1, Gradle 9.4.1, JDK 17 build) and every published module emits **JVM 11 bytecode**, so SB (Java 11) compiles against the DSL/inline surface.
+- [x] **BLD-01**: Repo builds four modules: `:core` and `:providers` as pure Kotlin/JVM, `:keystore` as an Android library, `:sample` as an unpublished debug app; dependencies point one way (`:sample → {:providers, :keystore} → :core`); `:core` has no HTTP, Android, DI or other-hub dependency (L7, A7).
+- [x] **BLD-02**: Toolchain matches consumers (Kotlin 2.3.20, AGP 9.2.1, Gradle 9.4.1, JDK 17 build) and every published module emits **JVM 11 bytecode**, so SB (Java 11) compiles against the DSL/inline surface.
 - [ ] **BLD-03**: A consumer can resolve each published module from JitPack at its per-module coordinate `com.github.Ygaray.voice-action-engine:voice-action-engine-{core,providers,keystore}` (E5; prefixed artifactIds per orchestrator ruling / E7) from an empty Gradle cache, with `:providers` pulling `:core` transitively; proven by commit SHA in step 1 and again at the tag. `jitpack.yml` has an explicit per-module install list and never builds/publishes `:sample`.
 - [ ] **BLD-04**: `./gradlew check` runs detekt (syntax mode, `maxIssues: 0`, no baseline file) clean on every library module, with invariant rules: forbidden imports for `okhttp3.internal.*`, `mockwebserver3.*`, `android.util.Log` and DI annotations in library code; `runCatching`, `println`, `printStackTrace` banned.
 - [ ] **BLD-05**: `explicitApi()` is on for every published module; Metalava is wired on all three published modules and its `api.txt` dumps are committed at the `v1.0.0` cut (additive-only enforcement from then on).
@@ -152,8 +152,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BLD-01 | Phase 1 | Pending |
-| BLD-02 | Phase 1 | Pending |
+| BLD-01 | Phase 1 | Complete |
+| BLD-02 | Phase 1 | Complete |
 | BLD-03 | Phase 1 | Pending |
 | BLD-04 | Phase 1 | Pending |
 | BLD-05 | Phase 1 | Pending |
@@ -219,11 +219,13 @@
 | VER-05 | Phase 11 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 65 total
 - Mapped to phases: 65
 - Unmapped: 0 ✓
 
 **Placement notes** (CLN-* and TEL-04 map to the first phase that makes them enforceable):
+
 - CLN-01 and CLN-05 → Phase 1. The detekt invariants (DI-annotation imports, planning-id comments) gate every later phase.
 - CLN-03 and CLN-04 → Phase 3. Model ids and settings first arrive through the selection seam and capability table.
 - TEL-04 → Phase 4. This is the first phase where every secret carrier exists: API key header, transcript, tool args/results, provider error bodies.

@@ -5,16 +5,16 @@ milestone_name: Core Engine
 current_phase: 1
 current_phase_name: Scaffold & Publishing Proof
 status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-09-30T21:10:13.926Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-09-30T21:12:55.094Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 1 execution started
-state_head: 49d84196e307c7d971fd24c9b9c07029aa84f81a
+state_head: 0e39bd8ef85b7e5f690cc38e7eade8c1908cda7a
 progress:
   total_phases: 11
   completed_phases: 0
   total_plans: 6
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 1 (Scaffold & Publishing Proof) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-09-30 — Phase 1 execution started
 
@@ -63,6 +63,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P01 | 20 min | 2 tasks | 21 files |
 | Phase 01 P02 | 6 min | 2 tasks | 2 files |
 | Phase 01 P03 | 10 min | 2 tasks | 13 files |
+| Phase 01 P04 | 9 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,7 @@ Recent decisions affecting current work:
 - [Phase 1]: ASSUMPTION: :keystore minSdk 35 / compileSdk 36.1 copied from SB/YAT; confirm with orchestrator before v1.0.0 cut
 - [Phase 01]: Live JitPack probe passed at rung 0 by 10-char SHA 7f9db22944; no fallback (F1-F3) needed, coordinates and module shape unchanged
 - [Phase 1]: Phase 1 plan 03: scanner (not detekt) gates runCatching/print/printStackTrace/FQ DI annotations; detekt control compared as exact (line, rule) set
+- [Phase 01]: 01-04: structural gates have no override knob; negative controls plant real violations — A knob equal to a wrongly-compiled truth would pass a bad artifact
 
 ### Pending Todos
 
@@ -109,6 +111,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-09-30T21:10:13.898Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-09-30T21:12:55.065Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None
