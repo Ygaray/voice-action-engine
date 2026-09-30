@@ -10,7 +10,10 @@ plugins {
 // Publication coordinates, shared by every published module.
 // JitPack exports VERSION per build; locally the engineVersion Gradle property is the default.
 val engineGroup: String = providers.gradleProperty("engineGroup").get()
+// A blank VERSION (other tools export that name too) is ignored rather than producing a publication with a blank version.
 val engineVersion: String = providers.environmentVariable("VERSION")
+    .map { it.trim() }
+    .filter { it.isNotEmpty() }
     .orElse(providers.gradleProperty("engineVersion"))
     .get()
 extra["engineGroup"] = engineGroup
