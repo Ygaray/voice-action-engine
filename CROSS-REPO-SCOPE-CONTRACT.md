@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A9 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
+**Status:** FROZEN v1.0 + amendments A1–A11 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
 ---
@@ -117,7 +117,7 @@ Modules: `:core` (pure Kotlin: interfaces + neutral types, no HTTP) · `:provide
 6a. Neutral multi-turn transcript model + per-provider tool-call mappers (Anthropic tool_use/tool_result ↔ OpenAI tool_calls/tool-role; explicit cache_control vs automatic caching) (A8).
 6b. `AgenticLoopStrategy` (port SB `AnthropicAgentLoop` / `AgentLoopRunner` onto 6a).
 7. Tag `v1.0.0` (tag-cut gate **waived**, A9: cut on green verification).
-   **v1.0 verification bar (A8):** the agentic loop is **verified on-device on Anthropic**, including SB's cache-read parity. OpenAI/OpenRouter agentic runs are covered by JVM tests with the fake provider only.
+   **v1.0 verification bar (A8, made precise by A10):** a debug-only, never-published `:sample` harness on the TESTER runs the agentic loop on Anthropic with a frozen snapshot of SB's real tool schemas + system prompt (~7k-token prefix) as a fixture; cache breakpoint placement matches SB; `cache_read_input_tokens > 0` on turn 2+. OpenAI/OpenRouter agentic runs are covered by JVM tests with the fake provider only. Full real-SB parity is proven in SB's Wave-1 Gate-1.
 
 *Engine milestone v1.1 → tag `v1.1.0`*
 8. `LocalGrammarStrategy` + bilingual `GrammarPack` DSL (EN/ES rules, slot extraction, number words in both languages).
@@ -147,7 +147,8 @@ Each consumer **evaluates every approach** and either designs its plug-in or rec
 - Adopt the YAT settings/outcome UI.
 
 **6.5 CalTracker**
-- Repin `:stt`, `voice-action-engine`, YAT; **OkHttp stays 4.12.0** (A1: the engine does not force a bump). If CT ever bumps to 5.x, it is an app-wide HTTP migration (OpenFoodFacts barcode lookup, scan client, backup-engine, MockWebServer); "barcode scan still resolves post-bump" is then a Gate-1 criterion.
+- Repin `:stt`, `voice-action-engine` (both `v1.0.0` and `v1.1.0`: CT's v1.13 consumes both), YAT. **OkHttp 4.12.0 → 5.2.1 by owner choice (A11)**: catalog version + drop the `:stt` okhttp exclude. Gate-1 must show a real **barcode lookup** and a live **Drive backup/restore round-trip** on the device (clears the precompiled-AAR binary-compat question).
+- On-device-backed SingleShot is **conditional** on the engine's v1.1 bundled-model spike (§6.2 step 11). Written into CT's requirements with an explicit fallback (spike red → requirement dispositioned N/A-deferred, never blocks CT's milestone).
 - CT's weak-match / batch confirm plugs into `PreApplyGate` (A2); it must not be dropped in migration.
 - Migrate its single-shot onto `SingleShotStrategy`; `log_food` → `ToolSpecProvider`; `RepositoryToolFacade` → `OutcomeResolver`; `VoiceLogViewModel` → `CommitSink`.
 - Design plug-ins for: LocalGrammar ("log N food" EN+ES), OnDevice-backed SingleShot (offline logging) if the spike is green; decide Plan/Agentic (likely N/A, or queries like "what did I eat yesterday").
@@ -160,7 +161,7 @@ freeze contract ─► Wave 0: stt-engine ║ voice-action-engine ║ YAT   (par
                     └─ 3 tags cut ─► Wave 1: SecondBrain ║ CalTracker  (parallel repin + integrate)
 ```
 
-Version deltas resolved by Wave-1 repins: OkHttp is **not** a Wave-1 delta (A1: engine floor 4.12, each app keeps its own; SB 5.2.1, CT 4.12.0), MicButton / YAT (CT v2.1.0, SB v2.3.0 → new YAT tag), `:stt` (SB v0.5.0, CT v0.6.0 → new `:stt` tag).
+Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); CT moves 4.12.0 → 5.2.1 by choice (A11), so all consumers converge on 5.2.1, MicButton / YAT (CT v2.1.0, SB v2.3.0 → new YAT tag), `:stt` (SB v0.5.0, CT v0.6.0 → new `:stt` tag).
 
 ## 8. Risks
 
@@ -195,3 +196,12 @@ Version deltas resolved by Wave-1 repins: OkHttp is **not** a Wave-1 delta (A1: 
 **A8 — Agentic sizing + v1.0 verification bar (2026-09-29, Yahir; raised by voice-action-engine-75).** Making the loop provider-neutral needs a neutral multi-turn transcript model + per-provider mappers (6a) before the port (6b). v1.0 bar: agentic **verified on-device on Anthropic** (SB cache-read parity); OpenAI/OpenRouter agentic is JVM-tested only.
 
 **A9 — Tag-cut gate waived for voice-action-engine (2026-09-29, Yahir).** Both engine tags cut on green verification, with no human checkpoint. Replaces the conflicting "confirm with Yahir" in the kickoff brief. (Errata in the same revision: §6.2 coordinate `/` → `:`.)
+
+**A10 — A8 proof mechanism (2026-09-29, Yahir; raised by voice-action-engine-75, answered by SB).** No consumer exists before `v1.0.0`, so the engine proves A8 with a **debug-only, never-published `:sample` harness**:
+- It uses a **frozen snapshot of SB's real tool schemas + system prompt** as a fixture (~7k tokens; a tiny fake prompt could fall below Anthropic's minimum cacheable length and produce a false fail). The library itself stays domain-free.
+- It has a fake `ToolExecutor` with canned results and a BYO-key field, which also exercises `:keystore` on-device.
+- **Breakpoint parity:** the placement must at least match SB's `AnthropicAgentLoop.buildRequestBody`: one `cache_control: ephemeral` on the system block, caching tools + system; messages have no breakpoint. A moving message breakpoint may be added on top, but not in place of it.
+- **Gate-1 on the TESTER:** 2+ turns; `cache_read_input_tokens > 0` on turn 2+, in SB's ballpark (Phase 165: 7,016).
+- **Full real-SB parity** is proven in SB's Wave-1 Gate-1 (§6.4). A gap found there is fixed with a `v1.0.x` patch tag, not a Wave-0 blocker. Option (b), an early SB branch on the engine, is rejected.
+
+**A11 — CalTracker bumps OkHttp to 5.2.1 in Wave 1 (2026-09-29, Yahir).** CT's cost assessment found 2 build-file lines, zero source/test changes, and green on 5.2.1: 1177/1177 relevant tests pass, and the one failure is an unrelated pre-existing flake. MockWebServer 5.x keeps the legacy `okhttp3.mockwebserver` API. `backup-engine` uses OkHttp directly. CT's v1.13 includes the bump; its Gate-1 adds a real barcode lookup + a Drive backup/restore round-trip, because `backup-engine` and `:stt` are AARs built against 4.12 and run on 5.x. SB already runs `backup-engine v1.2.1` on OkHttp 5.2.1 in production. A1's engine floor (4.12) is unchanged. CT's on-device plug-in is conditional on the v1.1 spike, with an explicit N/A-deferred fallback.
