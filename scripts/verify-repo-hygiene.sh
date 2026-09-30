@@ -9,7 +9,12 @@
 #   g. toolchain pins intact (Gradle 9.4.1, Kotlin 2.3.20, AGP 9.2.1, OkHttp 4.12.0)
 #   h. nothing STAGED under .planning/graphs/ or graphify-out/ (staged set only: unstaged pre-existing edits are not ours)
 # Prints every violation, then HYGIENE OK only when there are none. Usage: scripts/verify-repo-hygiene.sh
+#
+# (c) api.txt and (d) tags are PRE-RELEASE assertions (PRE_RELEASE=1, the default). The v1.0.0 cut needs both, so the
+# cut step runs this with PRE_RELEASE=0, which inverts them: every published module must then track its api.txt, and
+# tags are no longer forbidden. The fixture/baseline prohibitions in (c) hold in both modes.
 set -euo pipefail
+PRE_RELEASE="${PRE_RELEASE:-1}"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 violations=()
@@ -46,12 +51,21 @@ for p in sample/src/debug/assets/sb-a10-fixture.json sample/src/debug/assets/sb-
 done
 
 # c. forbidden files, tracked or untracked-not-ignored
-forbidden="$(git ls-files -co --exclude-standard -- '*api.txt' '*sb-a10-fixture*' '*baseline*.xml')"
+forbidden_specs=('*sb-a10-fixture*' '*baseline*.xml')
+if [ "$PRE_RELEASE" = 1 ]; then forbidden_specs+=('*api.txt'); fi
+forbidden="$(git ls-files -co --exclude-standard -- "${forbidden_specs[@]}")"
 if [ -n "$forbidden" ]; then violate "c: forbidden file(s) present: $(echo "$forbidden" | tr '\n' ' ')"; fi
+if [ "$PRE_RELEASE" != 1 ]; then
+  for m in core providers keystore; do
+    git ls-files --error-unmatch -- "$m/api.txt" >/dev/null 2>&1 || violate "c: release mode: $m/api.txt is not tracked"
+  done
+fi
 
-# d. no tags
-tags="$(git tag --list)"
-if [ -n "$tags" ]; then violate "d: git tags exist: $(echo "$tags" | tr '\n' ' ')"; fi
+# d. no tags (pre-release only)
+if [ "$PRE_RELEASE" = 1 ]; then
+  tags="$(git tag --list)"
+  if [ -n "$tags" ]; then violate "d: git tags exist: $(echo "$tags" | tr '\n' ' ')"; fi
+fi
 
 # e. gradlew mode
 gradlew_entry="$(git ls-files -s gradlew)"
