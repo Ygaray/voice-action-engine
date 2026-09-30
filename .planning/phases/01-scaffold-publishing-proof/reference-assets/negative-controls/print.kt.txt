@@ -1,0 +1,8 @@
+// EXPECT: println/print; System.out/err; printStackTrace
+package x
+fun f() {
+    println("x")
+    print("y")
+    System.out.println("z")
+    Throwable("m").printStackTrace()
+}

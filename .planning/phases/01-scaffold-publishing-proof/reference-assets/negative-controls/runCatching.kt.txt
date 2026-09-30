@@ -1,0 +1,3 @@
+// EXPECT: runCatching
+package x
+fun f() = runCatching { 1 }

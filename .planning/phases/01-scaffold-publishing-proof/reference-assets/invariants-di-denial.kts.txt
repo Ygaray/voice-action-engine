@@ -1,0 +1,22 @@
+// CLN-01 at the dependency level (RESEARCH Code Example 4 closing paragraph): no DI framework artifact may resolve on any
+// published module's compile or runtime classpath. Appended to gradle/invariants.gradle.kts, OUTSIDE the project.name blocks.
+val deniedDiGroups = setOf("com.google.dagger", "javax.inject", "jakarta.inject", "androidx.hilt", "dagger")
+val verifyNoDi = tasks.register("verifyNoDiArtifacts") {
+    group = "verification"
+    val classpathNames = if (plugins.hasPlugin("com.android.library")) {
+        listOf("releaseCompileClasspath", "releaseRuntimeClasspath")
+    } else {
+        listOf("compileClasspath", "runtimeClasspath")
+    }
+    val classpaths = classpathNames.map { configurations.named(it) }
+    doLast {
+        val hits = classpaths.flatMap { cp ->
+            cp.get().incoming.resolutionResult.allComponents
+                .mapNotNull { it.moduleVersion }
+                .filter { it.group in deniedDiGroups }
+                .map { "${cp.name}: ${it.group}:${it.name}:${it.version}" }
+        }.distinct()
+        if (hits.isNotEmpty()) throw GradleException("${project.path} resolves DI artifacts:\n" + hits.joinToString("\n") { "  $it" })
+    }
+}
+tasks.named("check") { dependsOn(verifyNoDi) }

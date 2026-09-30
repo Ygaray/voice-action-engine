@@ -1,0 +1,5 @@
+// EXPECT: DI annotation (FQ); forbidden package (FQ or import)
+package x
+class C @javax.inject.Inject constructor()
+@dagger.hilt.android.lifecycle.HiltViewModel
+class D
