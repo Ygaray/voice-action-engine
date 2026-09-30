@@ -1,9 +1,9 @@
 ---
 phase: "1"
 slug: "scaffold-publishing-proof"
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-09-30"
 ---
 
@@ -38,17 +38,17 @@ created: "2026-09-30"
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
-| BLD-01 | one-way module graph; `:core` has no HTTP/Android/DI/hub | structural | `./gradlew verifyModuleGraph :core:verifyCoreDependencyAllowlist` | ❌ W0 | ⬜ pending |
-| BLD-02 | toolchain pins + JVM 11 class files | structural | `./gradlew verifyBytecodeLevel` | ❌ W0 | ⬜ pending |
-| BLD-03 | per-module resolve from JitPack by SHA, `:sample` absent | live probe | `VERSION=$SHA scripts/jitpack-consumer-probe.sh` | ❌ W0 | ⬜ pending |
-| BLD-04 | detekt clean + invariant rules; planted constructs fail | unit+integration | `./gradlew detekt scanBannedConstructs` ; `scripts/verify-negative-controls.sh` | ❌ W0 | ⬜ pending |
-| BLD-05 | explicit API strict; Metalava dump + guarded check | structural | `./gradlew verifyExplicitApiStrict` | ❌ W0 | ⬜ pending |
-| BLD-07 | package root `io.github.ygaray.voiceactionengine` | structural | `git ls-files` path assertions | ❌ W0 | ⬜ pending |
-| BLD-08 | ECOSYSTEM/README coordinates; gitignore | unit | `grep` + `git check-ignore` | ❌ W0 | ⬜ pending |
-| BLD-09 | test-fixture harness runs with zero network; fixtures unpublished | unit | `./gradlew :core:test :core:verifyNoTestFixturesPublished` | ❌ W0 | ⬜ pending |
-| CLN-01 | no DI imports/annotations/artifacts | structural | scanner + detekt controls | ❌ W0 | ⬜ pending |
-| CLN-05 | no planning ids in comments | unit | detekt controls + scanner control | ❌ W0 | ⬜ pending |
-| (A1 plumbing) | matrix legs + reflective guard + compile floor | integration | `./gradlew :providers:test :providers:testOkhttp521 :providers:testOkhttp550 :providers:verifyOkHttpCompileFloor` | ❌ W0 | ⬜ pending |
+| BLD-01 | one-way module graph; `:core` has no HTTP/Android/DI/hub | structural | `./gradlew verifyModuleGraph :core:verifyCoreDependencyAllowlist` | ✅ | ✅ green |
+| BLD-02 | toolchain pins + JVM 11 class files | structural | `./gradlew verifyBytecodeLevel` | ✅ | ✅ green |
+| BLD-03 | per-module resolve from JitPack by SHA, `:sample` absent | live probe | `VERSION=$SHA scripts/jitpack-consumer-probe.sh` | ✅ | ✅ green |
+| BLD-04 | detekt clean + invariant rules; planted constructs fail | unit+integration | `./gradlew detekt scanBannedConstructs` ; `scripts/verify-negative-controls.sh` | ✅ | ✅ green |
+| BLD-05 | explicit API strict; Metalava dump + guarded check | structural | `./gradlew verifyExplicitApiStrict` | ✅ | ✅ green |
+| BLD-07 | package root `io.github.ygaray.voiceactionengine` | structural | `git ls-files` path assertions | ✅ | ✅ green |
+| BLD-08 | ECOSYSTEM/README coordinates; gitignore | unit | `grep` + `git check-ignore` | ✅ | ✅ green |
+| BLD-09 | test-fixture harness runs with zero network; fixtures unpublished | unit | `./gradlew :core:test :core:verifyNoTestFixturesPublished` | ✅ | ✅ green |
+| CLN-01 | no DI imports/annotations/artifacts | structural | scanner + detekt controls | ✅ | ✅ green |
+| CLN-05 | no planning ids in comments | unit | detekt controls + scanner control | ✅ | ✅ green |
+| (A1 plumbing) | matrix legs + reflective guard + compile floor | integration | `./gradlew :providers:test :providers:testOkhttp521 :providers:testOkhttp550 :providers:verifyOkHttpCompileFloor` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -70,13 +70,26 @@ Greenfield: every file is a gap. `settings.gradle.kts`, root `build.gradle.kts`,
 
 ## Validation Sign-Off
 
-> **Plan-time state is a DRAFT.** Finalized only post-execution by the Nyquist finalizer.
+> Finalized post-execution by the Nyquist finalizer (2026-09-30).
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` — leave `false` at plan time
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] _(finalizer-only)_ `nyquist_compliant: true` set post-execution
 
-**Approval:** pending (finalizer-owned)
+**Approval:** validated 2026-09-30
+
+---
+
+## Validation Audit 2026-09-30
+
+| Metric | Count |
+|--------|-------|
+| Requirements audited | 11 (10 requirement IDs plus the A1 plumbing row) |
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Every row maps to an automated command that ran green at HEAD: `./gradlew check` (137 tasks, 01-VERIFICATION.md and the auditor rerun), `scripts/verify-negative-controls.sh` (69 ok, 0 failures), `scripts/verify-repo-hygiene.sh`, `scripts/verify-api-dump.sh`, and the live JitPack probe (LIVE PROBE PASS ref=a40f8319ca, evidence/jitpack-probe.txt). The BLD-03 live probe stays listed under Manual-Only only because it needs the network and a pushed SHA; it is scripted and was executed. Auditor not spawned (auto mode, zero automatable gaps).
