@@ -28,7 +28,6 @@ kotlin {
 dependencies {
     api(libs.coroutines.core)
     api(libs.serialization.json)
-    testFixturesApi(libs.coroutines.core)
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(testFixtures(project(":core")))
