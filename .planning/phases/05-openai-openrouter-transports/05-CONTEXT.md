@@ -59,6 +59,10 @@ A consumer can point the same commands at OpenAI or OpenRouter through one Chat 
 - **D-15 [ext-openai-or]:** Needs external research: finish_reason under forced named tool on gpt-5.4-mini (and routed upstreams); current OpenAI strict keyword subset; OpenRouter reasoning_effort vs reasoning{effort}, max_completion_tokens acceptance, require_parameters hard-filtering; the exact 200-error envelope; GPT-6 Astra/6.1 Sol tools via OpenRouter; OpenRouter cached-token usage fields by default; strict on non-OpenAI upstreams _(source: ai-auto)_
 
 
+
+### r1-verdict
+- **D-16 [r1-verdict]:** Golden-capture tasks are KEY-GATED until the orchestrator relays Yahir's OK; structure plans so everything else in the phase executes without them. _(source: human — orchestrator R1 GO-WITH-CHANGES)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

@@ -47,6 +47,10 @@ A consumer can resolve every published engine module from JitPack at its per-mod
 - **D-11 [ext-build]:** Needs external research/probe: kotlin.jvm 2.3.20 next to AGP 9.2.1 built-in Kotlin; JitPack jar→jar/AAR→jar on commit SHA (and whether the aggregator lists :sample); okhttp-jvm variant attributes on Gradle 9.4.1; Metalava 0.5.1 on kotlin.jvm with a missing api.txt; detekt ForbiddenComment regex on planted planning ids _(source: ai-auto)_
 
 
+
+### r1-verdict
+- **D-12 [r1-verdict]:** Publishing probes (jar→jar and AAR→jar via JitPack by commit SHA, Metalava on kotlin.jvm) run FIRST; if any fallback changes consumer coordinates or module shape, message the orchestrator before Phase 2. _(source: human — orchestrator R1 GO-WITH-CHANGES)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

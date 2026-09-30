@@ -50,6 +50,10 @@ The engine is proven on a real device against SB's real prompt and live on all t
 - **D-12 [scope-change]:** The tag cut (VER-05, release script, `create_tag:false`) moved to Phase 11; this phase ends at green Gate-1 + docs + the agent-wiring test. _(source: human)_
 
 
+
+### r1-verdict
+- **D-13 [r1-verdict]:** Live legs (Gate-1 on the TESTER, A16 smokes) are KEY-GATED until the orchestrator relays Yahir's OK; build/docs/fixture/wiring-test work proceeds. Gate-1 runs cold on Haiku 4.5; warm re-runs are infra re-runs. _(source: human — orchestrator R1 GO-WITH-CHANGES)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

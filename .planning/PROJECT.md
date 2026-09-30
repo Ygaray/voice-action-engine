@@ -108,6 +108,8 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 - **Secrets**: API keys, transcripts, tool args/results never reach logs, telemetry, exceptions or `toString()`.
 - **Process**: contract changes only via §10 amendments through the control plane; tag cuts are agent-owned under A12 (Yahir confirmed push + tag authority for this effort, 2026-09-29).
 
+- **Dependency pre-approval**: discuss-milestone's supply-chain pre-approval step was skipped (its tooling covers npm/pypi/crates only); all v1.0 deps are Maven artifacts pinned to match consumers. Accepted by the orchestrator at R1.
+
 ## Key Decisions
 
 | Decision | Rationale | Outcome |

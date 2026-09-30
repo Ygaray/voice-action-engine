@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-09-30T04:59:13.660Z",
+  "phase": "1",
+  "phase_name": "Scaffold & Publishing Proof",
+  "phase_dir": ".planning/phases/01-scaffold-publishing-proof",
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
+    {
+      "id": 1,
+      "name": "/gsd-new-project (PROJECT, config, research, REQUIREMENTS 63, ROADMAP 11 phases)",
+      "status": "done",
+      "commit": "f216f87"
+    },
+    {
+      "id": 2,
+      "name": "/gsd-research-milestone (v1.0-DECISION-MAP, 125 gray areas)",
+      "status": "done",
+      "commit": "e9b078f"
+    },
+    {
+      "id": 3,
+      "name": "/gsd-discuss-milestone mixed, orchestrator as operator (11 CONTEXT.md, Phase 11 tag split, create_tag false)",
+      "status": "done",
+      "commit": "1ccf794"
+    },
+    {
+      "id": 4,
+      "name": "R1 reconvene brief + 'R1 ready' sent to orchestrator (A13 STOP)",
+      "status": "done",
+      "commit": "8716d0f"
+    }
+  ],
+  "remaining_tasks": [
+    {
+      "id": 5,
+      "name": "R1 verdict received: GO-WITH-CHANGES (folded into CONTEXT/PROJECT). Next: /gsd-plan-phase 1",
+      "status": "not_started"
+    }
+  ],
+  "blockers": [],
+  "async_jobs": [],
+  "human_actions_pending": [
+    {
+      "action": "Yahir approves the key mechanism/timing (chmod-600 key files outside repo, passed by reference) for Phase 5/8 golden captures and Phase 10 TESTER runs",
+      "context": "relayed via orchestrator; key-dependent tasks are gated",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Prefixed artifactIds voice-action-engine-{core,providers,keystore} (E5/E7)",
+      "rationale": "orchestrator ruling; stt-engine pattern",
+      "phase": "1"
+    },
+    {
+      "decision": "Tag cut is its own Phase 11; git.create_tag false",
+      "rationale": "execute-phase runs plans before Gate-1; avoid stray v1.0 marker tag",
+      "phase": "11"
+    },
+    {
+      "decision": "Completed.partial public non-defaultable; HOLD makes a tier terminal",
+      "rationale": "orchestrator ruling / A17 clarification",
+      "phase": "2"
+    },
+    {
+      "decision": "ON_DEVICE unavailable without declared fallback = loud Failed",
+      "rationale": "orchestrator ruling",
+      "phase": "3"
+    },
+    {
+      "decision": "Approvals route to the orchestrator, not Yahir",
+      "rationale": "Yahir: 'dont ask me, ask the orchestrator'",
+      "phase": "all"
+    }
+  ],
+  "uncommitted_files": [
+    " M .planning/graphs/* (graphify auto-rebuild noise)",
+    "?? graphify-out/ (to be gitignored in Phase 1, BLD-08)"
+  ],
+  "next_action": "R1 GO-WITH-CHANGES already folded in. Run /gsd-plan-phase 1 (publishing probes first). Key-dependent tasks in phases 5/8/10 stay gated until the orchestrator relays Yahir's key OK.",
+  "context_notes": "Multi-repo effort vae-bilingual. Orchestrator yahir-gsd-control-plane-f2 is the operator for approvals and sole \u00a711 ledger writer. Peers: secondbrain-2c, caltracker-android-9a, stt-engine-46, yahirandroidtaste-99. Always git pull --rebase before committing (orchestrator commits contract changes here). Push/tag authority confirmed by Yahir for this effort. Device work only on the wired TESTER \u2026-s22-ultra-2."
+}

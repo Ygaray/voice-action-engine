@@ -74,6 +74,10 @@ A consumer can compose a tier ladder with the DSL and get back a typed outcome t
 - **D-20 [listener]:** Non-suspending fun interface on the pipeline coroutine; listener throws caught via try/catch (no runCatching) and never abort the command; events carry ids/codes/counts/tool names only _(source: ai-auto)_
 
 
+
+### r1-verdict
+- **D-21 [r1-verdict]:** A17 payload clarifications are now contract text (1b064a0): verbatim appOutcomeToken alongside kind, monotonic position as identity, committed includes errored applies, high-confidence items commit in the original run. _(source: human — orchestrator R1 GO-WITH-CHANGES)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

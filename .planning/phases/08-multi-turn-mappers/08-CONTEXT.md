@@ -47,6 +47,10 @@ A multi-turn tool conversation round-trips losslessly between the neutral transc
 - **D-11 [ext-replay]:** Needs external research: whether OpenAI accepts the full echoed message (annotations, refusal:null, audio:null); OpenRouter reasoning/reasoning_details presence with effort none and whether it must be echoed (esp. anthropic/* with signatures); Anthropic preserved-thinking validation sensitivity to re-encoding, redacted_thinking, dropping older-turn thinking, interleaved text; OpenAI tool-message ordering and empty/null content; empty-args forms and blank/duplicate ids seen in practice; response model id vs requested id _(source: ai-auto)_
 
 
+
+### r1-verdict
+- **D-12 [r1-verdict]:** Multi-turn golden-capture tasks are KEY-GATED until the orchestrator relays Yahir's OK; the rest of the phase executes without them. _(source: human — orchestrator R1 GO-WITH-CHANGES)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 
