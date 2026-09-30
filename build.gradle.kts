@@ -27,6 +27,14 @@ subprojects {
             buildUponDefaultConfig = true
             allRules = false
             config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+            // testFixtures are consumed by later phases, so they are linted like main and test.
+            source.setFrom(
+                project.files(
+                    "src/main/kotlin",
+                    "src/test/kotlin",
+                    "src/testFixtures/kotlin",
+                ),
+            )
             // deliberately NO `baseline` property: zero-baseline policy, fix or tune, never bank debt
         }
     }

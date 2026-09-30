@@ -1,3 +1,41 @@
-# Minimal config for now: invariant rules (imports, comments, exceptions, magic numbers) are added with the gate work.
+# Zero-baseline gate: detekt defaults stay on (buildUponDefaultConfig), nothing is banked.
+# Only rules that work syntax-only are configured here; constructs that need type resolution
+# (method-call and annotation bans) are enforced by the scanBannedConstructs source scan instead.
 build:
   maxIssues: 0
+
+complexity:
+  LongParameterList:
+    # Request and policy value classes carry many defaulted parameters; defaults are not call-site burden.
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+
+style:
+  ForbiddenImport:
+    active: true
+    imports:
+      - 'okhttp3.internal.*'
+      - 'mockwebserver3.*'
+      - 'okhttp3.coroutines.*'
+      - 'android.util.Log'
+      - 'dagger.*'
+      - 'javax.inject.*'
+      - 'jakarta.inject.*'
+      - 'androidx.hilt.*'
+    forbiddenPatterns: ''
+  ForbiddenComment:
+    active: true
+    comments:
+      - value: 'TODO:'
+        reason: 'no TODO markers'
+      - value: 'FIXME:'
+        reason: 'no FIXME markers'
+      - value: 'STOPSHIP:'
+        reason: 'no STOPSHIP markers'
+      - value: '\bT-\d+-\d+\b'
+        reason: 'app planning id (T-xx-xx)'
+      - value: '\bWR-\d+\b'
+        reason: 'app planning id (WR-xx)'
+      - value: '\bPhase\s+\d+\s+D-\d+\b'
+        reason: 'app planning id (Phase NN D-xx)'
+    allowedPatterns: ''
