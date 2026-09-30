@@ -8,7 +8,18 @@ import java.net.URI
 
 /**
  * Makes "zero network" observable in a test. The classpath half proves no HTTP stack is even loadable; the runtime
- * half installs a tripwire that fails any code asking the JVM for a proxy route, which every JDK connection does first.
+ * half installs a tripwire on the JVM default [ProxySelector], so it catches code that resolves a proxy route at
+ * connect time while [during] is active.
+ *
+ * Limits (this is a tripwire, not proof of zero network):
+ * - It does not see clients that never consult the default selector: NIO `SocketChannel`, a `java.net.http.HttpClient`
+ *   with its own selector, direct `InetAddress` DNS lookups, pooled keep-alive connections, or an `OkHttpClient`
+ *   built before [during] (it captures the default selector at build time).
+ * - It mutates process-global state without synchronisation, so [during] is not safe under parallel test execution.
+ * - The [AssertionError] it throws can be swallowed by a `catch (Throwable)` in the code under test.
+ *
+ * Transport tests that need a stronger guarantee must add their own layer (for example an `OkHttpClient` whose `Dns`
+ * throws); that belongs next to the transport, because `:core` has no HTTP dependency.
  */
 public object NoNetworkGuard {
     private val httpStackClasses = listOf(
