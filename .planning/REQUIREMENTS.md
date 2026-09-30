@@ -13,12 +13,12 @@
 
 - [x] **BLD-01**: Repo builds four modules: `:core` and `:providers` as pure Kotlin/JVM, `:keystore` as an Android library, `:sample` as an unpublished debug app; dependencies point one way (`:sample → {:providers, :keystore} → :core`); `:core` has no HTTP, Android, DI or other-hub dependency (L7, A7).
 - [x] **BLD-02**: Toolchain matches consumers (Kotlin 2.3.20, AGP 9.2.1, Gradle 9.4.1, JDK 17 build) and every published module emits **JVM 11 bytecode**, so SB (Java 11) compiles against the DSL/inline surface.
-- [ ] **BLD-03**: A consumer can resolve each published module from JitPack at its per-module coordinate `com.github.Ygaray.voice-action-engine:voice-action-engine-{core,providers,keystore}` (E5; prefixed artifactIds per orchestrator ruling / E7) from an empty Gradle cache, with `:providers` pulling `:core` transitively; proven by commit SHA in step 1 and again at the tag. `jitpack.yml` has an explicit per-module install list and never builds/publishes `:sample`.
-- [ ] **BLD-04**: `./gradlew check` runs detekt (syntax mode, `maxIssues: 0`, no baseline file) clean on every library module, with invariant rules: forbidden imports for `okhttp3.internal.*`, `mockwebserver3.*`, `android.util.Log` and DI annotations in library code; `runCatching`, `println`, `printStackTrace` banned.
-- [ ] **BLD-05**: `explicitApi()` is on for every published module; Metalava is wired on all three published modules and its `api.txt` dumps are committed at the `v1.0.0` cut (additive-only enforcement from then on).
+- [x] **BLD-03**: A consumer can resolve each published module from JitPack at its per-module coordinate `com.github.Ygaray.voice-action-engine:voice-action-engine-{core,providers,keystore}` (E5; prefixed artifactIds per orchestrator ruling / E7) from an empty Gradle cache, with `:providers` pulling `:core` transitively; proven by commit SHA in step 1 and again at the tag. `jitpack.yml` has an explicit per-module install list and never builds/publishes `:sample`.
+- [x] **BLD-04**: `./gradlew check` runs detekt (syntax mode, `maxIssues: 0`, no baseline file) clean on every library module, with invariant rules: forbidden imports for `okhttp3.internal.*`, `mockwebserver3.*`, `android.util.Log` and DI annotations in library code; `runCatching`, `println`, `printStackTrace` banned.
+- [x] **BLD-05**: `explicitApi()` is on for every published module; Metalava is wired on all three published modules and its `api.txt` dumps are committed at the `v1.0.0` cut (additive-only enforcement from then on).
 - [ ] **BLD-06 (A1 must-pass)**: `:providers` compiles against OkHttp **4.12.0** (plain `api` floor, no `strictly`/BOM) and the same compiled test classes run green on OkHttp **4.12.0, 5.2.1 and 5.5.0** runtime classpaths inside `./gradlew check` (okhttp + mockwebserver swapped together); a reflective runtime-version guard test proves each leg actually ran the version it claims.
-- [ ] **BLD-07**: Package root is `io.github.ygaray.voiceactionengine.*`, decided in step 1 and never changed.
-- [ ] **BLD-08**: `ECOSYSTEM.md` lists the engine with its per-module coordinates (E5); `graphify-out/` and the A10 fixture path are gitignored. (Control-plane registry/deps-index entries are the orchestrator's, written at the `v1.0.0` cut — LE-5.)
+- [x] **BLD-07**: Package root is `io.github.ygaray.voiceactionengine.*`, decided in step 1 and never changed.
+- [x] **BLD-08**: `ECOSYSTEM.md` lists the engine with its per-module coordinates (E5); `graphify-out/` and the A10 fixture path are gitignored. (Control-plane registry/deps-index entries are the orchestrator's, written at the `v1.0.0` cut — LE-5.)
 - [x] **BLD-09**: A fake-provider test harness (scripted `FakeAiProvider`, recording sinks) lives in `:core`'s **test sources only** (unpublished; orchestrator ruling), so strategies and the pipeline are JVM-testable with no network.
 
 ### Core Contract & Pipeline (step 2)
@@ -94,11 +94,11 @@
 
 ### Port Cleanups (leave-behinds)
 
-- [ ] **CLN-01**: Library code has no DI-framework annotations; everything is wired with plain constructors/builders/DSL.
+- [x] **CLN-01**: Library code has no DI-framework annotations; everything is wired with plain constructors/builders/DSL.
 - [ ] **CLN-02**: Library code contains no app-domain types or prompts (no `LogFood*`, `log_food`, SB `SYSTEM_PROMPT`, SB tool names, `MutationTier`) and hard-codes no tool count.
 - [ ] **CLN-03**: Limits and model ids come from policy/config defaults, not hard-coded constants.
 - [ ] **CLN-04**: The library never reads app settings storage directly (provider/model/key/policy arrive through seams).
-- [ ] **CLN-05**: Library comments carry no app planning ids (T-xx-xx, WR-xx, "Phase NN D-xx").
+- [x] **CLN-05**: Library comments carry no app planning ids (T-xx-xx, WR-xx, "Phase NN D-xx").
 
 ### Verification, Docs & Tag (step 7; A8, A10, A16, §11)
 
@@ -154,12 +154,12 @@
 |-------------|-------|--------|
 | BLD-01 | Phase 1 | Complete |
 | BLD-02 | Phase 1 | Complete |
-| BLD-03 | Phase 1 | Pending |
-| BLD-04 | Phase 1 | Pending |
-| BLD-05 | Phase 1 | Pending |
+| BLD-03 | Phase 1 | Complete |
+| BLD-04 | Phase 1 | Complete |
+| BLD-05 | Phase 1 | Complete |
 | BLD-06 | Phase 4 | Pending |
-| BLD-07 | Phase 1 | Pending |
-| BLD-08 | Phase 1 | Pending |
+| BLD-07 | Phase 1 | Complete |
+| BLD-08 | Phase 1 | Complete |
 | BLD-09 | Phase 1 | Complete |
 | CORE-01 | Phase 2 | Pending |
 | CORE-02 | Phase 2 | Pending |
@@ -207,11 +207,11 @@
 | LOOP-01 | Phase 9 | Pending |
 | LOOP-02 | Phase 9 | Pending |
 | LOOP-03 | Phase 9 | Pending |
-| CLN-01 | Phase 1 | Pending |
+| CLN-01 | Phase 1 | Complete |
 | CLN-02 | Phase 9 | Pending |
 | CLN-03 | Phase 3 | Pending |
 | CLN-04 | Phase 3 | Pending |
-| CLN-05 | Phase 1 | Pending |
+| CLN-05 | Phase 1 | Complete |
 | VER-01 | Phase 10 | Pending |
 | VER-02 | Phase 10 | Pending |
 | VER-03 | Phase 10 | Pending |

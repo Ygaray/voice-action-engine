@@ -64,7 +64,7 @@ Side branches:  2 → 6 (:keystore) ........................ → 10
   4. In each published module, `explicitApi()` rejects a public declaration that lacks explicit visibility. Metalava emits an `api.txt` dump for all three published modules; the dumps are committed only at the `v1.0.0` cut.
   5. `./gradlew check` runs the harnesses later phases rely on. A fake provider runs a `:core` pipeline test with zero network, and the OkHttp matrix runs a trivial test on the 4.12.0 / 5.2.1 / 5.5.0 legs, with a guard proving each leg's runtime version. `graphify-out/` and the A10 fixture path are gitignored.
 
-**Plans**: 5/6 plans executed
+**Plans**: 6/6 plans executed
 
 Plans:
 **Wave 1**
@@ -89,7 +89,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 01-06-PLAN.md — End-to-end negative controls, ECOSYSTEM.md/README.md coordinate fix, hygiene script, phase gate with final live JitPack probe
+- [x] 01-06-PLAN.md — End-to-end negative controls, ECOSYSTEM.md/README.md coordinate fix, hygiene script, phase gate with final live JitPack probe
 
 **Research flag**: yes. Open items: Metalava on `kotlin.jvm` modules inside an AGP-9 build; JitPack's handling of inter-module POM / `.module` metadata under E5 (fallback: disable `.module` metadata); Gradle attribute plumbing for OkHttp's KMP variants in the in-build matrix legs.
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scaffold & Publishing Proof | 5/6 | In Progress|  |
+| 1. Scaffold & Publishing Proof | 6/6 | In Progress|  |
 | 2. Core Contract, Pipeline & Commit Seam | 0/TBD | Not started | - |
 | 3. Transcript Types, ProviderRouter & On-Device Gate | 0/TBD | Not started | - |
 | 4. Anthropic Transport & OkHttp Matrix | 0/TBD | Not started | - |
