@@ -76,6 +76,8 @@ None yet.
 - **Responses API ruled (orchestrator, Option A):** v1.0 stays Chat Completions; GPT-6 Astra / GPT-6.1 Sol with tools fail typed + loud up front via the PUBLIC capability table (PROV-08), documented in README (VER-04); Responses dialect is additive v1.x (LATER-03). No amendment.
 - **Fixture (LE-1):** delivered, gitignored, never committed (LE-7). If SB's prompt or tools change before Phase 10, ask the orchestrator to regenerate it.
 - **Phase 5 goldens** need recorded real OpenAI/OpenRouter bodies, which means Yahir's keys. A16's live smokes (Phase 10) need all three keys.
+- **Keys (pending Yahir via orchestrator):** Phase 5/8 golden captures and Phase 10 need real keys via chmod-600 files outside the repo, passed by reference; capture tasks are gated on that approval.
+- **Tag cut is Phase 11** (orchestrator ruling): Phase 10 = sample/Gate-1/docs; `git.create_tag` false.
 - **Devices:** all device work (Phase 6 instrumented test, Phase 10 Gate-1 + smokes) runs on the TESTER `…-s22-ultra-2` only.
 - **§11:** the tag row is messaged to the orchestrator (A14), never committed here. Always run `git pull --rebase` before committing, because peers commit contract changes to this repo.
 

@@ -19,7 +19,7 @@ v1.0 turns contract §6.2 steps 1–7 into ten phases and ends at tag `v1.0.0`. 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-### 🚧 v1.0 — Core Engine (Phases 1-10) — IN PROGRESS
+### 🚧 v1.0 — Core Engine (Phases 1-11) — IN PROGRESS
 
 - [ ] **Phase 1: Scaffold & Publishing Proof** - §6.2 step 1: four modules, per-module JitPack coordinates proven by SHA, zero-baseline detekt invariants, fake-provider and OkHttp-matrix harnesses
 - [ ] **Phase 2: Core Contract, Pipeline & Commit Seam** - §6.2 step 2 (keystone): pipeline DSL, typed never-thrown outcomes, one gate → commit path in both modes, telemetry
@@ -30,12 +30,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 7: SingleShot Strategy** - §6.2 step 5: one forced-tool extraction resolved locally and committed through the gate (CT port)
 - [ ] **Phase 8: Multi-turn Mappers** - §6.2 step 6a: lossless neutral ↔ Anthropic / Chat Completions tool conversations with verbatim replay
 - [ ] **Phase 9: Agentic Loop Strategy** - §6.2 step 6b: SB's bounded agentic loop on any cloud provider, gated and honest on every exit
-- [ ] **Phase 10: Sample Harness, Gate-1 & Tag** - §6.2 step 7: `:sample` A10 proof on the TESTER, live smokes on 3 clouds, agent-ready README, cut `v1.0.0`
+- [ ] **Phase 10: Sample Harness, Gate-1 & Docs** - §6.2 step 7: `:sample` A10 proof on the TESTER, live smokes on 3 clouds, agent-ready README
+- [ ] **Phase 11: Cut v1.0.0** - §6.2 step 7 / §11: gated release after Phase 10's green Gate-1; tag row messaged to the orchestrator
 
 ## Dependencies & Parallelism
 
 ```
-Critical path:  1 → 2 → 3 → 4 → 8 → 9 → 10
+Critical path:  1 → 2 → 3 → 4 → 8 → 9 → 10 → 11
 Side branches:  2 → 6 (:keystore) ........................ → 10
                 3 → 5 (OpenAI + OpenRouter) → 8               (8 needs both 4 and 5)
                 4 → 7 (SingleShot) ....................... → 10   (SHOT-02's Chat Completions leg also needs 5)
@@ -164,25 +165,36 @@ Side branches:  2 → 6 (:keystore) ........................ → 10
   4. With both ports now landed, library code in `:core`, `:providers` and `:keystore` contains no app-domain types or prompts (`LogFood*`, `log_food`, SB `SYSTEM_PROMPT`, SB tool names, `MutationTier`) and hard-codes no tool count.
 **Plans**: TBD
 
-### Phase 10: Sample Harness, Gate-1 & Tag
-**Goal**: The engine is proven on a real device against SB's real prompt and live on all three cloud providers. It is documented well enough for an AI agent to wire it from the README alone, and it is tagged `v1.0.0` per §11.
+### Phase 10: Sample Harness, Gate-1 & Docs
+**Goal**: The engine is proven on a real device against SB's real prompt and live on all three cloud providers, and it is documented well enough for an AI agent to wire it from the README alone. (The tag itself is Phase 11, so the immutable cut happens only after this phase's Gate-1 is green — orchestrator ruling.)
 **Contract step**: §6.2 step 7 (A8, A10, A12, A14, A16; §11; LE-1, LE-7)
 **Depends on**: Phase 6, Phase 7, Phase 9
-**Requirements**: VER-01, VER-02, VER-03, VER-04, VER-05
+**Requirements**: VER-01, VER-02, VER-03, VER-04
 **Success Criteria** (what must be TRUE):
   1. `:sample` loads the LE-1 fixture (`sb-a10-fixture.json`, sha256 `ebd3ef4a…af4ed3e`) from its gitignored path. When the fixture is absent, it fails loudly at debug-task or run time, never at Gradle configuration time. It runs a fake `ToolExecutor`, stores the BYO key through `:keystore`, and pins OkHttp 5.2.1 so the 4.12-compiled engine bytecode runs on 5.x.
   2. Gate-1 on the TESTER: the Anthropic agentic loop runs ≥2 turns with turn-1 `cache_creation_input_tokens > 0` and turn-2+ `cache_read_input_tokens > 0`, near SB's 7,016. The confirm gate runs in canned-admit mode, and the prefix size and the model's minimum cacheable length are logged.
   3. One live single-shot smoke call each to Anthropic, OpenAI and OpenRouter from `:sample` (Yahir's real keys) returns a parsed tool call.
   4. An AI agent can wire the engine into a new app from the README (plus the integration doc) alone. The docs cover the per-module coordinates, a minimal pipeline, every seam, both gate modes and the `else` branches on open taxonomies, and they point to `:sample` as the working example.
-  5. `v1.0.0` is cut only after §11 steps 1–4 all hold: verification green, Metalava `api.txt` committed as the additive baseline, seams honoring the contract, and the tag pushed with JitPack building every module (resolved from a clean cache). The full ledger row is **messaged to the orchestrator** (`yahir-gsd-control-plane-f2`, A14) and **never committed to §11 in this repo**. The orchestrator also writes the control-plane registry/deps-index entries (LE-5).
 **Plans**: TBD
 **Device note**: all device work (Gate-1, the live smokes, the `:keystore` round trip) runs only on the wired TESTER (`…-s22-ultra-2`), never the personal phone (`…-s22-ultra`). Read `~/.claude/context/devices/common.md` first and always use `adb -s`.
 **Fixture note**: never commit the fixture or reference SB's path at build time. If SB's prompt or tools change before this phase, ask the orchestrator to regenerate it. Never hard-code the tool count (18, E4).
 
+### Phase 11: Cut v1.0.0
+**Goal**: `v1.0.0` exists as an immutable, JitPack-resolvable tag only because every §11 precondition already held, and the orchestrator has the full ledger row.
+**Contract step**: §6.2 step 7 / §11 (A12, A14, E5, E7)
+**Depends on**: Phase 10 (its Gate-1 SELF-UAT must be green before this phase starts)
+**Requirements**: VER-05
+**Success Criteria** (what must be TRUE):
+  1. A gated release script runs, in order: `./gradlew check` green → `apiDump` writes the three Metalava `api.txt` files, committed in the commit being tagged → `apiCheck` green → clean-clone JitPack dry run using `jitpack.yml`'s install list (never `:sample`) → leak scan of tracked files for the fixture name and key-shaped strings → declared version equals the tag. Only then is `v1.0.0` created and pushed.
+  2. JitPack's build log for `v1.0.0` succeeds, and all three per-module coordinates (`com.github.Ygaray.voice-action-engine:voice-action-engine-{core,providers,keystore}:v1.0.0`) resolve from an empty Gradle cache.
+  3. The full ledger row (repo, tag, commit, coordinates, contents, evidence path) is **messaged to `yahir-gsd-control-plane-f2`** (A14) and never committed to §11 here. The orchestrator writes the control-plane registry/deps-index entries (LE-5).
+  4. `git.create_tag` is false, so GSD's milestone close never creates a stray `v1.0` marker tag next to `v1.0.0` (INC-2026-09-30-01).
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 (see Dependencies & Parallelism for the safe parallel options)
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 (see Dependencies & Parallelism for the safe parallel options)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -195,4 +207,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. SingleShot Strategy | 0/TBD | Not started | - |
 | 8. Multi-turn Mappers | 0/TBD | Not started | - |
 | 9. Agentic Loop Strategy | 0/TBD | Not started | - |
-| 10. Sample Harness, Gate-1 & Tag | 0/TBD | Not started | - |
+| 10. Sample Harness, Gate-1 & Docs | 0/TBD | Not started | - |
+| 11. Cut v1.0.0 | 0/TBD | Not started | - |
