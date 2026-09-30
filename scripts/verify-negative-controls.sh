@@ -68,6 +68,13 @@ done
 touch config/detekt-baseline.xml
 expect_task_red "baseline file" "detekt baseline is forbidden" :core:verifyNoDetektBaseline
 rm -f config/detekt-baseline.xml
+printf '<?xml version="1.0"?>\n<SmellBaseline/>\n' > config/zz-suppressions.xml; PLANTS+=(config/zz-suppressions.xml)
+expect_task_red "baseline file under an arbitrary name" "baseline file (by content)" :core:verifyNoDetektBaseline
+rm -f config/zz-suppressions.xml
+backup keystore/build.gradle.kts
+printf '\n// planted wiring: baseline.set(file("zz.xml"))\n' >> keystore/build.gradle.kts
+expect_task_red "baseline wired via property set" "baseline wiring" :core:verifyNoDetektBaseline
+restore keystore/build.gradle.kts
 
 for m in core providers keystore; do
   expect_task_red "api.txt missing once released ($m)" "api.txt is missing" ":$m:verifyApiDumpPresent" -PvaeAssumeReleased

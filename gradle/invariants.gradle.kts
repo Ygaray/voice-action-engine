@@ -333,11 +333,22 @@ if (project.name == "core") {
         doLast {
             val skip = setOf("build", ".gradle", ".git", ".planning", "graphify-out", ".kotlin")
             val hits = mutableListOf<String>()
+            // Wiring forms: assignment, property set/convention, a function-style call, a detekt-prefixed baseline name, and
+            // the detekt CLI flags. (Described in words so this very file does not match its own patterns.)
+            // A baseline XML stored under an arbitrary name is caught by content.
+            val wiring = listOf(
+                Regex("""\bbaseline\b\s*(=|\.set\(|\.convention\(|\()"""),
+                Regex("""detekt[-_.]baseline"""),
+                Regex("""["'](-ba|--baseline)\b"""),
+            )
             root.walkTopDown().onEnter { it.name !in skip }.forEach { f ->
-                if (f.isFile && f.name.matches(Regex("(?i).*baseline.*\\.xml"))) {
+                if (!f.isFile) return@forEach
+                if (f.name.matches(Regex("(?i).*baseline.*\\.xml"))) {
                     hits += "baseline file: ${f.relativeTo(root)}"
+                } else if (f.name.endsWith(".xml") && f.length() < 1_000_000 && f.readText().contains("<SmellBaseline")) {
+                    hits += "baseline file (by content): ${f.relativeTo(root)}"
                 }
-                if (f.isFile && f.name.endsWith(".kts") && Regex("""\bbaseline\s*=""").containsMatchIn(f.readText())) {
+                if (f.name.endsWith(".kts") && wiring.any { it.containsMatchIn(f.readText()) }) {
                     hits += "baseline wiring: ${f.relativeTo(root)}"
                 }
             }
