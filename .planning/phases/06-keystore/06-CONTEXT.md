@@ -44,6 +44,9 @@ A consumer can keep each provider's BYO API key encrypted on-device in its own D
 - **D-10 [ext-keystore]:** Needs external research: SunJCE AES/GCM random 12-byte IV via cipher.iv on JDK 17; Keystore2 (Android 14+/One UI) transient-failure behavior of key lookup (KeyMissing vs Unreadable) and exceptions for missing vs invalidated keys; how api(datastore) appears in the published POM / api.txt _(source: ai-auto)_
 
 
+### sb-keystore
+- **D-11 [sb-keystore]:** `:keystore` accepts an app-INJECTED `DataStore<Preferences>` (SB hoists `app_preferences` into one Hilt singleton), and a `KeySlot` maps SB's existing alias `secondbrain_anthropic_api_key_v1` plus its ciphertext/IV DataStore keys with no copy/migration; verify ct/IV layout against SB `core/agent/KeystoreCrypto.kt:98` during this phase. SB R1 item via orchestrator. _(source: human — orchestrator)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 

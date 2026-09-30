@@ -81,6 +81,9 @@ A consumer can compose a tier ladder with the DSL and get back a typed outcome t
 ### a19-clarification
 - **D-22 [a19-clarification]:** A19 (contract 725d8d7): add `Completed.terminalCall: TerminalCall?` (toolName + arguments JsonObject; additive field, no new CommandOutcome variant), typed `Clarification(question, options: List<ClarificationOption(id, label)>)` with opaque app option ids, `ToolSpec.clarification(...)` builder + `TerminalCall.asClarification()`, and `CommandInput.parentRunId: String? = null` linking follow-up runs in the trace and CommitSink/onRunClosed (CORE-08/09). _(source: human — orchestrator, contract A19)_
 
+### sb-gate-timeout
+- **D-23 [sb-gate-timeout]:** No engine-level timeout wraps `PreApplyGate.admit` in suspend mode beyond the app's own (SB's gate auto-holds at 120 s); provider HTTP timeouts are separate. SB R1 item via orchestrator. _(source: human — orchestrator)_
+
 ### Claude's Discretion
 Anything not listed above follows `.planning/research/SUMMARY.md` and the phase's own research; Source `ai-auto` decisions took research's recommendation (orchestrator accepted the auto-resolved remainder).
 
