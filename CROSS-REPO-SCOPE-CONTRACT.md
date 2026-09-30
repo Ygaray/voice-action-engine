@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A14, A17, A18 + errata E1–E6 (A15, A16 pending) (2026-09-29): amendments approved by Yahir. Errata are verified factual corrections recorded by the orchestrator.
+**Status:** FROZEN v1.0 + amendments A1–A14, A16–A18 + errata E1–E6 (A15 pending R1) (2026-09-29): amendments approved by Yahir. Errata are verified factual corrections recorded by the orchestrator.
 **Orchestrator (A14):** the control plane, session `yahir-gsd-control-plane-f2`. State: `~/Projects/yahir-agentic-tools/yahir-gsd-control-plane/xrepo/vae-bilingual/`. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
@@ -236,6 +236,8 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 - **§11 step 5 is replaced:** after steps 1–4, the tagging session **messages the orchestrator the full row** (repo, tag, commit, coordinate(s), contents, evidence path). The orchestrator re-checks that JitPack resolves the tag, commits the row, and broadcasts to every peer. Consumers message their repin rows the same way. **No peer commits to §11.**
 - Peers may talk directly for technical Q&A (e.g. VAE asking SB about its code). Any outcome that touches the contract, a tag, or sequencing goes through the orchestrator.
 - SB keeps §6.4 and answers SB-code questions. It no longer holds the contract.
+
+**A16 — v1.0 verification bar tightened: one live smoke call per cloud provider (2026-09-29, Yahir, in VAE's session; raised by VAE after CT confirmed an OpenAI tool-shape bug that MockWebServer tests never caught).** A8's v1.0 bar adds **one live single-shot call per cloud provider** (Anthropic, OpenAI, OpenRouter) from `:sample` on the TESTER, using real BYO keys Yahir supplies. It proves the real wire shapes. OpenAI/OpenRouter *agentic* is still JVM-only in v1.0; SB's Gate-1 (PROV-03) is its first on-device proof. Yahir also approved these v1.0 engine details in the same session: HTTP-level retry only (`maxRetries = 1`, transport errors; **a retry never re-executes tools or re-commits**, see A17), a `CacheNotEngaged` telemetry event, and provider request ids on failures.
 
 **A17 — CommitSink seam refinement + escalate-after-commit safety (2026-09-29, Yahir; raised by VAE, specified by SB from its code, brokered by the orchestrator).** It lands in **v1.0** (§6.2 steps 2/6b). §5.2 `CommitSink` becomes:
 - **Per-action commit notification, sent as each action commits** (not at the end of the run), so actions committed before a cancel, budget stop or error are never lost from undo/audit.
