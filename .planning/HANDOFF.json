@@ -37,7 +37,7 @@
   "remaining_tasks": [
     {
       "id": 5,
-      "name": "R1 verdict received: GO-WITH-CHANGES (folded into CONTEXT/PROJECT). Next: /gsd-plan-phase 1",
+      "name": "R1 GO-WITH-CHANGES folded in. Next: wait for orchestrator dispatch of /gsd-execute-milestone --subagent-driven",
       "status": "not_started"
     }
   ],
@@ -45,8 +45,8 @@
   "async_jobs": [],
   "human_actions_pending": [
     {
-      "action": "Yahir approves the key mechanism/timing (chmod-600 key files outside repo, passed by reference) for Phase 5/8 golden captures and Phase 10 TESTER runs",
-      "context": "relayed via orchestrator; key-dependent tasks are gated",
+      "action": "Yahir installs test keys via with-test-keys / push-test-key",
+      "context": "Key-gated tasks (Phase 5/8 golden captures, Phase 10 live legs) unblock once Yahir installs keys via the live test-keys infra (with-test-keys / push-test-key, ~/.claude/context/workflows/test-keys.md); the orchestrator will say when.",
       "blocking": false
     }
   ],
@@ -81,6 +81,6 @@
     " M .planning/graphs/* (graphify auto-rebuild noise)",
     "?? graphify-out/ (to be gitignored in Phase 1, BLD-08)"
   ],
-  "next_action": "R1 GO-WITH-CHANGES already folded in. Run /gsd-plan-phase 1 (publishing probes first). Key-dependent tasks in phases 5/8/10 stay gated until the orchestrator relays Yahir's key OK.",
+  "next_action": "Wait for the orchestrator (yahir-gsd-control-plane-f2) to dispatch /gsd-execute-milestone --subagent-driven in this session; do NOT hand-run /gsd-plan-phase or /gsd-execute-phase (Yahir process change, 2026-09-30). Key-gated tasks (Phase 5/8 golden captures, Phase 10 live legs) unblock once Yahir installs keys via the live test-keys infra (with-test-keys / push-test-key, ~/.claude/context/workflows/test-keys.md); the orchestrator will say when.",
   "context_notes": "Multi-repo effort vae-bilingual. Orchestrator yahir-gsd-control-plane-f2 is the operator for approvals and sole \u00a711 ledger writer. Peers: secondbrain-2c, caltracker-android-9a, stt-engine-46, yahirandroidtaste-99. Always git pull --rebase before committing (orchestrator commits contract changes here). Push/tag authority confirmed by Yahir for this effort. Device work only on the wired TESTER \u2026-s22-ultra-2."
 }

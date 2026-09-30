@@ -101,8 +101,8 @@ Session names can change after a restart. If one doesn't resolve, ask the orches
 ## Current state (2026-09-30)
 
 - **Stage:** v1.0 initialized, researched, discussed; R1 reconvene done → **GO-WITH-CHANGES** (folded in). No phase planned or executed yet.
-- **Next command:** `/gsd-plan-phase 1` (Phase 1 publishing probes first: jar→jar / AAR→jar JitPack by commit SHA, Metalava on kotlin.jvm; tell the orchestrator before Phase 2 if a fallback changes coordinates or module shape). Then phases 2→11 in order. Never run `/gsd-milestone`.
-- **Waiting on the orchestrator:** Yahir's OK on the key mechanism (chmod-600 key files outside the repo, passed by reference). Phase 5/8 golden-capture tasks and Phase 10 live legs (Gate-1, A16 smokes) stay blocked until it's relayed.
+- **Next action:** WAIT for the orchestrator to dispatch `/gsd-execute-milestone --subagent-driven` in this session (Yahir process change, 2026-09-30). Do NOT hand-run `/gsd-plan-phase` / `/gsd-execute-phase`, and never `/gsd-milestone`. When it runs: Phase 1 publishing probes go first; tell the orchestrator before Phase 2 if a fallback changes coordinates or module shape.
+- **Keys:** Key-gated tasks (Phase 5/8 golden captures, Phase 10 live legs) unblock once Yahir installs keys via the live test-keys infra (with-test-keys / push-test-key, ~/.claude/context/workflows/test-keys.md); the orchestrator will say when.
 - **Peer Q&A:** SB and CT confirmations done and recorded in `RECONVENE-BRIEF.md` §3; A17 payload clarifications recorded by the orchestrator in contract `1b064a0`.
 - **Roadmap change:** tag cut is its own **Phase 11 "Cut v1.0.0"** after Phase 10's green Gate-1; `git.create_tag: false` (no stray `v1.0` marker tag).
 - **Key files:** `.planning/PROJECT.md`, `REQUIREMENTS.md` (63), `ROADMAP.md` (11 phases), `v1.0-DECISION-MAP.md` (discussed), `phases/*/NN-CONTEXT.md`, `cross-repo/RECONVENE-BRIEF.md`, `.continue-here.md`, `HANDOFF.json`.
