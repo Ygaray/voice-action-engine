@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A14 + errata E1–E3 (2026-09-29): approved by Yahir.
+**Status:** FROZEN v1.0 + amendments A1–A14 + errata E1–E6 (2026-09-29): amendments approved by Yahir. Errata are verified factual corrections recorded by the orchestrator.
 **Orchestrator (A14):** the control plane, session `yahir-gsd-control-plane-f2`. State: `~/Projects/yahir-agentic-tools/yahir-gsd-control-plane/xrepo/vae-bilingual/`. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
@@ -214,6 +214,12 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 **E2 — Erratum: the A10 fixture source (2026-09-29; found by SB, verified by VAE).** The A10 fixture is the serialized **`AnthropicToolRegistry.toolDefinitions`** (`AnthropicToolRegistry.kt:150`) plus the **fully composed `SYSTEM_PROMPT`** (`AnthropicAgentLoop.kt:456`, composed with `TAG_DISAMBIGUATION_POLICY` at :443), not `ToolSchemas.kt` directly. SB produces it as a `{system, tools}` JSON file (SB-side JVM test/task) and hands it to VAE before v1.0's `:sample` step, routed through the orchestrator (A14).
 
 **E3 — Erratum: A3 applies to SB too (2026-09-29).** SB's minSdk is also 35, so `language="auto"` is always native-live for SB as well. The SDK_INT < 34 fallback is tested in `:stt` only.
+
+**E4 — Erratum: SB's tool contract has 18 tools, not 17 (2026-09-29; found by SB while producing the E2 fixture).** `find_tags` was added in SB Phase 167. Wherever §5.2 or §6.4 say "17-tool `ToolContract`", read 18. Nothing may hardcode the count.
+
+**E5 — Erratum: the engine's JitPack coordinates are per-module (2026-09-29; found by VAE research).** A multi-module JitPack build publishes each module as `com.github.Ygaray.voice-action-engine:<artifactId>`. The bare `com.github.Ygaray:voice-action-engine` resolves only to an aggregate POM. This is the same behavior stt-engine documented at `b8c9fdb`. Wherever this contract or ECOSYSTEM.md cite `com.github.Ygaray:voice-action-engine`, read the per-module form; VAE's scaffold (step 1) fixes the exact artifactIds. §11 ledger rows list the per-module coordinates, and the orchestrator's JitPack check resolves each one.
+
+**E6 — Erratum: A11's AAR premise is half wrong (2026-09-29; found by VAE research, verified by the orchestrator).** A11 says `backup-engine` and `:stt` are AARs "built against 4.12". `backup-engine` does pin OkHttp 4.12.0, but `:stt` pins **5.2.1** (`stt-engine/android/gradle/libs.versions.toml`). A11's decision and CT's Gate-1 criteria (barcode lookup + Drive backup/restore round-trip) are unchanged; the binary-compat risk is `backup-engine` only.
 
 **A13 — Reconvene protocol: two per wave (2026-09-29, Yahir).** Every milestone in this effort pauses for a cross-repo **reconvene** after research + discussion and **before planning**. The control plane runs it (A14).
 - **Per-repo sequence:** `/gsd-new-milestone` (or `/gsd-new-project`) → `/gsd-research-milestone` → `/gsd-discuss-milestone` → **STOP**. Do **not** run the `/gsd-milestone` umbrella, and do not plan or execute, until the orchestrator sends GO.
