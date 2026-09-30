@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
+**Status:** FROZEN v1.0 + amendments A1–A3 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
 ---
@@ -83,7 +83,7 @@ transcript + language  ─►  CommandPipeline
 | `ToolSpecProvider` (schemas + system prompt) | SingleShot, Plan, Agentic, Router | 17-tool `ToolContract` | 1-tool `log_food` no-macro-fabrication schema |
 | `ToolExecutor` (tool_use → tool_result) | Plan, Agentic | `RoomToolFacade` (`SecondBrainToolFacade`) | N/A unless CT adopts Plan/Agentic |
 | `OutcomeResolver` (structured extraction → app action) | SingleShot, LocalGrammar | TBD by SB | `RepositoryToolFacade` (local Room resolution) |
-| `PreApplyGate` (suspend-until-confirm) | all mutating paths | `MutationTierPolicy` | none |
+| `PreApplyGate` (any confirm-before-commit policy; see A2) | all mutating paths | `MutationTierPolicy` (mutation risk) | weak-match / batch confirm (`VoiceResultSheet` Proposed / ProposedBatch; `WEAK_MATCH_THRESHOLD`, `PARSE_CONFIDENCE_FLOOR`) |
 | `CommitSink` (commit + undo) | all | Undo Center | `VoiceLogViewModel` |
 | `TierPolicy` defaults + settings binding | pipeline | SB settings | CT settings |
 
@@ -109,7 +109,7 @@ Modules: `:core` (pure Kotlin) · `:keystore` (Android AES/GCM BYO-key) · `:voi
 Suggested phase order:
 1. Repo scaffold, JitPack publishing, detekt zero-baseline, fake-provider test harness, control-plane registry entries.
 2. `:core` contract types + `CommandPipeline` / `TierSelector.Linear` / `TierPolicy` / telemetry (escalation behavior lives here).
-3. Provider transport: port CT `AiProvider`/`ProviderRouter` (Anthropic / OpenAI / OpenRouter) on **OkHttp 5.x**; prompt caching as a provider capability.
+3. Provider transport: port CT `AiProvider`/`ProviderRouter` (Anthropic / OpenAI / OpenRouter) compiled against the **OkHttp 4.12 API floor** and CI-tested against **both 4.12.x and 5.x** (A1; must-pass, else fall back to a forced 5.x floor via a new amendment); prompt caching as a provider capability.
 4. `:keystore` — generalize the shared `KeystoreCrypto` / `KeystoreCryptoSeam` shape (per-provider aliases, DataStore).
 5. `SingleShotStrategy` (port CT).
 6. `AgenticLoopStrategy` (port SB `AnthropicAgentLoop` / `AgentLoopRunner`, made provider-neutral) + `PreApplyGate` + `CommitSink` hooks.
@@ -140,7 +140,8 @@ Each consumer **evaluates every approach** and either designs its plug-in or rec
 - Adopt the YAT settings/outcome UI.
 
 **6.5 CalTracker**
-- Repin `:stt`, `voice-action-engine`, YAT; **OkHttp 4.12.0 → 5.x** (bump driven by the engine).
+- Repin `:stt`, `voice-action-engine`, YAT; **OkHttp stays 4.12.0** (A1: the engine does not force a bump). If CT ever bumps to 5.x, it is an app-wide HTTP migration (OpenFoodFacts barcode lookup, scan client, backup-engine, MockWebServer); "barcode scan still resolves post-bump" is then a Gate-1 criterion.
+- CT's weak-match / batch confirm plugs into `PreApplyGate` (A2); it must not be dropped in migration.
 - Migrate its single-shot onto `SingleShotStrategy`; `log_food` → `ToolSpecProvider`; `RepositoryToolFacade` → `OutcomeResolver`; `VoiceLogViewModel` → `CommitSink`.
 - Design plug-ins for: LocalGrammar ("log N food" EN+ES), OnDevice-backed SingleShot (offline logging) if the spike is green; decide Plan/Agentic (likely N/A, or queries like "what did I eat yesterday").
 - Adopt bilingual. Adopt the YAT settings/outcome UI.
@@ -152,7 +153,7 @@ freeze contract ─► Wave 0: stt-engine ║ voice-action-engine ║ YAT   (par
                     └─ 3 tags cut ─► Wave 1: SecondBrain ║ CalTracker  (parallel repin + integrate)
 ```
 
-Version deltas resolved by Wave-1 repins: OkHttp (CT 4.12.0 → 5.x), MicButton / YAT (CT v2.1.0, SB v2.3.0 → new YAT tag), `:stt` (SB v0.5.0, CT v0.6.0 → new `:stt` tag).
+Version deltas resolved by Wave-1 repins: OkHttp is **not** a Wave-1 delta (A1: engine floor 4.12, each app keeps its own; SB 5.2.1, CT 4.12.0), MicButton / YAT (CT v2.1.0, SB v2.3.0 → new YAT tag), `:stt` (SB v0.5.0, CT v0.6.0 → new `:stt` tag).
 
 ## 8. Risks
 
@@ -170,4 +171,8 @@ Version deltas resolved by Wave-1 repins: OkHttp (CT 4.12.0 → 5.x), MicButton 
 
 ## 10. Amendments
 
-*(none yet)*
+**A1 — OkHttp version floor (2026-09-29, Yahir; raised by caltracker-android-9a).** v1.0 said CT bumps OkHttp 4.12.0 → 5.x. That understated it: CT pins 4.12 on purpose (constraint LIB-01) because the OpenFoodFacts barcode lookup, the scan client and backup-engine all run on 4.x, and MockWebServer 4.12 breaks on 5.x. **Resolution:** the engine compiles against the OkHttp **4.12 API floor** and CI-tests against **both 4.12.x and 5.x**; Gradle resolves each app's own version (SB 5.2.1, CT 4.12.0). No forced migration this milestone. Must-pass in the engine's transport phase; if 5.x-compat fails, a new amendment restores the forced bump + CT's barcode Gate-1 criterion.
+
+**A2 — PreApplyGate redefined (2026-09-29, Yahir; raised by caltracker-android-9a).** `PreApplyGate` = **any confirm-before-commit policy**, not only mutation-risk. The engine suspends before commit whenever the app's gate returns *needs-confirmation* (with a reason the app/YAT sheet renders). SB plugs `MutationTierPolicy` (risk tier); CT plugs its weak-match / batch confidence confirm (`VoiceResultSheet` Proposed / ProposedBatch). One seam, both apps; YAT's outcome sheet renders the confirm state generically.
+
+**A3 — CT has no sub-34 fallback (2026-09-29; note only).** CT's `:app` minSdk is 35, so `language="auto"` is always native-live for CT; the SDK_INT < 34 fallback (§5.3, §6.1) is tested in `:stt` only, never in CT.
