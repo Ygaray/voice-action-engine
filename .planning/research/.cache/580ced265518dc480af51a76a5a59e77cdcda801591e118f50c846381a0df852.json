@@ -1,0 +1,1 @@
+{"content":"OpenAI Agents SDK: needs_approval bool or async fn(ctx, params, call_id); run pauses returning interruptions; caller approves/rejects and resumes with state; max_turns default ~10 (docs vary) raising MaxTurnsExceeded.","source":"web","provider":"websearch","confidence":"LOW","fetched_at":"2026-09-30T03:54:11.353Z","ttl":86400000,"kind":"web"}
