@@ -7,7 +7,8 @@
 
 ## The shape: hub + spokes
 
-- **The hub, `voice-action-engine`** (this repo; JitPack `com.github.Ygaray:voice-action-engine`).
+- **The hub, `voice-action-engine`** (this repo; JitPack group `com.github.Ygaray.voice-action-engine`,
+  one coordinate per published module, see the table below).
   Generic, domain-agnostic: turns a transcript (+ detected language) into an app action through a
   consumer-composed tier ladder of strategies (LocalGrammar / SingleShot / PlanThenExecute /
   AgenticLoop) over pluggable providers (Anthropic / OpenAI / OpenRouter / on-device). Names no note,
@@ -15,6 +16,24 @@
   composition root. STT-agnostic (depends on no other hub); the optional `:voice-adapter` bridges `:stt`.
 - **Sibling hubs (no dependency edge in `:core`):** `stt-engine` (`:stt` bilingual capture),
   `yahirandroidtaste` (presentational AI-voice UI).
+
+## Coordinates (per module, D-01)
+
+Consumers depend on the per-module coordinates only. The old two-segment aggregator coordinate
+(group `com.github.Ygaray`, artifact `voice-action-engine`) is retired and must not be used.
+
+| Module | Packaging | Coordinate | Depends on |
+|--------|-----------|------------|------------|
+| `:core` | jar, pure Kotlin/JVM | `com.github.Ygaray.voice-action-engine:voice-action-engine-core:<version>` | nothing in the hub |
+| `:providers` | jar | `com.github.Ygaray.voice-action-engine:voice-action-engine-providers:<version>` | `api` on `:core` and on OkHttp (4.12.0 compile floor; consumers keep their own OkHttp) |
+| `:keystore` | aar | `com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:<version>` | `api` on `:core` |
+
+Planned for v1.1, **not yet published**: `voice-action-engine-undo` and `voice-action-engine-voice-adapter`.
+The `:sample` app module is never published.
+
+**Phase 1 proof:** all three modules resolve from an empty Gradle cache by commit SHA (first proven at
+`7f9db2294461d76832116e33cc0a724f05f445e8`; the final phase-gate SHA is recorded alongside it in
+`.planning/phases/01-scaffold-publishing-proof/evidence/jitpack-probe.txt`). Nothing is tagged yet.
 
 | Consumer | Dev checkout | Pins hub at | Pin file |
 |----------|--------------|-------------|----------|
