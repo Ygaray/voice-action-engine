@@ -39,7 +39,8 @@ while :; do
   say "   status=$status"
   case "$status" in
     ok) break ;;
-    error) curl -s -m 60 "https://jitpack.io/$GROUP_PATH/$REF/build.log" | tail -60 | tee -a "${EVIDENCE_FILE:-/dev/null}" >/dev/null
+    error) say "   build.log tail:"
+           { curl -s -m 60 "https://jitpack.io/$GROUP_PATH/$REF/build.log" || true; } | tail -60 | while IFS= read -r l; do say "   log: $l"; done
            fail "JitPack reports status=error (log tail above; a failed ref stays cached: fix, then push a NEW commit)" 2 ;;
   esac
   [ "$(date +%s)" -lt "$deadline" ] || fail "no 'ok' within ${TIMEOUT_S}s (last status=$status)" 3
