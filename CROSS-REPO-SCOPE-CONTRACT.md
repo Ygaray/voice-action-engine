@@ -1,6 +1,6 @@
 # Cross-Repo Scope Contract — Bilingual Voice Commands + `voice-action-engine`
 
-**Status:** FROZEN v1.0 + amendments A1–A3 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
+**Status:** FROZEN v1.0 + amendments A1–A9 (2026-09-29): approved by Yahir. Changes go through a numbered **Amendment** section at the end, never by silent edits.
 **Home:** `~/Projects/Reusable/android/voice-action-engine/CROSS-REPO-SCOPE-CONTRACT.md`, the single source of truth. Every peer milestone cites this path.
 
 ---
@@ -104,21 +104,28 @@ transcript + language  ─►  CommandPipeline
 - Gate-1 criterion: validate with **real speakers / real mic** (plan-149 probe was n=1 synthesized TTS).
 - SDK_INT < 34 fallback is explicit and tested.
 
-**6.2 voice-action-engine — NEW repo** (`~/Projects/Reusable/android/voice-action-engine`, `com.github.Ygaray/voice-action-engine`) → cuts engine tag
-Modules: `:core` (pure Kotlin) · `:keystore` (Android AES/GCM BYO-key) · `:voice-adapter` (optional, depends on `:stt`).
-Suggested phase order:
+**6.2 voice-action-engine — NEW repo** (`~/Projects/Reusable/android/voice-action-engine`, `com.github.Ygaray:voice-action-engine`) → cuts **two** engine tags, as **two GSD milestones** (A4)
+Modules: `:core` (pure Kotlin: interfaces + neutral types, no HTTP) · `:providers` (OkHttp transports, depends on `:core`; A7) · `:keystore` (Android AES/GCM BYO-key) · `:voice-adapter` (optional, depends on `:stt`).
+
+*Engine milestone v1.0 → tag `v1.0.0`* (unblocks the Wave-1 migrations)
 1. Repo scaffold, JitPack publishing, detekt zero-baseline, fake-provider test harness, control-plane registry entries.
-2. `:core` contract types + `CommandPipeline` / `TierSelector.Linear` / `TierPolicy` / telemetry (escalation behavior lives here).
-3. Provider transport: port CT `AiProvider`/`ProviderRouter` (Anthropic / OpenAI / OpenRouter) compiled against the **OkHttp 4.12 API floor** and CI-tested against **both 4.12.x and 5.x** (A1; must-pass, else fall back to a forced 5.x floor via a new amendment); prompt caching as a provider capability.
-4. `:keystore` — generalize the shared `KeystoreCrypto` / `KeystoreCryptoSeam` shape (per-provider aliases, DataStore).
+2. `:core` contract types + `CommandPipeline` / `TierSelector.Linear` / `TierPolicy` / telemetry (escalation lives here) + **`PreApplyGate` / `CommitSink` hook types and suspend-before-commit behavior at pipeline level** (A6; strategies only exercise them).
+3a. `:providers`: provider-neutral request/result types + Anthropic transport + prompt caching as a provider capability + the **A1 OkHttp 4.12/5.x CI matrix** (must-pass) + the **`ON_DEVICE` enum slot + runtime capability gate** (absent → cloud fallback; A5).
+3b. `:providers`: OpenAI + OpenRouter transports (port CT `AiProvider` / `ProviderRouter`).
+4. `:keystore`: generalize the shared `KeystoreCrypto` / `KeystoreCryptoSeam` shape (per-provider aliases, DataStore).
 5. `SingleShotStrategy` (port CT).
-6. `AgenticLoopStrategy` (port SB `AnthropicAgentLoop` / `AgentLoopRunner`, made provider-neutral) + `PreApplyGate` + `CommitSink` hooks.
-7. `LocalGrammarStrategy` + bilingual `GrammarPack` DSL (EN/ES rules, slot extraction, number words in both languages).
-8. `PlanThenExecuteStrategy` (plan schema, step runner over `ToolExecutor`, optional single replan on step failure → else `Escalate`).
-9. `TierSelector.Router` (cheap-model classifier to pick the start tier).
-10. `OnDeviceProvider` — **probe first** (see §8); ships as `@Experimental` or defers without blocking the tag.
-11. `:voice-adapter` — `:stt` → `CommandInput` glue (batteries-included path).
-12. Tag cut (personal-app tag-cut gate waived; cut on green verification).
+6a. Neutral multi-turn transcript model + per-provider tool-call mappers (Anthropic tool_use/tool_result ↔ OpenAI tool_calls/tool-role; explicit cache_control vs automatic caching) (A8).
+6b. `AgenticLoopStrategy` (port SB `AnthropicAgentLoop` / `AgentLoopRunner` onto 6a).
+7. Tag `v1.0.0` (tag-cut gate **waived**, A9: cut on green verification).
+   **v1.0 verification bar (A8):** the agentic loop is **verified on-device on Anthropic**, including SB's cache-read parity. OpenAI/OpenRouter agentic runs are covered by JVM tests with the fake provider only.
+
+*Engine milestone v1.1 → tag `v1.1.0`*
+8. `LocalGrammarStrategy` + bilingual `GrammarPack` DSL (EN/ES rules, slot extraction, number words in both languages).
+9. `PlanThenExecuteStrategy` (plan schema, step runner over `ToolExecutor`, optional single replan on step failure → else `Escalate`).
+10. `TierSelector.Router` (cheap-model classifier to pick the start tier).
+11. Bundled on-device model **spike** (Gemma-2B-class via MediaPipe/LiteRT: latency, RAM, strict-JSON reliability); ships `@Experimental` only if green, otherwise defers without blocking the tag (L10).
+12. `:voice-adapter`: `:stt` → `CommandInput` glue. Stays last because it needs the `:stt` tag.
+13. Tag `v1.1.0` (gate waived, A9).
 
 **6.3 yahirandroidtaste (YAT) — shared AI-voice UI** → cuts YAT tag
 Generic presentational composables only; no OkHttp, no engine dependency; the app maps engine outcome → YAT props.
@@ -176,3 +183,15 @@ Version deltas resolved by Wave-1 repins: OkHttp is **not** a Wave-1 delta (A1: 
 **A2 — PreApplyGate redefined (2026-09-29, Yahir; raised by caltracker-android-9a).** `PreApplyGate` = **any confirm-before-commit policy**, not only mutation-risk. The engine suspends before commit whenever the app's gate returns *needs-confirmation* (with a reason the app/YAT sheet renders). SB plugs `MutationTierPolicy` (risk tier); CT plugs its weak-match / batch confidence confirm (`VoiceResultSheet` Proposed / ProposedBatch). One seam, both apps; YAT's outcome sheet renders the confirm state generically.
 
 **A3 — CT has no sub-34 fallback (2026-09-29; note only).** CT's `:app` minSdk is 35, so `language="auto"` is always native-live for CT; the SDK_INT < 34 fallback (§5.3, §6.1) is tested in `:stt` only, never in CT.
+
+**A4 — Two engine milestones (2026-09-29, Yahir; raised by voice-action-engine-75).** L8's staged tags become two GSD milestones in the engine repo: v1.0 (§6.2 steps 1–7 → `v1.0.0`) and v1.1 (steps 8–13 → `v1.1.0`). v1.0 said there was one tag cut at the end, which contradicted L8.
+
+**A5 — ON_DEVICE slot moves into v1.0 (2026-09-29, Yahir; raised by voice-action-engine-75).** v1.0 put the slot + capability gate at step 10, in v1.1, which contradicted L10. They now land in step 3a. Only the bundled-model spike stays in v1.1.
+
+**A6 — PreApplyGate / CommitSink are pipeline-level (2026-09-29, Yahir; raised by voice-action-engine-75).** Follows from A2 (CT gates SingleShot). The hook types + suspend-before-commit move to step 2; the strategies exercise them.
+
+**A7 — New `:providers` module (2026-09-29, Yahir; raised by voice-action-engine-75).** OkHttp transports live in `:providers` (depends on `:core`), so `:core` stays pure Kotlin with no HTTP dependency and JVM tests stay light. Consumers depend on `:core` + `:providers` (+ `:keystore`). This adds a module; nothing existing is removed. The provider step splits into 3a / 3b.
+
+**A8 — Agentic sizing + v1.0 verification bar (2026-09-29, Yahir; raised by voice-action-engine-75).** Making the loop provider-neutral needs a neutral multi-turn transcript model + per-provider mappers (6a) before the port (6b). v1.0 bar: agentic **verified on-device on Anthropic** (SB cache-read parity); OpenAI/OpenRouter agentic is JVM-tested only.
+
+**A9 — Tag-cut gate waived for voice-action-engine (2026-09-29, Yahir).** Both engine tags cut on green verification, with no human checkpoint. Replaces the conflicting "confirm with Yahir" in the kickoff brief. (Errata in the same revision: §6.2 coordinate `/` → `:`.)
