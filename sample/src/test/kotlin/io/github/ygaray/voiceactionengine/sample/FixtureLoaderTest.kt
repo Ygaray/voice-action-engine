@@ -15,6 +15,7 @@ import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
+import io.github.ygaray.voiceactionengine.sample.fixture.FIXTURE_SHA256
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureLoader
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureSource
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
@@ -120,5 +121,106 @@ class FixtureLoaderTest {
         listOf("create_a", "edit_a", "delete_a", "getaway", "x_get_a").forEach {
             assertTrue(it, ToolClassifier.isMutating(it))
         }
+    }
+
+    private fun loaderFor(files: ByteArray?, asset: ByteArray?, expected: String): FixtureLoader =
+        FixtureLoader(listOf(source(FILES_LABEL, files), source(ASSET_LABEL, asset)), expected)
+
+    private fun text(json: String): ByteArray = json.toByteArray(Charsets.UTF_8)
+
+    @Test
+    fun absentWhenNoSourceHasBytes() {
+        val state = loaderFor(null, null, sha256(syntheticBytes())).load()
+        assertTrue(state.toString(), state is FixtureState.Absent)
+        assertEquals(listOf(FILES_LABEL, ASSET_LABEL), (state as FixtureState.Absent).searched)
+    }
+
+    @Test
+    fun aWrongDigestIsLoudAndDoesNotFallThrough() {
+        val good = syntheticBytes()
+        val state = loaderFor(text("not the fixture"), good, sha256(good)).load()
+        assertTrue(state.toString(), state is FixtureState.ShaMismatch)
+        val mismatch = state as FixtureState.ShaMismatch
+        assertEquals(FILES_LABEL, mismatch.source)
+        assertEquals(sha256(text("not the fixture")).take(8), mismatch.actualPrefix)
+        assertTrue(mismatch.actualPrefix.matches(Regex("[0-9a-f]{8}")))
+    }
+
+    @Test
+    fun theFilesSourceWinsOverTheAsset() {
+        val good = syntheticBytes()
+        val state = loaderFor(good, good, sha256(good)).load()
+        assertTrue(state.toString(), state is FixtureState.Loaded)
+        assertEquals(FILES_LABEL, (state as FixtureState.Loaded).source)
+    }
+
+    @Test
+    fun malformedJsonIsTyped() = assertMalformed("{ this is not json", "not_json")
+
+    @Test
+    fun aJsonRootThatIsNotAnObjectIsNotJson() = assertMalformed("[1, 2]", "not_json")
+
+    @Test
+    fun missingSystemIsTyped() = assertMalformed("""{"tools": []}""", "missing_system")
+
+    @Test
+    fun missingToolsIsTyped() = assertMalformed("""{"system": "s"}""", "missing_tools")
+
+    @Test
+    fun aToolWithoutAnObjectSchemaIsTyped() = assertMalformed(
+        """{"system": "s", "tools": [{"name": "find_x", "description": "d", "input_schema": "nope"}]}""",
+        "bad_tool",
+    )
+
+    private fun assertMalformed(json: String, code: String) {
+        val bytes = text(json)
+        val state = loaderFor(bytes, null, sha256(bytes)).load()
+        assertTrue(state.toString(), state is FixtureState.Malformed)
+        assertEquals(code, (state as FixtureState.Malformed).code)
+        assertEquals(FILES_LABEL, state.source)
+    }
+
+    @Test
+    fun theRealConstantIsTheFullDigest() {
+        assertEquals(64, FIXTURE_SHA256.length)
+        assertTrue(FIXTURE_SHA256.matches(Regex("[0-9a-f]{64}")))
+        assertTrue(FIXTURE_SHA256.startsWith("ebd3ef4a"))
+        assertTrue(FIXTURE_SHA256.endsWith("af4ed3e"))
+        val state = FixtureLoader(listOf(source(FILES_LABEL, syntheticBytes()))).load()
+        assertTrue(state.toString(), state is FixtureState.ShaMismatch)
+    }
+
+    @Test
+    fun noStateCarriesFixtureContent() {
+        val canarySystem = "CANARY_SYSTEM_TEXT"
+        val canaryTool = "CANARY_TOOL_TEXT"
+        val good = buildJsonObject {
+            put("system", canarySystem)
+            put(
+                "tools",
+                JsonArray(
+                    listOf(
+                        buildJsonObject {
+                            put("name", "find_x")
+                            put("description", canaryTool)
+                            put("input_schema", buildJsonObject { put("type", "object") })
+                        },
+                    ),
+                ),
+            )
+        }.toString().toByteArray(Charsets.UTF_8)
+        val broken = text("CANARY_SYSTEM_TEXT CANARY_TOOL_TEXT { not json")
+        val states = listOf(
+            loaderFor(good, null, sha256(good)).load(),
+            loaderFor(good, null, "0".repeat(64)).load(),
+            loaderFor(broken, null, sha256(broken)).load(),
+            loaderFor(null, null, sha256(good)).load(),
+        )
+        assertTrue(states[0] is FixtureState.Loaded)
+        states.forEach { state ->
+            assertFalse(state.toString(), state.toString().contains(canarySystem))
+            assertFalse(state.toString(), state.toString().contains(canaryTool))
+        }
+        (states[0] as FixtureState.Loaded).tools.forEach { assertFalse(it.toString().contains(canaryTool)) }
     }
 }
