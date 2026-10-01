@@ -193,10 +193,12 @@ internal class AgenticRun(
         }
 
     // The last permitted turn runs no tool, except that a turn whose first call is terminal dispatches nothing at all
-    // and simply ends the run.
+    // and simply ends the run. This runs before whole-turn validation, so it must not assume the turn holds a call: the
+    // turn decision upstream only lets a tool turn through when it has calls, and an empty list here is simply not
+    // terminal.
     private fun lastTurnGuard(iteration: Int, response: ModelResponse): StrategyOutcome? {
         val last = iteration >= context.session.policy.maxIterations
-        val endsAtOnce = context.specOf(response.message.toolCalls.first().name)?.terminal == true
+        val endsAtOnce = response.message.toolCalls.firstOrNull()?.let { context.specOf(it.name)?.terminal } == true
         return if (last && !endsAtOnce) iterationBudgetFailure() else null
     }
 
