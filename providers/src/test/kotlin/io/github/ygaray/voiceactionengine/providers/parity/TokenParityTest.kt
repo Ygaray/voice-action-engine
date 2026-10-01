@@ -49,7 +49,8 @@ import org.junit.Test
  * A wrong mapping on one side would trip the ceiling early or never trip it on that provider only.
  *
  * Assumption for the cache-write fixtures: the OpenAI-shaped `prompt_tokens` is taken to include `cache_write_tokens`
- * as well as `cached_tokens`. The live capture checks that against the real services.
+ * as well as `cached_tokens`. The live capture did not observe a non-zero cache write, so this is unverified against
+ * the real services; the Phase 10 smoke should pin a real cache-write response.
  */
 class TokenParityTest {
 

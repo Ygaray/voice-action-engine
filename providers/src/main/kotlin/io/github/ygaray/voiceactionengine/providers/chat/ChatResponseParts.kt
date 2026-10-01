@@ -70,9 +70,12 @@ private fun parseArguments(text: String): JsonObject {
 /**
  * Maps a Chat Completions `usage` object to the four neutral buckets. `prompt_tokens` includes the cached tokens, and
  * is taken to include the cache-write tokens too, so
- * `inputUncached = prompt_tokens - cached_tokens - cache_write_tokens`. Each cache count is clamped to what remains of
- * the prompt, so the total never exceeds `prompt_tokens + completion_tokens`. Reasoning tokens are already inside
- * `completion_tokens`. A missing object is [Usage.ZERO]; a missing, null, negative or non-numeric count is 0.
+ * `inputUncached = prompt_tokens - cached_tokens - cache_write_tokens`. That inclusion is an assumption: the live
+ * capture never observed a non-zero `cache_write_tokens` (a router that reports `prompt_tokens` without the write
+ * tokens would make the clamp below under-count the total, and the clamp hides the mismatch). Each cache count is
+ * clamped to what remains of the prompt, so the total never exceeds `prompt_tokens + completion_tokens`. Reasoning
+ * tokens are already inside `completion_tokens`. A missing object is [Usage.ZERO]; a missing, null, negative or
+ * non-numeric count is 0.
  */
 internal fun decodeChatUsage(element: JsonElement?): Usage {
     val usage = element as? JsonObject ?: return Usage.ZERO
