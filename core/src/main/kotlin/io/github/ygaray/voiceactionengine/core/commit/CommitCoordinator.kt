@@ -25,17 +25,29 @@ internal class CommitCoordinator(
     recorder: RunRecorder,
 ) {
     private val mutex = Mutex()
+
+    @Volatile
+    private var closed = false
     private val ledger = ActionLedger()
     private val gateStep = GateStep(gate, recorder)
     private val delivery = ActionDelivery(runId, parentRunId, sink, recorder)
     private val applyStep = ApplyStep(ledger, delivery, recorder)
 
-    /** Applies, in order, whatever [step] asks for and the gate allows. */
+    /**
+     * Applies, in order, whatever [step] asks for and the gate allows. Throws [IllegalStateException] once the run is
+     * closed, before anything is recorded, asked of the gate, applied or delivered.
+     */
     suspend fun submit(step: ToolStep): DispatchResult = mutex.withLock {
+        check(!closed) { "run $runId is closed" }
         when (step) {
             is ToolStep.Mutation -> submitMutation(step)
             is ToolStep.Finished -> finished(step)
         }
+    }
+
+    /** Ends the run's write path. Called once by the pipeline before the sink hears the run closed. */
+    fun close() {
+        closed = true
     }
 
     /** Every action recorded so far, in position order. */

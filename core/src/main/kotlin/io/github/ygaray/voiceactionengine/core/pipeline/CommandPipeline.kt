@@ -50,6 +50,7 @@ public class CommandPipeline internal constructor(
             cancelled = true
             throw e
         } finally {
+            coordinator.close()
             val effects = snapshotEffects(runId, input.parentRunId, coordinator, recorder)
             close(runId, recorder, terminationOf(outcome, cancelled, effects))
         }
