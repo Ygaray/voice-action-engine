@@ -1,0 +1,14 @@
+### Phase 7 — singleshot-strategy (v1.0)
+
+- **Status:** `pending`
+- **Milestone:** v1.0 (Core Engine)
+- **Gate 1 self-UAT log:** [`.planning/phases/07-singleshot-strategy/07-SELF-UAT.md`](phases/07-singleshot-strategy/07-SELF-UAT.md) — Verdict: **ALL 3 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device; HEAD `bbf91a4`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 535 tests, providers 572 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green on all three OkHttp legs; API-surface review OK (seven sealed types, classes=177). Backfilled on 2026-10-01 by the milestone master after the orchestrator flagged the missing record (the execute stage ruled Gate-1 N/A, `has-uat-criteria=false`).
+- **Items covered (3 ROADMAP success criteria):**
+  - **SC1 — One forced-tool call, local resolution, gated commit.** `SingleShotStrategy` makes exactly one forced single-tool call from the app's `ToolSpecProvider`; the app's `OutcomeResolver` yields a (possibly batch) proposal that commits only through gate -> `CommitSink`.
+  - **SC2 — Default mappings and overrides.** No tool call / prose escalates with `NoToolCall`; refusal fails with `REFUSAL`; both overridable per tier; OpenAI Chat bodies carry `parallel_tool_calls: false` (OpenRouter deliberately omits it and takes the first call); extra calls are dropped with `EXTRA_TOOL_CALLS_DROPPED` and the outcome is `Completed(partial = true)`.
+  - **SC3 — CT confirm scenarios.** Weak match held then committed via `commitHeld` as a linked run, batch proposal held with one gate ask, amended confirm applying only the replacement list (S1-S10 CT-shaped acceptance tests on in-tree fakes).
+- **Owner how-to-verify (run at milestone completion; headless, no device):**
+  1. Read the Gate-1 log above for per-criterion evidence.
+  2. Optionally re-run `./gradlew :core:test :providers:test --offline --rerun-tasks` and `./gradlew check --offline` at milestone HEAD and confirm the JUnit XML shows 0 failures and 0 skipped.
+  3. Live-provider behaviour is NOT covered here. It belongs to Phase 10 (VER-02 / VER-03; VER-03 is extended per 10-CONTEXT.md Runtime Decisions to include Chat/OpenRouter multi-turn on device): assert the real Anthropic body carries `disable_parallel_tool_use` and returns 200, and optionally `cache_read_input_tokens > 0` on two cheap calls (RESEARCH A2).
+- **Note:** No physical or device-hardware step; nothing deferred from this phase. Registered for ledger completeness (same handling as Phases 1-6), so the owner can sign off without action. The CT scenarios run against CT-shaped fakes, not CT's own resolver; real consumer flows are a Phase 11 / migration concern. `api.txt` is still not committed; it is created at the v1.0.0 cut in Phase 11.

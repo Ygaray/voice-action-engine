@@ -1,0 +1,15 @@
+### Phase 8 — multi-turn-mappers (v1.0)
+
+- **Status:** `pending`
+- **Milestone:** v1.0 (Core Engine)
+- **Gate 1 self-UAT log:** [`.planning/phases/08-multi-turn-mappers/08-SELF-UAT.md`](phases/08-multi-turn-mappers/08-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device, no live call by this run; HEAD `bbf91a4`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 535 tests, providers 572 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green with the conformance suite passing on OkHttp 4.12.0, 5.2.1 and 5.5.0. Backfilled on 2026-10-01 by the milestone master after the orchestrator flagged the missing record (the execute stage ruled Gate-1 N/A, `has-uat-criteria=false`).
+- **Items covered (4 ROADMAP success criteria):**
+  - **SC1 — One conformance suite.** A single `MultiTurnConformanceSuite` bound to Anthropic, OpenAI and OpenRouter round-trips every fixture conversation, including parallel calls and empty-argument forms.
+  - **SC2 — Verbatim replay.** Every assistant turn replays byte-for-byte from `NativeReplay` to the same provider and model (thinking goldens, derived and captured, survive); a stamp for another provider, model or shape fails with zero requests; `carry` is an opaque semantic value (no dedicated "carry cannot hold a transcript" test; rests on type shape plus the stamp refusal).
+  - **SC3 — Per-dialect tool results.** Anthropic batches a turn's results in one user message with `is_error`; Chat sends one `role:tool` per call id (errors wrapped `{"error": ...}`); 5 captured, sanitized real-body goldens (Anthropic A1/A2, OpenAI O1, OpenRouter R1/R3) pass hygiene and replay green.
+  - **SC4 — Cache directive and stable prefix.** Anthropic keeps one system breakpoint, Chat sends none; every iteration only appends to the cached prefix, with negative controls proving the check detects a rewrite.
+- **Owner how-to-verify (run at milestone completion; headless, no device):**
+  1. Read the Gate-1 log above for per-criterion evidence.
+  2. Optionally re-run `./gradlew :core:test :providers:test --offline --rerun-tasks` and `./gradlew check --offline` at milestone HEAD and confirm the JUnit XML shows 0 failures and 0 skipped.
+  3. Real-provider and on-device multi-turn behaviour is NOT re-proved here. It belongs to Phase 10 (VER-02 / VER-03; VER-03 is extended per 10-CONTEXT.md Runtime Decisions to include Chat/OpenRouter multi-turn on device). The in-phase live capture (08-09, 14 requests, about USD 0.033 estimated) is audited from `evidence/live-multiturn-capture.txt` only.
+- **Note:** No physical or device-hardware step; nothing deferred from this phase. Registered for ledger completeness (same handling as Phases 1-6), so the owner can sign off without action. Known gap, not a failure: live conversation R2 (OpenRouter `openai/gpt-oss-120b`) ended UNMET under the 3-request cap, so no gpt-oss golden exists; all R2 requests were accepted (200) and SC3's real half is met on all three dialects via A1, A2, O1, R1 and R3. `api.txt` is still not committed; it is created at the v1.0.0 cut in Phase 11.
