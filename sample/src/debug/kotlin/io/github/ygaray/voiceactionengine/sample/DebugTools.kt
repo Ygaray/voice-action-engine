@@ -10,8 +10,7 @@ import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
 import io.github.ygaray.voiceactionengine.sample.keys.PlaintextScan
 import java.io.File
 import java.io.IOException
-import java.security.GeneralSecurityException
-import java.security.ProviderException
+import kotlin.coroutines.cancellation.CancellationException
 
 /** Debug-only tools. The release variant supplies the same object with every lookup answering null. */
 internal object DebugTools {
@@ -40,7 +39,9 @@ internal object DebugTools {
  *
  * Per provider, in the given order: look for `filesDir/test-keys/<provider>.key`; none gives an absent report; otherwise
  * read and trim it, save through the vault, read the vault's answer, overwrite the file with zero bytes, delete it,
- * confirm it is gone, and scan [scanRoot] for the plaintext. It never logs, and no report carries the key.
+ * confirm it is gone, and scan [scanRoot] for the plaintext. The file is destroyed whatever the save does: success,
+ * any exception, or cancellation (and a cancelled or crashed import also destroys every other pushed file). It never
+ * logs, and no report carries the key.
  */
 internal class TestKeyImporter(
     private val filesDir: File,
@@ -50,9 +51,17 @@ internal class TestKeyImporter(
 ) : KeyImport {
     override suspend fun importAll(): List<ImportReport> {
         val keysDir = File(filesDir, KEYS_DIR)
-        val reports = providers.map { provider -> importOne(provider, File(keysDir, "$provider.key")) }
-        if (keysDir.isDirectory && keysDir.list().isNullOrEmpty()) keysDir.delete()
-        return reports
+        try {
+            return providers.map { provider -> importOne(provider, File(keysDir, "$provider.key")) }
+        } finally {
+            // Whatever ended the import (a cancellation, an error nobody expected), no pushed plaintext survives it. On
+            // the normal path every file is already gone and this does nothing.
+            for (provider in providers) {
+                val leftover = File(keysDir, "$provider.key")
+                if (leftover.exists()) destroy(leftover)
+            }
+            if (keysDir.isDirectory && keysDir.list().isNullOrEmpty()) keysDir.delete()
+        }
     }
 
     private suspend fun importOne(provider: ProviderId, file: File): ImportReport {
@@ -63,23 +72,28 @@ internal class TestKeyImporter(
             return ImportReport(provider, ImportReport.SAVE_FAILED, "unreadable_file", destroy(file), null)
         }
         if (text.isEmpty()) return ImportReport(provider, ImportReport.REJECTED, null, destroy(file), null)
-        val saved = saveThenRead(provider, text)
-        val deleted = destroy(file)
+        var deleted = false
+        val saved = try {
+            saveThenRead(provider, text)
+        } finally {
+            // Destroyed on success, on a failed save and on cancellation alike.
+            deleted = destroy(file)
+        }
         val leaked = PlaintextScan.contains(scanRoot, text.toByteArray(Charsets.UTF_8))
         return ImportReport(provider, saved.state, saved.cause, deleted, leaked)
     }
 
     private class Saved(val state: String, val cause: String?)
 
+    // Any failure of the save becomes a SAVE_FAILED report with the exception type only (never its message, which could
+    // quote the key); a cancellation is not a failure and is rethrown.
     private suspend fun saveThenRead(provider: ProviderId, text: String): Saved = try {
         vault.save(provider, text)
         val answer = vault.read(provider)
         Saved(ImportReport.stateWord(answer), (answer as? KeyState.Unreadable)?.cause)
-    } catch (failure: GeneralSecurityException) {
-        Saved(ImportReport.SAVE_FAILED, failure.javaClass.simpleName)
-    } catch (failure: ProviderException) {
-        Saved(ImportReport.SAVE_FAILED, failure.javaClass.simpleName)
-    } catch (failure: IOException) {
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (failure: Exception) {
         Saved(ImportReport.SAVE_FAILED, failure.javaClass.simpleName)
     }
 

@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.ProviderException
+import kotlin.coroutines.cancellation.CancellationException
 
 /** The status word of a leg that has not been pressed. */
 internal const val STATUS_IDLE = "IDLE"
@@ -207,7 +208,16 @@ internal class SampleViewModel(
     fun importTestKeys() {
         val importer = keyImport ?: return
         viewModelScope.launch {
-            val reports = importer.importAll()
+            val reports = try {
+                importer.importAll()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // The importer destroys the pushed files itself; the screen says the import failed, by type only.
+                val text = "Import failed (${failure.javaClass.simpleName})"
+                mutableState.update { it.copy(importStatus = ToneText(text, Tone.BAD)) }
+                return@launch
+            }
             val lines = reports.map { EvidenceLine.key(it) }
             lines.forEach { sink.emit(it) }
             val text = reports.joinToString("; ") { HeaderText.importLine(it) }

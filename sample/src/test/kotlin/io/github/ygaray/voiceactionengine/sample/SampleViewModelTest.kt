@@ -316,6 +316,24 @@ class SampleViewModelTest {
     }
 
     @Test
+    fun anImporterThatThrowsIsShownAsAFailureNotACrash() = runTest {
+        NoNetworkGuard.during {
+            val throwing = object : KeyImport {
+                override suspend fun importAll(): List<ImportReport> = throw IllegalStateException("zz-not-shown")
+            }
+            val viewModel = sampleViewModel(openAiRig(), keyImport = throwing)
+            runCurrent()
+
+            viewModel.importTestKeys()
+            runCurrent()
+
+            val status = viewModel.state.value.importStatus!!
+            assertEquals(Tone.BAD, status.tone)
+            assertEquals("Import failed (IllegalStateException)", status.text)
+        }
+    }
+
+    @Test
     fun aLeakedPlaintextMakesTheImportRed() = runTest {
         NoNetworkGuard.during {
             val leaked = listOf(ImportReport(ProviderId.ANTHROPIC, ImportReport.READY, null, true, true))

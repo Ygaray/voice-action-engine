@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.keystore.KeyState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
 import java.io.File
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -123,6 +124,60 @@ class TestKeyImporterTest {
         assertTrue(report.plaintextFileDeleted)
         assertFalse(file.exists())
         assertTrue(vault.saves.isEmpty())
+    }
+
+    // A vault whose save fails with [failure] for one provider and works for the rest.
+    private class FailingVault(private val failing: ProviderId, private val failure: Throwable) : KeyVault {
+        private val stored = mutableMapOf<ProviderId, String>()
+
+        override suspend fun save(provider: ProviderId, key: String) {
+            if (provider == failing) throw failure
+            stored[provider] = key
+        }
+
+        override suspend fun read(provider: ProviderId): KeyState =
+            stored[provider]?.let { KeyState.Ready("ok") } ?: KeyState.NotConfigured()
+
+        override suspend fun delete(provider: ProviderId) {
+            stored.remove(provider)
+        }
+    }
+
+    @Test
+    fun anUnexpectedExceptionStillDestroysTheFileAndDoesNotStopTheOthers() = runTest {
+        val filesDir = tmp.newFolder("files")
+        val first = pushKey(filesDir, ProviderId.ANTHROPIC, canary)
+        val second = pushKey(filesDir, ProviderId.OPENAI, canary)
+        val vault = FailingVault(ProviderId.ANTHROPIC, IllegalStateException(canary))
+
+        val reports = requireNotNull(DebugTools.keyImport(filesDir, vault, providers)).importAll()
+
+        val failed = reports.first { it.provider == ProviderId.ANTHROPIC }
+        assertEquals(ImportReport.SAVE_FAILED, failed.state)
+        assertEquals("IllegalStateException", failed.cause)
+        assertTrue(failed.plaintextFileDeleted)
+        assertEquals(ImportReport.READY, reports.first { it.provider == ProviderId.OPENAI }.state)
+        assertFalse(first.exists())
+        assertFalse(second.exists())
+        assertFalse(failed.toString().contains(canary))
+    }
+
+    @Test
+    fun aCancelledImportDestroysEveryPushedFile() = runTest {
+        val filesDir = tmp.newFolder("files")
+        val files = providers.map { pushKey(filesDir, it, canary) }
+        val vault = FailingVault(ProviderId.OPENAI, CancellationException("cancelled"))
+
+        var cancelled = false
+        try {
+            requireNotNull(DebugTools.keyImport(filesDir, vault, providers)).importAll()
+        } catch (expected: CancellationException) {
+            cancelled = true
+        }
+
+        assertTrue(cancelled)
+        for (file in files) assertFalse(file.path, file.exists())
+        assertFalse(File(filesDir, "test-keys").exists())
     }
 
     @Test
