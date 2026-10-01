@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeClock
@@ -197,6 +198,50 @@ class TraceTest {
         }
     }
 
+    private val phaseTwoCodes = listOf(
+        TraceCode.GATE_ERROR, TraceCode.APPLY_ERROR, TraceCode.APPLY_CANCELLED, TraceCode.SINK_ERROR,
+        TraceCode.LISTENER_ERROR, TraceCode.POLICY_SOURCE_ERROR, TraceCode.STRATEGY_ERROR, TraceCode.ENGINE_TIMEOUT,
+        TraceCode.ESCALATION_SUPPRESSED, TraceCode.TIER_SKIPPED_POLICY, TraceCode.MAX_TIER_UNKNOWN,
+        TraceCode.OFFLINE_UNAVAILABLE, TraceCode.ON_DEVICE_UNAVAILABLE, TraceCode.ON_DEVICE_PROBE_ERROR,
+        TraceCode.COMMIT_HELD_CANCELLED,
+    )
+
+    private val routerCodes = mapOf(
+        TraceCode.PROVIDER_NOT_SELECTED to "provider_not_selected",
+        TraceCode.SELECTION_SOURCE_ERROR to "selection_source_error",
+        TraceCode.PROVIDER_NOT_ALLOWED to "provider_not_allowed",
+        TraceCode.PROVIDER_NOT_REGISTERED to "provider_not_registered",
+        TraceCode.CREDENTIAL_MISSING to "credential_missing",
+        TraceCode.CREDENTIAL_UNREADABLE to "credential_unreadable",
+        TraceCode.CREDENTIAL_SOURCE_ERROR to "credential_source_error",
+        TraceCode.CREDENTIAL_MISMATCH to "credential_mismatch",
+        TraceCode.CAPABILITY_LOOKUP_ERROR to "capability_lookup_error",
+        TraceCode.CAPABILITY_REFUSED to "capability_refused",
+        TraceCode.PROVIDER_ERROR to "provider_error",
+        TraceCode.PROVIDER_FALLBACK to "provider_fallback",
+        TraceCode.FALLBACK_REFUSED to "fallback_refused",
+    )
+
+    @Test
+    fun theRouterCodesHaveTheirSnakeCaseWireValues() {
+        assertEquals(THIRTEEN, routerCodes.size)
+        routerCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
+    }
+
+    @Test
+    fun everyTraceCodeIsDistinctAndLowerSnakeCase() {
+        val all = phaseTwoCodes + routerCodes.keys
+        assertEquals(TWENTY_EIGHT, all.size)
+        assertEquals(TWENTY_EIGHT, all.map { it.value }.toSet().size)
+        val shape = Regex("[a-z0-9_]+")
+        all.forEach { assertTrue(it.value, shape.matches(it.value)) }
+    }
+
+    @Test
+    fun theOnDeviceUnavailableWireValueIsUnchanged() {
+        assertEquals("on_device_unavailable", TraceCode.ON_DEVICE_UNAVAILABLE.value)
+    }
+
     /** Maps an Anthropic response (its input excludes cached tokens) to the normalized usage. */
     private fun anthropicUsage(input: Long, cacheRead: Long, cacheWrite: Long, output: Long) =
         Usage(input, cacheRead, cacheWrite, output)
@@ -301,5 +346,7 @@ class TraceTest {
         const val ADVANCE = 40L
         const val PROVIDER_CALL_INDEX = 2
         const val FINISHED_INDEX = 3
+        const val THIRTEEN = 13
+        const val TWENTY_EIGHT = 28
     }
 }

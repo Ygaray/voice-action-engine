@@ -50,7 +50,7 @@ public value class TraceCode internal constructor(public val value: String) {
         /** A tier was skipped because the device is offline. */
         public val OFFLINE_UNAVAILABLE: TraceCode = TraceCode("offline_unavailable")
 
-        /** A tier was skipped because on-device inference is not available. */
+        /** On-device inference was not available: a tier was skipped, or a tier's on-device selection was refused. */
         public val ON_DEVICE_UNAVAILABLE: TraceCode = TraceCode("on_device_unavailable")
 
         /** The on-device availability check threw, so on-device inference was treated as unavailable. */
@@ -58,5 +58,44 @@ public value class TraceCode internal constructor(public val value: String) {
 
         /** The run was cancelled while a held change was being committed. */
         public val COMMIT_HELD_CANCELLED: TraceCode = TraceCode("commit_held_cancelled")
+
+        /** The app's selection source answered "not configured" for this tier. */
+        public val PROVIDER_NOT_SELECTED: TraceCode = TraceCode("provider_not_selected")
+
+        /** The app's selection source threw. */
+        public val SELECTION_SOURCE_ERROR: TraceCode = TraceCode("selection_source_error")
+
+        /** The selected provider is not declared by the tier, or the command's policy forbids it. */
+        public val PROVIDER_NOT_ALLOWED: TraceCode = TraceCode("provider_not_allowed")
+
+        /** No provider is registered in the pipeline for the selected provider id. */
+        public val PROVIDER_NOT_REGISTERED: TraceCode = TraceCode("provider_not_registered")
+
+        /** The credential source has no key for the selected provider (or no source is set). */
+        public val CREDENTIAL_MISSING: TraceCode = TraceCode("credential_missing")
+
+        /** The key exists but cannot be read; the user should re-enter it. */
+        public val CREDENTIAL_UNREADABLE: TraceCode = TraceCode("credential_unreadable")
+
+        /** The credential source threw. */
+        public val CREDENTIAL_SOURCE_ERROR: TraceCode = TraceCode("credential_source_error")
+
+        /** The credential source returned a key for a different provider; it was not used. */
+        public val CREDENTIAL_MISMATCH: TraceCode = TraceCode("credential_mismatch")
+
+        /** A provider default or app override for the model's capabilities threw. */
+        public val CAPABILITY_LOOKUP_ERROR: TraceCode = TraceCode("capability_lookup_error")
+
+        /** The request needs a capability the model lacks; nothing was sent. */
+        public val CAPABILITY_REFUSED: TraceCode = TraceCode("capability_refused")
+
+        /** The provider threw instead of returning a result. */
+        public val PROVIDER_ERROR: TraceCode = TraceCode("provider_error")
+
+        /** On-device inference was unavailable, so the selection's declared fallback answered. */
+        public val PROVIDER_FALLBACK: TraceCode = TraceCode("provider_fallback")
+
+        /** The declared fallback was forbidden by the policy or the tier's declaration, so nothing was sent. */
+        public val FALLBACK_REFUSED: TraceCode = TraceCode("fallback_refused")
     }
 }
