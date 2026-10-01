@@ -361,7 +361,7 @@ Plans:
   3. Tool results are encoded per dialect: Anthropic batches all of a turn's results into one user message with `is_error`, and Chat Completions sends one `role:tool` message per call id. Golden tests built from recorded, sanitized real response bodies prove it.
   4. Each dialect applies its own cache directive (Anthropic keeps its single system breakpoint; Chat Completions relies on automatic caching), and the cached prefix bytes stay identical on every iteration of a multi-turn conversation.
 
-**Plans**: 2/9 plans executed (one per wave, strictly sequential: 08-01 → 08-09; 08-09 starts at the capture checkpoint routed through the master)
+**Plans**: 3/9 plans executed (one per wave, strictly sequential: 08-01 → 08-09; 08-09 starts at the capture checkpoint routed through the master)
 **Research flag**: yes. Open items: preserved-thinking replay rules and OpenAI tool-message ordering edge cases. Build the golden fixtures from real responses.
 
 **Wave 1**
@@ -374,7 +374,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 08-03-PLAN.md — lenient empty arguments on both decoders; Chat allowlist replay with repair-only normalization
+- [x] 08-03-PLAN.md — lenient empty arguments on both decoders; Chat allowlist replay with repair-only normalization
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -461,7 +461,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. OpenAI & OpenRouter Transports | 12/12 | Complete    | 2026-10-01 |
 | 6. Keystore | 7/7 | Complete    | 2026-10-01 |
 | 7. SingleShot Strategy | 8/8 | Complete    | 2026-10-01 |
-| 8. Multi-turn Mappers | 2/9 | In Progress|  |
+| 8. Multi-turn Mappers | 3/9 | In Progress|  |
 | 9. Agentic Loop Strategy | 0/TBD | Not started | - |
 | 10. Sample Harness, Gate-1 & Docs | 0/TBD | Not started | - |
 | 11. Cut v1.0.0 | 0/TBD | Not started | - |
