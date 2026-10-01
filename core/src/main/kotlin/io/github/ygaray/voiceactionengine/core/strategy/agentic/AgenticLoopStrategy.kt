@@ -154,6 +154,8 @@ internal class AgenticRun(
             val outcome = iterate(iteration)
             if (outcome != null) return outcome
         }
+        // Defensive only: the policy requires at least two iterations and the last permitted one always returns above,
+        // so a run never reaches this line. It keeps the loop total without a throw on a path nothing can take.
         return StrategyOutcome.Failed(FailureReason.Other(EXHAUSTED_CODE))
     }
 
@@ -208,7 +210,8 @@ internal class AgenticRun(
     private suspend fun dispatchTurn(response: ModelResponse): StrategyOutcome? {
         val turn = dispatchCalls(context, response.message.toolCalls)
         val terminal = turn.terminal
-        if (terminal == null) {
+        // A run that ends here sends nothing more, so its history is not extended.
+        if (terminal == null && !turn.struckOut) {
             history.add(response.message)
             history.add(ToolResultsMessage(turn.results))
         }
