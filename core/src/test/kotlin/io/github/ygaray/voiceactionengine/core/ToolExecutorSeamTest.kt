@@ -18,6 +18,7 @@ import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
+import io.github.ygaray.voiceactionengine.core.testing.RecordingSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedSelectionSource
@@ -28,11 +29,14 @@ import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
@@ -147,5 +151,54 @@ class ToolExecutorSeamTest {
             assertEquals(false, seen.isError)
             assertEquals(false, seen.held)
         }
+    }
+
+    private fun finished(tool: String): ToolStep.Finished =
+        ToolStep.Finished(tool, FinishedKind.READ, StepResult(READ_CONTENT))
+
+    @Test
+    fun theScriptedExecutorPlaysRecordsAndLogsInOrder() = runTest {
+        val log = RecordingSink<String>()
+        val first = finished("first_tool")
+        val second = finished("second_tool")
+        val executor = ScriptedToolExecutor.sequence(log, first, second)
+        val firstArguments = arguments()
+        val secondArguments = buildJsonObject { put("other", "value") }
+        val input = CommandInput("anything")
+
+        val playedFirst = executor.prepare(Extraction("first_tool", firstArguments), input)
+        val playedSecond = executor.prepare(Extraction("second_tool", secondArguments), input)
+
+        assertSame(first, playedFirst)
+        assertSame(second, playedSecond)
+        assertEquals(listOf("first_tool", "second_tool"), executor.calls.map { it.toolName })
+        assertSame(firstArguments, executor.calls[0].arguments)
+        assertSame(secondArguments, executor.calls[1].arguments)
+        assertEquals(2, executor.callCount)
+        assertEquals(listOf("prepare:first_tool", "prepare:second_tool"), log.events)
+    }
+
+    @Test
+    fun theScriptedExecutorFailsLoudlyWhenItsScriptRunsDry() = runTest {
+        val executor = ScriptedToolExecutor.sequence(null, finished("only_tool"))
+        val input = CommandInput("anything")
+        executor.prepare(Extraction("only_tool", arguments()), input)
+
+        val error = assertThrows(AssertionError::class.java) {
+            runBlocking { executor.prepare(Extraction("only_tool", arguments()), input) }
+        }
+
+        assertTrue(error.message.orEmpty(), error.message.orEmpty().contains("exhausted after 1 calls"))
+        assertEquals(2, executor.callCount)
+    }
+
+    @Test
+    fun aScriptedExecutorWithoutALogStillRecords() = runTest {
+        val executor = ScriptedToolExecutor(null) { _, _ -> finished("quiet_tool") }
+
+        executor.prepare(Extraction("quiet_tool", arguments()), CommandInput("anything"))
+
+        assertEquals(listOf("quiet_tool"), executor.calls.map { it.toolName })
+        assertEquals(1, executor.callCount)
     }
 }

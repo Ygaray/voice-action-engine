@@ -103,5 +103,20 @@ public value class TraceCode internal constructor(public val value: String) {
          * outcome is partial.
          */
         public val EXTRA_TOOL_CALLS_DROPPED: TraceCode = TraceCode("extra_tool_calls_dropped")
+
+        /**
+         * The model called a tool the tier did not offer; the app's executor was not called and the model got an error
+         * result.
+         */
+        public val UNKNOWN_TOOL: TraceCode = TraceCode("unknown_tool")
+
+        /** The app's executor threw while preparing a call; the model got an error result with a fixed notice. */
+        public val TOOL_PREPARE_ERROR: TraceCode = TraceCode("tool_prepare_error")
+
+        /**
+         * A tool not declared mutating returned a mutation; it was dropped before the gate and the model got an error
+         * result.
+         */
+        public val READ_TOOL_MUTATION_REJECTED: TraceCode = TraceCode("read_tool_mutation_rejected")
     }
 }

@@ -228,6 +228,22 @@ class TraceTest {
         routerCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
     }
 
+    private val agenticLoopCodes = mapOf(
+        TraceCode.UNKNOWN_TOOL to "unknown_tool",
+        TraceCode.TOOL_PREPARE_ERROR to "tool_prepare_error",
+        TraceCode.READ_TOOL_MUTATION_REJECTED to "read_tool_mutation_rejected",
+    )
+
+    @Test
+    fun theAgenticLoopCodesHaveTheirSnakeCaseWireValues() {
+        assertEquals(THREE, agenticLoopCodes.size)
+        agenticLoopCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
+        val existing = phaseTwoCodes + routerCodes.keys + TraceCode.EXTRA_TOOL_CALLS_DROPPED
+        val all = existing + agenticLoopCodes.keys
+        assertEquals(THIRTY_TWO, all.size)
+        assertEquals(THIRTY_TWO, all.map { it.value }.toSet().size)
+    }
+
     @Test
     fun everyTraceCodeIsDistinctAndLowerSnakeCase() {
         val all = phaseTwoCodes + routerCodes.keys
@@ -348,5 +364,7 @@ class TraceTest {
         const val FINISHED_INDEX = 3
         const val THIRTEEN = 13
         const val TWENTY_EIGHT = 28
+        const val THREE = 3
+        const val THIRTY_TWO = 32
     }
 }
