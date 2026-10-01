@@ -2,6 +2,7 @@ package io.github.ygaray.voiceactionengine.core
 
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.provider.AiProvider
 import io.github.ygaray.voiceactionengine.core.provider.BoundModel
 import io.github.ygaray.voiceactionengine.core.provider.CredentialLookup
@@ -10,6 +11,7 @@ import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilityTable
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
+import io.github.ygaray.voiceactionengine.core.provider.ProviderCall
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
@@ -19,20 +21,31 @@ import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeClock
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
+import io.github.ygaray.voiceactionengine.core.testing.ProviderStep
 import io.github.ygaray.voiceactionengine.core.testing.RecordingEventListener
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedSelectionSource
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.coroutines.cancellation.CancellationException
 
 /** The router and the handle it returns, driven directly against a real [RunRecorder] and scripted fakes. */
 class ModelRouterTest {
@@ -403,5 +416,240 @@ class ModelRouterTest {
         assertEquals("local", textOf(handle.complete(request)))
         assertNull(device.calls.single().credential)
         assertTrue(credentials.requested.isEmpty())
+    }
+
+    private val toolRequest = ModelRequest(
+        "sys",
+        listOf(UserMessage("hi")),
+        listOf(ToolSpec("lookup", "finds a thing", JsonObject(emptyMap()))),
+        TierPolicy.DEFAULT.maxTokensPerTurn,
+    )
+
+    private suspend fun turnsOf(recorder: RunRecorder) = recorder.snapshot().attempts.single().turns
+
+    private suspend fun finish(recorder: RunRecorder) = recorder.tierFinished(strategy, "completed", null, null, null)
+
+    @Test
+    fun aToolRequestOnAModelWithoutToolsIsRefusedBeforeAnyCallAndTheHandleStaysUsable() = runTest {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            ModelCapabilities { supportsTools = false },
+            { _ -> FakeAiProvider.reply("plain", Usage.ZERO) },
+        )
+        val recorder = recorder()
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+
+        val refused = handle.complete(toolRequest) as ModelResult.Failure
+
+        assertEquals(FailureReason.ModelUnsupported(), refused.reason)
+        assertEquals(0, fake.callCount)
+        assertEquals(listOf(TraceCode.CAPABILITY_REFUSED), recorder.snapshot().codes)
+        assertEquals("plain", textOf(handle.complete(request)))
+        assertEquals(1, fake.callCount)
+        finish(recorder)
+        assertEquals(1, turnsOf(recorder).size)
+    }
+
+    @Test
+    fun anAppOverrideForTheExactModelAlsoStopsAToolRequestBeforeTheCall() = runTest {
+        val fake = anthropicFake()
+        val table = ModelCapabilityTable(
+            { _, _ -> ModelCapabilities.UNKNOWN },
+            mapOf((ProviderId.ANTHROPIC to "model-a") to { supportsTools = false }),
+        )
+        val recorder = recorder()
+        val handle = bindDefault(routerOf(listOf(fake), table = table), recorder)
+
+        val refused = handle.complete(toolRequest) as ModelResult.Failure
+
+        assertEquals(FailureReason.ModelUnsupported(), refused.reason)
+        assertEquals(0, fake.callCount)
+        assertFalse(handle.capabilities?.supportsTools ?: true)
+    }
+
+    @Test
+    fun aProviderWhoseCapabilityAnswerThrowsRefusesTheBindWithNoCall() = runTest {
+        val broken = object : AiProvider {
+            override val id: ProviderId = ProviderId.ANTHROPIC
+            var calls = 0
+
+            override fun capabilities(model: String): ModelCapabilities = error("no table")
+
+            override suspend fun complete(call: ProviderCall): ModelResult {
+                calls++
+                return FakeAiProvider.reply("ok", Usage.ZERO)
+            }
+        }
+        val recorder = recorder()
+
+        val handle = bindDefault(routerOf(listOf(broken)), recorder)
+
+        assertEquals(FailureReason.Unexpected("IllegalStateException"), handle.refusal)
+        assertEquals(listOf(TraceCode.CAPABILITY_LOOKUP_ERROR), recorder.snapshot().codes)
+        assertEquals(0, broken.calls)
+    }
+
+    @Test
+    fun aThrowingProviderBecomesATypedFailureAndAZeroUsageTurnNamingTheModel() = runTest {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            ModelCapabilities.UNKNOWN,
+            { _ -> throw IllegalStateException("provider exploded with ${key}") },
+        )
+        val recorder = recorder()
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+
+        val failed = handle.complete(request) as ModelResult.Failure
+
+        assertEquals(FailureReason.Unexpected("IllegalStateException"), failed.reason)
+        assertFalse(failed.toString().contains(key))
+        assertEquals(listOf(TraceCode.PROVIDER_ERROR), recorder.snapshot().codes)
+        finish(recorder)
+        val turn = turnsOf(recorder).single()
+        assertEquals(ProviderId.ANTHROPIC, turn.provider)
+        assertEquals("model-a", turn.model)
+        assertEquals(0L, turn.usage.total)
+        assertNull(turn.stopReason)
+    }
+
+    @Test
+    fun aProviderThatLeaksATimeoutGivesATimeoutFailure() = runTest {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            ModelCapabilities.UNKNOWN,
+            { _ -> withTimeout(1) { delay(1_000) }; FakeAiProvider.reply("late", Usage.ZERO) },
+        )
+        val handle = bindDefault(routerOf(listOf(fake)), recorder())
+
+        val failed = handle.complete(request) as ModelResult.Failure
+
+        assertEquals(FailureReason.Timeout(), failed.reason)
+    }
+
+    @Test
+    fun aProviderFailureIsPassedThroughUnchangedWithAZeroUsageTurnAndNoErrorCode() = runTest {
+        val scripted = ModelResult.Failure(FailureReason.RateLimited())
+        val fake = FakeAiProvider(ProviderId.ANTHROPIC, scripted)
+        val recorder = recorder()
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+
+        val result = handle.complete(request)
+
+        assertSame(scripted, result)
+        assertTrue(recorder.snapshot().codes.isEmpty())
+        finish(recorder)
+        val turn = turnsOf(recorder).single()
+        assertEquals("model-a", turn.model)
+        assertEquals(0L, turn.usage.total)
+    }
+
+    @Test
+    fun cancellingTheCallerPropagatesItsOwnCancellationAndRecordsNoTurn() = runTest {
+        val parked = CompletableDeferred<Unit>()
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            ModelCapabilities.UNKNOWN,
+            { _ -> parked.await(); FakeAiProvider.reply("never", Usage.ZERO) },
+        )
+        val recorder = recorder()
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+        var caught: Throwable? = null
+
+        val job = launch {
+            try {
+                handle.complete(request)
+            } catch (cancelled: CancellationException) {
+                caught = cancelled
+                throw cancelled
+            }
+        }
+        runCurrent()
+        job.cancel()
+        job.join()
+
+        assertTrue(job.isCancelled)
+        assertTrue(caught is CancellationException)
+        assertTrue(recorder.snapshot().codes.isEmpty())
+        finish(recorder)
+        assertTrue(turnsOf(recorder).isEmpty())
+    }
+
+    @Test
+    fun aKeylessProviderIsBoundAndCalledWithNoCredentialAndNoKeyLookup() = runTest {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            listOf({ _ -> FakeAiProvider.reply("ok", Usage.ZERO) }),
+            ModelCapabilities.UNKNOWN,
+            requiresCredential = false,
+        )
+        val credentials = ScriptedCredentialSource(emptyMap())
+        val handle = bindDefault(routerOf(listOf(fake), credentials = credentials), recorder())
+
+        assertEquals("ok", textOf(handle.complete(request)))
+        assertNull(fake.calls.single().credential)
+        assertTrue(credentials.requested.isEmpty())
+    }
+
+    @Test
+    fun twoConcurrentCompletesOnOneHandleRecordExactlyTwoTurns() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val step: ProviderStep = { _ -> gate.await(); FakeAiProvider.reply("ok", Usage(3, 0, 0, 1)) }
+        val fake = FakeAiProvider(ProviderId.ANTHROPIC, listOf(step, step))
+        val recorder = recorder()
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+
+        val first = async { handle.complete(request) }
+        val second = async { handle.complete(request) }
+        runCurrent()
+        assertEquals(2, fake.callCount)
+        gate.complete(Unit)
+        listOf(first, second).awaitAll().forEach { assertEquals("ok", textOf(it)) }
+
+        finish(recorder)
+        assertEquals(2, turnsOf(recorder).size)
+        assertEquals(8L, recorder.tokensUsed)
+    }
+
+    @Test
+    fun manyCompletesFromRealThreadsLoseNoTurn() = runTest {
+        val count = 40
+        val step: ProviderStep = { _ -> FakeAiProvider.reply("ok", Usage(1, 0, 0, 0)) }
+        val steps = List(count) { step }
+        val fake = FakeAiProvider(ProviderId.ANTHROPIC, steps)
+        val recorder = recorder()
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+
+        withContext(Dispatchers.Default) {
+            (1..count).map { async { handle.complete(request) } }.awaitAll()
+        }
+
+        finish(recorder)
+        assertEquals(count, turnsOf(recorder).size)
+        assertEquals(count.toLong(), recorder.tokensUsed)
+    }
+
+    @Test
+    fun eachTurnLatencyIsTheRouterClockAdvanceInsideTheCall() = runTest {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            ModelCapabilities.UNKNOWN,
+            { _ -> clock.advanceBy(13); FakeAiProvider.reply("a", Usage.ZERO) },
+            { _ -> clock.advanceBy(2); FakeAiProvider.reply("b", Usage.ZERO) },
+        )
+        val recorder = recorder()
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+
+        handle.complete(request)
+        handle.complete(request)
+
+        finish(recorder)
+        assertEquals(listOf(13L, 2L), turnsOf(recorder).map { it.latencyMillis })
     }
 }
