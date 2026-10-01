@@ -5,16 +5,16 @@ milestone_name: Core Engine
 current_phase: 02
 current_phase_name: Core Contract, Pipeline & Commit Seam
 status: executing
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-10-01T00:19:13.139Z"
+stopped_at: Completed 02-05-PLAN.md
+last_updated: "2026-10-01T00:24:41.559Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 02 execution started
-state_head: 13e1f9ed6ae36e854e6681a34d5debf8175a711a
+state_head: 012ca31d207753a868cc6ab1e9dc14b1d866774b
 progress:
   total_phases: 11
   completed_phases: 1
   total_plans: 15
-  completed_plans: 10
+  completed_plans: 11
   percent: 9
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 02 (Core Contract, Pipeline & Commit Seam) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 Status: Ready to execute
 Last activity: 2026-09-30 — Phase 02 execution started
 
@@ -70,6 +70,7 @@ Progress: [█░░░░░░░░░] 9%
 | Phase 02 P02 | 25min | 3 tasks | 12 files |
 | Phase 02 P03 | 45min | 2 tasks | 22 files |
 | Phase 02 P04 | 40min | 3 tasks | 13 files |
+| Phase 02 P05 | 40min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Recent decisions affecting current work:
 - [Phase 01]: Live JitPack probe passed at rung 0 by 10-char SHA 7f9db22944; no fallback (F1-F3) needed, coordinates and module shape unchanged
 - [Phase 1]: Phase 1 plan 03: scanner (not detekt) gates runCatching/print/printStackTrace/FQ DI annotations; detekt control compared as exact (line, rule) set
 - [Phase 01]: 01-04: structural gates have no override knob; negative controls plant real violations — A knob equal to a wrongly-compiled truth would pass a bad artifact
+- [Phase 02]: 02-05: APPLY_ERROR_CONTENT is file-private in ApplyStep.kt, read via internal fun applyErrorContent() (internal const leaks a public static field)
 
 ### Pending Todos
 
@@ -117,6 +119,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-01T00:19:13.101Z
-Stopped at: Completed 02-04-PLAN.md
+Last session: 2026-10-01T00:24:41.512Z
+Stopped at: Completed 02-05-PLAN.md
 Resume file: None

@@ -107,7 +107,7 @@ Plans:
   4. Every write goes prepare → `PreApplyGate.admit` → `CommitSink`, and both gate modes work: suspend mode (`AwaitingConfirmGate`, 120 s default, fail-closed on timeout/decline/error) and defer mode (`Hold`, then `commitHeld`, optionally amended). A held action is never reported as success and yields `{"applied":false,"status":"held_for_confirmation"}`. `CommitSink` hears each commit as it happens, with a `runId` and an `ExecutedToolCall`-shaped payload, and `onRunClosed` fires exactly once on each of the five exit paths (one test per path).
   5. A tier that has committed ≥1 action and then asks to escalate never reaches the next tier, and no write repeats. Every outcome carries the ordered executed-action list, its commits, its held proposals and a `CommandTrace` (per-tier attempts, escalation reasons, provider/model, normalized tokens, latency). An optional typed callback receives the same events live.
 
-**Plans**: 4/9 plans executed
+**Plans**: 5/9 plans executed
 
 Plans:
 **Wave 1**
@@ -122,7 +122,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 02-04-PLAN.md — TierSelector (Linear/Fixed), per-call policy pre-check (maxTier, allowedProviders, offlineOnly, ON_DEVICE rule), never-throw collapse, engine deadline, cancellation
-- [ ] 02-05-PLAN.md — Commit coordinator: Hold + HeldProposal + held bytes, fail-closed gate step, Finished preview/error streaming, apply is_error/cancel semantics, sink isolation, batch per-item isolation, executed list
+- [x] 02-05-PLAN.md — Commit coordinator: Hold + HeldProposal + held bytes, fail-closed gate step, Finished preview/error streaming, apply is_error/cancel semantics, sink isolation, batch per-item isolation, executed list
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -287,7 +287,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Scaffold & Publishing Proof | 6/6 | Complete    | 2026-09-30 |
-| 2. Core Contract, Pipeline & Commit Seam | 4/9 | In Progress|  |
+| 2. Core Contract, Pipeline & Commit Seam | 5/9 | In Progress|  |
 | 3. Transcript Types, ProviderRouter & On-Device Gate | 0/TBD | Not started | - |
 | 4. Anthropic Transport & OkHttp Matrix | 0/TBD | Not started | - |
 | 5. OpenAI & OpenRouter Transports | 0/TBD | Not started | - |
