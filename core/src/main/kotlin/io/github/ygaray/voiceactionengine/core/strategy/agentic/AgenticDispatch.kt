@@ -16,6 +16,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
 
 private const val UNKNOWN_TOOL_CONTENT = """{"status":"error","reason":"unknown_tool"}"""
 private const val TOOL_ERROR_CONTENT = """{"status":"error","reason":"tool_error"}"""
+private const val STRIKES_TO_ABORT = 2
 private const val NOT_A_MUTATING_TOOL_CONTENT = """{"status":"error","reason":"not_a_mutating_tool"}"""
 
 /** What dispatching a turn's calls needs: the run's session, the command, the offered tools and the app's executor. */
@@ -24,20 +25,43 @@ internal class DispatchContext(
     val input: CommandInput,
     val snapshot: ToolingSnapshot,
     val executor: ToolExecutor,
+) {
+    // Errors per tool name for the whole command. A held result is not an error and never counts.
+    private val strikes = mutableMapOf<String, Int>()
+
+    /** Counts one error result for the tool called [toolName]. */
+    fun strike(toolName: String) {
+        strikes[toolName] = (strikes[toolName] ?: 0) + 1
+    }
+
+    /** True once some tool has returned errors often enough to end the run. */
+    fun struckOut(): Boolean = strikes.values.any { it >= STRIKES_TO_ABORT }
+}
+
+/** What a turn's dispatch produced: one result per call in call order, and whether the run must end after the turn. */
+internal class TurnDispatch(
+    val results: List<ToolResult>,
+    val struckOut: Boolean,
 )
 
 /**
  * Runs a turn's [calls] one at a time, in the order the model emitted them, never concurrently, and returns one result
- * per call in the same order. Every change goes through the session, so the gate decides.
+ * per call in the same order. Every change goes through the session, so the gate decides. A tool that has returned
+ * errors twice in the command ends the run, but only after the rest of the turn ran.
  */
 internal suspend fun dispatchCalls(
     context: DispatchContext,
     calls: List<AssistantPart.ToolCall>,
-): List<ToolResult> = calls.map { dispatchCall(context, it) }
+): TurnDispatch {
+    val results = calls.map { dispatchCall(context, it) }
+    return TurnDispatch(results, context.struckOut())
+}
 
 private suspend fun dispatchCall(context: DispatchContext, call: AssistantPart.ToolCall): ToolResult {
     val spec = context.snapshot.tools.firstOrNull { it.name == call.name }
-    return if (spec == null) unknownTool(context, call) else settle(context, spec, call)
+    val result = if (spec == null) unknownTool(context, call) else settle(context, spec, call)
+    if (result.isError) context.strike(call.name)
+    return result
 }
 
 // A call to a tool the tier never offered is not trusted: the app is not asked and nothing is recorded.

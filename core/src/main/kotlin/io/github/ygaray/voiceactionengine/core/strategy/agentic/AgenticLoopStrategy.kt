@@ -175,9 +175,12 @@ internal class AgenticRun(
     private fun lastTurnGuard(iteration: Int): StrategyOutcome? =
         if (iteration >= context.session.policy.maxIterations) iterationBudgetFailure() else null
 
+    // A tool that struck out ends the run after the whole turn ran; the pipeline attaches every executed action to the
+    // failure, so nothing committed in the turn is hidden.
     private suspend fun dispatchTurn(response: ModelResponse): StrategyOutcome? {
+        val turn = dispatchCalls(context, response.message.toolCalls)
         history.add(response.message)
-        history.add(ToolResultsMessage(dispatchCalls(context, response.message.toolCalls)))
-        return null
+        history.add(ToolResultsMessage(turn.results))
+        return if (turn.struckOut) StrategyOutcome.Failed(FailureReason.ToolFailure()) else null
     }
 }
