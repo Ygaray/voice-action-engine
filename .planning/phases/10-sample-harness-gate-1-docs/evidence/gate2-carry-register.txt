@@ -1,0 +1,49 @@
+Phase 10 Gate-2 carry register (written by plan 10-10; the Gate-1 tester records the observed disposition of each carry in the fragment)
+
+C1 Low-credit / spend-exhausted rejection maps to FailureReason.Billing
+  source: .planning/uat-pending/04 item 3(a); .planning/uat-pending/05 item 3(d); Runtime Decision (1)
+  phase 10 does: nothing live; it cannot be triggered without draining the account credit
+  disposition: NOT EXERCISED (not triggerable without draining credit)
+  covered by unit tests: AnthropicErrorMapTest.aDepletedCreditBalanceOn400IsBillingAndNeverRetried,
+    AnthropicErrorMapTest.aUserSpendLimitOn400IsBillingAndAnyOtherBadRequestIsAnHttpError,
+    AnthropicErrorMapTest.anEnforcedSpendCapOn429IsBillingAndAnyOtherErrorCodeIsARateLimit,
+    ChatErrorMapTest.exhaustedQuotaIsFinalBillingAtAnyStatus,
+    ChatErrorMapTest.statusTableMapsEveryDocumentedStatus (402 -> billing)
+  evidence pointer: providers/src/test/kotlin/io/github/ygaray/voiceactionengine/providers/anthropic/AnthropicErrorMapTest.kt and providers/src/test/kotlin/io/github/ygaray/voiceactionengine/providers/chat/ChatErrorMapTest.kt
+
+C2 Accepted API-key character set holds for a real key of every provider
+  source: .planning/uat-pending/04 item 3(b); .planning/uat-pending/05 item 3(d); Runtime Decision (2)
+  phase 10 does: any HTTP 200 per provider proves the real key was not refused by the pre-send header-safety check (key_charset=ok)
+  disposition: proven per provider by key_charset=ok after a 200: Anthropic (G1-06 L1 or G1-07 L2), OpenAI (G1-08 L3 or G1-10 L5), OpenRouter (G1-09 L4 or G1-11 L6)
+  evidence pointer: evidence/gate1-ver02.txt, evidence/gate1-smoke_anthropic.txt, evidence/gate1-smoke_openai.txt, evidence/gate1-multi_openai.txt, evidence/gate1-smoke_openrouter.txt, evidence/gate1-multi_openrouter.txt
+
+C3 Responses-only 400 text (RESPONSES_ENDPOINT_MARKER wording)
+  source: .planning/uat-pending/05 item 3(b)
+  phase 10 does: optional leg L7 (responses_probe, gpt-6-astra); a 400 bills nothing
+  disposition: closed when L7 runs and returns CAPTURED with http and reason recorded; otherwise stays a Gate-2 item
+  evidence pointer: evidence/gate1-responses_probe.txt (only if L7 ran)
+
+C4 OpenRouter cache-write accounting with an explicit cache breakpoint (prompt_tokens includes cache_write_tokens)
+  source: .planning/uat-pending/05 item 3(c)
+  phase 10 does: L6 (G1-11) records the turn-2 cache read only (observed, not asserted)
+  disposition: not exercisable in v1.0 (LATER-02: the engine sends no explicit breakpoint to OpenRouter); needs Yahir waiver; P11 waiver packet. This does not close the uat-pending/05 item and it is not marked closed.
+  evidence pointer: evidence/gate1-multi_openrouter.txt (turn2_cache_read)
+
+C5 OpenRouter EDIT-shaped call whose output omits the optionals (replaces the derived row openrouter_edit_absent_optional)
+  source: .planning/uat-pending/05 item 3(a)
+  phase 10 does: L4 (G1-09, smoke_openrouter, openai/gpt-5.4-mini)
+  disposition: closed by an L4 PASS (optional_absent=true); INCONCLUSIVE model_filled_optional after one rerun carries it to Gate-2
+  evidence pointer: evidence/gate1-smoke_openrouter.txt
+
+C6 Anthropic disable_parallel_tool_use sent and accepted (07-08 carry, PROV-11)
+  source: Runtime Decision (Gate-1 coverage of P7/P8); 07-08 carry
+  phase 10 does: L2 (G1-07) must show one attempt kind=initial http=200; the request body is not observable on device
+  disposition: accepted by the orchestrator (2026-10-01): host golden plus the live 200 on the first attempt is sufficient proof
+  host goldens: SingleShotWireTest.anthropicForcedBodyAsksForOneToolAndCommits and AnthropicEncoderTest.aSingleToolCallPutsTheParallelOffSwitchInsideToolChoiceInEveryShape (result recorded in evidence/phase-gate.txt)
+  evidence pointer: evidence/gate1-smoke_anthropic.txt and evidence/phase-gate.txt
+
+C7 Live legs deferred (applies only when 10-LIVE-LEG-DECISION.md says decision: deferred)
+  source: plan 10-10 Task 2
+  phase 10 does: nothing live; G1-05..G1-11 and G1-13 end result: partial with INFRA(deferred: live legs not approved)
+  disposition: not applicable; the decision on record is approved (relayed 2026-10-01). If the tester must fall back to the deferred path, every live criterion becomes a Gate-2 item
+  evidence pointer: 10-LIVE-LEG-DECISION.md

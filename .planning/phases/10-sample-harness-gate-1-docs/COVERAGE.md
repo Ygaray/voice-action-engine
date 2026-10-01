@@ -1,0 +1,1 @@
+No external API integration: this phase composes the already-shipped Anthropic Messages and Chat Completions transports (coverage matrices in phases 04 and 05) from a never-published debug harness; it adds no endpoint, request field or response mapping. The live legs exercise existing transports only.
