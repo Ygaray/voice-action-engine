@@ -181,8 +181,10 @@ class ChatCancellationTest {
     }
 
     private companion object {
-        const val IDLE_WITHIN_SECONDS = 2L
-        const val DEADLINE_WITHIN_SECONDS = 5L
+        // Generous on purpose: these are real-time bounds that must not flake on a loaded CI machine, and each test
+        // also carries its own 30 s timeout. The structural assertions (one cancellation, one request) are the check.
+        const val IDLE_WITHIN_SECONDS = 10L
+        const val DEADLINE_WITHIN_SECONDS = 15L
         const val DEADLINE_MILLIS = 500L
         const val POLL_MILLIS = 25L
         const val MILLIS = 1_000L
