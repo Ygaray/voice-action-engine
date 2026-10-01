@@ -92,6 +92,15 @@ class ConversationGoldenTest {
     }
 
     @Test
+    fun theSameCaseNameIsAllowedOncePerDialect() {
+        val rows = parseConversationManifest(
+            manifest(row(), row(dialect = "openai"), row(dialect = "openrouter")),
+        )
+        assertEquals(listOf("anthropic", "openai", "openrouter"), rows.map { it.dialect })
+        assertEquals(setOf("derived_parallel"), rows.map { it.case }.toSet())
+    }
+
+    @Test
     fun aManifestWithOnlyAHeaderHasNoRows() {
         assertEquals(emptyList<ConversationRow>(), parseConversationManifest(manifest()))
     }

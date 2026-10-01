@@ -93,7 +93,8 @@ private fun conversationRow(line: Int, text: String, seen: MutableSet<String>): 
     }
     require(model.isNotBlank()) { "line $line: the model is empty" }
     require(cols[4] == "$dialect/$case.json") { "line $line: the file must be <dialect>/<case>.json" }
-    require(seen.add(case)) { "line $line: duplicate case" }
+    // A case name is unique within its dialect: the same scenario is written once per wire dialect.
+    require(seen.add("$dialect/$case")) { "line $line: duplicate case" }
     return ConversationRow(case, dialect, provenance, model, cols[4], tagsOf(line, cols[5]), cols[6])
 }
 

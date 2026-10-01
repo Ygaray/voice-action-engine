@@ -14,6 +14,15 @@ import io.github.ygaray.voiceactionengine.providers.anthropic.decodeAnthropicRes
 import io.github.ygaray.voiceactionengine.providers.anthropic.encodeAnthropicRequest
 import io.github.ygaray.voiceactionengine.providers.anthropic.successBody
 import io.github.ygaray.voiceactionengine.providers.anthropic.textBlock
+import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsProvider
+import io.github.ygaray.voiceactionengine.providers.chat.ChatVendor
+import io.github.ygaray.voiceactionengine.providers.chat.chatBody
+import io.github.ygaray.voiceactionengine.providers.chat.chatCall
+import io.github.ygaray.voiceactionengine.providers.chat.chatMessage
+import io.github.ygaray.voiceactionengine.providers.chat.chatUsage
+import io.github.ygaray.voiceactionengine.providers.chat.decodeChatResponse
+import io.github.ygaray.voiceactionengine.providers.chat.encodeChatRequest
+import io.github.ygaray.voiceactionengine.providers.chat.isEmptyArgumentsForm
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -252,6 +261,104 @@ internal object AnthropicWire : WireDialect {
     override fun provider(baseUrl: HttpUrl): AiProvider = AnthropicProvider { this.baseUrl = baseUrl }
 
     override fun okAnswer(): String = successBody(listOf(textBlock("Done.")), "end_turn")
+
+    private fun roleOf(message: JsonElement): String? = text((message as? JsonObject)?.get(KEY_ROLE))
+
+    private fun text(element: JsonElement?): String? = (element as? JsonPrimitive)?.takeIf { it.isString }?.content
+}
+
+private const val KEY_CHOICES = "choices"
+private const val KEY_MESSAGE = "message"
+private const val KEY_TOOL_CALLS = "tool_calls"
+private const val KEY_FUNCTION = "function"
+private const val KEY_ARGUMENTS = "arguments"
+private const val KEY_ERROR = "error"
+private const val ROLE_TOOL = "tool"
+private const val OK_PROMPT_TOKENS = 10L
+private const val OK_COMPLETION_TOKENS = 2L
+
+// The test's own list of what a Chat replay keeps; it is deliberately not read from production code.
+private val CHAT_REPLAY_KEYS = setOf(KEY_ROLE, KEY_CONTENT, KEY_TOOL_CALLS, "refusal", "reasoning_details")
+
+/**
+ * The Chat Completions binding for one [vendor]: the production encoder and decoder, and the real
+ * [ChatCompletionsProvider]. The turn it stores and replays is the first choice's message.
+ */
+internal class ChatWire(private val vendor: ChatVendor, override val name: String) : WireDialect {
+    override val providerId: ProviderId = vendor.providerId
+    override val otherProviderId: ProviderId =
+        if (vendor.providerId == ProviderId.OPENAI) ProviderId.OPENROUTER else ProviderId.OPENAI
+
+    override fun call(model: String, request: ModelRequest): ProviderRequest =
+        chatCall(vendor, model, request, FAKE_KEY)
+
+    override fun encode(model: String, request: ModelRequest): String =
+        encodeChatRequest(call(model, request), vendor).toString(Charsets.UTF_8)
+
+    override fun decode(body: String, model: String): ModelResult =
+        decodeChatResponse(body, null, model, vendor, false).result
+
+    override fun storedReplay(response: JsonObject): JsonElement = storedMessage(response)
+
+    override fun expectedReplayWire(response: JsonObject): JsonElement? =
+        storedMessage(response).let { if (hasEmptyArguments(it)) null else projection(it) }
+
+    override fun assistantWireIndices(messages: JsonArray): List<Int> =
+        messages.withIndex().filter { (_, message) -> roleOf(message) == ROLE_ASSISTANT }.map { it.index }
+
+    override fun assistantWire(message: JsonObject): JsonElement = message
+
+    override fun toolResultWires(messages: JsonArray, assistantIndex: Int): List<WireToolResult> =
+        messages.drop(assistantIndex + 1)
+            .takeWhile { roleOf(it) == ROLE_TOOL }
+            .map { message -> toolResult(message as JsonObject) }
+
+    override fun resultMessageCount(callCount: Int): Int = callCount
+
+    // Chat replays a message object, so an array is the wrong shape.
+    override fun rawOfOtherShape(): JsonElement = JsonArray(emptyList())
+
+    override fun provider(baseUrl: HttpUrl): AiProvider =
+        if (vendor.providerId == ProviderId.OPENAI) {
+            ChatCompletionsProvider.openAi { this.baseUrl = baseUrl }
+        } else {
+            ChatCompletionsProvider.openRouter { this.baseUrl = baseUrl }
+        }
+
+    override fun okAnswer(): String =
+        chatBody(chatMessage("Done."), "stop", chatUsage(OK_PROMPT_TOKENS, OK_COMPLETION_TOKENS))
+
+    /** The replayed keys of [message], in the order the stored message has them. */
+    fun projection(message: JsonObject): JsonObject = JsonObject(message.filterKeys { it in CHAT_REPLAY_KEYS })
+
+    private fun storedMessage(response: JsonObject): JsonObject {
+        val choice = (response[KEY_CHOICES] as JsonArray)[0] as JsonObject
+        return choice[KEY_MESSAGE] as JsonObject
+    }
+
+    private fun hasEmptyArguments(message: JsonObject): Boolean =
+        (message[KEY_TOOL_CALLS] as? JsonArray).orEmpty().any { entry ->
+            val function = (entry as JsonObject)[KEY_FUNCTION] as JsonObject
+            isEmptyArgumentsForm(function[KEY_ARGUMENTS])
+        }
+
+    // An error is a string inside a one-key `error` object; any other content is the app's text as it went out.
+    private fun toolResult(message: JsonObject): WireToolResult {
+        val id = text(message["tool_call_id"]).orEmpty()
+        val content = text(message[KEY_CONTENT])
+        val inner = content?.let(::errorText)
+        return if (inner != null) WireToolResult(id, inner, true) else WireToolResult(id, content, false)
+    }
+
+    private fun errorText(content: String): String? {
+        if (!content.startsWith("{")) return null
+        val parsed = try {
+            Json.parseToJsonElement(content) as? JsonObject
+        } catch (ignored: IllegalArgumentException) {
+            null
+        }
+        return parsed?.takeIf { it.keys == setOf(KEY_ERROR) }?.let { text(it[KEY_ERROR]) }
+    }
 
     private fun roleOf(message: JsonElement): String? = text((message as? JsonObject)?.get(KEY_ROLE))
 
