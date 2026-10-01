@@ -31,10 +31,14 @@ internal class RecordedTurn(val messages: JsonArray, val response: JsonObject) {
  *
  * It keeps a single id map for request messages and response bodies alike, so an id in a turn-1 response and the same
  * id in the turn-2 messages become the same `<prefix>GOLDEN<n>`, numbered per prefix (call_, toolu_, msg_, chatcmpl-,
- * gen-, req_) in the order the ids first appear. An id that already ends in GOLDEN is kept and not counted.
+ * gen-, req_, resp_, rs_, fc_) in the order the ids first appear. An id that already ends in GOLDEN is kept and not
+ * counted.
  *
- * Values under [EXEMPT_KEYS] (thinking, signature, data, reasoning, reasoning_details) are copied untouched, because a
- * provider checks them byte for byte; a key-shaped or Bearer string inside one refuses the whole conversation.
+ * String values under [EXEMPT_KEYS] (thinking, signature, data, reasoning), and the text, summary and encrypted_content
+ * strings inside a `reasoning_details` array, are copied untouched, because a provider checks them byte for byte; a
+ * key-shaped or Bearer string inside one refuses the whole conversation. The rest of a `reasoning_details` entry, its
+ * `id` included, is cleaned like any other field. A tool argument that happens to be named like an exempt key and holds
+ * a string is exempt too, since the key name is all the sanitizer can see; the scripted tools have no such argument.
  * Elsewhere such strings become `redacted`, `created` becomes 0, `system_fingerprint` becomes null, and `service_tier`,
  * `cost`, `cost_details` and `user_id` are dropped at any depth. A response that holds an error is refused, because
  * conversation goldens are success-only.
@@ -71,21 +75,21 @@ internal class ConversationSanitizer {
         return text
     }
 
-    private fun clean(element: JsonElement): JsonElement = when (element) {
-        is JsonObject -> cleanObject(element)
-        is JsonArray -> JsonArray(element.map(::clean))
+    private fun clean(element: JsonElement, inDetails: Boolean = false): JsonElement = when (element) {
+        is JsonObject -> cleanObject(element, inDetails)
+        is JsonArray -> JsonArray(element.map { clean(it, inDetails) })
         is JsonPrimitive -> if (element.isString) JsonPrimitive(scrub(element.content)) else element
     }
 
-    private fun cleanObject(source: JsonObject): JsonObject {
+    private fun cleanObject(source: JsonObject, inDetails: Boolean): JsonObject {
         val result = LinkedHashMap<String, JsonElement>()
         source.forEach { (key, value) ->
             when {
-                key in EXEMPT_KEYS -> result[key] = keepUntouched(value)
+                isExemptLeaf(key, value, inDetails) -> result[key] = keepUntouched(value)
                 key in DROPPED_KEYS -> Unit
                 key == KEY_FINGERPRINT -> result[key] = JsonNull
                 key == KEY_CREATED -> result[key] = JsonPrimitive(0)
-                else -> result[key] = clean(value)
+                else -> result[key] = clean(value, inDetails || key == DETAILS_KEY)
             }
         }
         return JsonObject(result)

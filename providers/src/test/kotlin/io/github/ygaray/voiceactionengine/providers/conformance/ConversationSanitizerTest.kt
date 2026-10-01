@@ -216,7 +216,7 @@ class ConversationSanitizerTest {
         val signature = "EqQBCkgIARABGAIiQ+/Z"
         val opaque = "Zm9v+/YmFy=="
         val reasoning = "plan: gen-abc and msg_q"
-        val details = array("""[{"type":"reasoning.encrypted","data":"toolu_zz==","id":"rs_call_1","index":0}]""")
+        val details = array("""[{"type":"reasoning.encrypted","data":"toolu_zz==","id":"rs_GOLDEN1","index":0}]""")
         val response = buildJsonObject {
             put("id", "msg_01Ab")
             put(
@@ -246,6 +246,35 @@ class ConversationSanitizerTest {
         assertEquals(opaque, out.text("content", 1, "data"))
         assertEquals(reasoning, out.text("reasoning"))
         assertEquals(details, out.at("reasoning_details"))
+    }
+
+    @Test
+    fun anIdInsideReasoningDetailsIsScrubbedWhileItsSignedValuesStayExact() {
+        val details = array(
+            """[{"type":"reasoning.text","text":"call_x","signature":"toolu_y==","id":"rs_real1","index":0},
+               {"type":"reasoning.encrypted","data":"fc_zz==","id":"rs_real1","summary":"resp_q"}]""",
+        )
+        val response = buildJsonObject {
+            put("id", "resp_real")
+            put("reasoning_details", details)
+        }
+        val turns = sanitized(listOf(RecordedTurn(array("""[{"role":"user","content":"go"}]"""), response)))
+        val out = turns.at(0, "response")
+        assertEquals("resp_GOLDEN1", out.text("id"))
+        assertEquals("rs_GOLDEN1", out.text("reasoning_details", 0, "id"))
+        assertEquals("rs_GOLDEN1", out.text("reasoning_details", 1, "id"))
+        assertEquals("call_x", out.text("reasoning_details", 0, "text"))
+        assertEquals("toolu_y==", out.text("reasoning_details", 0, "signature"))
+        assertEquals("fc_zz==", out.text("reasoning_details", 1, "data"))
+        assertEquals("resp_q", out.text("reasoning_details", 1, "summary"))
+    }
+
+    @Test
+    fun aStructuredValueUnderAnExemptKeyIsCleanedLikeAnyOther() {
+        val body = obj("""{"data":{"id":"call_real9"},"content":[{"id":"toolu_real9"}]}""")
+        val clean = ConversationSanitizer().sanitize(body)
+        assertEquals("call_GOLDEN1", clean.text("data", "id"))
+        assertEquals("toolu_GOLDEN1", clean.text("content", 0, "id"))
     }
 
     @Test

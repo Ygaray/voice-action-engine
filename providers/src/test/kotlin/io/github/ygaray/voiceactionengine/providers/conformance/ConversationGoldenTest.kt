@@ -218,10 +218,12 @@ class ConversationGoldenTest {
 
     @Test
     fun hygieneAcceptsGoldenIdsAndExemptReasoningText() {
-        listOf("call_GOLDEN1", "toolu_GOLDEN2", "msg_GOLDEN1", "chatcmpl-GOLDEN1", "gen-GOLDEN1", "req_GOLDEN1")
-            .forEach { id ->
-                assertEquals(id, emptyList<String>(), hygiene(buildJsonObject { put("id", id) }))
-            }
+        listOf(
+            "call_GOLDEN1", "toolu_GOLDEN2", "msg_GOLDEN1", "chatcmpl-GOLDEN1", "gen-GOLDEN1", "req_GOLDEN1",
+            "resp_GOLDEN1", "rs_GOLDEN1", "fc_GOLDEN1",
+        ).forEach { id ->
+            assertEquals(id, emptyList<String>(), hygiene(buildJsonObject { put("id", id) }))
+        }
         val exempt = buildJsonObject {
             put("thinking", "call_abc and toolu_x")
             put("signature", "toolu_x msg_abc req_1 call_zz")
@@ -231,12 +233,27 @@ class ConversationGoldenTest {
                 add(
                     buildJsonObject {
                         put("text", "call_abc")
-                        put("id", "toolu_real")
+                        put("signature", "toolu_x")
+                        put("id", "rs_GOLDEN1")
                     },
                 )
             }
         }
         assertEquals(emptyList<String>(), hygiene(exempt))
+    }
+
+    @Test
+    fun hygieneRefusesAnIdInsideReasoningDetailsAndTheNewPrefixesAnywhere() {
+        val details = buildJsonObject {
+            putJsonArray("reasoning_details") { add(buildJsonObject { put("id", "toolu_real") }) }
+        }
+        assertTrue(hygiene(details).isNotEmpty())
+        listOf("resp_abc", "rs_abc", "fc_abc").forEach { id ->
+            assertTrue(id, hygiene(buildJsonObject { put("id", id) }).isNotEmpty())
+        }
+        // An exempt key holding a structure is not exempt: only reasoning strings are.
+        val structured = buildJsonObject { put("data", buildJsonObject { put("id", "call_abc") }) }
+        assertTrue(hygiene(structured).isNotEmpty())
     }
 
     @Test
@@ -271,7 +288,7 @@ class ConversationGoldenTest {
             ),
             KNOWN_TAGS,
         )
-        assertEquals(setOf("thinking", "signature", "data", "reasoning", "reasoning_details"), EXEMPT_KEYS)
+        assertEquals(setOf("thinking", "signature", "data", "reasoning"), EXEMPT_KEYS)
     }
 
     @Test

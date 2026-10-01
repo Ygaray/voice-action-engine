@@ -40,14 +40,32 @@ internal val KNOWN_TAGS: Set<String> = setOf(
 )
 
 /**
- * Keys whose values are provider-signed or provider-opaque reasoning. They are never rewritten and never searched for
- * ids; they are still searched for key-shaped and Bearer text.
+ * Keys whose string values are provider-signed or provider-opaque reasoning. They are never rewritten and never
+ * searched for ids; they are still searched for key-shaped and Bearer text. Only a string value is exempt: an object
+ * or array under one of these keys is cleaned and scanned like any other, so a structured value cannot hide an id.
  */
-internal val EXEMPT_KEYS: Set<String> = setOf("thinking", "signature", "data", "reasoning", "reasoning_details")
+internal val EXEMPT_KEYS: Set<String> = setOf("thinking", "signature", "data", "reasoning")
 
-/** An id prefix (call_, toolu_, msg_, chatcmpl-, gen-, req_) not glued to a longer word; group 2 is the id tail. */
+/** The key of the router's reasoning array. It is a container, not an exempt value: see [DETAILS_EXEMPT_KEYS]. */
+internal const val DETAILS_KEY = "reasoning_details"
+
+/**
+ * Inside a [DETAILS_KEY] array, the string fields that carry reasoning text or opaque payload and so are exempt as well
+ * (an entry's `id`, `type`, `format` and `index` are not signed and are cleaned like any other field).
+ */
+internal val DETAILS_EXEMPT_KEYS: Set<String> = setOf("text", "summary", "encrypted_content")
+
+/** True when [value] under [key] is a reasoning string kept as received; [inDetails] is true inside a details array. */
+internal fun isExemptLeaf(key: String, value: JsonElement, inDetails: Boolean): Boolean =
+    value is JsonPrimitive && value.isString &&
+        (key in EXEMPT_KEYS || (inDetails && key in DETAILS_EXEMPT_KEYS))
+
+/**
+ * An id prefix (call_, toolu_, msg_, chatcmpl-, gen-, req_, resp_, rs_, fc_) not glued to a longer word; group 2 is the
+ * id tail.
+ */
 internal val CONVERSATION_ID_IN_TEXT =
-    Regex("(?<![A-Za-z0-9_])(call_|toolu_|msg_|chatcmpl-|gen-|req_)([A-Za-z0-9_-]*)")
+    Regex("(?<![A-Za-z0-9_])(call_|toolu_|msg_|chatcmpl-|gen-|req_|resp_|rs_|fc_)([A-Za-z0-9_-]*)")
 
 /** One manifest row: a conversation golden and what it shows. */
 internal class ConversationRow(
@@ -147,8 +165,9 @@ internal fun canonicalJson(text: String): String =
 
 /**
  * One fixed rule name per kind of violation found in a golden's text, empty when clean. Key-shaped and Bearer strings
- * are flagged in every string; an id that does not end in GOLDEN is flagged everywhere except under [EXEMPT_KEYS],
- * so reasoning text and signatures are never mistaken for ids. A message never repeats the offending text.
+ * are flagged in every string; an id that does not end in GOLDEN is flagged everywhere except in the exempt reasoning
+ * strings (see [isExemptLeaf]), so reasoning text and signatures are never mistaken for ids. An `id` inside a
+ * `reasoning_details` entry is not exempt. A message never repeats the offending text.
  */
 internal fun conversationHygieneViolations(text: String): List<String> {
     val root = try {
@@ -161,11 +180,17 @@ internal fun conversationHygieneViolations(text: String): List<String> {
     return found.toList()
 }
 
-private fun scan(element: JsonElement, exempt: Boolean, found: MutableSet<String>) {
+private fun scan(element: JsonElement, inDetails: Boolean, found: MutableSet<String>) {
     when (element) {
-        is JsonObject -> element.forEach { (key, value) -> scan(value, exempt || key in EXEMPT_KEYS, found) }
-        is JsonArray -> element.forEach { scan(it, exempt, found) }
-        is JsonPrimitive -> if (element.isString) scanText(element.content, exempt, found)
+        is JsonObject -> element.forEach { (key, value) ->
+            if (isExemptLeaf(key, value, inDetails)) {
+                scanText((value as JsonPrimitive).content, true, found)
+            } else {
+                scan(value, inDetails || key == DETAILS_KEY, found)
+            }
+        }
+        is JsonArray -> element.forEach { scan(it, inDetails, found) }
+        is JsonPrimitive -> if (element.isString) scanText(element.content, false, found)
     }
 }
 
