@@ -118,15 +118,24 @@ public class AwaitingConfirmGate(
         }
     }
 
-    /** Publishes the confirmation, waits for the answer within the window, and always clears the state afterwards. */
+    /**
+     * Publishes the confirmation, waits for the answer within the window, and always clears the state afterwards.
+     *
+     * The deferred is the single source of truth: once the wait ends without an answer (a timeout, or the caller being
+     * cancelled) the deferred is settled as declined, so a racing [resolve] either won before that and is honoured, or
+     * lost and returns false. [resolve] never reports an answer that is then discarded.
+     */
     private suspend fun awaitAnswer(subject: Any, proposal: CommitProposal): Boolean {
         val id = nextId.incrementAndGet()
         val deferred = CompletableDeferred<Boolean>()
         active.set(id to deferred)
         pendingState.value = PendingConfirmation(id, subject, proposal)
         return try {
-            withTimeoutOrNull(timeoutMillis) { deferred.await() } == true
+            val answer = withTimeoutOrNull(timeoutMillis) { deferred.await() }
+            if (answer == null) deferred.complete(false)
+            deferred.await()
         } finally {
+            deferred.complete(false)
             active.set(null)
             pendingState.value = null
         }

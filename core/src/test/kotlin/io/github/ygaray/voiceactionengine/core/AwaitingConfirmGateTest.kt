@@ -21,7 +21,9 @@ import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -427,5 +429,53 @@ class AwaitingConfirmGateTest {
     fun aNonPositiveWindowIsRejected() {
         assertThrows(IllegalArgumentException::class.java) { AwaitingConfirmGate(ConfirmationPolicy { null }, 0L) }
         assertThrows(IllegalArgumentException::class.java) { AwaitingConfirmGate(ConfirmationPolicy { null }, -1L) }
+    }
+
+    @Test
+    fun anAnswerThatWinsTheRaceAgainstTheTimeoutIsHonouredNotDiscarded() = runTest {
+        val gate = AwaitingConfirmGate(ConfirmationPolicy { Subject() }, RACE_WINDOW_MILLIS)
+        var reported: Boolean? = null
+        // Started first, so its timer fires before the gate's own at the same virtual instant.
+        val answerer = launch(start = CoroutineStart.UNDISPATCHED) {
+            delay(RACE_WINDOW_MILLIS)
+            reported = gate.resolve(checkNotNull(gate.pending.value).id, true)
+        }
+        val decision = gate.admit(proposalOf(ok("write")))
+        answerer.join()
+
+        // resolve said it answered the confirmation, so the confirmation must be admitted.
+        assertEquals(true, reported)
+        assertTrue(decision is GateDecision.Admit)
+        assertNull(gate.pending.value)
+    }
+
+    @Test
+    fun anAnswerAfterTheTimeoutReturnsFalseAndTheGateHolds() = runTest {
+        val gate = AwaitingConfirmGate(ConfirmationPolicy { Subject() }, RACE_WINDOW_MILLIS)
+        val decision = async { gate.admit(proposalOf(ok("write"))) }
+        runCurrent()
+        val id = checkNotNull(gate.pending.value).id
+        advanceTimeBy(RACE_WINDOW_MILLIS + 1)
+        runCurrent()
+
+        assertFalse(gate.resolve(id, true))
+        assertTrue(decision.await() is GateDecision.Hold)
+    }
+
+    @Test
+    fun cancellingTheWaiterSettlesTheConfirmationSoALateAnswerReturnsFalse() = runTest {
+        val gate = AwaitingConfirmGate(ConfirmationPolicy { Subject() })
+        val waiter = launch { gate.admit(proposalOf(ok("write"))) }
+        runCurrent()
+        val id = checkNotNull(gate.pending.value).id
+        waiter.cancel()
+        waiter.join()
+
+        assertFalse(gate.resolve(id, true))
+        assertNull(gate.pending.value)
+    }
+
+    private companion object {
+        const val RACE_WINDOW_MILLIS = 100L
     }
 }
