@@ -11,7 +11,10 @@ bring the tools, the resolver, the gate and the sink.
 - **[`INTEGRATION.md`](INTEGRATION.md)**: numbered adoption steps from repository to a rendered outcome, ending in notes and gotchas.
 - **[`API.md`](API.md)**: the public surface at a glance, one section per area, and every extension point.
 - **[`ECOSYSTEM.md`](ECOSYSTEM.md)**: the coordinate table, the consumers and the invariants.
-- Working example: the `:sample` app in [`sample/`](sample/) (`SampleEngine.kt`, `LegRunner.kt`, `ui/OutcomeText.kt`).
+- Working example: the `:sample` app in [`sample/`](sample/), never published. Start with
+  `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/SampleEngine.kt` (the composition root),
+  `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/legs/LegRunner.kt` and
+  `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/OutcomeText.kt`.
 
 **Status:** v1.0 is in verification. Until a release tag exists, pin a commit SHA.
 
