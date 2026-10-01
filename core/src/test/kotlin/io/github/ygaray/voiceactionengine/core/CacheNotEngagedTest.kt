@@ -1,22 +1,30 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
+import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.CachingMode
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
+import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilityTable
+import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
 import io.github.ygaray.voiceactionengine.core.provider.estimatedPrefixTokens
 import io.github.ygaray.voiceactionengine.core.provider.prefixChars
 import io.github.ygaray.voiceactionengine.core.provider.shouldFlagCacheMiss
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
+import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeClock
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
+import io.github.ygaray.voiceactionengine.core.testing.ProviderStep
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.RecordingEventListener
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
@@ -43,6 +51,7 @@ class CacheNotEngagedTest {
     private val listener = RecordingEventListener()
     private val key = "sk-canary-key-1"
     private val tierId = StrategyId("tier-one")
+    private val anthropicModel = ProviderSelection(ProviderId.ANTHROPIC, "model-a")
 
     private val explicitCaps = ModelCapabilities {
         caching = CachingMode.EXPLICIT_BREAKPOINTS
@@ -69,10 +78,20 @@ class CacheNotEngagedTest {
             }
         }
 
-    private fun pipelineOf(fake: FakeAiProvider, step: StrategyStep): CommandPipeline = commandPipeline {
-        tier(ScriptedStrategy(tierId, step))
+    private fun pipelineOf(
+        fake: FakeAiProvider,
+        step: StrategyStep,
+        selection: ProviderSelectionSource? = ScriptedSelectionSource.fixed(anthropicModel),
+    ): CommandPipeline = pipelineOf(listOf(ScriptedStrategy(tierId, step)), fake, selection)
+
+    private fun pipelineOf(
+        tiers: List<ScriptedStrategy>,
+        fake: FakeAiProvider,
+        selection: ProviderSelectionSource? = ScriptedSelectionSource.fixed(anthropicModel),
+    ): CommandPipeline = commandPipeline {
+        tiers.forEach { tier(it) }
         provider(fake)
-        providerSelection = ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ANTHROPIC, "model-a"))
+        providerSelection = selection
         credentials = ScriptedCredentialSource.keys(ProviderId.ANTHROPIC to key)
         clock = this@CacheNotEngagedTest.clock
         listener = this@CacheNotEngagedTest.listener
@@ -82,6 +101,30 @@ class CacheNotEngagedTest {
 
     private fun anthropicFake(capabilities: ModelCapabilities, usage: Usage) =
         FakeAiProvider(ProviderId.ANTHROPIC, capabilities, { _ -> FakeAiProvider.reply("ok", usage) })
+
+    private fun repliesOf(count: Int, usage: Usage): List<ProviderStep> =
+        List(count) { { _ -> FakeAiProvider.reply("ok", usage) } }
+
+    private fun fakeOf(id: ProviderId, capabilities: ModelCapabilities, steps: List<ProviderStep>) =
+        FakeAiProvider(id, steps, capabilities)
+
+    /** A tier that makes [times] calls with a large static prefix on one handle, ignoring each answer. */
+    private fun callTimes(times: () -> Int): StrategyStep = { input, session ->
+        val handle = session.model()
+        repeat(times()) {
+            val request = ModelRequest(textOf(LARGE_SYSTEM), listOf(UserMessage(input.transcript)), 100)
+            handle.complete(request)
+        }
+        StrategyOutcome.Completed("ok")
+    }
+
+    private fun cacheEvents(): List<PipelineEvent.CacheNotEngaged> =
+        listener.events.filterIsInstance<PipelineEvent.CacheNotEngaged>()
+
+    private val automaticCaps = ModelCapabilities {
+        caching = CachingMode.AUTOMATIC
+        minCacheablePrefixTokens = MINIMUM
+    }
 
     @Test
     fun aLargeStaticPrefixThatTheCacheIgnoredRaisesExactlyOneEventAndNothingElse() = runTest {
@@ -294,6 +337,127 @@ class CacheNotEngagedTest {
 
         val small = requestOfAbout(AGENTIC_SYSTEM, SMALL_PREFIX)
         assertFalse(shouldFlagCacheMiss(CacheDirective(true), caps, promptOf(AGENTIC_PROMPT), 1, prefixChars(small)))
+    }
+
+    // ---- the routed handle ----
+
+    @Test
+    fun automaticCountsTurnsPerHandleAndANewCommandStartsAgainAtOne() = runTest {
+        NoNetworkGuard.during {
+            val fake = fakeOf(ProviderId.ANTHROPIC, automaticCaps, repliesOf(3, Usage(UNCACHED_PROMPT, 0, 0, 10)))
+            var calls = 2
+            val pipeline = pipelineOf(fake, callTimes { calls })
+
+            pipeline.execute(CommandInput("hi"))
+            assertEquals(1, cacheEvents().size)
+
+            calls = 1
+            pipeline.execute(CommandInput("hi"))
+            assertEquals(1, cacheEvents().size)
+        }
+    }
+
+    @Test
+    fun eachTierCountsItsOwnTurnsAndNamesItself() = runTest {
+        NoNetworkGuard.during {
+            val fake = fakeOf(ProviderId.ANTHROPIC, automaticCaps, repliesOf(4, Usage(UNCACHED_PROMPT, 0, 0, 10)))
+            val first = StrategyId("first")
+            val second = StrategyId("second")
+            val callTwice = callTimes { 2 }
+            val escalating: StrategyStep = { input, session ->
+                callTwice(input, session)
+                StrategyOutcome.Escalate(EscalationReason.NoToolCall())
+            }
+
+            pipelineOf(listOf(ScriptedStrategy(first, escalating), ScriptedStrategy(second, callTwice)), fake)
+                .execute(CommandInput("hi"))
+
+            assertEquals(listOf(first, second), cacheEvents().map { it.strategy })
+        }
+    }
+
+    @Test
+    fun aProviderFailureRaisesNothingAndDoesNotCountAsATurn() = runTest {
+        NoNetworkGuard.during {
+            val failure: ProviderStep = { _ -> ModelResult.Failure(FailureReason.Unexpected("boom")) }
+            val steps = listOf(failure) + repliesOf(2, Usage(UNCACHED_PROMPT, 0, 0, 10))
+            val fake = fakeOf(ProviderId.ANTHROPIC, automaticCaps, steps)
+
+            pipelineOf(fake, callTimes { 3 }).execute(CommandInput("hi"))
+
+            // Failure (no turn), first success (turn 1, silent), second success (turn 2, fires): exactly one.
+            assertEquals(1, cacheEvents().size)
+        }
+    }
+
+    @Test
+    fun aRefusedBindingRaisesNothingAndCallsNoProvider() = runTest {
+        NoNetworkGuard.during {
+            val fake = fakeOf(ProviderId.ANTHROPIC, explicitCaps, emptyList())
+
+            val outcome = pipelineOf(fake, sendOnce(textOf(LARGE_SYSTEM)), selection = null).execute(CommandInput("hi"))
+
+            assertTrue(outcome is CommandOutcome.Failed)
+            assertEquals(0, fake.callCount)
+            assertEquals(0, cacheEvents().size)
+        }
+    }
+
+    @Test
+    fun aCapabilityRefusedRequestRaisesNothingAndCallsNoProvider() = runTest {
+        NoNetworkGuard.during {
+            val noTools = ModelCapabilities {
+                supportsTools = false
+                caching = CachingMode.EXPLICIT_BREAKPOINTS
+                minCacheablePrefixTokens = MINIMUM
+            }
+            val fake = fakeOf(ProviderId.ANTHROPIC, noTools, emptyList())
+            val withTool: StrategyStep = { input, session ->
+                val messages = listOf(UserMessage(input.transcript))
+                val request = ModelRequest(textOf(LARGE_SYSTEM), messages, listOf(toolOf(1)), 100)
+                session.model().complete(request)
+                StrategyOutcome.Completed("ok")
+            }
+
+            pipelineOf(fake, withTool).execute(CommandInput("hi"))
+
+            assertEquals(0, fake.callCount)
+            assertEquals(0, cacheEvents().size)
+        }
+    }
+
+    @Test
+    fun anExplicitProviderThatNeverCachesRaisesOneEventPerResponseAndNoEngineCode() = runTest {
+        NoNetworkGuard.during {
+            val fake = fakeOf(ProviderId.ANTHROPIC, explicitCaps, repliesOf(3, Usage(UNCACHED_PROMPT, 0, 0, 10)))
+
+            val outcome = pipelineOf(fake, callTimes { 3 }).execute(CommandInput("hi"))
+
+            assertEquals(3, cacheEvents().size)
+            assertEquals(0, listener.events.filterIsInstance<PipelineEvent.EngineCode>().size)
+            assertEquals(0, outcome.trace.codes.size)
+        }
+    }
+
+    @Test
+    fun theEventNamesTheProviderAndModelOfTheHandleThatMadeTheCall() = runTest {
+        NoNetworkGuard.during {
+            val fake = fakeOf(ProviderId.OPENAI, explicitCaps, repliesOf(1, Usage(UNCACHED_PROMPT, 0, 0, 10)))
+            val recorder = RunRecorder("run-1", null, null, 0, clock, listener)
+            val table = ModelCapabilityTable({ _, model -> fake.capabilities(model) }, emptyMap())
+            val selection = ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.OPENAI, "model-o"))
+            val credentials = ScriptedCredentialSource.keys(ProviderId.OPENAI to key)
+            val router = ModelRouter(mapOf(ProviderId.OPENAI to fake), selection, credentials, table, clock) { false }
+            recorder.tierStarted(tierId)
+
+            val handle = router.bind(tierId, setOf(ProviderId.OPENAI), TierPolicy.DEFAULT, recorder)
+            handle.complete(ModelRequest(textOf(LARGE_SYSTEM), listOf(UserMessage("hi")), 100))
+
+            val event = cacheEvents().single()
+            assertEquals(tierId, event.strategy)
+            assertEquals(ProviderId.OPENAI, event.provider)
+            assertEquals("model-o", event.model)
+        }
     }
 
     private companion object {
