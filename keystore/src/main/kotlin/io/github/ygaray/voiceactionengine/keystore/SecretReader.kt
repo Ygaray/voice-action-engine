@@ -4,7 +4,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.CancellationException
 import java.security.GeneralSecurityException
+import java.security.ProviderException
 import java.util.Base64
+import javax.crypto.BadPaddingException
+import javax.crypto.IllegalBlockSizeException
 import javax.crypto.SecretKey
 
 /**
@@ -61,14 +64,21 @@ internal class SecretReader(private val keyAccess: KeyAccess) {
             failed(KeystoreCauses.storedValueMalformed)
         }
 
+    // The device key store is reached again here, because a platform key is an opaque handle until the cipher uses it.
+    // Only a failed authentication or a malformed block says the value is bad; every other failure of the cipher or the
+    // provider says nothing about the value, so it is reported as the key store being unavailable.
     private fun decrypt(key: SecretKey, sealed: Sealed): Stage<ByteArray> = try {
         proceed(AesGcm.open(key, sealed.iv, sealed.ciphertext))
     } catch (cancelled: CancellationException) {
         throw cancelled
+    } catch (ignored: BadPaddingException) {
+        failed(KeystoreCauses.decryptFailed)
+    } catch (ignored: IllegalBlockSizeException) {
+        failed(KeystoreCauses.decryptFailed)
     } catch (ignored: GeneralSecurityException) {
-        failed(KeystoreCauses.decryptFailed)
-    } catch (ignored: RuntimeException) {
-        failed(KeystoreCauses.decryptFailed)
+        failed(KeystoreCauses.keystoreUnavailable)
+    } catch (ignored: ProviderException) {
+        failed(KeystoreCauses.keystoreUnavailable)
     }
 
     private fun ready(plain: ByteArray): SecretRead {

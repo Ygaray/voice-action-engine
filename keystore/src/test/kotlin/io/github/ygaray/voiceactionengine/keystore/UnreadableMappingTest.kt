@@ -24,6 +24,7 @@ import java.security.KeyStoreException
 import java.security.ProviderException
 import java.security.UnrecoverableKeyException
 import java.util.Base64
+import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 
 private const val ALIAS = "secondbrain_anthropic_api_key_v1"
@@ -34,6 +35,23 @@ private const val GCM_IV_BYTES = 12
 private const val GCM_TAG_BYTES = 16
 private const val LONG_IV_BYTES = 16
 private const val OTHER_KEY_BYTES = 32
+private const val BAD_KEY_BYTES = 5
+
+/** A key handle whose material cannot be fetched, as a platform key store busy with a system error behaves. */
+private class KeyWhoseEncodingThrows : SecretKey {
+    override fun getAlgorithm(): String = "AES"
+
+    override fun getFormat(): String = "RAW"
+
+    override fun getEncoded(): ByteArray = throw ProviderException("key store busy")
+}
+
+/** Answers every lookup with [key] and never creates one. */
+private class FixedKeyAccess(private val key: SecretKey) : KeyAccess {
+    override fun existingKey(alias: String): SecretKey = key
+
+    override fun getOrCreateKey(alias: String): SecretKey = throw AssertionError("a read must never create a key")
+}
 
 /** Every way a stored pair can fail to read ends in one specific cause, and nothing is created, written or cleared. */
 class UnreadableMappingTest {
@@ -102,6 +120,19 @@ class UnreadableMappingTest {
             assertEquals(unreadable("keystore_unavailable"), readHarmlessly(store))
         }
         keys.failLookupWith = null
+        assertEquals(KeyState.Ready("wxyz"), store.read(ProviderId.ANTHROPIC))
+    }
+
+    @Test
+    fun aKeyThatTheCipherRejectsReadsKeystoreUnavailableNotDecryptFailed() = runTest {
+        val store = savedStore()
+        val badLength = SecretKeySpec(ByteArray(BAD_KEY_BYTES), "AES")
+        val failures = listOf(badLength, KeyWhoseEncodingThrows())
+
+        failures.forEach { broken ->
+            val over = ApiKeyStore(recording!!, sbSlots(), Dispatchers.IO, FixedKeyAccess(broken))
+            assertEquals(unreadable("keystore_unavailable"), over.read(ProviderId.ANTHROPIC))
+        }
         assertEquals(KeyState.Ready("wxyz"), store.read(ProviderId.ANTHROPIC))
     }
 
