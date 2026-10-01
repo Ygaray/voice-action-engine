@@ -52,6 +52,9 @@ App: `:sample` (debug build, never published), driven through its real UI.
 - Runner subcommands (`scripts/run-sample-gate1.sh <subcommand> [arg]`; last line is always `SAMPLE_GATE1: <OK|FAIL|INFRA|ERROR> sub=<subcommand> ...`; exit 0 OK, 1 FAIL, 2 ERROR, 3 INFRA offline/busy/warm window, 4 INFRA identity or refused serial): `preflight`, `build-install`, `push-fixture`, `push-keys`, `capture-start`, `capture-save <leg>`, `cold-stamp check|write`, `verify-keys-gone`, `cleanup`. Leg names for `capture-save` are exactly: `ver02 smoke_anthropic smoke_openai smoke_openrouter multi_openai multi_openrouter responses_probe demo_clarify demo_partial`.
 - Key the verdict off the `SAMPLE_GATE1:` line and the exit code, not the earlier informational lines.
 
+
+Lessons from the first Gate-1 run (2026-10-01): (a) some buttons sit under the gesture navigation bar, so scroll the page before tapping; the on-screen keyboard can also cover Save, so dismiss it first. (b) `VAE_ENV` and `VAE_FIXTURE` are emitted at app start, so for G1-01 run `capture-start` and then cold-launch the app (force-stop first) so those lines land in the capture. (c) the `build-install` false `install_failed` (SIGPIPE in `package_installed`) was fixed after that run.
+
 ## 3. Arrange (host, main checkout)
 
 - A1. `git status --short` is clean for code paths (`core/ providers/ keystore/ sample/ scripts/ docs/ gradle/`). Record `git rev-parse HEAD`.

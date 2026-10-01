@@ -175,7 +175,10 @@ print_foreground() {
 }
 
 package_installed() {
-  adbt shell pm list packages 2>/dev/null | strip_cr | grep -qxF "package:$PKG"
+  # Read the whole listing first: `grep -q` exits early and adb would die of SIGPIPE (141) under pipefail.
+  local listing
+  listing="$(adbt shell pm list packages 2>/dev/null | strip_cr || true)"
+  grep -qxF "package:$PKG" <<<"$listing"
 }
 
 not_implemented() { finish 2 ERROR "reason=not_implemented"; }
