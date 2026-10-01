@@ -2,9 +2,9 @@
 phase: "7"
 slug: singleshot-strategy
 # status lifecycle: draft (seeded by plan-phase) -> validated (set by validate-phase)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-01"
 ---
 
@@ -42,19 +42,19 @@ Seeded from 07-RESEARCH.md "Validation Architecture"; per-task rows are bound to
 
 | Requirement | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|-----------------|-----------|-------------------|-------------|--------|
-| SHOT-01 | one forced-tool request: tools, `Required(extractionTool)`, `maxTokens` from policy, single user message, `singleToolCall=true` | unit (pipeline + FakeAiProvider) | `./gradlew :core:test --tests '*SingleShotRequestTest' --offline -q` | no (W0) | pending |
-| SHOT-01 | resolver gets FIRST call's extraction; resolver never writes; one merged proposal through the gate | unit | `... --tests '*SingleShotResolveTest'` | no (W0) | pending |
-| SHOT-01 | seam types: redacted `toString`, snapshot validation, no default-arg stubs | unit | `... --tests '*SingleShotSeamTypesTest' --tests '*ApiShapeTest'` | no (W0) | pending |
-| SHOT-01 | cache-safe user turn: same `system` + `tools` across commands | unit | `... --tests '*SingleShotUserTurnTest'` | no (W0) | pending |
-| SHOT-02 | outcome mapping table: NoToolCall escalates, refusal fails REFUSAL, MAX_TOKENS, overrides | unit | `... --tests '*SingleShotOutcomeMappingTest'` | no (W0) | pending |
-| SHOT-02 | terminal call skips resolver (forced and auto), A19/D-13 | unit | `... --tests '*SingleShotTerminalTest'` | no (W0) | pending |
-| SHOT-02 | `ModelRequest.singleToolCall` read-back, 6-arg ctor unchanged | unit | `... --tests '*TranscriptTypesTest'` | yes (extend) | pending |
-| SHOT-02 | Anthropic `disable_parallel_tool_use:true` in forced AND reshape `tool_choice`; omitted when false | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline -q` | yes (extend) | pending |
-| SHOT-02 | Chat `parallel_tool_calls:false` on OpenAI; absent on OpenRouter and o-series | unit | `... --tests '*ChatEncoderTest' --tests '*OpenAiModelRulesTest'` | yes (extend) | pending |
-| SHOT-02 | real wire via SingleShotStrategy to MockWebServer, three dialects, 4.12.0/5.2.1/5.5.0 legs | integration (JVM) | `./gradlew :providers:test --tests '*SingleShotWireTest' --offline` | no (W0) | pending |
-| SHOT-03 | S1-S10 CT-shaped acceptance scenarios (weak hold, batch, amended confirm, deferred commitHeld) | integration (full pipeline, fakes) | `... --tests '*SingleShotAcceptanceTest'` | no (W0) | pending |
-| Phase 11 blocker | 6 / 60000 / 4096 limits: `maxTokensPerTurn` pass-through, pre/post token ceiling, one provider call at `maxIterations` 2 and 6 | unit | `... --tests '*SingleShotLimitsTest'` | no (W0) | pending |
-| TEL-04 regression | no canary in anything SingleShot returns, delivers or prints | unit | `... --tests '*RedactionCanaryTest'` | yes (extend) | pending |
+| SHOT-01 | one forced-tool request: tools, `Required(extractionTool)`, `maxTokens` from policy, single user message, `singleToolCall=true` | unit (pipeline + FakeAiProvider) | `./gradlew :core:test --tests '*SingleShotRequestTest' --offline -q` | yes | green |
+| SHOT-01 | resolver gets FIRST call's extraction; resolver never writes; one merged proposal through the gate | unit | `... --tests '*SingleShotResolveTest'` | yes | green |
+| SHOT-01 | seam types: redacted `toString`, snapshot validation, no default-arg stubs | unit | `... --tests '*SingleShotSeamTypesTest' --tests '*ApiShapeTest'` | yes | green |
+| SHOT-01 | cache-safe user turn: same `system` + `tools` across commands | unit | `... --tests '*SingleShotUserTurnTest'` | yes | green |
+| SHOT-02 | outcome mapping table: NoToolCall escalates, refusal fails REFUSAL, MAX_TOKENS, overrides | unit | `... --tests '*SingleShotOutcomeMappingTest'` | yes | green |
+| SHOT-02 | terminal call skips resolver (forced and auto), A19/D-13 | unit | `... --tests '*SingleShotTerminalTest'` | yes | green |
+| SHOT-02 | `ModelRequest.singleToolCall` read-back, 6-arg ctor unchanged | unit | `... --tests '*TranscriptTypesTest'` | yes | green |
+| SHOT-02 | Anthropic `disable_parallel_tool_use:true` in forced AND reshape `tool_choice`; omitted when false | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline -q` | yes | green |
+| SHOT-02 | Chat `parallel_tool_calls:false` on OpenAI; absent on OpenRouter and o-series | unit | `... --tests '*ChatEncoderTest' --tests '*OpenAiModelRulesTest'` | yes | green |
+| SHOT-02 | real wire via SingleShotStrategy to MockWebServer, three dialects, 4.12.0/5.2.1/5.5.0 legs | integration (JVM) | `./gradlew :providers:test --tests '*SingleShotWireTest' --offline` | yes | green |
+| SHOT-03 | S1-S10 CT-shaped acceptance scenarios (weak hold, batch, amended confirm, deferred commitHeld) | integration (full pipeline, fakes) | `... --tests '*SingleShotAcceptanceTest'` | yes | green |
+| Phase 11 blocker | 6 / 60000 / 4096 limits: `maxTokensPerTurn` pass-through, pre/post token ceiling, one provider call at `maxIterations` 2 and 6 | unit | `... --tests '*SingleShotLimitsTest'` | yes | green |
+| TEL-04 regression | no canary in anything SingleShot returns, delivers or prints | unit | `... --tests '*RedactionCanaryTest'` | yes | green |
 
 *Status: pending / green / red / flaky*
 
@@ -62,10 +62,10 @@ Seeded from 07-RESEARCH.md "Validation Architecture"; per-task rows are bound to
 
 ## Wave 0 Requirements
 
-- [ ] `core/src/test/.../SingleShotRequestTest.kt`, `SingleShotResolveTest.kt`, `SingleShotOutcomeMappingTest.kt`, `SingleShotTerminalTest.kt`, `SingleShotLimitsTest.kt`, `SingleShotUserTurnTest.kt`, `SingleShotSeamTypesTest.kt`, `SingleShotAcceptanceTest.kt`, shared `SingleShotFixtures.kt`
-- [ ] `core/src/testFixtures/.../FakeAiProvider.kt`: additive `refusal(usage)` / `toolCalls(...)` helpers
-- [ ] `providers/src/test/.../SingleShotWireTest.kt`
-- [ ] No framework install needed
+- [x] `core/src/test/.../SingleShotRequestTest.kt`, `SingleShotResolveTest.kt`, `SingleShotOutcomeMappingTest.kt`, `SingleShotTerminalTest.kt`, `SingleShotLimitsTest.kt`, `SingleShotUserTurnTest.kt`, `SingleShotSeamTypesTest.kt`, `SingleShotAcceptanceTest.kt`, shared `SingleShotFixtures.kt`
+- [x] `core/src/testFixtures/.../FakeAiProvider.kt`: additive `refusal(usage)` / `toolCalls(...)` helpers
+- [x] `providers/src/test/.../SingleShotWireTest.kt`
+- [x] No framework install needed
 
 ---
 
@@ -81,13 +81,25 @@ Seeded from 07-RESEARCH.md "Validation Architecture"; per-task rows are bound to
 
 ## Validation Sign-Off
 
-> **Plan-time state is a DRAFT.** Frontmatter stays `status: draft` and `nyquist_compliant: false`; finalized post-execution by the Nyquist finalizer.
+> Finalized post-execution by the Nyquist finalizer (2026-10-01): status validated, nyquist_compliant true.
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 90s
-- [ ] `nyquist_compliant: true` set in frontmatter (post-execution only)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 90s
+- [x] `nyquist_compliant: true` set in frontmatter (post-execution only)
 
-**Approval:** pending
+**Approval:** validated 2026-10-01
+
+---
+
+## Validation Audit 2026-10-01
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Every requirement row has an existing, green automated test (`./gradlew check --offline` exit 0 at HEAD c405245: core 532, providers 430 on each of the 4.12.0, 5.2.1 and 5.5.0 legs, 0 failures). The only Manual-Only item (live Anthropic flag/cache check) is deliberately carried to Phase 10 VER-03.
