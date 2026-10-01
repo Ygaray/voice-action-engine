@@ -15,7 +15,8 @@ internal interface KeyAccess {
 
     /**
      * The key stored under [alias], created first when none exists. This is the only creator; it returns the existing
-     * key when there is one and is atomic across the whole process.
+     * key when there is one and is atomic among the users of this library in the process (not against outside code or
+     * other processes).
      */
     fun getOrCreateKey(alias: String): SecretKey
 }

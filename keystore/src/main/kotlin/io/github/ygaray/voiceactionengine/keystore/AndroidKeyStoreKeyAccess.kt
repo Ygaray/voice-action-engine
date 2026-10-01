@@ -16,8 +16,10 @@ import javax.crypto.SecretKey
  * user's key and orphan everything encrypted under it. Here a failed lookup always propagates, so a read reports the
  * key store as unavailable and a save fails loudly; neither ever generates a replacement.
  *
- * Creation is serialised by one lock that belongs to this object, so it is shared by every store in the process: two
- * stores, or a store and older code in the same process, cannot both generate a key for one alias.
+ * Creation is serialised by one lock that belongs to this object, so it is shared by every store of this library in
+ * the process: two such stores cannot both generate a key for one alias. The lock does not cover code outside the
+ * library (an app's older key code serialises on its own monitor) or other processes, so an alias must have exactly one
+ * writer at a time: either the older code or this library, never both concurrently.
  *
  * The key specification (AES, 256 bits, GCM, no padding, encrypt and decrypt, randomized encryption, no
  * user-authentication binding, no hardware-module request) is the one the SecondBrain and CalTracker apps already use,
