@@ -19,6 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 
 /** Real sockets and real time: the timeouts are OkHttp's own, so a virtual clock would prove nothing. */
@@ -95,7 +96,7 @@ class AnthropicTimeoutTest {
     }
 
     @Test(timeout = 30_000)
-    fun aConnectionDroppedMidAnswerIsANetworkFailureNotAMalformedOne() = runBlocking {
+    fun aConnectionDroppedBeforeAnyAnswerIsANetworkFailure() = runBlocking {
         MockWebServer().use { server ->
             server.dispatcher = SameAnswer {
                 MockResponse().setResponseCode(200).setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
@@ -104,6 +105,37 @@ class AnthropicTimeoutTest {
             val provider = AnthropicProvider { baseUrl = server.url("/") }
 
             assertReasonOnly(provider.complete(call()), FailureReason.Network())
+        }
+    }
+
+    @Test(timeout = 30_000)
+    fun aConnectionDroppedMidAnswerIsANetworkFailureNotAMalformedOne() = runBlocking {
+        MockWebServer().use { server ->
+            // The status line and headers arrive (announcing the whole body); the connection then dies partway through
+            // the body, so the failure happens while the answer is being read, not while it is being awaited.
+            server.dispatcher = SameAnswer {
+                MockResponse()
+                    .setResponseCode(200)
+                    .setBody(successBody(listOf(textBlock("a long enough answer to be cut in half")), "end_turn"))
+                    .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)
+            }
+            server.start()
+            val seen = CopyOnWriteArrayList<AnthropicAttempt>()
+            val provider = AnthropicProvider {
+                baseUrl = server.url("/")
+                sleep = { }
+                attemptObserver = AnthropicAttemptObserver { seen.add(it) }
+            }
+
+            assertReasonOnly(provider.complete(call()), FailureReason.Network())
+            // Initial request plus the one transient retry; the answered status was never read, so both are null.
+            assertEquals(
+                listOf(
+                    AnthropicAttempt(1, AnthropicAttemptKind.INITIAL, null),
+                    AnthropicAttempt(2, AnthropicAttemptKind.TRANSIENT_RETRY, null),
+                ),
+                seen.toList(),
+            )
         }
     }
 }

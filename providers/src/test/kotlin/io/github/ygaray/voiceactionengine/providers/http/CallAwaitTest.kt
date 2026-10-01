@@ -118,6 +118,25 @@ class CallAwaitTest {
     }
 
     @Test
+    fun aBodyThatFailsWhileBeingReadFailsTheAwaiterAndStillClosesTheSource() = runBlocking {
+        val call = FakeCall()
+        val outcome = async(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                call.await()
+                null
+            } catch (e: IOException) {
+                e
+            }
+        }
+        val source = ThrowingSource()
+
+        call.callback!!.onResponse(call, call.responseWith(source))
+
+        assertNotNull(outcome.await())
+        assertTrue(source.closed)
+    }
+
+    @Test
     fun cancellingAgainstARealSlowServerStopsTheCallPromptly() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("slow").setHeadersDelay(SLOW_SECONDS, TimeUnit.SECONDS))
@@ -153,6 +172,19 @@ class CallAwaitTest {
         override fun close() {
             closed = true
             super.close()
+        }
+    }
+
+    /** A body whose connection dies while it is being read. */
+    private class ThrowingSource : Source {
+        var closed = false
+
+        override fun read(sink: Buffer, byteCount: Long): Long = throw IOException("connection lost")
+
+        override fun timeout(): Timeout = Timeout.NONE
+
+        override fun close() {
+            closed = true
         }
     }
 
