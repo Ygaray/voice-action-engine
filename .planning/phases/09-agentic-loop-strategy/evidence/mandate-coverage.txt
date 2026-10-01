@@ -1,0 +1,364 @@
+Phase 9 mandate coverage - plan 09-09, Task 2
+Date: 2026-10-01   HEAD: dd3c26ee96ca72e3971358856d72cb8b9c9a17c9 (the same HEAD as the clean re-run in evidence/phase-gate.txt)
+Method: the table below is the plan's Mandate coverage table. Every test result is read by script from the JUnit XML written by the clean
+re-run (core/build/test-results/test and providers/build/test-results/{test,testOkhttp521,testOkhttp550}); AgenticLoopWireTest must pass on all three legs.
+Identifiers are as built (evidence/seam-signoff.txt SUBSTITUTIONS: none).
+
+[1] 1. Same `userTurn: UserTurnRenderer` seam as SingleShot
+    built in: 09-03 T1-T2
+    tests:
+      PASSED    AgenticLoopUserTurnTest.theUserMessageIsExactlyTheRenderersOutput
+      PASSED    AgenticLoopUserTurnTest.theStandardRendererIsTheDefault
+      PASSED    AgenticLoopUserTurnTest.theRendererSeesTheEscalatingTiersCarryAndTheInput
+      PASSED    AgenticLoopUserTurnTest.theUserTurnIsRenderedOncePerCommand
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+      EXISTS    evidence/seam-signoff.txt:13  item 2
+
+[2] 1. SB byte-exact framing, core
+    built in: 09-03 T2
+    tests:
+      PASSED    AgenticLoopUserTurnTest.anSbShapedRendererReachesTheRequestByteForByte
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[3] 1. SB byte-exact framing on BOTH wires
+    built in: 09-07 T1-T2
+    tests:
+      PASSED    AgenticLoopWireTest.anthropicFirstUserMessageIsTheSbShapedTextExactly  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.openAiFirstUserMessageIsTheSbShapedTextExactly  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.openRouterFirstUserMessageIsTheSbShapedTextExactly  [4.12.0, 5.2.1, 5.5.0]
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[4] 1. ToolSpecProvider/ToolingSnapshot reused, singleShotTool = null
+    built in: 09-02 T1, 09-03 T2
+    tests:
+      PASSED    ToolExecutorSeamTest.anExecutorMutationComposesWithTheGateAndTheSink
+      PASSED    AgenticLoopUserTurnTest.theToolingIsReadOncePerCommand
+      PASSED    AgenticLoopUserTurnTest.aSnapshotNamingASingleShotToolIsStillAutomatic
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[5] 1. system + tools are the invariant cached prefix
+    built in: 09-03 T2, 09-07 T1-T2
+    tests:
+      PASSED    AgenticLoopUserTurnTest.everyIterationSendsTheSameSystemAndTools
+      PASSED    AgenticLoopWireTest.anthropicSystemAndToolsBytesAreIdenticalOnEveryTurn  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.chatSystemAndToolsAreIdenticalOnEveryTurn  [4.12.0, 5.2.1, 5.5.0]
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[6] 2. Enforce 6 / 60000 / 4096 from session.policy / session.tokensUsed (HARD v1.0.0 precondition)
+    built in: 09-01 T3 (shared helpers), 09-03 T1 (enforcement), 09-05 T1 and T3 (tests)
+    tests:
+      PASSED    AgenticLoopLimitsTest: all 14 methods (14 found)
+                  PASSED  AgenticLoopLimitsTest.atTheDefaultCeilingTheTierRefusesBeforeAnyProviderCall
+                  PASSED  AgenticLoopLimitsTest.eachRoutedTurnIsCountedOnce
+                  PASSED  AgenticLoopLimitsTest.theCeilingIsCheckedBeforeEveryIteration
+                  PASSED  AgenticLoopLimitsTest.theFinalIterationGuardHoldsAtMinimumIterations
+                  PASSED  AgenticLoopLimitsTest.customPerTurnLimitIsSentUnchanged
+                  PASSED  AgenticLoopLimitsTest.theFinalIterationGuardHoldsAtDefaultIterations
+                  PASSED  AgenticLoopLimitsTest.everyRequestOfAMultiTurnRunCarriesThePerTurnLimit
+                  PASSED  AgenticLoopLimitsTest.defaultsAreTheContractLimits
+                  PASSED  AgenticLoopLimitsTest.defaultPolicySendsTheDefaultPerTurnTokenLimit
+                  PASSED  AgenticLoopLimitsTest.anEndOfTurnAnswerOverTheCeilingStillCompletes
+                  PASSED  AgenticLoopLimitsTest.aToolTurnLandingExactlyOnTheCeilingIsStillDispatched
+                  PASSED  AgenticLoopLimitsTest.aCustomCeilingIsReadFromTheSessionPolicy
+                  PASSED  AgenticLoopLimitsTest.aToolTurnThatCrossesTheCeilingFailsBeforeTheExecutorOrAnyWrite
+                  PASSED  AgenticLoopLimitsTest.oneTokenBelowTheDefaultCeilingTheCallIsMade
+      PASSED    AgenticLoopGuardsTest.theTokenCeilingStopsTheLoopBeforeDispatchingATool
+      PASSED    AgenticLoopGuardsTest.theFinalIterationGuardNeverDispatchesTheLastPermittedTurn
+      PASSED    AgenticLoopGuardsTest.whenTheTokenCeilingAndTheIterationCapTripOnTheSameTurnTokensWins
+    evidence:
+      EXISTS    evidence/agenticloop-limits-tests.txt:49
+      EXISTS    evidence/phase-gate.txt:61
+
+[7] 3. Phase 2 security O-1 (applyAll per-item cancellation)
+    built in: 09-01 T1-T2
+    tests:
+      PASSED    BatchCancellationTest.aCancelBetweenBatchItemsStopsTheRestAndKeepsTheCommittedOne
+      PASSED    BatchCancellationTest.aCancelBetweenHeldBatchItemsStopsTheRestAndKeepsTheCommittedOne
+      PASSED    BatchCancellationTest.anUncancelledBatchStillAppliesEveryItem
+    evidence:
+      EXISTS    evidence/o1-disposition.txt:18  (O-1 DISPOSITION: FIXED)
+      EXISTS    evidence/phase-gate.txt:61
+
+[8] 4. D-03 reuse ToolSpec.mutating / terminal, no new member
+    built in: 09-02 T1, 09-04 T1 and T3
+    tests:
+      PASSED    AgenticLoopGateTest.aReadToolReturningAMutationNeverReachesTheGate
+      PASSED    AgenticLoopTerminalTest.aTerminalOnlyTurnCompletesWithTheTerminalCall
+    evidence:
+      EXISTS    evidence/agentic-surface-review.txt:16  (ToolSpec unchanged)
+
+[9] 4. ToolStep.Finished / FinishedKind
+    built in: 09-02 T1, 09-04 T1
+    tests:
+      PASSED    ToolExecutorSeamTest.aReadStepIsNeverRecorded
+      PASSED    AgenticLoopGateTest.aRejectedMutatingCallNeverReachesTheGate
+      PASSED    AgenticLoopGateTest.aPreviewIsReportedWithoutTheGate
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[10] 4. D-08 every FailureReason leaf, one test each, never collapsed
+    built in: 09-05 T2
+    tests:
+      PASSED    AgenticLoopStopLeavesTest.anHttpErrorKeepsItsStatus
+      PASSED    AgenticLoopStopLeavesTest.aNetworkFailureIsNetwork
+      PASSED    AgenticLoopStopLeavesTest.aMalformedProviderResultIsMalformedResponse
+      PASSED    AgenticLoopStopLeavesTest.aMaxTokensStopIsMaxTokensEvenWithToolCalls
+      PASSED    AgenticLoopStopLeavesTest.aRefusalStopIsRefusal
+      PASSED    AgenticLoopStopLeavesTest.aRefusalFailureIsRefusal
+      PASSED    AgenticLoopStopLeavesTest.aPauseTurnStopIsPauseTurn
+      PASSED    AgenticLoopStopLeavesTest.aContextWindowStopIsContextWindowExceeded
+      PASSED    AgenticLoopStopLeavesTest.anUnknownStopWithoutCallsIsUnknownStop
+      PASSED    AgenticLoopStopLeavesTest.aRepeatedToolErrorIsToolFailure
+      PASSED    AgenticLoopStopLeavesTest.noLeafIsCollapsed
+      PASSED    AgenticLoopStopLeavesTest.everyLeafAfterACommitStillReportsTheCommit
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[11] 4. D-11 neutral StopReason + "stop + tool_calls" guard
+    built in: 09-05 T2, 09-07 T2
+    tests:
+      PASSED    AgenticLoopStopLeavesTest.anEndTurnAnswerWithToolCallsIsAToolTurn
+      PASSED    AgenticLoopStopLeavesTest.anOtherStopWithToolCallsIsAToolTurn
+      PASSED    AgenticLoopWireTest.aStopFinishReasonWithToolCallsDispatchesOnTheWire  [4.12.0, 5.2.1, 5.5.0]
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[12] 4. Read tool returning Mutation never reaches the gate
+    built in: 09-04 T1
+    tests:
+      PASSED    AgenticLoopGateTest.aReadToolReturningAMutationNeverReachesTheGate
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[13] 4. Unknown tool -> is_error without calling the executor
+    built in: 09-03 T1 and T3, 09-04 T2
+    tests:
+      PASSED    AgenticLoopDispatchTest.anUnknownToolIsAnsweredWithAnErrorAndTheExecutorIsNotCalled
+      PASSED    AgenticLoopGuardsTest.anUnknownToolCountsAsAStrike
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[14] 4. D-04 cancel at gate leaves no record
+    built in: 09-06 T1
+    tests:
+      PASSED    AgenticLoopExitPathsTest.aCancelWhileTheGateIsSuspendedLeavesNoRecord
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[15] 4. D-04 cancel during apply records is_error applied=true, then rethrows
+    built in: 09-06 T1
+    tests:
+      PASSED    AgenticLoopExitPathsTest.aCancelDuringApplyRecordsAnAppliedErrorAndPropagates
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[16] 5. ToolChoice.Auto and singleToolCall = false on every request
+    built in: 09-03 T1-T2, 09-06 T2, 09-07
+    tests:
+      PASSED    AgenticLoopUserTurnTest.everyRequestAsksForAutomaticChoiceWithParallelCallsAllowed
+      PASSED    AgenticLoopCarryTest.everyRequestOnEveryPathUsesAutomaticChoice
+      PASSED    AgenticLoopWireTest.anthropicTwoTurnRunEchoesTheTurnAndAnswersEveryCall  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.chatToolChoiceIsAutoOnEveryTurn  [4.12.0, 5.2.1, 5.5.0]
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[17] 5. Duplicate tool-call ids in whole-turn validation: within-turn only (cross-turn reuse allowed, SB parity)
+    built in: 09-05 T1
+    tests:
+      PASSED    AgenticLoopGuardsTest.aToolCallIdRepeatedWithinATurnRejectsTheWholeTurn
+      PASSED    AgenticLoopGuardsTest.aToolCallIdReusedFromAnEarlierTurnIsAccepted
+    evidence:
+      EXISTS    evidence/seam-signoff.txt:26  item 5 (Q2 relaxed)
+
+[18] 5. Model-escalating ladder drops native replays -> loop never escalates; no stripping helper in v1.0
+    built in: 09-06 T2
+    tests:
+      PASSED    AgenticLoopCarryTest.theLoopNeverHandsUpAConversation
+      PASSED    AgenticLoopCarryTest.theAssistantTurnIsAppendedWithItsNativeReplayUntouched
+      PASSED    AgenticLoopCarryTest.theRunTalksToOneProviderAndModel
+    evidence:
+      EXISTS    evidence/seam-signoff.txt:13  item 7 (Q9)
+
+[19] 6. Reuse StrategyOutcome.Completed.partial, no parallel flag; only for calls dropped after a terminal call
+    built in: 09-04 T3, 09-06 T2
+    tests:
+      PASSED    AgenticLoopTerminalTest.callsAfterATerminalCallAreDroppedTracedAndMarkPartial
+      PASSED    AgenticLoopTerminalTest.aBudgetStopAfterACommitIsFailedNotPartial
+      PASSED    AgenticLoopCarryTest.partialIsSetOnlyWhenCallsAfterATerminalCallWereDropped
+    evidence:
+      EXISTS    evidence/seam-signoff.txt:13  item 6 (Q5)
+
+[20] D-01 strike counter per tool name
+    built in: 09-04 T2
+    tests:
+      PASSED    AgenticLoopGuardsTest.repeatedFailureOfTheSameToolAbortsButTheCommittedSiblingIsStillRecorded
+      PASSED    AgenticLoopGuardsTest.strikesCountPerToolNameAcrossTurns
+      PASSED    AgenticLoopGuardsTest.twoDifferentToolsFailingOnceEachDoNotAbort
+      PASSED    AgenticLoopGuardsTest.aPrepareFaultAndAnApplyErrorCountAsStrikes
+      PASSED    AgenticLoopGuardsTest.aHeldCallIsNotAStrike
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[21] D-02 user-turn
+    built in: 09-03 T2, 09-07
+    tests:
+      REF       covered by the mandate 1 rows above (D-02 user-turn)
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[22] D-05 executed list = mutating calls; reads named in the turn trace
+    built in: 09-03 T3
+    tests:
+      PASSED    AgenticLoopDispatchTest.readsAreAbsentFromTheExecutedListButNamedInTheTurnTrace
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[23] D-06 reply = first text block
+    built in: 09-03 T3
+    tests:
+      PASSED    AgenticLoopDispatchTest.theReplyIsTheFirstTextBlockOfTheFinalTurn
+      PASSED    AgenticLoopDispatchTest.aProseOnlyRunCompletesWithItsReply
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[24] D-07 budget = Failed(BudgetExceeded) carrying commits, held, errored, preview
+    built in: 09-06 T1, 09-04 T3
+    tests:
+      PASSED    AgenticLoopExitPathsTest.anIterationBudgetStopCarriesCommitsHeldErroredAndPreviews
+      PASSED    AgenticLoopTerminalTest.aBudgetStopAfterACommitIsFailedNotPartial
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[25] D-09 parallel emission, sequential dispatch
+    built in: 09-03 T3, 09-04 T1, 09-07 T1
+    tests:
+      PASSED    AgenticLoopDispatchTest.callsAreDispatchedOneAtATimeInCallOrder
+      PASSED    AgenticLoopDispatchTest.aMultiToolTurnSendsOneResultsMessageInCallOrder
+      PASSED    AgenticLoopGateTest.aSuspendingGateKeepsDispatchSequential
+      PASSED    AgenticLoopWireTest.anthropicParallelToolUseIsAnsweredInOneMessageInOrder  [4.12.0, 5.2.1, 5.5.0]
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[26] D-10 reject the whole malformed turn
+    built in: 09-05 T1
+    tests:
+      PASSED    AgenticLoopGuardsTest.aToolUseStopWithoutCallsIsMalformed
+      PASSED    AgenticLoopGuardsTest.aRejectedTurnNeverReachesTheResultsMessageConstructor
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[27] D-12 external-research items
+    built in: 09-07 T2; carry-forward
+    tests:
+      PASSED    AgenticLoopWireTest.openAiStrictEligibleToolTurnsParallelCallsOff  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.openAiNonStrictToolsLeaveParallelCallsOn  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.openRouterNeverSendsParallelToolCalls  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.aStopFinishReasonWithToolCallsDispatchesOnTheWire  [4.12.0, 5.2.1, 5.5.0]
+    evidence:
+      EXISTS    evidence/phase-gate.txt:57  CARRY-FORWARDS (OpenRouter session_id deferred)
+
+[28] D-13 / A19 terminal tool
+    built in: 09-04 T3
+    tests:
+      PASSED    AgenticLoopTerminalTest.aTerminalOnlyTurnCompletesWithTheTerminalCall
+      PASSED    AgenticLoopTerminalTest.aTerminalCallAfterACommittingCallCarriesTheCommit
+      PASSED    AgenticLoopTerminalTest.aTerminalCallAlongsideAHeldCallCarriesTheHold
+      PASSED    AgenticLoopTerminalTest.callsAfterATerminalCallAreDroppedTracedAndMarkPartial
+      PASSED    AgenticLoopTerminalTest.aTerminalTurnOnTheFinalIterationCompletesInsteadOfBudgetExceeded
+      PASSED    AgenticLoopTerminalTest.aFinalIterationTurnWithACallBeforeTheTerminalCallStillFailsTheGuard
+      PASSED    AgenticLoopTerminalTest.aStrikeAbortBeatsATerminalCallInTheSameTurn
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[29] SC1 any cloud provider; every Mutation gated; held bytes
+    built in: 09-04 T1, 09-06 T3, 09-07
+    tests:
+      PASSED    AgenticLoopProviderNeutralityTest.theSameScriptGivesTheSameOutcomeOnAnthropicOpenAiAndOpenRouter
+      PASSED    AgenticLoopGateTest.aHeldCallFeedsTheModelTheFixedNoticeAndTheLoopContinues
+      PASSED    AgenticLoopWireTest.anthropicHeldCallSendsTheFixedNoticeBytes  [4.12.0, 5.2.1, 5.5.0]
+      PASSED    AgenticLoopWireTest.chatHeldCallSendsTheFixedNoticeBytes  [4.12.0, 5.2.1, 5.5.0]
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[30] SC3 every exit path reports executed actions and commits
+    built in: 09-06 T1
+    tests:
+      PASSED    AgenticLoopExitPathsTest: all 11 methods (11 found)
+                  PASSED  AgenticLoopExitPathsTest.aProviderFailureAfterACommitStillReportsTheCommit
+                  PASSED  AgenticLoopExitPathsTest.aTokenBudgetStopCarriesTheCommitsSoFar
+                  PASSED  AgenticLoopExitPathsTest.aMalformedTurnAfterACommitStillReportsTheCommit
+                  PASSED  AgenticLoopExitPathsTest.aCancelDuringTheProviderCallPropagatesAndTheRunClosesCancelled
+                  PASSED  AgenticLoopExitPathsTest.aStrikeAbortCarriesEveryExecutedAction
+                  PASSED  AgenticLoopExitPathsTest.aCancelDuringApplyRecordsAnAppliedErrorAndPropagates
+                  PASSED  AgenticLoopExitPathsTest.heldErroredAndPreviewedCallsKeepDistinctKinds
+                  PASSED  AgenticLoopExitPathsTest.aCancelWhileTheGateIsSuspendedLeavesNoRecord
+                  PASSED  AgenticLoopExitPathsTest.anIterationBudgetStopCarriesCommitsHeldErroredAndPreviews
+                  PASSED  AgenticLoopExitPathsTest.doneReportsEveryActionAndClosesOnce
+                  PASSED  AgenticLoopExitPathsTest.aTerminalExitReportsTheCommitsBeforeIt
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[31] SC4 / CLN-02 no app-domain names, no hard-coded tool count
+    built in: 09-08 T1-T2, 09-03 T3
+    tests:
+      PASSED    :core/:providers/:keystore:scanBannedConstructs ran inside ./gradlew check (exit 0, evidence/phase-gate.txt command 5)
+      PASSED    :core:verifyInvariantScannerControls ran inside ./gradlew check (exit 0); fixtures config/negative-controls/app-domain.kt.txt and tool-count.kt.txt exist
+      PASSED    scripts/verify-negative-controls.sh plants: app-domain name and hard-coded tool count went red in core, providers, keystore (exit 0, negative-control failures: 0)
+      PASSED    AgenticLoopDispatchTest.theLoopRunsWithOneTwoOrTwentyFiveTools
+    evidence:
+      EXISTS    evidence/phase-gate.txt:61
+
+[32] TEL-04 regression
+    built in: 09-06 T3
+    tests:
+      PASSED    RedactionCanaryTest.noCanaryLeaksFromAnAgenticRun
+    evidence:
+      EXISTS    evidence/mandate-coverage.txt (this file)
+
+[33] Seam sign-off (Q1-Q10)
+    built in: 09-02 T3
+    tests:
+      PASSED    checkpoint: SIGNOFF: APPROVE-WITH-CHANGES recorded in evidence/seam-signoff.txt
+    evidence:
+      EXISTS    evidence/seam-signoff.txt:1
+
+[34] Sign-off item 3: held, errored and previewed stay distinguishable in ExecutedAction (by kind, not only mutating=false); no new member
+    built in: 09-06 T1
+    tests:
+      PASSED    AgenticLoopExitPathsTest.heldErroredAndPreviewedCallsKeepDistinctKinds
+      PASSED    AgenticLoopExitPathsTest.anIterationBudgetStopCarriesCommitsHeldErroredAndPreviews
+    evidence:
+      EXISTS    evidence/seam-signoff.txt:27  item 3
+      EXISTS    evidence/agentic-surface-review.txt:18  (ActionKind and ExecutedAction unchanged)
+
+[35] Sign-off precedence: token ceiling beats the iteration cap on the same turn (BudgetExceeded(TOKENS)); order KDoc'd on the strategy
+    built in: 09-04 T3, 09-05 T1, 09-06 T1
+    tests:
+      PASSED    AgenticLoopGuardsTest.whenTheTokenCeilingAndTheIterationCapTripOnTheSameTurnTokensWins
+      PASSED    AgenticLoopExitPathsTest.aTokenBudgetStopCarriesTheCommitsSoFar
+    evidence:
+      EXISTS    evidence/seam-signoff.txt:28  precedence
+      EXISTS    evidence/agenticloop-limits-tests.txt:49
+
+[36] Sign-off item 10: edit_text_card in the CLN-02 deny-list
+    built in: 09-08 T1
+    tests:
+      PASSED    :core:verifyInvariantScannerControls ran inside ./gradlew check (exit 0); fixtures config/negative-controls/app-domain.kt.txt and tool-count.kt.txt exist
+      PASSED    :core/:providers/:keystore:scanBannedConstructs ran inside ./gradlew check (exit 0, evidence/phase-gate.txt command 5)
+    evidence:
+      EXISTS    evidence/seam-signoff.txt:29  item 10
+      EXISTS    evidence/phase-gate.txt:61
+
+Sign-off item 10 deny-list entry edit_text_card (found in gradle/invariants.gradle.kts and the config/negative-controls fixtures):
+  config/negative-controls/clean.kt.txt:18:val edit_text_cards = 4
+  config/negative-controls/clean.kt.txt:19:val edit_text_card_x = 5
+  config/negative-controls/app-domain.kt.txt:6:internal const val CARD_TOOL = "edit_text_card"
+  gradle/invariants.gradle.kts:42:                """|find_tags|create_tag|edit_list_card|edit_text_card|SecondBrain|CalTracker)\b""",
+
+rows=36  gaps=0
+MANDATES: ALL COVERED
