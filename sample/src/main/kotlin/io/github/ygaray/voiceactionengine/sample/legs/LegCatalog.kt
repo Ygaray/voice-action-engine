@@ -13,6 +13,10 @@ private const val OPENROUTER_GPT_MINI = "openai/gpt-5.4-mini"
 
 private const val TOOL_FIND = "find_items"
 private const val TOOL_EDIT = "edit_item"
+private const val TOOL_CREATE = "create_item"
+
+// Answers only on the Responses endpoint, so Chat Completions rejects it (Phase 5 carry).
+private const val RESPONSES_ONLY_MODEL = "gpt-6-astra"
 
 private const val SMOKE_ITERATIONS = 2
 private const val SMOKE_RESERVATION = 3
@@ -20,6 +24,8 @@ private const val VER02_ITERATIONS = 6
 private const val VER02_RESERVATION = 6
 private const val MULTI_ITERATIONS = 3
 private const val MULTI_RESERVATION = 6
+private const val PROBE_RESERVATION = 1
+private const val DEMO_ITERATIONS = 3
 
 /** What a leg runs: the strategy, the data behind it and how its verdict is decided. */
 internal enum class LegKind {
@@ -140,6 +146,40 @@ internal object LegCatalog {
         needsFixture = false,
     )
 
+    // Optional probe: a Responses-only model through Chat Completions. Recorded as CAPTURED, never judged.
+    private val responsesProbe = LegSpec(
+        id = LegId.RESPONSES_PROBE,
+        provider = ProviderId.OPENAI,
+        model = RESPONSES_ONLY_MODEL,
+        kind = LegKind.RESPONSES_PROBE,
+        prompts = listOf("Create an item titled probe."),
+        forcedTool = TOOL_CREATE,
+        readTool = null,
+        requestedOptionals = emptySet(),
+        maxIterations = SMOKE_ITERATIONS,
+        reservation = PROBE_RESERVATION,
+        optional = true,
+        needsKey = true,
+        needsFixture = false,
+    )
+
+    // Offline demos: provider id demo, no key, no budget, no network.
+    private fun demo(id: LegId, kind: LegKind, prompt: String, forcedTool: String?): LegSpec = LegSpec(
+        id = id,
+        provider = DEMO_PROVIDER,
+        model = DEMO_MODEL,
+        kind = kind,
+        prompts = listOf(prompt),
+        forcedTool = forcedTool,
+        readTool = null,
+        requestedOptionals = emptySet(),
+        maxIterations = DEMO_ITERATIONS,
+        reservation = 0,
+        optional = false,
+        needsKey = false,
+        needsFixture = false,
+    )
+
     private val specs: Map<LegId, LegSpec> = listOf(
         ver02,
         smoke(LegId.SMOKE_ANTHROPIC, ProviderId.ANTHROPIC, HAIKU),
@@ -147,6 +187,9 @@ internal object LegCatalog {
         smoke(LegId.SMOKE_OPENROUTER, ProviderId.OPENROUTER, OPENROUTER_GPT_MINI),
         multi(LegId.MULTI_OPENAI, ProviderId.OPENAI, GPT_MINI),
         multi(LegId.MULTI_OPENROUTER, ProviderId.OPENROUTER, OPENROUTER_GPT_MINI),
+        responsesProbe,
+        demo(LegId.DEMO_CLARIFY, LegKind.DEMO_CLARIFY, "add paper to my list", null),
+        demo(LegId.DEMO_PARTIAL, LegKind.DEMO_PARTIAL, "add paper and pens", TOOL_CREATE),
     ).associateBy { it.id }
 
     /** The spec of [id]. */

@@ -18,6 +18,7 @@ import io.github.ygaray.voiceactionengine.sample.fixture.FixtureSource
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.fixture.NamedFixtureSource
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
+import io.github.ygaray.voiceactionengine.sample.legs.DemoProvider
 import io.github.ygaray.voiceactionengine.sample.legs.LegRunner
 import io.github.ygaray.voiceactionengine.sample.net.AttemptTap
 import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
@@ -118,6 +119,8 @@ internal class LegRig(
     val budget: RequestBudget,
     val vault: MemoryVault,
     val commits: RecordingCommitSink,
+    val demoCommits: RecordingCommitSink,
+    val demo: DemoProvider,
     val clock: ManualClock,
     val fakes: List<AttemptingFake>,
     val tap: AttemptTap,
@@ -154,8 +157,10 @@ internal fun legRig(
     )
     val vault = MemoryVault()
     val clock = ManualClock()
-    val runner = LegRunner(engine, fixture, vault, budget, tap, sink) { clock.seconds }
-    return LegRig(runner, sink, budget, vault, commits, clock, fakes, tap)
+    val demoCommits = RecordingCommitSink()
+    val demo = DemoProvider()
+    val runner = LegRunner(engine, fixture, vault, budget, tap, sink, demoCommits, demo) { clock.seconds }
+    return LegRig(runner, sink, budget, vault, commits, demoCommits, demo, clock, fakes, tap)
 }
 
 /** The committed synthetic fixture, loaded with its own digest. */

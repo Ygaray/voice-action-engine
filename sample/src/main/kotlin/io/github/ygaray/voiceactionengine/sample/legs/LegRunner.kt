@@ -3,14 +3,19 @@ package io.github.ygaray.voiceactionengine.sample.legs
 import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.StrategyId
+import io.github.ygaray.voiceactionengine.core.commit.CommitSink
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
+import io.github.ygaray.voiceactionengine.core.provider.CredentialLookup
+import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
+import io.github.ygaray.voiceactionengine.core.strategy.ClarificationOption
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
@@ -32,6 +37,7 @@ import io.github.ygaray.voiceactionengine.sample.net.AttemptTap
 import io.github.ygaray.voiceactionengine.sample.net.LegContext
 import io.github.ygaray.voiceactionengine.sample.net.OkHttpRuntime
 import io.github.ygaray.voiceactionengine.sample.tools.CannedToolExecutor
+import io.github.ygaray.voiceactionengine.sample.tools.SyntheticTools
 import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
 import io.github.ygaray.voiceactionengine.sample.verdict.CacheVerdict
 import io.github.ygaray.voiceactionengine.sample.verdict.MultiTurnVerdict
@@ -42,6 +48,9 @@ import io.github.ygaray.voiceactionengine.sample.verdict.VerdictKind
 import kotlinx.coroutines.sync.Mutex
 
 private const val HTTP_OK = 200
+
+// A tier must declare the providers it may use; the demos declare the demo provider and nothing else.
+private val DEMO_ONLY = StrategyCapabilities(setOf(DEMO_PROVIDER))
 
 /**
  * What one leg produced.
@@ -110,9 +119,14 @@ internal class LegRunner(
     private val budget: RequestBudget,
     private val tap: AttemptTap,
     private val sink: EvidenceSink,
+    demoSink: CommitSink = NoOpCommitSink,
+    demo: DemoProvider = DemoProvider(),
     private val nowSeconds: () -> Long,
 ) {
     private val running = Mutex()
+
+    // The demos run on their own engine: the demo provider only, and a credential source that is never consulted.
+    private val demoEngine = SampleEngine(listOf(demo), CredentialSource { CredentialLookup.Missing() }, demoSink, null)
 
     /** Runs [leg] and returns its result. [trigger] is `ui` for a tap or `autorun` for a debug intent. */
     suspend fun run(leg: LegId, trigger: String = TRIGGER_UI): LegResult {
@@ -128,6 +142,9 @@ internal class LegRunner(
         val loaded = fixture() as? FixtureState.Loaded
         val refusal = precondition(spec, loaded)
         if (refusal != null) return refuse(spec.id, refusal.first, refusal.second, trigger)
+        if (spec.kind == LegKind.DEMO_CLARIFY || spec.kind == LegKind.DEMO_PARTIAL) {
+            return runDemo(spec, CommandInput(spec.prompts.first()), trigger, null)
+        }
 
         val variant = minOf(budget.runsOf(spec.id.wire), spec.prompts.size - 1)
         budget.recordRun(spec.id.wire)
@@ -141,6 +158,8 @@ internal class LegRunner(
             policy = TierPolicy { maxIterations = spec.maxIterations },
         ) {
             listener = legListener
+            // The engine would refuse a Responses-only model before sending; the probe wants the transport's own answer.
+            if (spec.kind == LegKind.RESPONSES_PROBE) capabilities(spec.provider, spec.model) { supportsTools = true }
         }
 
         if (spec.kind == LegKind.AGENTIC_FIXTURE && fixtureForLeg != null) {
@@ -205,7 +224,7 @@ internal class LegRunner(
 
     private fun tierFor(spec: LegSpec, smoke: SmokeResolver, loaded: FixtureState.Loaded?): CommandStrategy =
         when (spec.kind) {
-            LegKind.SINGLE_SHOT -> SingleShotStrategy(StrategyId("single")) {
+            LegKind.SINGLE_SHOT, LegKind.RESPONSES_PROBE -> SingleShotStrategy(StrategyId("single")) {
                 tooling = ToolSpecProvider.fixed(LegCatalog.liveSnapshot(spec.forcedTool))
                 resolver = smoke
                 forceTool = true
@@ -221,7 +240,7 @@ internal class LegRunner(
                 tooling = ToolSpecProvider.fixed(LegCatalog.liveSnapshot(null))
                 executor = CannedToolExecutor(LegCatalog.liveTools)
             }
-            else -> error("leg kind ${spec.kind} is not wired yet")
+            else -> error("leg kind ${spec.kind} is not a live leg")
         }
 
     private fun judge(facts: RunFacts): Judged = when (facts.spec.kind) {
@@ -253,7 +272,13 @@ internal class LegRunner(
             )
             Judged(result.verdict, result.extras(facts.turns.size))
         }
-        else -> error("leg kind ${facts.spec.kind} is not wired yet")
+        LegKind.RESPONSES_PROBE -> {
+            // Capture only: whatever the endpoint said is recorded with its code and HTTP status, never passed or failed.
+            val status = facts.attempts.lastOrNull()?.httpStatus
+            val extras = if (status == null) emptyMap() else mapOf("http" to status.toLong())
+            Judged(Verdict(VerdictKind.CAPTURED, facts.summary.reason ?: facts.summary.kind), extras)
+        }
+        else -> error("leg kind ${facts.spec.kind} is not a live leg")
     }
 
     private fun finish(facts: RunFacts, trigger: String): LegResult {
@@ -276,6 +301,109 @@ internal class LegRunner(
         sink.emit(EvidenceLine.verdict(spec.id, judged.verdict, judged.extras, charsetOk, trigger))
         sink.emit(EvidenceLine.budget(budget.snapshot(), CostEstimate.format(CostEstimate.usd(facts.turns))))
         return LegResult(spec.id, judged.verdict, facts.outcome, facts.summary)
+    }
+
+    /**
+     * Starts a NEW command that answers the clarification [previous] ended on. The chosen [option] reaches the model
+     * through the user-turn renderer, and the command is linked to the first by `parentRunId`; no transcript is resumed
+     * (A19, D-14).
+     */
+    suspend fun followUp(
+        previous: CommandOutcome.Completed,
+        option: ClarificationOption,
+        trigger: String = TRIGGER_UI,
+    ): LegResult {
+        val spec = LegCatalog.spec(LegId.DEMO_CLARIFY)
+        if (!running.tryLock()) return refuse(spec.id, "another_leg_running", emptyMap(), trigger)
+        try {
+            val clarification = previous.terminalCall?.asClarification()
+            if (clarification == null) return refuse(spec.id, "not_a_clarification", emptyMap(), trigger)
+            if (clarification.options.none { it.id == option.id }) {
+                return refuse(spec.id, "unknown_option", emptyMap(), trigger)
+            }
+            val input = CommandInput(
+                spec.prompts.first(),
+                null,
+                FollowUpContext(clarification.question, option),
+                previous.runId,
+            )
+            return runDemo(spec, input, trigger, previous.runId)
+        } finally {
+            running.unlock()
+        }
+    }
+
+    private suspend fun runDemo(spec: LegSpec, input: CommandInput, trigger: String, parentRunId: String?): LegResult {
+        val legListener = EvidenceListener(spec.id, sink)
+        val pipeline = demoEngine.pipeline(
+            tier = demoTier(spec),
+            selection = ProviderSelection(DEMO_PROVIDER, DEMO_MODEL),
+            policy = TierPolicy { maxIterations = spec.maxIterations },
+        ) {
+            listener = legListener
+        }
+        val outcome = pipeline.execute(input)
+        val summary = OutcomeSummary.of(outcome)
+        val verdict = demoVerdict(spec, outcome, summary, parentRunId)
+        sink.emit(EvidenceLine.outcome(spec.id, summary))
+        sink.emit(EvidenceLine.verdict(spec.id, verdict, emptyMap(), null, trigger))
+        return LegResult(spec.id, verdict, outcome, summary)
+    }
+
+    private fun demoTier(spec: LegSpec): CommandStrategy = when (spec.kind) {
+        LegKind.DEMO_PARTIAL -> SingleShotStrategy(StrategyId("single")) {
+            capabilities = DEMO_ONLY
+            tooling = ToolSpecProvider.fixed(SyntheticTools.snapshot(spec.forcedTool))
+            resolver = SmokeResolver(SyntheticTools.all)
+            forceTool = true
+        }
+        else -> AgenticLoopStrategy(StrategyId("agentic")) {
+            capabilities = DEMO_ONLY
+            tooling = ToolSpecProvider.fixed(SyntheticTools.snapshot(null))
+            executor = CannedToolExecutor(SyntheticTools.all)
+            userTurn = FollowUpTurnRenderer
+        }
+    }
+
+    // PASS when the outcome has the scripted shape, otherwise FAIL naming the shape that was observed.
+    private fun demoVerdict(
+        spec: LegSpec,
+        outcome: CommandOutcome,
+        summary: OutcomeSummary,
+        parentRunId: String?,
+    ): Verdict {
+        val completed = outcome as? CommandOutcome.Completed
+            ?: return Verdict.fail(summary.failureCode() ?: "not_completed")
+        val code = when {
+            spec.kind == LegKind.DEMO_PARTIAL -> partialShape(completed)
+            parentRunId != null -> followUpShape(completed, parentRunId)
+            else -> clarifyShape(completed)
+        }
+        return if (code == null) Verdict.pass() else Verdict.fail(code)
+    }
+
+    private fun partialShape(outcome: CommandOutcome.Completed): String? = when {
+        !outcome.partial -> "not_partial"
+        outcome.commits.size != 1 -> "commit_count_${outcome.commits.size}"
+        else -> null
+    }
+
+    private fun followUpShape(outcome: CommandOutcome.Completed, parentRunId: String): String? = when {
+        outcome.parentRunId != parentRunId -> "parent_mismatch"
+        outcome.partial -> "partial"
+        outcome.commits.size != 1 -> "commit_count_${outcome.commits.size}"
+        else -> null
+    }
+
+    private fun clarifyShape(outcome: CommandOutcome.Completed): String? {
+        val clarification = outcome.terminalCall?.asClarification()
+        return when {
+            outcome.terminalCall == null -> "no_terminal_call"
+            clarification == null -> "not_a_clarification"
+            clarification.question.isBlank() -> "blank_question"
+            clarification.options.isEmpty() -> "no_options"
+            else -> null
+        }
     }
 
     private fun refuse(leg: LegId, reason: String, extras: Map<String, Long>, trigger: String): LegResult {

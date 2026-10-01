@@ -1,6 +1,8 @@
 package io.github.ygaray.voiceactionengine.sample
 
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
@@ -167,6 +169,36 @@ class SmokeLegTest {
 
             assertEquals(listOf("anthropic", "openai", "openrouter"), providers.map { it.id.value })
             assertTrue(providers.all { it is BudgetedProvider })
+        }
+    }
+
+    @Test
+    fun theResponsesProbeIsCapturedNotPassed() = runTest {
+        NoNetworkGuard.during {
+            val rejected = AttemptStep(listOf("initial" to 400), ModelResult.Failure(FailureReason.ModelUnsupported()))
+            val rig = legRig(folder.newFolder()) { tap ->
+                listOf(AttemptingFake(ProviderId.OPENAI, tap, listOf(rejected, rejected)))
+            }
+
+            val result = rig.runner.run(LegId.RESPONSES_PROBE)
+
+            assertEquals(result.toString(), VerdictKind.CAPTURED, result.verdict.kind)
+            assertEquals("model_unsupported", result.verdict.reason)
+            assertTrue(
+                rig.sink.rendered.toString(),
+                "VAE_VERDICT leg=responses_probe verdict=CAPTURED reason=model_unsupported http=400 trigger=ui" in
+                    rig.sink.rendered,
+            )
+            assertEquals("gpt-6-astra", rig.fake(ProviderId.OPENAI).calls.single().model)
+            // It spent from the optional pool, and the optional pool allows one probe only.
+            assertEquals(0, rig.budget.snapshot().core)
+            assertEquals(1, rig.budget.snapshot().optional)
+
+            val again = rig.runner.run(LegId.RESPONSES_PROBE)
+
+            assertEquals(VerdictKind.REFUSED, again.verdict.kind)
+            assertEquals("budget", again.verdict.reason)
+            assertEquals(1, rig.fake(ProviderId.OPENAI).calls.size)
         }
     }
 }
