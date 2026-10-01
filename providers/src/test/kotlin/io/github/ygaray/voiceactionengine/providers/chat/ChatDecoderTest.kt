@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -264,5 +265,108 @@ class ChatDecoderTest {
         assertEquals(StopReason.OTHER, success(decode(chatBody(chatMessage("hi"), null))).stopReason)
         val missingFinish = """{"choices":[{"message":{"role":"assistant","content":"hi"}}]}"""
         assertEquals(StopReason.OTHER, success(decode(missingFinish)).stopReason)
+    }
+
+    // ---- usage -----------------------------------------------------------------------------------------------
+
+    private fun usageOf(usage: JsonObject?): Usage =
+        success(decode(chatBody(chatMessage("hi"), "stop", usage), toolRequired = false)).usage
+
+    private fun rawUsage(usageJson: String): Usage {
+        val body = """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],""" +
+            """"usage":$usageJson}"""
+        return success(decode(body, toolRequired = false)).usage
+    }
+
+    @Test
+    fun cachedTokensAreCountedOnceAndNotAsUncachedInput() {
+        val usage = usageOf(chatUsage(1920, 55, cached = 1800))
+        assertEquals(Usage(120, 1800, 0, 55), usage)
+        assertEquals(1975L, usage.total)
+    }
+
+    @Test
+    fun cacheWriteTokensLeaveTheUncachedBucketToo() {
+        val usage = usageOf(chatUsage(2420, 55, cached = 1800, cacheWrite = 500))
+        assertEquals(Usage(120, 1800, 500, 55), usage)
+        assertEquals(2475L, usage.total)
+    }
+
+    @Test
+    fun cacheCountsLargerThanThePromptAreClamped() {
+        val usage = usageOf(chatUsage(1000, 20, cached = 3000, cacheWrite = 400))
+        assertEquals(Usage(0, 1000, 0, 20), usage)
+        assertTrue(usage.total <= 1000 + 20)
+    }
+
+    @Test
+    fun missingUsageIsZeroAndBadCountsAreZero() {
+        assertEquals(Usage.ZERO, usageOf(null))
+        assertEquals(Usage.ZERO, rawUsage("""{"prompt_tokens":null,"completion_tokens":null}"""))
+        assertEquals(Usage.ZERO, rawUsage("""{"prompt_tokens":-3,"completion_tokens":-5}"""))
+        assertEquals(Usage.ZERO, rawUsage("""{"prompt_tokens":"12","completion_tokens":"1.5"}"""))
+        assertEquals(Usage.ZERO, rawUsage("""{"prompt_tokens":7.5,"completion_tokens":true}"""))
+        assertEquals(Usage.ZERO, rawUsage("[1,2]"))
+        val noDetails = usageOf(chatUsage(100, 5))
+        assertEquals(Usage(100, 0, 0, 5), noDetails)
+        val nullDetails = """{"prompt_tokens":100,"completion_tokens":5,"prompt_tokens_details":null}"""
+        assertEquals(Usage(100, 0, 0, 5), rawUsage(nullDetails))
+    }
+
+    @Test
+    fun anOpenRouterUsageWithCostAndReasoningFieldsMapsToTheSameFourNumbers() {
+        val plain = """{"prompt_tokens":2420,"completion_tokens":55,"total_tokens":2475,""" +
+            """"prompt_tokens_details":{"cached_tokens":1800,"cache_write_tokens":500}}"""
+        val rich = """{"prompt_tokens":2420,"completion_tokens":55,"total_tokens":2475,"cost":0.0123,""" +
+            """"cost_details":{"upstream_inference_cost":0.01},"is_byok":false,""" +
+            """"prompt_tokens_details":{"cached_tokens":1800,"cache_write_tokens":500,"audio_tokens":0},""" +
+            """"completion_tokens_details":{"reasoning_tokens":30,"image_tokens":0}}"""
+        assertEquals(Usage(120, 1800, 500, 55), rawUsage(plain))
+        assertEquals(rawUsage(plain), rawUsage(rich))
+    }
+
+    // ---- absent optionals and no text in failures ------------------------------------------------------------
+
+    @Test
+    fun anOmittedOptionalStaysAbsentInTheDecodedArguments() {
+        val sent = """{"card_id":"c-7","items":[{"text":"milk"}]}"""
+        val arguments = success(decode(toolBody(sent))).message.toolCalls.single().arguments
+        assertEquals(Json.parseToJsonElement(sent), arguments)
+        assertEquals(setOf("card_id", "items"), arguments.keys)
+        assertEquals(setOf("text"), (arguments["items"] as JsonArray).map { (it as JsonObject).keys }.single())
+    }
+
+    private fun assertNoCanary(decoded: ChatDecoded) {
+        val texts = listOf(
+            decoded.toString(),
+            decoded.result.toString(),
+            (decoded.result as? ModelResult.Failure)?.details.toString(),
+            (decoded.result as? ModelResult.Failure)?.reason.toString(),
+        )
+        for (text in texts) {
+            assertFalse(text, text.contains("CANARY"))
+        }
+    }
+
+    @Test
+    fun noAnswerTextReachesAFailureOrAToString() {
+        val envelope = chatErrorEnvelope(502, "upstream said CANARY-ECHO", raw = "CANARY-ECHO raw")
+        val failures = listOf(
+            decode("CANARY-BODY not json"),
+            decode("""["CANARY-BODY"]"""),
+            decode("""{"choices":[{"message":"CANARY-BODY"}]}"""),
+            decode(envelope, vendor = ChatVendor.OPENROUTER),
+            decode(toolBody("""["CANARY-BODY"]""")),
+            decode(toolBody("CANARY-BODY")),
+            decode(chatBody(chatMessage("CANARY-BODY"), "stop")),
+            decode(chatBody(chatMessage(null), "error", nativeFinishReason = "CANARY BODY")),
+        )
+        for (decoded in failures) {
+            assertTrue(decoded.result is ModelResult.Failure)
+            assertNoCanary(decoded)
+        }
+        val refused = decode(chatBody(chatMessage(null, refusal = "CANARY-BODY"), "stop"))
+        assertNoCanary(refused)
+        assertEquals(0, success(refused).message.parts.size)
     }
 }
