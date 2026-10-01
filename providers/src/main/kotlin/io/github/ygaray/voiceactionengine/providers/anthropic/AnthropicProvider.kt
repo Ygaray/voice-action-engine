@@ -33,8 +33,15 @@ private val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "::1")
  * The provider never logs and never puts a key, transcript, tool argument or response body in an exception or in
  * [toString]. It keeps no per-call state, so one instance serves any number of concurrent commands. The app's
  * `OkHttpClient` is used through a derived copy that shares its connection pool and dispatcher but drops its
- * interceptors, event listener, authenticator, cookie jar and redirect following, so nothing the app installed can see
- * the key or the traffic.
+ * interceptors, event listener, authenticator, proxy authenticator, cookie jar and redirect following, so nothing the
+ * app installed can see the key or the traffic. A proxy that demands a login therefore comes back as a failure.
+ *
+ * Model ids are matched exactly against the built-in capability table. A model that rejects a forced tool choice but is
+ * named with a date or other suffix (for example `claude-opus-5-5-20261001`) is not recognised, so each call is first
+ * sent forced, refused, and re-sent reshaped, which doubles that call's latency and spend. Nothing is remembered
+ * between calls. Tell the pipeline about such an id through its capability override (`PipelineBuilder.capabilities`,
+ * `supportsForcedToolChoice = false`) and the first request is sent reshaped. The attempt observer reports the extra
+ * request as a forced-tool reshape.
  */
 public class AnthropicProvider internal constructor(
     internal val transport: AnthropicTransport,
