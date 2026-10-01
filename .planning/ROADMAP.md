@@ -464,7 +464,7 @@ Plans:
   3. One live single-shot smoke call each to Anthropic, OpenAI and OpenRouter from `:sample` (Yahir's real keys) returns a parsed tool call.
   4. An AI agent can wire the engine into a new app from the README (plus the integration doc) alone. The docs cover the per-module coordinates, a minimal pipeline, every seam, both gate modes and the `else` branches on open taxonomies, and they point to `:sample` as the working example.
 
-**Plans**: 1/10 plans executed (one per wave, strictly sequential: 10-01 → 10-10; executors build and host-test only, the live legs run afterwards under Gate-1 by the agentic tester per GATE1-RUNBOOK.md; 10-09 and 10-10 end at decision checkpoints relayed through the master)
+**Plans**: 2/10 plans executed (one per wave, strictly sequential: 10-01 → 10-10; executors build and host-test only, the live legs run afterwards under Gate-1 by the agentic tester per GATE1-RUNBOOK.md; 10-09 and 10-10 end at decision checkpoints relayed through the master)
 
 **Wave 1**
 
@@ -472,7 +472,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 10-02-PLAN.md — LE-1 fixture loaded at run time with the full sha256 and loud typed failures; name-prefix tool classifier; canned `ToolExecutor`; committed synthetic tool set (D-06)
+- [x] 10-02-PLAN.md — LE-1 fixture loaded at run time with the full sha256 and loud typed failures; name-prefix tool classifier; canned `ToolExecutor`; committed synthetic tool set (D-06)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -540,5 +540,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. SingleShot Strategy | 8/8 | Complete    | 2026-10-01 |
 | 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
 | 9. Agentic Loop Strategy | 9/9 | Complete    | 2026-10-01 |
-| 10. Sample Harness, Gate-1 & Docs | 1/10 | In Progress|  |
+| 10. Sample Harness, Gate-1 & Docs | 2/10 | In Progress|  |
 | 11. Cut v1.0.0 | 0/TBD | Not started | - |
