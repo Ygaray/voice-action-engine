@@ -34,7 +34,8 @@ if [ -n "$OUT" ]; then
 fi
 
 WORK="$(mktemp -d)"; COPY="$WORK/repo"; mkdir -p "$COPY"
-# The copy is a full tree plus build outputs: remove it on exit unless KEEP_WORK=1 (debugging).
+# The copy is every tracked and untracked non-ignored file (git ls-files -co --exclude-standard), so ignored build
+# outputs are not copied. It is removed on exit unless KEEP_WORK=1 (debugging).
 trap '[ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$WORK"' EXIT
 # Orchestrator/graph bookkeeping under .planning/ and graphify-out/ changes independently of this script: not compared.
 tree_status() { git -C "$ROOT" status --porcelain -- . ':!.planning' ':!graphify-out'; }
@@ -50,8 +51,9 @@ DUMP="$COPY/core/api.txt"
 head -1 "$DUMP" | grep -q 'Signature format' || fail "core/api.txt lacks a Signature format header"
 grep -q '^package io\.github\.ygaray\.voiceactionengine\.core' "$DUMP" || fail "core/api.txt lacks the core package (vacuous dump)"
 
-# Member lines start (after indentation) with method/field/ctor/property; everything else with class|interface is a declaration.
-decl_lines() { grep -E '^[[:space:]]*[^[:space:]].*\b(class|interface|enum)[[:space:]]+[A-Za-z_]' "$DUMP" | grep -Ev '^[[:space:]]*(method|field|ctor|property|enum_constant)\b' || true; }
+# A declaration line is indentation, optional annotations, then a visibility word, then class|interface|enum. Member
+# lines (method/field/ctor/property) start with their own keyword and never match.
+decl_lines() { grep -E '^[[:space:]]*(@[^[:space:]]+[[:space:]]+)*(public|protected)[[:space:]].*\b(class|interface|enum)[[:space:]]+[A-Za-z_]' "$DUMP" || true; }
 
 sealed_found="$(decl_lines | grep -E '\bsealed\b' | sed -E 's/.*\b(class|interface)[[:space:]]+([A-Za-z0-9_.]+).*/\2/' | sed -E 's/.*\.//' | sort -u || true)"
 for t in $sealed_found; do
@@ -72,7 +74,7 @@ fi
 bad_fields="$(grep -E '^[[:space:]]*field .*\bstatic\b' "$DUMP" \
   | sed -E 's/[[:space:]]*=.*$//; s/;[[:space:]]*$//; s/.*[[:space:]]([A-Za-z0-9_$]+)$/\1/' \
   | grep -Ev '^(INSTANCE|Companion)$' || true)"
-[ -z "$bad_fields" ] || fail "public static field(s) leaked: $(echo "$bad_fields" | tr '\n' ' ')"
+[ -z "$bad_fields" ] || fail "public static field(s) leaked: $(echo "$bad_fields" | tr '\n' ' ')(a public const val shows up here too: use a private const and an internal function)"
 
 classes="$(decl_lines | wc -l | tr -d ' ')"
 cd "$ROOT"
