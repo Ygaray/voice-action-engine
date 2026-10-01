@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core.pipeline
 
+import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.commit.CommitSink
 import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.provider.AiProvider
@@ -28,6 +29,7 @@ public annotation class PipelineDsl
 public class PipelineBuilder internal constructor() {
     private val strategies = mutableListOf<CommandStrategy>()
     private val providers = mutableListOf<AiProvider>()
+    private val overrides = mutableListOf<CapabilityOverride>()
 
     /** The approval step in front of every change. Required. */
     public var gate: PreApplyGate? = null
@@ -81,6 +83,16 @@ public class PipelineBuilder internal constructor() {
         providers.add(provider)
     }
 
+    /**
+     * Patches what the engine believes about one model: the fields [block] sets replace the provider's default for that
+     * exact [provider] and [model] pair, and every other field keeps the provider's value. Keys are exact ids, never
+     * prefixes or families. Declaring the same pair twice, a blank [model], or a block that sets an invalid value makes
+     * the pipeline fail to build.
+     */
+    public fun capabilities(provider: ProviderId, model: String, block: ModelCapabilities.Builder.() -> Unit) {
+        overrides.add(CapabilityOverride(provider, model, block))
+    }
+
     internal fun build(): CommandPipeline {
         require(strategies.isNotEmpty()) { "commandPipeline: at least one tier is required" }
         val duplicate = strategies.map { it.id }.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
@@ -94,8 +106,9 @@ public class PipelineBuilder internal constructor() {
         val registered = providers.toList()
         val dupProvider = registered.map { it.id }.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
         require(dupProvider == null) { "commandPipeline: duplicate provider id ${dupProvider?.key}" }
+        val patches = validatedOverrides()
         return CommandPipeline(
-            wiring(registered),
+            wiring(registered, patches),
             finalGate,
             finalSink,
             policy,
@@ -105,18 +118,46 @@ public class PipelineBuilder internal constructor() {
         )
     }
 
+    /**
+     * The override blocks by exact pair. Each is run once against the unknown-model defaults, so a duplicate pair, a
+     * blank model or an out-of-range value fails here and never at the first command.
+     */
+    private fun validatedOverrides(): Map<Pair<ProviderId, String>, ModelCapabilities.Builder.() -> Unit> {
+        val patches = LinkedHashMap<Pair<ProviderId, String>, ModelCapabilities.Builder.() -> Unit>()
+        for (patch in overrides) {
+            require(patch.model.isNotBlank()) { "commandPipeline: capability override model must not be blank" }
+            val key = patch.provider to patch.model
+            require(key !in patches) {
+                "commandPipeline: duplicate capability override for ${patch.provider} / ${patch.model}"
+            }
+            ModelCapabilities.UNKNOWN.toBuilder().apply(patch.block).build()
+            patches[key] = patch.block
+        }
+        return patches
+    }
+
     /** One on-device probe instance goes to both the pre-check and the router, so the two never disagree. */
-    private fun wiring(registered: List<AiProvider>): PipelineWiring {
+    private fun wiring(
+        registered: List<AiProvider>,
+        patches: Map<Pair<ProviderId, String>, ModelCapabilities.Builder.() -> Unit>,
+    ): PipelineWiring {
         val probe = onDeviceAvailability
         val byId = registered.associateBy { it.id }
         val table = ModelCapabilityTable(
             { provider, model -> byId[provider]?.capabilities(model) ?: ModelCapabilities.UNKNOWN },
-            emptyMap(),
+            patches,
         )
         val router = ModelRouter(byId, providerSelection, credentials, table, clock, probe)
-        return PipelineWiring(PolicyPreCheck(strategies.toList(), selector, probe), router)
+        return PipelineWiring(PolicyPreCheck(strategies.toList(), selector, probe), router, table)
     }
 }
+
+/** One app capability override as declared, before validation. */
+private class CapabilityOverride(
+    val provider: ProviderId,
+    val model: String,
+    val block: ModelCapabilities.Builder.() -> Unit,
+)
 
 /**
  * Composes a [CommandPipeline]. Throws [IllegalArgumentException] if the pipeline is misconfigured. `execute` throws

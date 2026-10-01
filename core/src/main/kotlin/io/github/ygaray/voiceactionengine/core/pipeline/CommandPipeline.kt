@@ -12,6 +12,7 @@ import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.EngineFault
 import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.internal.guardedUncancellable
+import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilityTable
 import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
@@ -33,8 +34,8 @@ private class StartedRun(
     val coordinator: CommitCoordinator,
 )
 
-/** The two build-time collaborators a command consults before and during the walk, kept together. */
-internal class PipelineWiring(val preCheck: PolicyPreCheck, val router: ModelRouter)
+/** The build-time collaborators a command consults before and during the walk, kept together. */
+internal class PipelineWiring(val preCheck: PolicyPreCheck, val router: ModelRouter, val table: ModelCapabilityTable)
 
 /**
  * An app's composed ladder. Build one with [commandPipeline] and call [execute] once per spoken command.
@@ -50,6 +51,13 @@ public class CommandPipeline internal constructor(
 ) {
     /** The ladder's tier ids, lowest tier first. */
     public val tiers: List<StrategyId> = wiring.preCheck.strategies.map { it.id }
+
+    /**
+     * What each registered model can do, after the app's `capabilities(...)` overrides. Public so a model picker can
+     * mark or filter models that cannot take tools. Precedence, highest first: the app's override for the exact
+     * provider and model, the provider's own default for that model, then the unknown-model default.
+     */
+    public val capabilityTable: ModelCapabilityTable = wiring.table
 
     private val heldCommit = HeldCommit(gate, sink, clock, runIds, listener)
 

@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.PipelineBuilder
@@ -7,14 +8,18 @@ import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.AiProvider
 import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
+import io.github.ygaray.voiceactionengine.core.provider.CachingMode
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeClock
@@ -30,6 +35,8 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -132,5 +139,121 @@ class ProviderRouterTest {
             pipelineOf(listOf(tierOf("t")), listOf(first, second))
         }
         assertTrue(failure.message.orEmpty(), failure.message.orEmpty().contains("duplicate provider"))
+    }
+
+    // ---- capability overrides and the public table ----
+
+    private val declared = ModelCapabilities {
+        supportsTools = true
+        caching = CachingMode.EXPLICIT_BREAKPOINTS
+        minCacheablePrefixTokens = MIN_PREFIX
+    }
+
+    private fun declaredFake() =
+        FakeAiProvider(ProviderId.ANTHROPIC, declared, { FakeAiProvider.reply("ok", Usage.ZERO) })
+
+    @Test
+    fun withoutOverridesTheTableReportsTheProviderDefaultAndUnknownForAnUnregisteredId() {
+        val pipeline = pipelineOf(listOf(tierOf("t")), listOf(declaredFake()))
+
+        assertEquals(declared, pipeline.capabilityTable.lookup(ProviderId.ANTHROPIC, "model-a"))
+        assertEquals(ModelCapabilities.UNKNOWN, pipeline.capabilityTable.lookup(ProviderId.OPENAI, "model-a"))
+    }
+
+    @Test
+    fun anOverridePatchesOnlyItsExactPairAndKeepsTheOtherFields() {
+        val pipeline = pipelineOf(listOf(tierOf("t")), listOf(declaredFake())) {
+            capabilities(ProviderId.ANTHROPIC, "model-a") { supportsTools = false }
+        }
+
+        val patched = pipeline.capabilityTable.lookup(ProviderId.ANTHROPIC, "model-a")
+        assertEquals(false, patched.supportsTools)
+        assertEquals(CachingMode.EXPLICIT_BREAKPOINTS, patched.caching)
+        assertEquals(MIN_PREFIX, patched.minCacheablePrefixTokens)
+        assertEquals(declared, pipeline.capabilityTable.lookup(ProviderId.ANTHROPIC, "model-b"))
+    }
+
+    @Test
+    fun aRoutedRequestWithToolsOnAnOverriddenToolIncapableModelIsRefusedBeforeAnyCall() = runTest {
+        NoNetworkGuard.during {
+            val fake = declaredFake()
+            val tools = listOf(ToolSpec("lookup", "finds a thing", JsonObject(emptyMap())))
+            val tier = tierOf("t") { input, session ->
+                val request = ModelRequest("sys", listOf(UserMessage(input.transcript)), tools, 100)
+                when (val result = session.model().complete(request)) {
+                    is ModelResult.Failure -> StrategyOutcome.Failed(result.reason)
+                    else -> StrategyOutcome.Completed(null)
+                }
+            }
+            val pipeline = pipelineOf(listOf(tier), listOf(fake)) {
+                capabilities(ProviderId.ANTHROPIC, "model-a") { supportsTools = false }
+            }
+
+            val outcome = pipeline.execute(CommandInput("hi"))
+
+            assertEquals(FailureReason.ModelUnsupported(), (outcome as CommandOutcome.Failed).reason)
+            assertTrue(outcome.trace.codes.contains(TraceCode.CAPABILITY_REFUSED))
+            assertEquals(0, fake.callCount)
+        }
+    }
+
+    @Test
+    fun buildRejectsADuplicateOverrideForTheSamePair() {
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            pipelineOf(listOf(tierOf("t")), listOf(declaredFake())) {
+                capabilities(ProviderId.ANTHROPIC, "model-a") { supportsTools = false }
+                capabilities(ProviderId.ANTHROPIC, "model-a") { supportsTools = true }
+            }
+        }
+        assertTrue(failure.message.orEmpty(), failure.message.orEmpty().contains("duplicate capability override"))
+    }
+
+    @Test
+    fun buildRejectsABlankOverrideModel() {
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            pipelineOf(listOf(tierOf("t")), listOf(declaredFake())) {
+                capabilities(ProviderId.ANTHROPIC, " ") { supportsTools = false }
+            }
+        }
+        assertTrue(failure.message.orEmpty(), failure.message.orEmpty().contains("blank"))
+    }
+
+    @Test
+    fun buildRejectsAnOverrideBlockProducingAnInvalidValueBeforeAnyCommandRuns() {
+        val fake = declaredFake()
+        assertThrows(IllegalArgumentException::class.java) {
+            pipelineOf(listOf(tierOf("t")), listOf(fake)) {
+                capabilities(ProviderId.ANTHROPIC, "model-a") { charsPerToken = 0.0 }
+            }
+        }
+        assertEquals(0, fake.callCount)
+    }
+
+    @Test
+    fun thePreCheckAndTheRouterReadOneOnDeviceProbeInstanceTwicePerCommand() = runTest {
+        NoNetworkGuard.during {
+            val reads = AtomicInteger()
+            val fake = declaredFake()
+            val both = StrategyCapabilities(setOf(ProviderId.ON_DEVICE, ProviderId.ANTHROPIC))
+            val tier = ScriptedStrategy(StrategyId("t"), both, modelStep())
+            val selection = ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ON_DEVICE, "local"))
+            val pipeline = pipelineOf(listOf(tier), listOf(fake), selection) {
+                onDeviceAvailability = {
+                    reads.incrementAndGet()
+                    false
+                }
+            }
+
+            val outcome = pipeline.execute(CommandInput("hi"))
+
+            val expected = FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, "on_device_unavailable")
+            assertEquals(expected, (outcome as CommandOutcome.Failed).reason)
+            assertEquals(2, reads.get())
+            assertEquals(0, fake.callCount)
+        }
+    }
+
+    private companion object {
+        const val MIN_PREFIX = 1024
     }
 }
