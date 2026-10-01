@@ -34,6 +34,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -264,7 +265,7 @@ class AnthropicEncoderTest {
     }
 
     @Test
-    fun aMatchingNativeReplayIsSentVerbatimAndAnyOtherIsRebuiltFromParts() {
+    fun aMatchingNativeReplayIsSentVerbatimANullOneIsRebuiltAndAnyOtherIsRefused() {
         val raw: JsonArray = buildJsonArray {
             add(thinkingBlock("pondering"))
             add(toolUseBlock("toolu_9", "add_item", buildJsonObject { put("item", "milk") }))
@@ -285,7 +286,16 @@ class AnthropicEncoderTest {
             add(toolUseBlock("toolu_9", "add_item", buildJsonObject { put("item", "milk") }))
         }
         assertEquals(rebuilt, assistantContent(null))
-        assertEquals(rebuilt, assistantContent(NativeReplay(ProviderId.ANTHROPIC, "claude-opus-5-5", raw)))
-        assertEquals(rebuilt, assistantContent(NativeReplay(ProviderId.OPENAI, model, raw)))
+        listOf(
+            NativeReplay(ProviderId.ANTHROPIC, "claude-opus-5-5", raw),
+            NativeReplay(ProviderId.OPENAI, model, raw),
+        ).forEach { other ->
+            val refused = assertThrows(IllegalStateException::class.java) { assistantContent(other) }
+
+            assertFalse(refused.message.orEmpty().contains(model))
+            assertFalse(refused.message.orEmpty().contains("claude-opus-5-5"))
+            assertFalse(refused.message.orEmpty().contains(ProviderId.OPENAI.toString()))
+            assertFalse(refused.message.orEmpty().contains(ProviderId.ANTHROPIC.toString()))
+        }
     }
 }

@@ -48,7 +48,8 @@ public class AssistantMessage(
      * The provider's own version of this turn, to send back unchanged, or null.
      *
      * It is the very same raw instance, returned only when [provider] and [model] both match the replay's stamp
-     * exactly. A null result means the mapper must rebuild this turn from the neutral [parts].
+     * exactly. A null result means this turn has no replay for that provider and model: a mapper rebuilds a turn from
+     * the neutral [parts] only when [nativeReplay] is null, and refuses a turn stamped for another provider or model.
      */
     public fun nativeFor(provider: ProviderId, model: String): JsonElement? =
         nativeReplay?.takeIf { it.provider == provider && it.model == model }?.raw

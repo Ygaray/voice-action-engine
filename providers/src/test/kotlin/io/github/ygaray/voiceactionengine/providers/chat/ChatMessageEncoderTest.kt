@@ -15,6 +15,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -68,16 +69,20 @@ class ChatMessageEncoderTest {
     }
 
     @Test
-    fun aReplayFromAnotherVendorProviderOrModelIsRebuilt() {
+    fun aReplayFromAnotherVendorProviderOrModelIsRefusedAndANullOneIsRebuilt() {
         val others = listOf(
             NativeReplay(ProviderId.OPENROUTER, model, rawReplay),
             NativeReplay(ProviderId.ANTHROPIC, model, rawReplay),
             NativeReplay(ProviderId.OPENAI, "gpt-4o-mini", rawReplay),
-            null,
+            NativeReplay(ProviderId.OPENAI, model, JsonArray(emptyList())),
         )
 
+        assertEquals("[$rebuilt]", encode(assistant(null)))
         others.forEach { replay ->
-            assertEquals("[$rebuilt]", encode(assistant(replay)))
+            val refused = assertThrows(IllegalStateException::class.java) { encode(assistant(replay)) }
+
+            assertFalse(refused.message.orEmpty().contains(model))
+            assertFalse(refused.message.orEmpty().contains("gpt-4o-mini"))
         }
     }
 

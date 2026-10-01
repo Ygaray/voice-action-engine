@@ -21,6 +21,9 @@ private const val ROLE_ASSISTANT = "assistant"
 private const val ROLE_TOOL = "tool"
 private const val TEXT_SEPARATOR = "\n"
 
+// Fixed text: no id, model or provider is ever interpolated into it.
+private const val REPLAY_REFUSED = "a replay stamped for another provider or model reached the encoder"
+
 // Response-only fields (annotations, reasoning text and the like) are rejected or ignored as input, so a replay keeps
 // just these. The reasoning details stay because a router needs them back to continue a reasoning turn.
 private val REPLAY_FIELDS = setOf("role", "content", "tool_calls", "refusal", "reasoning_details")
@@ -46,11 +49,13 @@ private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
     put(CONTENT, message.text)
 }
 
-// A reply this vendor produced for this model goes back as received, keeping only the fields the endpoint takes as
-// input; anything else is rebuilt from the neutral parts.
+// A turn this vendor produced for this model goes back as received, keeping only the fields the endpoint takes as
+// input; a turn with no replay is rebuilt from the neutral parts. The transport refuses any other stamp before
+// encoding, so the check here is a backstop: a stamped turn is never rebuilt.
 private fun assistantMessage(message: AssistantMessage, call: ProviderRequest, vendor: ChatVendor): JsonObject {
+    if (message.nativeReplay == null) return rebuiltAssistantMessage(message)
     val replay = message.nativeFor(vendor.providerId, call.model) as? JsonObject
-    return if (replay != null) replayedFields(replay) else rebuiltAssistantMessage(message)
+    return replayedFields(checkNotNull(replay) { REPLAY_REFUSED })
 }
 
 private fun replayedFields(replay: JsonObject): JsonObject =

@@ -19,6 +19,9 @@ private const val TEXT = "text"
 private const val ROLE_USER = "user"
 private const val ROLE_ASSISTANT = "assistant"
 
+// Fixed text: no id, model or provider is ever interpolated into it.
+private const val REPLAY_REFUSED = "a replay stamped for another provider or model reached the encoder"
+
 internal fun encodeMessages(call: ProviderRequest): JsonArray = buildJsonArray {
     call.request.messages.forEach { message ->
         add(
@@ -36,11 +39,17 @@ private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
     put("content", buildJsonArray { addJsonObject { textBlock(message.text) } })
 }
 
-// A reply this provider produced for this model goes back exactly as received, so thinking blocks and their signatures
-// survive the round trip; anything else is rebuilt from the neutral parts.
+// A turn this provider produced for this model goes back exactly as received, so thinking blocks and their signatures
+// survive the round trip; a turn with no replay is rebuilt from the neutral parts. The transport refuses any other
+// stamp before encoding, so the check here is a backstop: a stamped turn is never rebuilt.
 private fun assistantMessage(message: AssistantMessage, model: String): JsonObject = buildJsonObject {
     put("role", ROLE_ASSISTANT)
-    put("content", message.nativeFor(ProviderId.ANTHROPIC, model) ?: rebuiltContent(message))
+    val content = if (message.nativeReplay == null) {
+        rebuiltContent(message)
+    } else {
+        checkNotNull(message.nativeFor(ProviderId.ANTHROPIC, model)) { REPLAY_REFUSED }
+    }
+    put("content", content)
 }
 
 private fun rebuiltContent(message: AssistantMessage): JsonArray = buildJsonArray {
