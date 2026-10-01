@@ -19,24 +19,17 @@ import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
  * file), which the engine reports as a fault of the credential source.
  */
 public class KeystoreCredentialSource(private val store: ApiKeyStore) : CredentialSource {
-    override suspend fun credential(provider: ProviderId): CredentialLookup {
-        val read = store.readSecret(provider)
-        val plaintext = read.plaintext
-        return when (val state = read.state) {
-            is KeyState.Ready -> readyLookup(provider, plaintext)
-            is KeyState.KeyMissing -> KeystoreCauses.keyMissingLookup
-            is KeyState.Unreadable -> CredentialLookup.Unreadable(state.cause)
-            else -> CredentialLookup.Missing()
+    override suspend fun credential(provider: ProviderId): CredentialLookup =
+        when (val read = store.readSecret(provider)) {
+            is SecretRead.Plain -> CredentialLookup.Present(Credential(provider, read.text))
+            is SecretRead.Failed -> failedLookup(read.state)
         }
-    }
 
-    // A ready read always carries the key; the other branch only keeps the mapping total.
-    private fun readyLookup(provider: ProviderId, plaintext: String?): CredentialLookup =
-        if (plaintext == null) {
-            CredentialLookup.Unreadable(KeystoreCauses.storedValueMalformed.cause)
-        } else {
-            CredentialLookup.Present(Credential(provider, plaintext))
-        }
+    private fun failedLookup(state: KeyState): CredentialLookup = when (state) {
+        is KeyState.KeyMissing -> KeystoreCauses.keyMissingLookup
+        is KeyState.Unreadable -> CredentialLookup.Unreadable(state.cause)
+        else -> CredentialLookup.Missing()
+    }
 
     /** Prints the type only: never a key or a name of storage. */
     override fun toString(): String = "KeystoreCredentialSource"

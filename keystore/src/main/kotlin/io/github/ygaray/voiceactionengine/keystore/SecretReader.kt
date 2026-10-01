@@ -11,11 +11,29 @@ import javax.crypto.IllegalBlockSizeException
 import javax.crypto.SecretKey
 
 /**
- * What one read produced: the [state] to show, and the decrypted key only when the state is [KeyState.Ready].
+ * What one read produced: the [state] to show, and the decrypted key only for a [Plain] read, whose state is always
+ * [KeyState.Ready]. Every other read is [Failed] and carries no key.
  */
-internal class SecretRead(val state: KeyState, val plaintext: String?) {
-    /** Prints the state only: never the key. */
-    override fun toString(): String = "SecretRead(state=$state)"
+internal sealed class SecretRead {
+    abstract val state: KeyState
+
+    /** The decrypted key of a [Plain] read, null for a [Failed] one. */
+    open val plaintext: String?
+        get() = null
+
+    /** A key that was read and decrypted. */
+    class Plain(val text: String, override val state: KeyState.Ready) : SecretRead() {
+        override val plaintext: String
+            get() = text
+
+        /** Prints the state only: never the key. */
+        override fun toString(): String = "SecretRead.Plain(state=$state)"
+    }
+
+    /** A read that ended in [state], which is anything but ready. */
+    class Failed(override val state: KeyState) : SecretRead() {
+        override fun toString(): String = "SecretRead.Failed(state=$state)"
+    }
 }
 
 /**
@@ -28,7 +46,7 @@ internal class SecretReader(private val keyAccess: KeyAccess) {
 
     /** Blocking: touches the device key store and the cipher, so callers run it off the main thread. */
     fun open(slot: KeySlot, prefs: Preferences): SecretRead {
-        val stored = storedPair(slot, prefs) ?: return SecretRead(KeyState.NotConfigured(), null)
+        val stored = storedPair(slot, prefs) ?: return SecretRead.Failed(KeyState.NotConfigured())
         return lookUp(slot.alias).then { key -> decode(stored).then { sealed -> decrypt(key, sealed) } }.finish(::ready)
     }
 
@@ -84,9 +102,9 @@ internal class SecretReader(private val keyAccess: KeyAccess) {
     private fun ready(plain: ByteArray): SecretRead {
         val text = String(plain, Charsets.UTF_8)
         return when {
-            text.isBlank() -> SecretRead(KeystoreCauses.storedValueMalformed, null)
-            text.length > LAST_CHARS -> SecretRead(KeyState.Ready(text.takeLast(LAST_CHARS)), text)
-            else -> SecretRead(KeyState.Ready(""), text)
+            text.isBlank() -> SecretRead.Failed(KeystoreCauses.storedValueMalformed)
+            text.length > LAST_CHARS -> SecretRead.Plain(text, KeyState.Ready(text.takeLast(LAST_CHARS)))
+            else -> SecretRead.Plain(text, KeyState.Ready(""))
         }
     }
 }
@@ -106,7 +124,7 @@ private fun <T : Any> proceed(value: T): Stage<T> = Stage(value, null)
 
 private fun halt(read: SecretRead): Stage<Nothing> = Stage(null, read)
 
-private fun failed(state: KeyState): Stage<Nothing> = halt(SecretRead(state, null))
+private fun failed(state: KeyState): Stage<Nothing> = halt(SecretRead.Failed(state))
 
 private const val LAST_CHARS = 4
 private const val IV_BYTES = 12

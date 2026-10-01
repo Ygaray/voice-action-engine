@@ -121,10 +121,10 @@ public class ApiKeyStore internal constructor(
         .flowOn(ioDispatcher)
 
     internal suspend fun readSecret(provider: ProviderId): SecretRead =
-        slotsByProvider[provider]?.let { openSlot(it) } ?: SecretRead(KeyState.NotConfigured(), null)
+        slotsByProvider[provider]?.let { openSlot(it) } ?: SecretRead.Failed(KeyState.NotConfigured())
 
     private suspend fun openSlot(slot: KeySlot): SecretRead {
-        val prefs = storedPreferences() ?: return SecretRead(KeystoreCauses.storageUnreadable, null)
+        val prefs = storedPreferences() ?: return SecretRead.Failed(KeystoreCauses.storageUnreadable)
         return withContext(ioDispatcher) { reader.open(slot, prefs) }
     }
 
