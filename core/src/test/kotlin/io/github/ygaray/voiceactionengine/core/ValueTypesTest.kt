@@ -33,6 +33,16 @@ class ValueTypesTest {
     }
 
     @Test
+    fun usageSumsStopAtLongMaxInsteadOfWrappingNegative() {
+        val huge = Usage(Long.MAX_VALUE, Long.MAX_VALUE, 1, 1)
+        assertEquals(Long.MAX_VALUE, huge.total)
+        val doubled = huge + huge
+        assertEquals(Long.MAX_VALUE, doubled.inputUncached)
+        assertEquals(Long.MAX_VALUE, doubled.total)
+        assertEquals(2L, doubled.cacheWrite)
+    }
+
+    @Test
     fun usageTotalIsTheFourWaySum() {
         assertEquals(HUNDRED, Usage(TEN, TWENTY, THIRTY, FORTY).total)
         assertEquals(0L, Usage.ZERO.total)

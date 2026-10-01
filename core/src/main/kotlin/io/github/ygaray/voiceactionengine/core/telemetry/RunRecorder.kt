@@ -65,7 +65,7 @@ internal class RunRecorder(
     suspend fun turnRecorded(strategy: StrategyId, turn: TurnRecord) {
         synchronized(lock) {
             book.turns.add(turn)
-            tokenTotal += turn.usage.total
+            tokenTotal = saturatedAdd(tokenTotal, turn.usage.total)
         }
         dispatch.send(PipelineEvent.ProviderCall(runId, strategy, turn))
     }
