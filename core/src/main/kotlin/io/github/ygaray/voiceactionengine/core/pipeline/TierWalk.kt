@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.commit.CommitCoordinator
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
@@ -46,6 +47,19 @@ internal class TierWalk(
         return null
     }
 
+    /** Runs the tier; anything it throws (except cancellation) becomes a failed outcome, never an escape. */
+    private suspend fun executeGuarded(
+        strategy: CommandStrategy,
+        input: CommandInput,
+        session: RunSession,
+    ): StrategyOutcome = guarded(
+        onFault = { fault ->
+            recorder.recordCode(TraceCode.STRATEGY_ERROR)
+            val reason = if (fault.timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(fault.errorClass)
+            StrategyOutcome.Failed(reason)
+        },
+    ) { strategy.execute(input, session) }
+
     private fun effects(): RunEffects = snapshotEffects(runId, parentRunId, coordinator, recorder)
 
     private suspend fun runTier(strategy: CommandStrategy, input: CommandInput): CommandOutcome? {
@@ -55,7 +69,7 @@ internal class TierWalk(
         }
         recorder.tierStarted(strategy.id)
         val session = RunSession(runId, parentRunId, strategy.id, policy, carry, coordinator)
-        return when (val outcome = strategy.execute(input, session)) {
+        return when (val outcome = executeGuarded(strategy, input, session)) {
             is StrategyOutcome.Completed -> {
                 recorder.tierFinished(strategy.id, ATTEMPT_COMPLETED, null, null, null)
                 CommandOutcome.Completed(effects(), outcome.reply, outcome.terminalCall, partial = false)
