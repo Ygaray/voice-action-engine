@@ -245,6 +245,23 @@ internal class EvidenceLine private constructor(
             return EvidenceLine("VERDICT", loud, fields)
         }
 
+        /**
+         * The requests spent so far, in total and per provider, and the cost estimate ([estUsd] is the text from
+         * `CostEstimate.format`).
+         */
+        fun budget(snapshot: BudgetSnapshot, estUsd: String): EvidenceLine = EvidenceLine(
+            "BUDGET",
+            false,
+            listOf(
+                "core" to snapshot.core.toString(),
+                "optional" to snapshot.optional.toString(),
+                "anthropic" to (snapshot.perProvider[ProviderId.ANTHROPIC.value] ?: 0).toString(),
+                "openai" to (snapshot.perProvider[ProviderId.OPENAI.value] ?: 0).toString(),
+                "openrouter" to (snapshot.perProvider[ProviderId.OPENROUTER.value] ?: 0).toString(),
+                "est_usd" to token(estUsd),
+            ),
+        )
+
         /** A debug rerun was started by the autorun intent instead of a tap. */
         fun autorun(leg: LegId): EvidenceLine = EvidenceLine("AUTORUN", false, listOf("leg" to leg.wire))
 
