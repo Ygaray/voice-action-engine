@@ -53,6 +53,9 @@ public value class TraceCode internal constructor(public val value: String) {
         /** A tier was skipped because on-device inference is not available. */
         public val ON_DEVICE_UNAVAILABLE: TraceCode = TraceCode("on_device_unavailable")
 
+        /** The on-device availability check threw, so on-device inference was treated as unavailable. */
+        public val ON_DEVICE_PROBE_ERROR: TraceCode = TraceCode("on_device_probe_error")
+
         /** The run was cancelled while a held change was being committed. */
         public val COMMIT_HELD_CANCELLED: TraceCode = TraceCode("commit_held_cancelled")
     }

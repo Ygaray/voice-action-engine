@@ -38,7 +38,9 @@ internal class PolicyPreCheck(
     /** Cuts the ladder to the tiers [policy] allows, recording every tier it drops. */
     suspend fun check(policy: TierPolicy, recorder: RunRecorder): Ladder {
         val onDevice = strategies.any { ProviderId.ON_DEVICE in it.capabilities.providers } &&
-            guarded(onFault = { false }) { onDeviceAvailability() }
+            guarded(onFault = { recorder.recordCode(TraceCode.ON_DEVICE_PROBE_ERROR); false }) {
+                onDeviceAvailability()
+            }
         val capIndex = policy.maxTier?.let { id -> strategies.indexOfFirst { it.id == id } }
         if (capIndex == NOT_FOUND) {
             recorder.recordCode(TraceCode.MAX_TIER_UNKNOWN)

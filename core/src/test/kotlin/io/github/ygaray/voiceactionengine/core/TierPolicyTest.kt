@@ -292,6 +292,7 @@ class TierPolicyTest {
             val outcome = ladder(device, onDevice = { error("hook broke") }).execute(CommandInput("hi"))
             val failed = outcome as CommandOutcome.Failed
             assertEquals(onDeviceUnavailable, failed.reason)
+            assertTrue("the probe fault must be visible", outcome.codes().contains("on_device_probe_error"))
         }
     }
 
