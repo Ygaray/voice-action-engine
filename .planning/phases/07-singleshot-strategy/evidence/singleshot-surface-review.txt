@@ -1,5 +1,5 @@
 Phase 7 :core public surface review - plan 07-08, Task 2 (D-08; seam sign-off record)
-HEAD: 35e8e920681dfe96b08d9a0ea3b682171a4fe7db
+HEAD: 111e7f9115ec5c56490e8bf3c51e476830fada60 (regenerated after the code-review fixes; first produced at 35e8e92)
 Produced by: scripts/review-api-surface.sh --expect-sealed-complete --out <this file>
   (Metalava dump of :core taken in an isolated copy of the tree; the real tree never receives an api.txt)
 Gate result: API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=177
@@ -11,7 +11,7 @@ Phase 7 public additions present in the dump below:
   - OutcomeResolver (fun interface), Extraction
   - Resolution (abstract class) and its four leaves: Resolution.Steps, Resolution.NoMatch, Resolution.Escalate, Resolution.Failed
   - UserTurnRenderer (fun interface), UserTurnContext
-  - SingleShotStrategy (final class) and SingleShotStrategy.Builder
+  - SingleShotStrategy (final class) and SingleShotStrategy.Builder (incl. Builder.capabilities, added by review fix IN-03)
 
 Seam sign-off (evidence/seam-signoff.txt, quoted):
 SIGNOFF: APPROVE
@@ -1259,11 +1259,13 @@ package io.github.ygaray.voiceactionengine.core.strategy.singleshot {
   public final class SingleShotStrategy implements io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy {
     method public suspend Object? execute(io.github.ygaray.voiceactionengine.core.CommandInput input, io.github.ygaray.voiceactionengine.core.strategy.CommandSession session, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome>);
     method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities capabilities;
     property public io.github.ygaray.voiceactionengine.core.StrategyId id;
     field public static final io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy.Companion Companion;
   }
 
   public static final class SingleShotStrategy.Builder {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities getCapabilities();
     method @InaccessibleFromKotlin public Clock getClock();
     method @InaccessibleFromKotlin public boolean getForceTool();
     method @InaccessibleFromKotlin public kotlin.jvm.functions.Function2<io.github.ygaray.voiceactionengine.core.transcript.ModelResponse?,kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome>,java.lang.Object?> getOnNoToolCall();
@@ -1271,6 +1273,7 @@ package io.github.ygaray.voiceactionengine.core.strategy.singleshot {
     method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver? getResolver();
     method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider? getTooling();
     method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer getUserTurn();
+    method @InaccessibleFromKotlin public void setCapabilities(io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities);
     method @InaccessibleFromKotlin public void setClock(Clock);
     method @InaccessibleFromKotlin public void setForceTool(boolean);
     method @InaccessibleFromKotlin public void setOnNoToolCall(kotlin.jvm.functions.Function2<? super io.github.ygaray.voiceactionengine.core.transcript.ModelResponse?,? super kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome>,? extends java.lang.Object?>);
@@ -1278,6 +1281,7 @@ package io.github.ygaray.voiceactionengine.core.strategy.singleshot {
     method @InaccessibleFromKotlin public void setResolver(io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver?);
     method @InaccessibleFromKotlin public void setTooling(io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider?);
     method @InaccessibleFromKotlin public void setUserTurn(io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer);
+    property public io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities capabilities;
     property public ErrorType clock;
     property public boolean forceTool;
     property public kotlin.jvm.functions.Function2<io.github.ygaray.voiceactionengine.core.transcript.ModelResponse?,kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome>,?> onNoToolCall;
