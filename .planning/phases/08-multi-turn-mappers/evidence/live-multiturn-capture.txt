@@ -20,3 +20,57 @@ findings (anthropic):
   verbatim) was accepted: status 200, stop end_turn. The signature is therefore accepted by the real API after our byte-for-byte replay.
 - The response model id equals the requested id for both conversations (claude-haiku-4-5, claude-sonnet-5-5).
 - Both captured goldens replay green in the MultiTurn conformance and ConversationGolden tests (checked after the manifest rows were appended).
+LIVE_CAPTURE conv=O1 turn=1 status=200 stop=tool_use tool_calls=4 thinking=absent reasoning_details=absent usage=in:198,cache_read:0,cache_write:0,out:73
+LIVE_CAPTURE finding=O1 turn 1 made parallel tool calls
+LIVE_CAPTURE conv=O1 turn=2 status=200 stop=end_turn tool_calls=0 thinking=absent reasoning_details=absent usage=in:304,cache_read:0,cache_write:0,out:21
+LIVE_CAPTURE conv=OP turn=1 status=200 stop=- tool_calls=0 thinking=absent reasoning_details=absent usage=-
+LIVE_CAPTURE finding=OP echo of the unfiltered stored message was accepted with status 200
+LIVE_CAPTURE conv=R1 turn=1 status=200 stop=tool_use tool_calls=4 thinking=absent reasoning_details=absent usage=in:117,cache_read:0,cache_write:0,out:74
+LIVE_CAPTURE finding=R1 turn 1 made parallel tool calls
+LIVE_CAPTURE conv=R1 turn=2 status=200 stop=end_turn tool_calls=0 thinking=absent reasoning_details=absent usage=in:241,cache_read:0,cache_write:0,out:18
+LIVE_CAPTURE conv=R2 turn=1 status=200 stop=tool_use tool_calls=1 thinking=present reasoning_details=present usage=in:130,cache_read:64,cache_write:0,out:160
+LIVE_CAPTURE finding=R2 turn 1 carried reasoning_details
+LIVE_CAPTURE conv=R2 turn=2 status=200 stop=tool_use tool_calls=1 thinking=absent reasoning_details=absent usage=in:355,cache_read:0,cache_write:0,out:20
+LIVE_CAPTURE conv=R2 turn=3 status=200 stop=tool_use tool_calls=1 thinking=present reasoning_details=present usage=in:386,cache_read:0,cache_write:0,out:25
+LIVE_CAPTURE finding=R2 turn 3 carried reasoning_details
+LIVE_CAPTURE conv=R3 turn=1 status=200 stop=tool_use tool_calls=4 thinking=present reasoning_details=present usage=in:564,cache_read:0,cache_write:0,out:320
+LIVE_CAPTURE finding=R3 turn 1 made parallel tool calls
+LIVE_CAPTURE finding=R3 turn 1 carried reasoning_details
+LIVE_CAPTURE conv=R3 turn=2 status=200 stop=end_turn tool_calls=0 thinking=absent reasoning_details=absent usage=in:1009,cache_read:0,cache_write:0,out:39
+LIVE_CAPTURE requests=10 ceiling=13 openai=3 openrouter=7
+
+# 2026-10-01 Chat run (with-test-keys --only openai,openrouter, once, --no-daemon). The Gradle task ended RED, as designed: R2 unmet.
+requests chat run: 10 of at most 13 (openai 3: O1 2 + OP 1; openrouter 7: R1 2 + R2 3 + R3 2).
+requests total across both runs: 14 of at most 19 (anthropic 4, openai 3, openrouter 7). No re-run, no retry.
+estimated cost chat run: about USD 0.012 (R3 Sonnet 5.5 through OpenRouter at an assumed 3/15 per MTok is about 0.010; O1, R1, R2 and OP are
+  well under 0.001 each at their token counts). Estimated total across both runs: about USD 0.033, against a ceiling of about 0.20.
+  These are estimates from the usage numbers, not billing figures.
+
+conversation outcomes: A1 met, A2 met, O1 met, OP finding only (no golden by design), R1 met, R3 met, R2 UNMET.
+- R2 (openai/gpt-oss-120b): "R2 incomplete: still asking for calls after 3". The model kept requesting one tool call per turn through all 3 allowed
+  turns, so the 3-request cap ended it before a final answer. No golden written, no manifest row, raw copy left under providers/build/ only.
+  Every R2 request was accepted (status 200), including the replay of the echoed assistant message and reasoning_details. This is model behaviour,
+  not a transport refusal. Per the plan the expectation was not edited and R2 was not re-run.
+
+findings (chat):
+- R1 turn 2 accepted with tool_calls[].index echoed (A2): YES. Status 200. The golden's replayed assistant message carries index on every tool call.
+- R2 reasoning_details returned on turns 1 and 3 and echo accepted: YES, status 200 on every turn (conversation unmet for a different reason, above).
+- R3 (anthropic/claude-sonnet-5.5 through OpenRouter, no reasoning parameter sent by us) returned signed reasoning (A7): YES. One reasoning_details
+  entry with format, index, text (223 chars) and signature (1611 chars). Turn 2 echoed it and was accepted, status 200. Turn 1 also had 4 parallel calls.
+- OP (A1): OpenAI accepted the unfiltered stored message (annotations present, refusal null) on echo: YES, status 200.
+- Parallel calls observed: A1 4, A2 4, O1 4, R1 4, R3 4; R2 1 per turn (not parallel).
+- cache_read on Haiku turn 2: 6754 tokens (A1). OpenRouter R2 turn 1 also showed cache_read 64.
+- Response model id against requested id: A1, A2, R1, R3 returned the requested id (R2 not checked, no golden). O1 returned the dated id gpt-5.4-mini-2026-03-17 for
+  requested gpt-5.4-mini; the committed O1 golden keeps the response as recorded and replays green.
+- Wire observation: OpenRouter turn-1 messages carry both content and a reasoning field alongside tool_calls with an index; OpenAI messages carry
+  annotations and no index. Both shapes replay green on the engine as is, so no code change is called for by these findings.
+
+gaps for the orchestrator (code changes a finding calls for): none from the accepted-echo questions (index, reasoning_details, annotations all accepted).
+  R2 is a model-behaviour miss under a 3-request cap: if a captured gpt-oss-120b golden is wanted, the plan for R2 needs a different model or script
+  (a future capture decision, not a code gap).
+
+SC status:
+- SC2: real half MET. A captured Anthropic golden (A2) holds a real signed thinking block (signature 1440 chars) that survives byte-for-byte and was
+  accepted by the real API on turn 2; a second real signed-reasoning golden exists via OpenRouter (R3, signature 1611 chars).
+- SC3: real half MET on all three dialects with recorded, sanitized real bodies: Anthropic (A1, A2), OpenAI (O1), OpenRouter (R1, R3). The R2
+  reasoning-model-without-signature route (gpt-oss) has no captured golden; the OpenRouter anthropic route and openai route are covered.

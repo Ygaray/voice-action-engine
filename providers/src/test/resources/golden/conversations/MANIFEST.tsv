@@ -11,3 +11,6 @@ derived_parallel_tools	openrouter	derived	openai/gpt-5.4-mini	openrouter/derived
 derived_reasoning_details	openrouter	derived	anthropic/claude-sonnet-5.5	openrouter/derived_reasoning_details.json	reasoning_details,zero_arg,parallel	derived: real Phase 5 OpenRouter anthropic-route envelope; documented reasoning_details fields; placeholder signature
 captured_a1	anthropic	captured	claude-haiku-4-5	anthropic/captured_a1.json	parallel,zero_arg,error_result,long_system	captured 2026-10-01: 2 turns, 2 requests
 captured_a2	anthropic	captured	claude-sonnet-5-5	anthropic/captured_a2.json	parallel,zero_arg,error_result,thinking	captured 2026-10-01: 2 turns, 2 requests
+captured_o1	openai	captured	gpt-5.4-mini	openai/captured_o1.json	parallel,zero_arg,error_result	captured 2026-10-01: 2 turns, 2 requests
+captured_r1	openrouter	captured	openai/gpt-5.4-mini	openrouter/captured_r1.json	parallel,zero_arg,error_result	captured 2026-10-01: 2 turns, 2 requests
+captured_r3	openrouter	captured	anthropic/claude-sonnet-5.5	openrouter/captured_r3.json	parallel,zero_arg,error_result,thinking,reasoning_details	captured 2026-10-01: 2 turns, 2 requests
