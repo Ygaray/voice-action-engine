@@ -3,6 +3,8 @@ package io.github.ygaray.voiceactionengine.providers.anthropic
 import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.StrategyId
+import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.AiProvider
@@ -23,21 +25,32 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.testing.StrategyStep
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
+import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.reflect.KClass
 
 private const val CANARY = "CANARY"
 private const val KEY = "sk-CANARY-KEY"
@@ -276,7 +289,159 @@ class AnthropicCanaryTest {
         }
     }
 
+    // ---- failure legs: what the server echoes, hostile fields, malformed answers and a lost connection ----
+
+    /** Answers every request the same way, so a transient retry meets the same failure as the first attempt. */
+    private class AlwaysDispatcher(private val respond: () -> MockResponse) : Dispatcher() {
+        override fun dispatch(request: RecordedRequest): MockResponse = respond()
+    }
+
+    /** One routed model call; a failure becomes the tier's failure with its details, a success completes the run. */
+    private fun singleCallStep(
+        build: (CommandInput) -> ModelRequest = { canaryRequest(it, emptyList()) },
+    ): StrategyStep =
+        { input, session ->
+            val result = session.model().complete(build(input))
+            see(result)
+            if (result is ModelResult.Success) StrategyOutcome.Completed(null) else failedWith(result)
+        }
+
+    private fun serving(
+        model: String = MODEL,
+        step: StrategyStep = singleCallStep(),
+        respond: () -> MockResponse,
+    ): CanaryRun = MockWebServer().use { server ->
+        server.dispatcher = AlwaysDispatcher(respond)
+        server.start()
+        routedRun(server, model, step)
+    }
+
+    private fun echoingError(status: Int): MockResponse = MockResponse()
+        .setResponseCode(status)
+        .setHeader("request-id", "req_canary_h")
+        .setBody(echoBody())
+
+    private fun echoBody(): String = errorBody("invalid_request_error", "$CANARY-ECHO $KEY", "req_canary")
+
+    private fun assertFailed(run: CanaryRun, reason: KClass<out FailureReason>, details: FailureDetails?) {
+        val outcome = run.outcome
+        assertTrue(outcome.toString(), outcome is CommandOutcome.Failed)
+        outcome as CommandOutcome.Failed
+        assertEquals(reason, outcome.reason::class)
+        assertEquals(details, outcome.details)
+        assertTrue(run.attempts.isNotEmpty())
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun anErrorBodyThatEchoesTheCanaryAndTheKeyLeavesOnlyTheStatusTheTypeAndTheRequestId() {
+        val cases = listOf(
+            400 to FailureReason.HttpError::class,
+            401 to FailureReason.Auth::class,
+            429 to FailureReason.RateLimited::class,
+            500 to FailureReason.HttpError::class,
+        )
+        cases.forEach { (status, reason) ->
+            val run = serving { echoingError(status) }
+
+            assertFailed(run, reason, FailureDetails(status, "invalid_request_error", "req_canary_h"))
+            see(parseAnthropicError(status, "req_canary_h", echoBody()))
+        }
+        assertNothingLeaked()
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun aHostileErrorTypeAndRequestIdAreDroppedAndNothingLeaks() {
+        val hostile = "$CANARY TYPE"
+        val body = errorBody(hostile, "$CANARY-ECHO $KEY", "$CANARY id")
+        val run = serving {
+            MockResponse().setResponseCode(HTTP_BAD_REQUEST).setHeader("request-id", "$CANARY id").setBody(body)
+        }
+
+        assertFailed(run, FailureReason.HttpError::class, FailureDetails(HTTP_BAD_REQUEST, null, null))
+        see(parseAnthropicError(HTTP_BAD_REQUEST, "$CANARY id", body))
+        assertNothingLeaked()
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun aSuccessBodyThatIsNotJsonIsMalformedAndNothingLeaks() {
+        val run = serving { MockResponse().setResponseCode(HTTP_OK).setBody("not json $CANARY-BODY $KEY") }
+
+        assertFailed(run, FailureReason.MalformedResponse::class, null)
+        assertNothingLeaked()
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun aToolInputThatIsNotAnObjectIsMalformedToolArgsAndNothingLeaks() {
+        val body = successBody(
+            listOf(toolUseBlock(CALL_ID, "lookup", JsonPrimitive("$CANARY-INPUT"))),
+            "tool_use",
+        )
+        val run = serving { MockResponse().setResponseCode(HTTP_OK).setBody(body) }
+
+        assertFailed(run, FailureReason.MalformedToolArgs::class, null)
+        assertNothingLeaked()
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun aConnectionLostOnEveryAttemptIsANetworkFailureAndNothingLeaks() {
+        val run = serving {
+            MockResponse().setResponseCode(HTTP_OK).setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+        }
+
+        assertFailed(run, FailureReason.Network::class, null)
+        val kinds = run.attempts.map { it.kind }
+        assertEquals(listOf(AnthropicAttemptKind.INITIAL, AnthropicAttemptKind.TRANSIENT_RETRY), kinds)
+        assertNothingLeaked()
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun theReshapedRequestNamesOnlyTheToolAndNothingLeaks() {
+        val required = singleCallStep { input ->
+            ModelRequest(
+                "$CANARY-SYSTEM",
+                listOf(UserMessage(input.transcript)),
+                listOf(lookupTool()),
+                ToolChoice.Required("lookup"),
+                MAX_TOKENS,
+                CacheDirective(true),
+            )
+        }
+        MockWebServer().use { server ->
+            server.enqueue(toolUseAnswer())
+            server.start()
+
+            val run = routedRun(server, RESHAPED_MODEL, required)
+
+            val body = server.takeRequest().body.readUtf8()
+            val sent = Json.parseToJsonElement(body).jsonObject
+            assertEquals("auto", sent["tool_choice"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+            assertTrue("Call the lookup tool with your result." in body)
+            assertTrue(run.outcome.toString(), run.outcome is CommandOutcome.Completed)
+            assertEquals(listOf(AnthropicAttemptKind.INITIAL), run.attempts.map { it.kind })
+            assertNothingLeaked()
+        }
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun aNonPositiveTimeoutThrowsAMessageWithoutTheCanaryOrTheKeyEvenWithAClientOnTheBuilder() {
+        val thrown = runCatching {
+            AnthropicProvider {
+                httpClient = OkHttpClient()
+                callTimeoutMillis = -1
+            }
+        }.exceptionOrNull()
+
+        assertTrue(thrown.toString(), thrown is IllegalArgumentException)
+        see(thrown!!.message)
+        see(thrown)
+        assertTrue(thrown.message!!.contains("callTimeoutMillis"))
+        val leaks = printed.filter { CANARY in it || KEY in it }
+        assertTrue("leaked: $leaks", leaks.isEmpty())
+    }
+
     private companion object {
         const val HTTP_OK = 200
+        const val HTTP_BAD_REQUEST = 400
+        const val RESHAPED_MODEL = "claude-opus-5-5"
     }
 }
