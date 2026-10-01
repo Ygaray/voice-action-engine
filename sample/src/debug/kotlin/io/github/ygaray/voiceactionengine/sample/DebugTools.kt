@@ -1,0 +1,89 @@
+package io.github.ygaray.voiceactionengine.sample
+
+import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.keystore.KeyState
+import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
+import io.github.ygaray.voiceactionengine.sample.keys.KeyImport
+import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
+import io.github.ygaray.voiceactionengine.sample.keys.PlaintextScan
+import java.io.File
+import java.io.IOException
+import java.security.GeneralSecurityException
+import java.security.ProviderException
+
+/** Debug-only tools. The release variant supplies the same object with every lookup answering null. */
+internal object DebugTools {
+    /**
+     * The importer for keys pushed to the device for testing. Debug builds only; `preferencesDataStore` writes its file
+     * under `filesDir/datastore`, so that is the directory scanned for leaked plaintext.
+     */
+    fun keyImport(filesDir: File, vault: KeyVault, providers: List<ProviderId>): KeyImport? =
+        TestKeyImporter(filesDir, vault, providers, scanRoot = File(filesDir, "datastore"))
+}
+
+/**
+ * Moves each pushed plaintext key file into the keystore library through [vault], then destroys the file.
+ *
+ * Per provider, in the given order: look for `filesDir/test-keys/<provider>.key`; none gives an absent report; otherwise
+ * read and trim it, save through the vault, read the vault's answer, overwrite the file with zero bytes, delete it,
+ * confirm it is gone, and scan [scanRoot] for the plaintext. It never logs, and no report carries the key.
+ */
+internal class TestKeyImporter(
+    private val filesDir: File,
+    private val vault: KeyVault,
+    private val providers: List<ProviderId>,
+    private val scanRoot: File,
+) : KeyImport {
+    override suspend fun importAll(): List<ImportReport> {
+        val keysDir = File(filesDir, KEYS_DIR)
+        val reports = providers.map { provider -> importOne(provider, File(keysDir, "$provider.key")) }
+        if (keysDir.isDirectory && keysDir.list().isNullOrEmpty()) keysDir.delete()
+        return reports
+    }
+
+    private suspend fun importOne(provider: ProviderId, file: File): ImportReport {
+        if (!file.isFile) return ImportReport(provider, ImportReport.ABSENT_FILE, null, true, null)
+        val text = try {
+            file.readText(Charsets.UTF_8).trim()
+        } catch (ignored: IOException) {
+            return ImportReport(provider, ImportReport.SAVE_FAILED, "unreadable_file", destroy(file), null)
+        }
+        if (text.isEmpty()) return ImportReport(provider, ImportReport.REJECTED, null, destroy(file), null)
+        val saved = saveThenRead(provider, text)
+        val deleted = destroy(file)
+        val leaked = PlaintextScan.contains(scanRoot, text.toByteArray(Charsets.UTF_8))
+        return ImportReport(provider, saved.state, saved.cause, deleted, leaked)
+    }
+
+    private class Saved(val state: String, val cause: String?)
+
+    private suspend fun saveThenRead(provider: ProviderId, text: String): Saved = try {
+        vault.save(provider, text)
+        val answer = vault.read(provider)
+        Saved(ImportReport.stateWord(answer), (answer as? KeyState.Unreadable)?.cause)
+    } catch (failure: GeneralSecurityException) {
+        Saved(ImportReport.SAVE_FAILED, failure.javaClass.simpleName)
+    } catch (failure: ProviderException) {
+        Saved(ImportReport.SAVE_FAILED, failure.javaClass.simpleName)
+    } catch (failure: IOException) {
+        Saved(ImportReport.SAVE_FAILED, failure.javaClass.simpleName)
+    }
+
+    // Overwrite with zeros of the same length, delete, and report whether the file is really gone.
+    private fun destroy(file: File): Boolean {
+        try {
+            file.writeBytes(ByteArray(file.length().toInt()))
+        } catch (ignored: IOException) {
+            // Deleting is still attempted below; the report says whether the file is gone.
+        }
+        file.delete()
+        return !file.exists()
+    }
+
+    /** Prints the type only. */
+    override fun toString(): String = "TestKeyImporter"
+
+    private companion object {
+        const val KEYS_DIR = "test-keys"
+    }
+}
