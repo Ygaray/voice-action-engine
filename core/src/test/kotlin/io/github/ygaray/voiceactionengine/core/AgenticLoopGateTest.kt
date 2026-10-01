@@ -18,7 +18,9 @@ import io.github.ygaray.voiceactionengine.core.testing.RecordingSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedToolExecutor
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -206,6 +208,29 @@ class AgenticLoopGateTest {
             assertTrue(result.isError)
             assertTrue(outcome.toString(), outcome is CommandOutcome.Failed)
             assertEquals(2, fake.calls.size)
+        }
+    }
+
+    @Test
+    fun aCancelBetweenTwoCallsOfOneTurnStopsBeforeThePrepareOfTheSecond() = runTest {
+        NoNetworkGuard.during {
+            val read = ToolStep.Finished(FIND_TOOL, FinishedKind.READ, StepResult("found"))
+            val executor = ScriptedToolExecutor.sequence(null, mutation(SAVE_TOOL), read)
+            var caller: Job? = null
+            val sink = RecordingCommitSink(onActionHook = { caller?.cancel() })
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                toolTurn(1, callOf("c1", SAVE_TOOL, loopArguments()), callOf("c2", FIND_TOOL, loopArguments())),
+            )
+            val strategy = agenticLoop(executor, loopSnapshotOf(writeTool(), readTool()))
+
+            val running = async { run(fake, strategy, sink = sink) }
+            caller = running
+            val failure = runCatching { running.await() }.exceptionOrNull()
+
+            assertTrue(failure.toString(), failure is CancellationException)
+            assertEquals(listOf(SAVE_TOOL), executor.calls.map { it.toolName })
+            assertEquals(1, sink.actions.size)
         }
     }
 

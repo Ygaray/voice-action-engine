@@ -14,6 +14,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 private const val UNKNOWN_TOOL_CONTENT = """{"status":"error","reason":"unknown_tool"}"""
 private const val TOOL_ERROR_CONTENT = """{"status":"error","reason":"tool_error"}"""
@@ -76,7 +78,9 @@ internal suspend fun dispatchCalls(
     return TurnDispatch(results, context.struckOut(), ender?.let { TerminalCall(it.name, it.arguments) }, dropped)
 }
 
+// A cancelled caller stops the walk here, so the app is never asked to prepare a call of a turn nobody awaits.
 private suspend fun dispatchCall(context: DispatchContext, call: AssistantPart.ToolCall): ToolResult {
+    currentCoroutineContext().ensureActive()
     val spec = context.specOf(call.name)
     val result = if (spec == null) unknownTool(context, call) else settle(context, spec, call)
     if (result.isError) context.strike(call.name)
