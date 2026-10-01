@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -114,19 +115,76 @@ class ChatMessageEncoderTest {
     }
 
     @Test
-    fun eachToolResultIsItsOwnToolMessageInOrderAndErrorsAreSentUnchanged() {
+    fun eachToolResultIsItsOwnToolMessageInCallOrderAndAnErrorIsWrapped() {
+        // Deliberate reversal: the earlier pinned behaviour sent an error's text unchanged. The dialect has no error
+        // flag, so an error result is wrapped as an object and every other result goes out as the app produced it.
         val results = ToolResultsMessage(
-            listOf(ToolResult("call_1", "done"), ToolResult("call_2", "failed", true)),
+            listOf(ToolResult("call_2", "failed", true), ToolResult("call_1", "done")),
         )
 
-        val encoded = encode(results)
+        val encoded = encode(callsOf("call_1", "call_2"), results)
 
-        assertEquals(
-            """[{"role":"tool","tool_call_id":"call_1","content":"done"},""" +
-                """{"role":"tool","tool_call_id":"call_2","content":"failed"}]""",
-            encoded,
+        assertTrue(
+            encoded.endsWith(
+                """{"role":"tool","tool_call_id":"call_1","content":"done"},""" +
+                    """{"role":"tool","tool_call_id":"call_2","content":"{\"error\":\"failed\"}"}]""",
+            ),
         )
         assertFalse(encoded.contains("is_error"))
+    }
+
+    private fun callsOf(vararg ids: String): AssistantMessage =
+        AssistantMessage(ids.map { AssistantPart.ToolCall(it, "log_food", JsonObject(emptyMap())) })
+
+    private fun toolMessages(vararg messages: Message): List<JsonObject> =
+        (Json.parseToJsonElement(encode(*messages)) as JsonArray).map { it as JsonObject }
+            .filter { it.getValue("role").jsonPrimitive.content == "tool" }
+
+    private fun contentOf(message: JsonObject): String = message.getValue("content").jsonPrimitive.content
+
+    @Test
+    fun resultsAnsweredOutOfOrderAreSentInTheOrderOfTheCalls() {
+        val answered = ToolResultsMessage(
+            listOf(ToolResult("call_3", "c"), ToolResult("call_1", "a"), ToolResult("call_2", "b")),
+        )
+
+        val tools = toolMessages(callsOf("call_1", "call_2", "call_3"), answered)
+
+        assertEquals(
+            listOf("call_1", "call_2", "call_3"),
+            tools.map { it.getValue("tool_call_id").jsonPrimitive.content },
+        )
+        assertEquals(listOf("a", "b", "c"), tools.map { contentOf(it) })
+    }
+
+    @Test
+    fun aHeldForConfirmationResultIsSentByteForByteUnchanged() {
+        val held = """{"applied":false,"status":"held_for_confirmation"}"""
+
+        val tools = toolMessages(callsOf("call_1"), ToolResultsMessage(listOf(ToolResult("call_1", held))))
+
+        assertEquals(held, contentOf(tools.single()))
+    }
+
+    @Test
+    fun anErrorTextWithQuoteBackslashAndNewlineParsesBackToTheOriginal() {
+        val text = "he said \"no\" at C:\\tmp\nline two"
+
+        val tools = toolMessages(callsOf("call_1"), ToolResultsMessage(listOf(ToolResult("call_1", text, true))))
+
+        val wrapper = Json.parseToJsonElement(contentOf(tools.single())) as JsonObject
+        assertEquals(setOf("error"), wrapper.keys)
+        assertEquals(text, wrapper.getValue("error").jsonPrimitive.content)
+    }
+
+    @Test
+    fun anEmptyResultIsSentAsAnEmptyStringAndAnEmptyErrorIsStillWrapped() {
+        val results = ToolResultsMessage(listOf(ToolResult("call_1", ""), ToolResult("call_2", "", true)))
+
+        val tools = toolMessages(callsOf("call_1", "call_2"), results)
+
+        assertEquals("", contentOf(tools[0]))
+        assertEquals("""{"error":""}""", contentOf(tools[1]))
     }
 
     @Test

@@ -3,8 +3,11 @@ package io.github.ygaray.voiceactionengine.providers.chat
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.Message
+import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import io.github.ygaray.voiceactionengine.providers.transcript.resultsInCallOrder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -32,14 +35,17 @@ private val REPLAY_FIELDS = setOf("role", "content", "tool_calls", "refusal", "r
  * Encodes the request's conversation as Chat Completions messages, oldest first. The system prompt is not part of it.
  *
  * The three message kinds are switched over exhaustively. Each tool result becomes its own `tool` message, because the
- * dialect has no batch message.
+ * dialect has no batch message, in the order of the calls it answers. An error result's text goes inside an `error`
+ * object because the dialect has no error flag; other results go out exactly as the app produced them.
  */
 internal fun encodeChatMessages(call: ProviderRequest, vendor: ChatVendor): JsonArray = buildJsonArray {
-    call.request.messages.forEach { message ->
+    val messages = call.request.messages
+    messages.forEachIndexed { index, message ->
         when (message) {
             is UserMessage -> add(userMessage(message))
             is AssistantMessage -> add(assistantMessage(message, call, vendor))
-            is ToolResultsMessage -> toolMessages(message).forEach { add(it) }
+            is ToolResultsMessage ->
+                toolMessages(message, precedingCalls(messages.getOrNull(index - 1))).forEach { add(it) }
         }
     }
 }
@@ -93,10 +99,23 @@ private fun rebuiltToolCalls(calls: List<AssistantPart.ToolCall>): JsonArray = b
     }
 }
 
-private fun toolMessages(message: ToolResultsMessage): List<JsonObject> = message.results.map { result ->
-    buildJsonObject {
-        put(ROLE, ROLE_TOOL)
-        put("tool_call_id", result.callId)
-        put(CONTENT, result.content)
+private fun toolMessages(message: ToolResultsMessage, calls: List<AssistantPart.ToolCall>): List<JsonObject> =
+    resultsInCallOrder(message.results, calls).map { result ->
+        buildJsonObject {
+            put(ROLE, ROLE_TOOL)
+            put("tool_call_id", result.callId)
+            put(CONTENT, toolContent(result))
+        }
     }
-}
+
+// The dialect has no error flag, so an error's text goes inside an `error` object, built with a JSON builder so any
+// quote, backslash or newline in the text is escaped. Every other result is sent exactly as the app produced it.
+private fun toolContent(result: ToolResult): String =
+    if (result.isError) {
+        Json.encodeToString(JsonObject.serializer(), buildJsonObject { put("error", result.content) })
+    } else {
+        result.content
+    }
+
+private fun precedingCalls(previous: Message?): List<AssistantPart.ToolCall> =
+    (previous as? AssistantMessage)?.toolCalls.orEmpty()
