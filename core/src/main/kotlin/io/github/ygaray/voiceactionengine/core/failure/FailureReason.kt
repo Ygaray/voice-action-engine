@@ -190,6 +190,25 @@ public interface FailureReason {
     }
 
     /**
+     * The key for [provider] exists but cannot be read; ask the user to re-enter it. Unlike [NotConfigured], a key was
+     * stored. [cause] is a stable lower snake case code (`[a-z0-9_]+`, never a message); anything else is refused with
+     * [IllegalArgumentException], so free text can never reach `toString`.
+     */
+    public class CredentialUnreadable(public val provider: ProviderId, public val cause: String) : FailureReason {
+        init {
+            require(isStableCode(cause)) { "CredentialUnreadable cause must be a stable code" }
+        }
+
+        override val code: String get() = "credential_unreadable"
+        override fun equals(other: Any?): Boolean =
+            other is CredentialUnreadable && provider == other.provider && cause == other.cause
+        override fun hashCode(): Int =
+            mixHash(mixHash(code.hashCode(), provider.hashCode()), cause.hashCode())
+        override fun toString(): String =
+            describe("FailureReason", "CredentialUnreadable", code, "provider" to provider, "cause" to cause)
+    }
+
+    /**
      * A provider cannot be used right now; [cause] is a stable lower snake case code (`[a-z0-9_]+`, never a message)
      * or null. Anything else is refused with [IllegalArgumentException], so free text can never reach `toString`.
      */

@@ -22,7 +22,7 @@ class FailureTaxonomyTest {
         FailureReason.ModelUnsupported(), FailureReason.ModelNotFound(), FailureReason.PauseTurn(),
         FailureReason.ContextWindowExceeded(), FailureReason.UnknownStop(), FailureReason.HttpError(),
         FailureReason.NoEligibleTier(), FailureReason.PolicyUnavailable(), FailureReason.Unexpected("IllegalState"),
-        FailureReason.Other("custom"),
+        FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "key_invalidated"), FailureReason.Other("custom"),
     )
 
     private val allEscalations: List<EscalationReason> = listOf(
@@ -33,7 +33,7 @@ class FailureTaxonomyTest {
 
     @Test
     fun everyFailureLeafHasAUniqueCode() {
-        assertEquals(TWENTY_FIVE, allFailures.size)
+        assertEquals(TWENTY_SIX, allFailures.size)
         assertEquals(allFailures.size, allFailures.map { it.code }.toSet().size)
     }
 
@@ -44,7 +44,7 @@ class FailureTaxonomyTest {
             "malformed_tool_args", "refusal", "max_tokens", "no_tool_call", "budget_exceeded", "tool_failure",
             "not_configured", "provider_unavailable", "model_unsupported", "model_not_found", "pause_turn",
             "context_window_exceeded", "unknown_stop", "http_error", "no_eligible_tier", "policy_unavailable",
-            "unexpected",
+            "unexpected", "credential_unreadable",
         )
         assertTrue(allFailures.map { it.code }.containsAll(required))
     }
@@ -125,7 +125,7 @@ class FailureTaxonomyTest {
     }
 
     private companion object {
-        const val TWENTY_FIVE = 25
+        const val TWENTY_SIX = 26
         const val HTTP_OK = 200
     }
 
@@ -138,5 +138,39 @@ class FailureTaxonomyTest {
         assertEquals("provider_unavailable", FailureReason.ProviderUnavailable(ProviderId.OPENAI, null).code)
         val device = FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, "on_device_unavailable")
         assertEquals("on_device_unavailable", device.cause)
+    }
+
+    @Test
+    fun aUnreadableCredentialIsADistinctFailureFromNotConfigured() {
+        val unreadable = FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "key_invalidated")
+
+        assertEquals("credential_unreadable", unreadable.code)
+        assertNotEquals(FailureReason.NotConfigured(ProviderId.ANTHROPIC).code, unreadable.code)
+        assertEquals(ProviderId.ANTHROPIC, unreadable.provider)
+        assertEquals("key_invalidated", unreadable.cause)
+    }
+
+    @Test
+    fun aCredentialUnreadableCauseMustBeAStableCodeNotAMessage() {
+        assertThrows(IllegalArgumentException::class.java) {
+            FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "Key was wiped")
+        }
+    }
+
+    @Test
+    fun credentialUnreadableComparesByProviderAndCauseAndPrintsStableFields() {
+        val base = FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "key_invalidated")
+
+        assertEquals(base, FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "key_invalidated"))
+        assertEquals(
+            base.hashCode(),
+            FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "key_invalidated").hashCode(),
+        )
+        assertNotEquals(base, FailureReason.CredentialUnreadable(ProviderId.OPENAI, "key_invalidated"))
+        assertNotEquals(base, FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "other_cause"))
+        assertEquals(
+            "FailureReason.CredentialUnreadable(code=credential_unreadable, provider=anthropic, cause=key_invalidated)",
+            base.toString(),
+        )
     }
 }

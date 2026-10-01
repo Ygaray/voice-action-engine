@@ -6,7 +6,9 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -51,5 +53,21 @@ class SeamTypesTest {
 
         assertEquals("CredentialLookup.Present(provider=anthropic)", present.toString())
         assertFalse(present.toString().contains(key))
+    }
+
+    @Test
+    fun missingEqualsMissingAndUnreadableComparesByCause() {
+        assertEquals(CredentialLookup.Missing(), CredentialLookup.Missing())
+        assertEquals(CredentialLookup.Unreadable("a"), CredentialLookup.Unreadable("a"))
+        assertEquals(CredentialLookup.Unreadable("a").hashCode(), CredentialLookup.Unreadable("a").hashCode())
+        assertNotEquals(CredentialLookup.Unreadable("a"), CredentialLookup.Unreadable("b"))
+        assertNotEquals(CredentialLookup.Missing() as Any, CredentialLookup.Unreadable("a"))
+    }
+
+    @Test
+    fun anUnreadableCauseMustBeAStableCodeNotAMessage() {
+        assertThrows(IllegalArgumentException::class.java) { CredentialLookup.Unreadable("Bad Thing") }
+        assertThrows(IllegalArgumentException::class.java) { CredentialLookup.Unreadable("") }
+        assertEquals("CredentialLookup.Unreadable(cause=key_lost)", CredentialLookup.Unreadable("key_lost").toString())
     }
 }
