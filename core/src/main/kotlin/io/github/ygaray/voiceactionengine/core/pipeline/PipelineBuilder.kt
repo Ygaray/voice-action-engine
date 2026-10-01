@@ -42,8 +42,11 @@ public class PipelineBuilder internal constructor() {
     }
 
     internal fun build(): CommandPipeline {
-        val finalGate = requireNotNull(gate)
-        val finalSink = requireNotNull(commitSink)
+        require(strategies.isNotEmpty()) { "commandPipeline: at least one tier is required" }
+        val duplicate = strategies.map { it.id }.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
+        require(duplicate == null) { "commandPipeline: duplicate tier id ${duplicate?.key}" }
+        val finalGate = requireNotNull(gate) { "commandPipeline: gate is required (no auto-commit default)" }
+        val finalSink = requireNotNull(commitSink) { "commandPipeline: commitSink is required" }
         return CommandPipeline(strategies.toList(), finalGate, finalSink, policy, clock, runIds)
     }
 }
