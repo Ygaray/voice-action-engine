@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -103,12 +104,31 @@ class AnthropicDecoderTest {
 
     @Test
     fun aToolInputThatIsNotAnObjectIsMalformedToolArgs() {
-        val notObjects: List<JsonElement> = listOf(JsonArray(emptyList()), JsonPrimitive("text"), JsonNull)
+        val notObjects: List<JsonElement> = listOf(JsonArray(emptyList()), JsonPrimitive("text"), JsonPrimitive(7))
 
         for (input in notObjects) {
             val body = successBody(listOf(toolUseBlock("toolu_3", "add_item", input)), "tool_use")
             assertEquals(input.toString(), "malformed_tool_args", failureCode(body))
         }
+    }
+
+    @Test
+    fun anAbsentOrNullToolInputDecodesAsAnEmptyObject() {
+        val noInput = buildJsonObject {
+            put("type", "tool_use")
+            put("id", "toolu_6")
+            put("name", "list_items")
+        }
+        val absent = success(successBody(listOf(noInput), "tool_use"))
+        assertEquals(JsonObject(emptyMap()), absent.message.toolCalls.single().arguments)
+        assertEquals(JsonArray(listOf(noInput)), absent.message.nativeReplay!!.raw)
+
+        val nullInput = success(successBody(listOf(toolUseBlock("toolu_7", "list_items", JsonNull)), "tool_use"))
+        assertEquals(JsonObject(emptyMap()), nullInput.message.toolCalls.single().arguments)
+
+        val block = toolUseBlock("toolu_8", "list_items", JsonObject(emptyMap()))
+        val emptyObject = success(successBody(listOf(block), "tool_use"))
+        assertEquals(JsonObject(emptyMap()), emptyObject.message.toolCalls.single().arguments)
     }
 
     @Test

@@ -13,6 +13,7 @@ import io.github.ygaray.voiceactionengine.providers.http.safeRequestId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -86,8 +87,14 @@ private fun decodeToolUse(block: JsonObject): AssistantPart.ToolCall {
     val id = stringField(block, "id")?.takeIf { it.isNotBlank() }
     val name = stringField(block, "name")?.takeIf { it.isNotBlank() }
     if (id == null || name == null) throw MalformedAnswer(FailureReason.MalformedResponse())
-    val input = block["input"] as? JsonObject ?: throw MalformedAnswer(FailureReason.MalformedToolArgs())
-    return AssistantPart.ToolCall(id, name, input)
+    return AssistantPart.ToolCall(id, name, decodeInput(block["input"]))
+}
+
+// An absent or null input is a call with no arguments; any other non-object is malformed.
+private fun decodeInput(input: JsonElement?): JsonObject = when (input) {
+    null, is JsonNull -> JsonObject(emptyMap())
+    is JsonObject -> input
+    else -> throw MalformedAnswer(FailureReason.MalformedToolArgs())
 }
 
 private fun decodeUsage(element: JsonElement?): Usage {

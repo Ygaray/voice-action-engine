@@ -6,6 +6,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -27,9 +28,10 @@ internal fun unusableAnswer(reason: FailureReason = FailureReason.MalformedRespo
 
 /**
  * Reads the tool calls of an assistant [message]. A call whose `type` is present and is not `function` is skipped. The
- * call id and name must be non-blank, and the arguments must be a JSON object, sent either as a string holding one
- * (the empty string means no arguments) or, by some routed upstreams, as an object. The decoder never consults a tool
- * schema, so the arguments hold exactly the keys the model sent.
+ * call id and name must be non-blank and are never invented or repaired. The arguments are a JSON object, sent either
+ * as a string holding one or, by some routed upstreams, as an object; absent, null, blank or the string `null` mean no
+ * arguments and give an empty object. The decoder never consults a tool schema, so the arguments hold exactly the keys
+ * the model sent.
  *
  * @throws ChatMalformed when a call is unusable: [FailureReason.MalformedResponse] for a bad shape, id or name,
  * [FailureReason.MalformedToolArgs] for arguments that are not a JSON object.
@@ -50,14 +52,25 @@ private fun decodeToolCall(element: JsonElement): AssistantPart.ToolCall? {
     return AssistantPart.ToolCall(id, name, decodeArguments(function["arguments"]))
 }
 
+/**
+ * True when [element] is one of the spellings of "no arguments": the key is absent, a JSON null, or a string that is
+ * blank or reads `null`. The decoder turns these into an empty object and the replay repair writes them back as `{}`,
+ * so both agree on what counts as empty.
+ */
+internal fun isEmptyArgumentsForm(element: JsonElement?): Boolean = when (element) {
+    null, is JsonNull -> true
+    is JsonPrimitive -> element.isString && element.content.trim().let { it.isEmpty() || it == "null" }
+    else -> false
+}
+
 private fun decodeArguments(element: JsonElement?): JsonObject = when {
+    isEmptyArgumentsForm(element) -> JsonObject(emptyMap())
     element is JsonObject -> element
     element is JsonPrimitive && element.isString -> parseArguments(element.content)
     else -> unusableAnswer(FailureReason.MalformedToolArgs())
 }
 
 private fun parseArguments(text: String): JsonObject {
-    if (text.isEmpty()) return JsonObject(emptyMap())
     val parsed = try {
         Json.parseToJsonElement(text)
     } catch (expected: IllegalArgumentException) {

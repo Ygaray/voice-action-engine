@@ -216,16 +216,48 @@ class ChatDecoderTest {
 
     @Test
     fun badArgumentsAreMalformedToolArgs() {
-        for (arguments in listOf("not json CANARY-BODY", "[1]", "42", "null", "\"text\"", " ")) {
-            assertEquals(arguments, "malformed_tool_args", codeOf(decode(toolBody(arguments))))
+        for (arguments in listOf("not json CANARY-BODY", "[1]", "42", "\"text\"")) {
+            val failure = failureOf(decode(toolBody(arguments)))
+            assertEquals(arguments, "malformed_tool_args", failure.reason.code)
+            assertFalse(failure.toString().contains("CANARY-BODY"))
         }
-        val jsonNull = rawToolCalls(
-            """{"id":"call_GOLDEN2","type":"function","function":{"name":"edit_card","arguments":null}}""",
-        )
-        assertEquals("malformed_tool_args", codeOf(decode(jsonNull)))
-        val missing = rawToolCalls("""{"id":"call_GOLDEN2","type":"function","function":{"name":"edit_card"}}""")
-        assertEquals("malformed_tool_args", codeOf(decode(missing)))
+        for (nonString in listOf("42", "[1]", "true")) {
+            val call = rawToolCalls(
+                """{"id":"call_GOLDEN2","type":"function","function":{"name":"edit_card","arguments":$nonString}}""",
+            )
+            assertEquals(nonString, "malformed_tool_args", codeOf(decode(call)))
+        }
     }
+
+    @Test
+    fun emptyArgumentFormsDecodeAsAnEmptyObject() {
+        val empty = JsonObject(emptyMap())
+        for (arguments in listOf("", " ", "\n\t", "null", " null ", "{}")) {
+            val decoded = success(decode(toolBody(arguments))).message.toolCalls.single().arguments
+            assertEquals(arguments, empty, decoded)
+        }
+        val rawForms = listOf(
+            """"arguments":null""",
+            """"arguments":{}""",
+            "",
+        )
+        for (form in rawForms) {
+            val function = if (form.isEmpty()) """"name":"edit_card"""" else """"name":"edit_card",$form"""
+            val call = rawToolCalls("""{"id":"call_GOLDEN2","type":"function","function":{$function}}""")
+            val decoded = success(decode(call)).message.toolCalls.single().arguments
+            assertEquals(form, empty, decoded)
+        }
+    }
+
+    @Test
+    fun theReplayRawKeepsEmptyArgumentsExactlyAsReceived() {
+        val message = chatMessage(null, listOf(editCall("")))
+        val response = success(decode(chatBody(message, "tool_calls")))
+        assertEquals(empty(), response.message.toolCalls.single().arguments)
+        assertEquals(message, response.message.nativeFor(ProviderId.OPENAI, model))
+    }
+
+    private fun empty(): JsonObject = JsonObject(emptyMap())
 
     @Test
     fun aBlankIdOrNameIsMalformed() {
