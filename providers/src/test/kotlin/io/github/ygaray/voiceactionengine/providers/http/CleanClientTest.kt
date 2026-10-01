@@ -14,6 +14,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.util.concurrent.atomic.AtomicInteger
 
 class CleanClientTest {
@@ -135,6 +137,34 @@ class CleanClientTest {
             assertFalse(reply.isSuccessful)
             assertEquals(0, authenticatorCalls.get())
             assertEquals(1, server.requestCount)
+        }
+    }
+
+    @Test
+    fun appProxyAuthenticatorNeverRunsForA407() = runBlocking {
+        val proxyAuthenticatorCalls = AtomicInteger()
+        MockWebServer().use { proxy ->
+            proxy.enqueue(MockResponse().setResponseCode(407).setHeader("Proxy-Authenticate", "Basic realm=\"p\""))
+            proxy.start()
+            val app = OkHttpClient.Builder()
+                .proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(proxy.hostName, proxy.port)))
+                .proxyAuthenticator(
+                    Authenticator { _, response ->
+                        proxyAuthenticatorCalls.incrementAndGet()
+                        // What a real one would do: re-send the request, which carries the API key header.
+                        response.request.newBuilder().header("Proxy-Authorization", "Basic abc").build()
+                    },
+                )
+                .build()
+            val derived = cleanClient(app, 60_000, 60_000)
+
+            val reply = derived.newCall(
+                Request.Builder().url("http://api.invalid/v1/messages").header("x-api-key", "sk-canary").build(),
+            ).await()
+
+            assertEquals(407, reply.code)
+            assertEquals(0, proxyAuthenticatorCalls.get())
+            assertEquals(1, proxy.requestCount)
         }
     }
 }

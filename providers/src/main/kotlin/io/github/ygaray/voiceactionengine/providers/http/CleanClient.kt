@@ -16,6 +16,8 @@ private const val CONNECT_TIMEOUT_MILLIS = 10_000L
  * - application and network interceptors are cleared (they see and can rewrite the headers);
  * - the event listener is replaced by the no-op one (it observes the call and its connections);
  * - the authenticator is replaced by the no-op one (it can re-send the request with other credentials);
+ * - the proxy authenticator is replaced by the no-op one too (it receives the 407 response, whose request carries the
+ *   key header), so a proxy that demands a login is reported as a failure rather than answered;
  * - the cookie jar stores nothing;
  * - redirects are not followed, because OkHttp strips only `Authorization` on a cross-host redirect and a custom key
  *   header would be forwarded to the other host.
@@ -30,6 +32,7 @@ internal fun cleanClient(app: OkHttpClient?, callTimeoutMillis: Long, readTimeou
     return builder
         .eventListener(EventListener.NONE)
         .authenticator(Authenticator.NONE)
+        .proxyAuthenticator(Authenticator.NONE)
         .cookieJar(CookieJar.NO_COOKIES)
         .followRedirects(false)
         .followSslRedirects(false)
