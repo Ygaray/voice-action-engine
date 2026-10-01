@@ -68,6 +68,7 @@ done
 for m in core providers; do   # :keystore compiles against android.jar, which legitimately carries newer JDK APIs
   MARKER="Unresolved reference" expect_red "JDK 16 API (Stream.toList) in a JVM-11 module ($m)" $m 'internal fun p(): List<Int> = java.util.stream.Stream.of(1).toList()' ":$m:compileKotlin"
 done
+MARKER="creates a DataStore" expect_red "DataStore creation in keystore main" keystore 'internal val p = androidx.datastore.preferences.core.PreferenceDataStoreFactory' ":keystore:verifyNoDataStoreCreation"
 touch config/detekt-baseline.xml
 expect_task_red "baseline file" "detekt baseline is forbidden" :core:verifyNoDetektBaseline
 rm -f config/detekt-baseline.xml
@@ -101,6 +102,11 @@ restore providers/build.gradle.kts
 sed -i 's/explicitApi()/ /' providers/build.gradle.kts
 expect_task_red "explicitApi switched off" "expected Strict" :providers:verifyExplicitApiStrict
 restore providers/build.gradle.kts
+
+backup keystore/build.gradle.kts
+sed -i 's/api(libs.datastore.prefs)/implementation(libs.datastore.prefs)/' keystore/build.gradle.kts
+expect_task_red "datastore demoted from api" "is not an api dependency" :keystore:verifyDatastoreIsApi
+restore keystore/build.gradle.kts
 
 backup gradle/libs.versions.toml
 sed -i 's/^okhttp = "4.12.0"/okhttp = "5.2.1"/' gradle/libs.versions.toml
