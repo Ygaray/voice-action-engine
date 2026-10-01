@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -210,6 +211,127 @@ class ChatStrictTest {
     fun theTextLimitCountsPropertyNamesAndConstValues() {
         assertTrue(isChatStrictEligible(withConst(119_999)))
         assertFalse(isChatStrictEligible(withConst(120_000)))
+    }
+
+    private val droppedKeywords = listOf(
+        "uniqueItems", "minProperties", "maxProperties", "contains", "minContains", "maxContains", "propertyNames",
+        "contentEncoding", "contentMediaType",
+    )
+
+    // One schema carrying every dropped keyword at the root and inside property, items, anyOf and $defs schemas.
+    private fun carrying(inner: String): String = droppedKeywords.joinToString(",") { """"$it":$inner""" }
+
+    @Test
+    fun everyValidationOnlyKeywordIsDroppedAtEveryNode() {
+        val loaded = schema(
+            """
+            {"type":"object",${carrying("1")},"properties":{
+               "p":{"type":"string",${carrying("1")}},
+               "list":{"type":"array","items":{"type":"object",${carrying("1")}}},
+               "pick":{"anyOf":[{"type":"string",${carrying("1")}}]}},
+             "${'$'}defs":{"d":{"type":"string",${carrying("1")}}}}
+            """.trimIndent(),
+        )
+        val stripped = stripForChatStrict(loaded).toString()
+        for (keyword in droppedKeywords) {
+            assertFalse("$keyword survived", stripped.contains("\"$keyword\""))
+        }
+    }
+
+    @Test
+    fun rootSchemaAndIdAreDroppedButANestedIdIsLeftAlone() {
+        val loaded = schema(
+            """
+            {"${'$'}schema":"x","${'$'}id":"root","type":"object","${'$'}defs":{"d":{"${'$'}id":"inner","type":"string"}}}
+            """.trimIndent(),
+        )
+        val stripped = stripForChatStrict(loaded)
+        assertFalse(stripped.containsKey("\$schema"))
+        assertFalse(stripped.containsKey("\$id"))
+        assertEquals(schema("""{"type":"object","${'$'}defs":{"d":{"${'$'}id":"inner","type":"string"}}}"""), stripped)
+    }
+
+    @Test
+    fun onlyTheNineSupportedFormatsSurvive() {
+        val kept = listOf("date", "date-time", "time", "duration", "email", "hostname", "ipv4", "ipv6", "uuid")
+        for (name in kept) {
+            val node = schema("""{"type":"string","format":"$name"}""")
+            assertEquals("$name kept", node, stripForChatStrict(node))
+        }
+        for (name in listOf("uri", "regex")) {
+            val stripped = stripForChatStrict(schema("""{"type":"string","format":"$name"}"""))
+            assertEquals("$name dropped", schema("""{"type":"string"}"""), stripped)
+        }
+        val numeric = stripForChatStrict(schema("""{"type":"string","format":3}"""))
+        assertEquals(schema("""{"type":"string"}"""), numeric)
+    }
+
+    @Test
+    fun everyOtherKeywordSurvivesUntouched() {
+        val kept = schema(
+            """
+            {"type":"object","description":"d","additionalProperties":false,"required":["s","n","l","u"],
+             "properties":{
+               "s":{"type":"string","minLength":1,"maxLength":9,"pattern":"^a","default":"x","enum":["x","y"],"const":"x"},
+               "n":{"type":"number","minimum":0,"maximum":9,"exclusiveMinimum":0,"exclusiveMaximum":9,"multipleOf":2},
+               "l":{"type":"array","minItems":1,"maxItems":3,"items":{"${'$'}ref":"#/${'$'}defs/u"}},
+               "u":{"anyOf":[{"type":"string"},{"type":"null"}]}},
+             "${'$'}defs":{"u":{"type":"string"}}}
+            """.trimIndent(),
+        )
+        assertEquals(kept, stripForChatStrict(kept))
+    }
+
+    @Test
+    fun propertiesNamedLikeKeywordsKeepTheirNamesAndSchemas() {
+        val named = schema(
+            """
+            {"type":"object","required":["format","pattern","contains","uniqueItems"],"properties":{
+              "format":{"type":"string","format":"uri"},"pattern":{"type":"string","pattern":"^a"},
+              "contains":{"type":"string","uniqueItems":true},"uniqueItems":{"type":"boolean"}}}
+            """.trimIndent(),
+        )
+        val properties = stripForChatStrict(named)["properties"] as JsonObject
+        assertEquals(setOf("format", "pattern", "contains", "uniqueItems"), properties.keys)
+        assertEquals(schema("""{"type":"string"}"""), properties["format"])
+        assertEquals(schema("""{"type":"string"}"""), properties["contains"])
+        assertEquals(schema("""{"type":"string","pattern":"^a"}"""), properties["pattern"])
+    }
+
+    @Test
+    fun enumConstAndDefaultValuesAreKeptByteForByte() {
+        val values = schema(
+            """
+            {"type":"object","properties":{
+              "a":{"type":"string","enum":["uniqueItems","format"],"const":"format"},
+              "b":{"type":"object","default":{"contains":1,"format":"uri"}}}}
+            """.trimIndent(),
+        )
+        assertEquals(values, stripForChatStrict(values))
+    }
+
+    @Test
+    fun theInputIsUnchangedAndKeyOrderOfKeptKeysIsPreserved() {
+        val input = schema(
+            """{"type":"object","uniqueItems":true,"description":"d","properties":{"z":{"type":"string"},""" +
+                """"a":{"type":"string","contains":1}},"required":["z","a"]}""",
+        )
+        val before = schema(input.toString())
+        val stripped = stripForChatStrict(input)
+        assertEquals(before, input)
+        assertEquals(listOf("type", "description", "properties", "required"), stripped.keys.toList())
+        assertEquals(listOf("z", "a"), (stripped["properties"] as JsonObject).keys.toList())
+    }
+
+    @Test
+    fun strippingIsIdempotentAndASchemaWithNothingToStripComesBackEqual() {
+        val loaded = schema(
+            """{"type":"object","${'$'}schema":"x",""" +
+                """"properties":{"a":{"type":"string","format":"uri","uniqueItems":1}}}""",
+        )
+        val once = stripForChatStrict(loaded)
+        assertEquals(once, stripForChatStrict(once))
+        assertEquals(logFood, stripForChatStrict(logFood))
     }
 
     @Test
