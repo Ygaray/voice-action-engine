@@ -2,6 +2,12 @@ package io.github.ygaray.voiceactionengine.core.pipeline
 
 import io.github.ygaray.voiceactionengine.core.commit.CommitSink
 import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
+import io.github.ygaray.voiceactionengine.core.provider.AiProvider
+import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
+import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
+import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilityTable
+import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import java.util.UUID
@@ -21,6 +27,7 @@ public annotation class PipelineDsl
 @PipelineDsl
 public class PipelineBuilder internal constructor() {
     private val strategies = mutableListOf<CommandStrategy>()
+    private val providers = mutableListOf<AiProvider>()
 
     /** The approval step in front of every change. Required. */
     public var gate: PreApplyGate? = null
@@ -40,6 +47,18 @@ public class PipelineBuilder internal constructor() {
      */
     public var listener: PipelineEventListener? = null
 
+    /**
+     * Where the engine learns which provider and model each tier uses, asked once per command per tier. Required for
+     * any tier that calls a model; without it the tier's model is refused as not configured.
+     */
+    public var providerSelection: ProviderSelectionSource? = null
+
+    /**
+     * Where the engine gets the API key for the provider it is about to call. Required for any provider that needs a
+     * key; without it that provider is refused as not configured. A strategy never sees the key.
+     */
+    public var credentials: CredentialSource? = null
+
     /** Milliseconds on a monotonic clock, used for the trace; replace it in tests. */
     public var clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI }
 
@@ -57,6 +76,11 @@ public class PipelineBuilder internal constructor() {
         strategies.add(strategy)
     }
 
+    /** Registers [provider] so a tier can be routed to it. Each provider id may be registered once. */
+    public fun provider(provider: AiProvider) {
+        providers.add(provider)
+    }
+
     internal fun build(): CommandPipeline {
         require(strategies.isNotEmpty()) { "commandPipeline: at least one tier is required" }
         val duplicate = strategies.map { it.id }.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
@@ -67,8 +91,11 @@ public class PipelineBuilder internal constructor() {
         }
         val finalGate = requireNotNull(gate) { "commandPipeline: gate is required (no auto-commit default)" }
         val finalSink = requireNotNull(commitSink) { "commandPipeline: commitSink is required" }
+        val registered = providers.toList()
+        val dupProvider = registered.map { it.id }.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
+        require(dupProvider == null) { "commandPipeline: duplicate provider id ${dupProvider?.key}" }
         return CommandPipeline(
-            PolicyPreCheck(strategies.toList(), selector, onDeviceAvailability),
+            wiring(registered),
             finalGate,
             finalSink,
             policy,
@@ -76,6 +103,18 @@ public class PipelineBuilder internal constructor() {
             runIds,
             listener,
         )
+    }
+
+    /** One on-device probe instance goes to both the pre-check and the router, so the two never disagree. */
+    private fun wiring(registered: List<AiProvider>): PipelineWiring {
+        val probe = onDeviceAvailability
+        val byId = registered.associateBy { it.id }
+        val table = ModelCapabilityTable(
+            { provider, model -> byId[provider]?.capabilities(model) ?: ModelCapabilities.UNKNOWN },
+            emptyMap(),
+        )
+        val router = ModelRouter(byId, providerSelection, credentials, table, clock, probe)
+        return PipelineWiring(PolicyPreCheck(strategies.toList(), selector, probe), router)
     }
 }
 

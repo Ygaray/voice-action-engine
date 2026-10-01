@@ -12,6 +12,7 @@ import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.EngineFault
 import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.internal.guardedUncancellable
+import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
@@ -32,11 +33,14 @@ private class StartedRun(
     val coordinator: CommitCoordinator,
 )
 
+/** The two build-time collaborators a command consults before and during the walk, kept together. */
+internal class PipelineWiring(val preCheck: PolicyPreCheck, val router: ModelRouter)
+
 /**
  * An app's composed ladder. Build one with [commandPipeline] and call [execute] once per spoken command.
  */
 public class CommandPipeline internal constructor(
-    private val preCheck: PolicyPreCheck,
+    private val wiring: PipelineWiring,
     private val gate: PreApplyGate,
     private val sink: CommitSink,
     private val policySource: TierPolicySource,
@@ -45,7 +49,7 @@ public class CommandPipeline internal constructor(
     private val listener: PipelineEventListener?,
 ) {
     /** The ladder's tier ids, lowest tier first. */
-    public val tiers: List<StrategyId> = preCheck.strategies.map { it.id }
+    public val tiers: List<StrategyId> = wiring.preCheck.strategies.map { it.id }
 
     private val heldCommit = HeldCommit(gate, sink, clock, runIds, listener)
 
@@ -162,8 +166,8 @@ public class CommandPipeline internal constructor(
         coordinator: CommitCoordinator,
         recorder: RunRecorder,
     ): CommandOutcome {
-        val ladder = preCheck.check(policy, recorder)
-        return TierWalk(ladder, policy, coordinator, recorder, runId, input.parentRunId).run(input)
+        val ladder = wiring.preCheck.check(policy, recorder)
+        return TierWalk(ladder, policy, coordinator, recorder, runId, input.parentRunId, wiring.router).run(input)
     }
 
     private suspend fun timedOut(

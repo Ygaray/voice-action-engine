@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.commit.DispatchResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
+import io.github.ygaray.voiceactionengine.core.provider.BoundModel
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 
 /**
@@ -42,8 +43,22 @@ public abstract class CommandSession internal constructor() {
     /**
      * Reports one model round trip. The engine attaches it to this tier's trace attempt, adds its tokens to
      * [tokensUsed] and tells the event listener. The record must carry ids, codes, counts and tool names only.
+     *
+     * Turns made through [model] are recorded by the engine, so call this only for model calls made outside that
+     * handle.
      */
     public abstract suspend fun recordTurn(turn: TurnRecord)
+
+    /**
+     * The model this tier uses for this command. The engine asks the app's provider selection once, the first time
+     * this is called, and every later call (from any coroutine of this tier) returns the same handle, so the provider
+     * and model never change in the middle of a command; a change of selection applies from the next command.
+     *
+     * The handle never exposes the API key. When no model could be bound (nothing selected, a key missing, the provider
+     * not allowed, on-device inference not available) the returned handle is refused: its `refusal` says why and every
+     * `complete` answers a failure with no provider call, so turn it into a failed outcome.
+     */
+    public abstract suspend fun model(): BoundModel
 
     /** Prints ids and the carry's class name only. */
     final override fun toString(): String =

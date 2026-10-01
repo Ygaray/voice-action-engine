@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.core.commit.CommitCoordinator
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
@@ -27,7 +28,9 @@ internal class TierWalk(
     private val recorder: RunRecorder,
     private val runId: String,
     private val parentRunId: String?,
+    router: ModelRouter,
 ) {
+    private val scope = RunScope(runId, parentRunId, policy, coordinator, recorder, router)
     private var carry: Any? = null
     private var lastReason: EscalationReason? = null
 
@@ -69,7 +72,7 @@ internal class TierWalk(
             return CommandOutcome.Failed(effects(), ladder.onDeviceFailure(), null)
         }
         recorder.tierStarted(strategy.id)
-        val session = RunSession(runId, parentRunId, strategy.id, policy, carry, coordinator, recorder)
+        val session = RunSession(scope, strategy.id, strategy.capabilities.providers, carry)
         return when (val outcome = executeGuarded(strategy, input, session)) {
             is StrategyOutcome.Completed -> {
                 recorder.tierFinished(strategy.id, ATTEMPT_COMPLETED, null, null, null)
