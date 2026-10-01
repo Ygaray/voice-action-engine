@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.core.commit.CommitCoordinator
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.internal.toReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
@@ -59,7 +60,7 @@ internal class TierWalk(
     ): StrategyOutcome = guarded(
         onFault = { fault ->
             recorder.recordCode(TraceCode.STRATEGY_ERROR)
-            val reason = if (fault.timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(fault.errorClass)
+            val reason = fault.toReason()
             StrategyOutcome.Failed(reason)
         },
     ) { strategy.execute(input, session) }

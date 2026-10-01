@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.core.commit.PendingMutation
 import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.EngineFault
+import io.github.ygaray.voiceactionengine.core.internal.toReason
 import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
@@ -112,7 +113,7 @@ private class ChildRun(
 
     /** A fault that reached the top of the child run: a leaked timeout is a timeout, anything else is unexpected. */
     fun failed(fault: EngineFault): CommandOutcome {
-        val reason = if (fault.timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(fault.errorClass)
+        val reason = fault.toReason()
         return CommandOutcome.Failed(effects(), reason, null)
     }
 }

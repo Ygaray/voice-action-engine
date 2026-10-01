@@ -2,6 +2,7 @@
 
 package io.github.ygaray.voiceactionengine.core.internal
 
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -17,6 +18,10 @@ internal class EngineFault(
     val errorClass: String,
     val timeoutLeak: Boolean,
 )
+
+/** The failure reason for this fault: a leaked timeout is a `Timeout`, anything else `Unexpected`. */
+internal fun EngineFault.toReason(): FailureReason =
+    if (timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(errorClass)
 
 /**
  * Runs [block] and turns anything it throws into [onFault]'s value, except real cancellation, which propagates.

@@ -10,6 +10,7 @@ import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.commit.RunTermination
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.EngineFault
+import io.github.ygaray.voiceactionengine.core.internal.toReason
 import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.internal.guardedUncancellable
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilityTable
@@ -198,7 +199,7 @@ public class CommandPipeline internal constructor(
         coordinator: CommitCoordinator,
         recorder: RunRecorder,
     ): CommandOutcome {
-        val reason = if (fault.timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(fault.errorClass)
+        val reason = fault.toReason()
         recorder.flushInFlight(ATTEMPT_FAILED, reason)
         return CommandOutcome.Failed(snapshotEffects(runId, parentRunId, coordinator, recorder), reason, null)
     }

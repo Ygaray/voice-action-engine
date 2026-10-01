@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.internal.toReason
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
@@ -102,12 +103,7 @@ internal class RoutedModel(
         val started = recorder.runClock.read()
         val result = guarded(onFault = { fault ->
             recorder.recordCode(TraceCode.PROVIDER_ERROR)
-            val reason = if (fault.timeoutLeak) {
-                FailureReason.Timeout()
-            } else {
-                FailureReason.Unexpected(fault.errorClass)
-            }
-            ModelResult.Failure(reason)
+            ModelResult.Failure(fault.toReason())
         }) { binding.provider.complete(call) }
         recorder.turnRecorded(strategy, turnOf(result, recorder.runClock.read() - started))
         if (result is ModelResult.Success) {

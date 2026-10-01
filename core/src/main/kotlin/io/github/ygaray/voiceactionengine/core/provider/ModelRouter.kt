@@ -4,8 +4,8 @@ import io.github.ygaray.voiceactionengine.core.Credential
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
-import io.github.ygaray.voiceactionengine.core.internal.EngineFault
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.internal.toReason
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
@@ -25,9 +25,6 @@ private inline fun <A, B> Step<A>.then(next: (A) -> Step<B>): Step<B> = when (th
     is Step.Go -> next(value)
     is Step.Stop -> this
 }
-
-private fun unexpectedOrTimeout(fault: EngineFault): FailureReason =
-    if (fault.timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(fault.errorClass)
 
 private fun onDeviceStop(code: TraceCode): Step.Stop =
     Step.Stop(code, FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, ON_DEVICE_UNAVAILABLE_CAUSE))
@@ -126,7 +123,7 @@ internal class ModelRouter(
     private suspend fun select(strategy: StrategyId): Step<ProviderSelection> {
         val source = selection ?: return notSelected()
         val answer: Step<ProviderSelection?> = guarded(
-            onFault = { fault -> Step.Stop(TraceCode.SELECTION_SOURCE_ERROR, unexpectedOrTimeout(fault)) },
+            onFault = { fault -> Step.Stop(TraceCode.SELECTION_SOURCE_ERROR, fault.toReason()) },
         ) { Step.Go(source.select(SelectionRequest(strategy))) }
         return answer.then { chosen -> chosen?.let { Step.Go(it) } ?: notSelected() }
     }
@@ -177,7 +174,7 @@ internal class ModelRouter(
         val source = credentials ?: return missing(id)
         // A throwing source is an engine fault, not an unreadable key: only `Unreadable` asks the user to re-enter it.
         val lookup: Step<CredentialLookup> = guarded(
-            onFault = { fault -> Step.Stop(TraceCode.CREDENTIAL_SOURCE_ERROR, unexpectedOrTimeout(fault)) },
+            onFault = { fault -> Step.Stop(TraceCode.CREDENTIAL_SOURCE_ERROR, fault.toReason()) },
         ) { Step.Go(source.credential(id)) }
         return lookup.then { found ->
             when (found) {
@@ -194,7 +191,7 @@ internal class ModelRouter(
     private suspend fun capabilities(provider: AiProvider, model: String): Step<ModelCapabilities> =
         guarded(
             onFault = { fault ->
-                Step.Stop(TraceCode.CAPABILITY_LOOKUP_ERROR, unexpectedOrTimeout(fault))
+                Step.Stop(TraceCode.CAPABILITY_LOOKUP_ERROR, fault.toReason())
             },
         ) { Step.Go(table.lookup(provider.id, model)) }
 }
