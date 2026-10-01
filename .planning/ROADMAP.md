@@ -151,14 +151,14 @@ Plans:
   4. A fake provider that declares caching and returns zero cache read/write on a prefix above the model's minimum cacheable length raises `CacheNotEngaged`. The same result below the minimum stays silent.
   5. Limits and model ids reach the engine only through `TierPolicy` defaults, the selection seam and the app-overridable capability table. No hard-coded model-id or limit constant exists in library code, and no library code reads app settings storage.
 
-**Plans**: 2/10 plans executed
+**Plans**: 3/10 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 03-01-PLAN.md — Tracer: neutral transcript types (sealed Message/AssistantPart, ToolResult, NativeReplay, ModelRequest/Response, ToolChoice, CacheDirective, StopReason); sealed allow-list widened to seven
 - [x] 03-02-PLAN.md — Tracer: ModelCapabilities/CachingMode/ModelCapabilityTable (override > provider default > unknown); NoHardCodedConstantsTest (CLN-03/04 scan + no on-device implementation tokens)
-- [ ] 03-03-PLAN.md — Tracer: app seams (ProviderSelectionSource + one-level on-device fallback, CredentialSource + typed lookup, OnDeviceCapability); CredentialUnreadable; scripted source fakes
+- [x] 03-03-PLAN.md — Tracer: app seams (ProviderSelectionSource + one-level on-device fallback, CredentialSource + typed lookup, OnDeviceCapability); CredentialUnreadable; scripted source fakes
 - [ ] 03-04-PLAN.md — Tracer: TurnRecord/TierAttempt fallbackFrom; thirteen router trace codes
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -317,7 +317,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Scaffold & Publishing Proof | 6/6 | Complete    | 2026-09-30 |
 | 2. Core Contract, Pipeline & Commit Seam | 9/9 | Complete    | 2026-09-30 |
-| 3. Transcript Types, ProviderRouter & On-Device Gate | 2/10 | In Progress|  |
+| 3. Transcript Types, ProviderRouter & On-Device Gate | 3/10 | In Progress|  |
 | 4. Anthropic Transport & OkHttp Matrix | 0/TBD | Not started | - |
 | 5. OpenAI & OpenRouter Transports | 0/TBD | Not started | - |
 | 6. Keystore | 0/TBD | Not started | - |

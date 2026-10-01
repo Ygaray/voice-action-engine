@@ -5,16 +5,16 @@ milestone_name: Core Engine
 current_phase: 03
 current_phase_name: Transcript Types, ProviderRouter & On-Device Gate
 status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-10-01T03:08:38.923Z"
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-10-01T03:13:10.295Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 03 execution started
-state_head: bf504123da9037f20ce099ba01ceb2d822cc6528
+state_head: 515baf0c8dd17bbd045fedf34da82a8568f029f6
 progress:
   total_phases: 11
   completed_phases: 0
   total_plans: 25
-  completed_plans: 17
+  completed_plans: 18
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 03 (Transcript Types, ProviderRouter & On-Device Gate) — EXECUTING
-Plan: 3 of 10
+Plan: 4 of 10
 Status: Ready to execute
 Last activity: 2026-09-30 — Phase 03 execution started
 
@@ -78,6 +78,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P09 | 25min | 2 tasks | 3 files |
 | Phase 03 P01 | 4 min | 3 tasks | 8 files |
 | Phase 03 P02 | 10 min | 3 tasks | 5 files |
+| Phase 03 P03 | 15 min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-01: Message and AssistantPart are the only new sealed types; ToolChoice, StopReason and later vocabularies stay open — Three message kinds and two part kinds are contract-closed and mapped exhaustively; surface gate allow-list widened to seven
 - [Phase 03]: 03-01: transcript constructors declare no default arguments; maxTokens required, no model id on ModelRequest — Metalava freezes constructor shapes at the cut; secondary constructors keep growth binary-safe
 - [Phase 03]: 03-02: charsPerToken default 4.0 per model overridable; ModelCapabilityTable keyed by exact (ProviderId, id) with patch-over-default overrides — Larger divisor under-estimates tokens so the cache diagnostic errs silent; exact keys prevent prefix overrides misfiring
+- [Phase 03]: 03-03: ProviderSelection fallback allowed only when own provider is ON_DEVICE and fallback is not ON_DEVICE (chains structurally impossible); CredentialLookup.Unreadable maps to FailureReason.CredentialUnreadable, distinct from NotConfigured — Loud, structural no-substitution; lost key surfaces as re-enter your key
 
 ### Pending Todos
 
@@ -129,6 +131,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-01T03:08:38.860Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-10-01T03:13:10.220Z
+Stopped at: Completed 03-03-PLAN.md
 Resume file: None
