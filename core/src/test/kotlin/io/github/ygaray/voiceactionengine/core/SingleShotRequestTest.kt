@@ -117,6 +117,19 @@ class SingleShotRequestTest {
     }
 
     @Test
+    fun forceToolFalseWorksWhenTheSnapshotNamesNoSingleShotTool() = runTest {
+        NoNetworkGuard.during {
+            val run = runShot(forced = null) { forceTool = false }
+
+            assertTrue(run.outcome.toString(), run.outcome is CommandOutcome.Completed)
+            assertEquals(1, run.fake.callCount)
+            assertEquals(1, run.resolver.invocations)
+            assertEquals(ToolChoice.Auto(), run.sent.toolChoice)
+            assertTrue(run.sent.singleToolCall)
+        }
+    }
+
+    @Test
     fun aSnapshotWithoutAForcedToolFailsWithNoProviderCall() = runTest {
         NoNetworkGuard.during {
             val resolver = savingResolver()

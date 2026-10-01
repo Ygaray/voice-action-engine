@@ -65,25 +65,31 @@ public class SingleShotStrategy internal constructor(
 
     private suspend fun withTooling(input: CommandInput, session: CommandSession): StrategyOutcome {
         val snapshot = tooling.tooling(input)
-        val tool = snapshot.singleShotTool ?: return StrategyOutcome.Failed(FailureReason.Other(TOOL_MISSING_CODE))
-        return withModel(Attempt(input, session, snapshot), tool)
+        // The tool's name is needed only to force it; with forceTool false the model chooses among the offered tools.
+        val choice = if (forceTool) {
+            snapshot.singleShotTool?.let { ToolChoice.Required(it) }
+                ?: return StrategyOutcome.Failed(FailureReason.Other(TOOL_MISSING_CODE))
+        } else {
+            ToolChoice.Auto()
+        }
+        return withModel(Attempt(input, session, snapshot, choice))
     }
 
-    private suspend fun withModel(attempt: Attempt, tool: String): StrategyOutcome {
+    private suspend fun withModel(attempt: Attempt): StrategyOutcome {
         val model = attempt.session.model()
-        return model.refusal?.let { StrategyOutcome.Failed(it) } ?: ask(attempt, model, tool)
+        return model.refusal?.let { StrategyOutcome.Failed(it) } ?: ask(attempt, model)
     }
 
-    private suspend fun ask(attempt: Attempt, model: BoundModel, tool: String): StrategyOutcome =
-        answer(attempt, model.complete(request(attempt, tool)))
+    private suspend fun ask(attempt: Attempt, model: BoundModel): StrategyOutcome =
+        answer(attempt, model.complete(request(attempt)))
 
-    private suspend fun request(attempt: Attempt, tool: String): ModelRequest {
+    private suspend fun request(attempt: Attempt): ModelRequest {
         val context = UserTurnContext(attempt.input, ZonedDateTime.now(clock), attempt.session.carry)
         return ModelRequest(
             attempt.snapshot.system,
             listOf(UserMessage(userTurn.render(context))),
             attempt.snapshot.tools,
-            if (forceTool) ToolChoice.Required(tool) else ToolChoice.Auto(),
+            attempt.choice,
             attempt.session.policy.maxTokensPerTurn,
             CacheDirective(true),
             true,
@@ -127,7 +133,12 @@ public class SingleShotStrategy internal constructor(
     /** Prints the id and the force-tool flag only. */
     override fun toString(): String = "SingleShotStrategy(id=$id, forceTool=$forceTool)"
 
-    private class Attempt(val input: CommandInput, val session: CommandSession, val snapshot: ToolingSnapshot)
+    private class Attempt(
+        val input: CommandInput,
+        val session: CommandSession,
+        val snapshot: ToolingSnapshot,
+        val choice: ToolChoice,
+    )
 
     /** Collects the settings of one [SingleShotStrategy]. */
     public class Builder internal constructor() {
@@ -144,8 +155,9 @@ public class SingleShotStrategy internal constructor(
         public var clock: Clock = Clock.systemDefaultZone()
 
         /**
-         * True (the default) forces the model to call the snapshot's single-shot tool. False lets the model choose
-         * among the offered tools, for example a terminal clarification tool.
+         * True (the default) forces the model to call the snapshot's single-shot tool; a snapshot with no single-shot
+         * tool then fails the command before any provider call. False lets the model choose among the offered tools,
+         * for example a terminal clarification tool, and does not need the snapshot to name a single-shot tool.
          */
         public var forceTool: Boolean = true
 
