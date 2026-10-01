@@ -61,8 +61,17 @@ cleanup() {
     echo "test package removed"
   fi
 }
-# Abnormal exits (signals): still remove the APK, silently, never after the final line.
-trap 'INSTALLED=0; [ -n "$TARGET" ] && adb_t 30 -s "$TARGET" uninstall "$TEST_PKG" >/dev/null 2>&1; exit 130' INT TERM
+# Abnormal exits: still remove the APK, silently, never after the final line. A normal finish has already cleaned up
+# (INSTALLED is 0 by then), so the EXIT trap only acts when the script dies after the install without finishing, for
+# example on an unbound variable. SSH drops (HUP) are the usual way this host is used, so they are covered too.
+quiet_uninstall() {
+  [ "$INSTALLED" = 1 ] || return 0
+  INSTALLED=0
+  [ -n "$TARGET" ] && adb_t 30 -s "$TARGET" uninstall "$TEST_PKG" >/dev/null 2>&1
+  return 0
+}
+trap 'quiet_uninstall; exit 130' INT TERM HUP
+trap 'quiet_uninstall' EXIT
 
 # finish <code> <PASS|FAIL|INFRA|ERROR> <details>: clean up, then print the one final line and exit.
 finish() {
@@ -126,7 +135,10 @@ echo "foreground: ${FOREGROUND:-unknown}"
 
 # g. Build the instrumentation APK (offline; the only Gradle invocation).
 cd "$ROOT" || finish 2 ERROR "reason=build_failed"
-if ! ./gradlew :keystore:assembleDebugAndroidTest --offline -q 9>&-; then
+mkdir -p "$LOG_DIR"
+if ! ./gradlew :keystore:assembleDebugAndroidTest --offline -q >"$LOG_DIR/gradle.log" 2>&1 9>&-; then
+  echo "Gradle build failed; the last lines of $LOG_DIR/gradle.log:"
+  tail -n 40 "$LOG_DIR/gradle.log"
   finish 2 ERROR "reason=build_failed target=$TARGET"
 fi
 APK_COUNT="$(find "$APK_DIR" -maxdepth 1 -name '*.apk' 2>/dev/null | wc -l | tr -d ' ')"
