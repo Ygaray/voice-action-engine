@@ -11,6 +11,9 @@ junit = "4.13.2"
 datastore = "1.2.1"
 androidx-test-runner = "1.7.0"
 androidx-test-ext-junit = "1.3.0"
+composeBom = "2026.04.01"
+activityCompose = "1.13.0"
+lifecycle = "2.10.0"
 
 [libraries]
 coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -22,6 +25,14 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 datastore-prefs = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidx-test-runner" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
+# :sample only (never published): the Compose BOM manages the versions of the three compose-* entries below.
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }
@@ -30,3 +41,4 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 metalava = { id = "me.tylerbwong.gradle.metalava", version.ref = "metalava" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
