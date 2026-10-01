@@ -39,14 +39,15 @@ internal suspend fun Call.await(): HttpReply = suspendCancellableCoroutine { con
             }
 
             override fun onResponse(call: Call, response: Response) {
-                response.use { answer ->
+                val body = response.body
+                try {
                     if (!continuation.isActive) return
-                    try {
-                        val text = answer.body?.string()
-                        if (continuation.isActive) continuation.resume(HttpReply(answer.code, answer.headers, text))
-                    } catch (e: IOException) {
-                        if (continuation.isActive) continuation.resumeWithException(e)
-                    }
+                    val text = body?.string()
+                    if (continuation.isActive) continuation.resume(HttpReply(response.code, response.headers, text))
+                } catch (e: IOException) {
+                    if (continuation.isActive) continuation.resumeWithException(e)
+                } finally {
+                    body?.close()
                 }
             }
         },
