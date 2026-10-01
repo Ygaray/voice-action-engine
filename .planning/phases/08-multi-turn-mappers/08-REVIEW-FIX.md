@@ -6,7 +6,7 @@ iteration: 1
 findings_in_scope: 8
 fixed: 8
 skipped: 0
-status: all_fixed
+status: resolved
 ---
 
 # Phase 8: Code Review Fix Report
