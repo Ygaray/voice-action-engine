@@ -29,7 +29,11 @@ public class UserMessage(public val text: String) : Message() {
  *
  * @property parts the turn's text and tool calls, in order; a copy. It may be empty, because a provider can return an
  * empty turn.
- * @property nativeReplay the provider's own version of this turn, or null when there is none.
+ * @property nativeReplay the provider's own version of this turn, or null when there is none. A mapper refuses a
+ * request whose history holds a replay stamped for another provider or model, with the reason `replay_mismatch`; it
+ * never rebuilds such a turn quietly. A tier ladder that escalates to another model or provider in the middle of a
+ * conversation therefore sends a copy of the history whose assistant turns are rebuilt as `AssistantMessage(parts)`
+ * (no replay). A rebuilt turn carries no thinking blocks or signatures, which is the cost of switching.
  */
 public class AssistantMessage(
     parts: List<AssistantPart>,

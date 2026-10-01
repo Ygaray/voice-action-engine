@@ -33,6 +33,9 @@ private const val TOOL_RESULT_UNEXPECTED = "tool_result_unexpected"
  * - `tool_result_unexpected`: that batch holds a result for no call of the turn, or a batch of results does not
  *   directly follow a turn with calls.
  *
+ * A stamp that does not match is a hard refusal and never a quiet rebuild from the neutral parts, so a lossy rebuild
+ * can only be the app's own choice (it passes the turns without a replay); the engine does not strip stamps for it.
+ *
  * Inside one turn the rules apply in the order listed. The check runs once, before any request, so a retry or a
  * reshaped request never repeats it. A reason carries the kind of violation only, because call ids, tool names and
  * text all come from the model.
