@@ -59,6 +59,9 @@ internal class ChatDecoded(
  * 9. finish reason `tool_calls` without a usable call is malformed;
  * 10. any other or missing finish reason is a success with [StopReason.OTHER].
  *
+ * The turn is stored for replay with the tool calls the decoder took and no others, so what is replayed and what the
+ * conversation check reads agree.
+ *
  * The request id is the vendor's header value, else, only for a vendor that puts it in the body, the body's `id`.
  * The usage is normalized as in [decodeChatUsage].
  */
@@ -163,7 +166,12 @@ private fun decodeToolTurn(turn: Turn, toolRequired: Boolean): ChatDecoded {
 private fun success(turn: Turn, stopReason: StopReason, parts: List<AssistantPart>, toolCalls: Int): ChatDecoded =
     ChatDecoded(
         ModelResult.Success(
-            ModelResponse(AssistantMessage(parts, turn.replay), stopReason, turn.usage, turn.requestId),
+            ModelResponse(
+                AssistantMessage(parts, replayMatching(turn.replay, parts)),
+                stopReason,
+                turn.usage,
+                turn.requestId,
+            ),
         ),
         false,
         safeToken(turn.finish),

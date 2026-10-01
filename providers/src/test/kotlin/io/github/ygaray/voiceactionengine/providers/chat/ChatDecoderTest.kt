@@ -4,8 +4,11 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
+import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import io.github.ygaray.voiceactionengine.providers.transcript.conversationViolation
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -276,6 +279,50 @@ class ChatDecoderTest {
         assertEquals("call_GOLDEN2", success(mixed).message.toolCalls.single().id)
 
         assertEquals("malformed_response", codeOf(decode(rawToolCalls(custom))))
+    }
+
+    // ---- the stored turn agrees with the neutral parts ----------------------------------------------------------
+
+    private fun storedCalls(decoded: ChatDecoded): JsonArray? =
+        ((success(decoded).message.nativeReplay!!.raw as JsonObject)["tool_calls"] as? JsonArray)
+
+    private fun continuation(decoded: ChatDecoded): String? {
+        val request = ModelRequest("", listOf(UserMessage("go"), success(decoded).message, UserMessage("again")), 64)
+        val call = chatCall(ChatVendor.OPENAI, model, request)
+        return conversationViolation(call, ProviderId.OPENAI) { it is JsonObject }
+    }
+
+    @Test
+    fun aLengthStoppedTurnIsStoredWithoutTheTruncatedCallsSoTheConversationCanContinue() {
+        val decoded = decode(toolBody("""{"card_id":"c-""", finish = "length"))
+        assertNull(storedCalls(decoded))
+        assertNull(continuation(decoded))
+    }
+
+    @Test
+    fun aRefusedOrFilteredTurnIsStoredWithoutItsUndecodedCalls() {
+        val refused = decode(chatBody(chatMessage(null, listOf(editCall("{}")), refusal = "no"), "tool_calls"))
+        assertNull(storedCalls(refused))
+        assertNull(continuation(refused))
+
+        val filtered = decode(chatBody(chatMessage("part", listOf(editCall("{}"))), "content_filter"))
+        assertNull(storedCalls(filtered))
+        assertNull(continuation(filtered))
+    }
+
+    @Test
+    fun aSkippedNonFunctionCallIsLeftOutOfTheStoredTurnAndTheKeptCallIsUntouched() {
+        val custom = """{"id":"call_GOLDEN3","type":"custom","custom":{"name":"x","input":"y"}}"""
+        val function = """{"id":"call_GOLDEN2","type":"function","function":{"name":"edit_card","arguments":"{}"}}"""
+        val decoded = decode(rawToolCalls(custom, function))
+        assertEquals(Json.parseToJsonElement("[$function]"), storedCalls(decoded))
+    }
+
+    @Test
+    fun aTurnWhoseCallsAllDecodedIsStoredExactlyAsReceived() {
+        val message = chatMessage(null, listOf(editCall("""{"card_id":"c-7"}""")))
+        val decoded = decode(chatBody(message, "tool_calls"))
+        assertEquals(message, success(decoded).message.nativeReplay!!.raw)
     }
 
     // ---- no tool call ----------------------------------------------------------------------------------------
