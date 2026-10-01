@@ -280,4 +280,4 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 
 | Date | Repo | Tag | Commit | Coordinate(s) | Contents | Evidence | Consumers repinned |
 |---|---|---|---|---|---|---|---|
-| — | — | — | — | — | *(no tags cut yet)* | — | — |
+| 2026-10-01 | yahirandroidtaste | v2.4.0 | 8d197d5f01dde2d8f80d7a088915a2209a704edb | com.github.Ygaray:yahirandroidtaste:v2.4.0 | Additive 10th Voice Command family: ProviderKeyCard, ModelSelectCard, ApproachLadderCard, OutcomeSheet (handled-by, loud failure, undo groups VUNDO-01, needs-confirmation), ClarificationBar; domain-neutral, no engine dep | YAT .planning/phases/14-cut-v2-4-0/14-SHIP-GATE-EVIDENCE.md; JitPack pom+aar 200; full suite + apiCheck green @8d197d5 | — |
