@@ -1,8 +1,51 @@
 Live Chat Completions capture (plan 05-12), 2026-10-01
 gate: D-16 resolved approve-capture, relayed by orchestrator yahir-gsd-control-plane-f2 via the milestone master; basis: Yahir's standing test-key policy (HANDOFF.md "Keys: UNBLOCKED 2026-09-30": cheapest models, opt-in, outside check, bounded call count)
+commands: with-test-keys --only openai,openrouter -- env VAE_LIVE_CHAT=1 VAE_LIVE_CHAT_CALLS=<codes> ./gradlew :providers:liveChatCompletionsCapture --offline --no-daemon --console=plain (two runs, outside check)
 
-run 1 (probes C5,R4), with-test-keys --only openai,openrouter, --no-daemon, outside check
+run 1 (probes C5,R4)
 LIVE_CAPTURE call=C5 label=invalid_key vendor=openai model=gpt-5.4-mini http=401 error_type=invalid_api_key request_id=present finish=- tools=[] usage=- outcome=failure:auth
 LIVE_CAPTURE call=R4 label=invalid_key vendor=openrouter model=openai/gpt-5.4-mini http=401 error_type=- request_id=absent finish=- tools=[] usage=- outcome=failure:auth
-LIVE_CAPTURE requests=2 ceiling=12 openai=1 openrouter=1 per_vendor_ceiling=6
-run 1 request count: 2
+run summary: requests=2 ceiling=12 openai=1 openrouter=1 per_vendor_ceiling=6
+
+run 2 (C1,C2,C3,C4,R1,R2,R3,R5,R6); the task ended red because two intents were unmet (R2 optionals, R3 cache read), see findings
+LIVE_CAPTURE call=C1 label=forced_log_food vendor=openai model=gpt-5.4-mini http=200 error_type=- request_id=present finish=tool_calls tools=[log_food] usage=in:1407,cache_read:0,cache_write:0,out:66 outcome=success:tool_use:log_food
+LIVE_CAPTURE call=C2 label=forced_log_food_repeat vendor=openai model=gpt-5.4-mini http=200 error_type=- request_id=present finish=tool_calls tools=[log_food] usage=in:255,cache_read:1152,cache_write:0,out:78 outcome=success:tool_use:log_food
+LIVE_CAPTURE call=C3 label=forced_edit vendor=openai model=gpt-5.4-mini http=200 error_type=- request_id=present finish=tool_calls tools=[edit_list_card] usage=in:207,cache_read:0,cache_write:0,out:31 outcome=success:tool_use:edit_list_card
+LIVE_CAPTURE call=C4 label=auto_prose vendor=openai model=gpt-5.4-mini http=200 error_type=- request_id=present finish=stop tools=[] usage=in:239,cache_read:0,cache_write:0,out:12 outcome=success:end_turn:-
+LIVE_CAPTURE call=R1 label=forced_log_food vendor=openrouter model=openai/gpt-5.4-mini http=200 error_type=- request_id=present finish=tool_calls tools=[log_food] usage=in:1326,cache_read:0,cache_write:0,out:67 outcome=success:tool_use:log_food
+LIVE_CAPTURE call=R2 label=forced_edit vendor=openrouter model=openai/gpt-5.4-mini http=200 error_type=- request_id=present finish=tool_calls tools=[edit_list_card] usage=in:125,cache_read:0,cache_write:0,out:50 outcome=success:tool_use:edit_list_card
+LIVE_CAPTURE call=R3 label=forced_log_food_repeat vendor=openrouter model=openai/gpt-5.4-mini http=200 error_type=- request_id=present finish=tool_calls tools=[log_food] usage=in:1326,cache_read:0,cache_write:0,out:67 outcome=success:tool_use:log_food
+LIVE_CAPTURE call=R5 label=parallel_probe vendor=openrouter model=openai/gpt-5.4-mini http=404 error_type=- request_id=absent finish=- tools=[] usage=- outcome=failure:model_not_found
+LIVE_CAPTURE call=R6 label=haiku_route vendor=openrouter model=anthropic/claude-haiku-4.5 http=200 error_type=- request_id=present finish=tool_calls tools=[log_food] usage=in:2103,cache_read:0,cache_write:0,out:150 outcome=success:tool_use:log_food
+run summary: requests=9 ceiling=12 openai=4 openrouter=5 per_vendor_ceiling=6
+
+total requests across both runs: 11 (ceiling 12): openai 5, openrouter 6
+estimated cost: under USD 0.01 (about 8.1k input and 0.5k output tokens on gpt-5.4-mini / claude-haiku-4.5; the two 401 probes and the 404 bill nothing)
+
+committed goldens: 8 captured files (openai: invalid_key, forced_log_food, forced_log_food_repeat, forced_edit, auto_prose; openrouter: invalid_key, forced_log_food, haiku_route)
+not committed (no manifest row, file deleted): openrouter-forced_edit (R2 intent unmet), openrouter-forced_log_food_repeat (R3 cache read unmet), openrouter-parallel_probe (R5 answered 404, not 2xx)
+derived rows replaced by captured ones: openai_401, openrouter_401 (probes), openai_forced_log_food (C1), openai_edit_absent_optional (C3), openai_auto_prose (C4), openrouter_forced_log_food (R1)
+derived rows that stay: openai_forced_log_food_stop (C1 finished tool_calls, not stop), openrouter_edit_absent_optional (R2 filled every optional key)
+
+findings
+- A1 (reasoning none with a forced tool): held on both vendors. completion_tokens_details.reasoning_tokens is 0 on every call, no reasoning text and no reasoning_details in any tool-call answer, including the gpt-5.4-mini one through OpenRouter.
+- A2 (real finish_reason under a forced tool): tool_calls on OpenAI (C1, C3) and on OpenRouter (R1, R2, R3, R6). Not stop. The derived stop variant remains only as a defensive case. OpenRouter adds native_finish_reason: completed for gpt-5.4-mini and tool_use for Haiku.
+- A3 (OpenRouter accepts the OpenAI-shaped body): held. R1, R2, R3 and R6 were 200 with tool_calls answers, including routing to anthropic/claude-haiku-4.5 (served by Amazon Bedrock).
+- A4 (parallel_tool_calls with require_parameters, R5): NOT accepted. HTTP 404 with the routing text "No endpoints found that can handle the requested parameters", failed_routing_step "Filter by Parameters" (routing_funnel went from 5 endpoints to 2, then none). R1 (same request without parallel_tool_calls, also with require_parameters) was 200, so the parallel_tool_calls flag is what removed the last endpoints for openai/gpt-5.4-mini. The OpenRouter vendor must keep parallel_tool_calls off. Typed outcome from the shipped decoder was failure:model_not_found, not model_unsupported (see gap 1).
+- A5 (cache_write counted in prompt_tokens): not observed. R6 (Haiku via OpenRouter) reported cache_write_tokens 0 and cached_tokens 0, so there was no write to compare. Still open for Phase 10's smoke or a Haiku call that sets an explicit cache breakpoint.
+- A11 (system role): held. Both vendors accepted the system role message on gpt-5.4-mini (C1..C4, R1..R3) and on Haiku through OpenRouter (R6) with 200.
+- numeric bounds in strict mode: not exercised by this plan. The encoder strips minimum, maximum and exclusiveMinimum before sending strict (stripForChatStrict), so the strict C1 call (200) proved the stripped schema is accepted; raw bounds were never sent.
+- cache read on C2 (OpenAI): held. cached_tokens 1152 of 1407 prompt tokens; the decoded usage reports in:255 (prompt minus cached) and cache_read:1152, matching the parity rule.
+- cache read on R3 (OpenRouter, openai/gpt-5.4-mini): NOT held. Identical request to R1, 1326 prompt tokens, cached_tokens 0. OpenRouter did not report a cache hit on the immediate repeat (routing stickiness or a different upstream node); per the no-edit rule it is a finding, and its file was deleted with no manifest row.
+- Haiku route finish_reason (R6): finish_reason tool_calls, native_finish_reason tool_use; strict was absent and the forced tool was honored. Prompt tokens 2103, completion 150.
+- R2 (OpenRouter EDIT): intent NOT held. Told to set no field other than the item text, the routed gpt-5.4-mini filled title ("card-7"), items.0.item_id and items.0.completed_at (null). Without strict this is model behavior, not a decoder defect, but the absent-optional replay needs a body that omits them, so openrouter_edit_absent_optional stays derived. The OpenAI EDIT (C3) did omit all three, so a real EDIT answer with optionals absent is committed for OpenAI only.
+- request ids: OpenAI 401 carried a request id (present); OpenRouter 401 did not (absent), as 05-11 allowed.
+- OpenRouter 401 body: {"error":{"message":..., "code":401}}; OpenAI 401 body: type invalid_request_error, code invalid_api_key. Both decode to failure:auth.
+
+gaps for the orchestrator (no code changed in this plan)
+1. ChatErrors.kt NO_ENDPOINTS_MARKER is "No endpoints found that support"; the live text is "No endpoints found that can handle the requested parameters", which falls through to model_not_found. Widen the marker (for example "No endpoints found that") or also key off error.metadata.failed_routing_step, and add the live wording to the derived openrouter_404_no_endpoints case.
+2. A4: keep OpenRouter parallelToolCallsFalseOnForced off (it is off in ChatVendor.OPENROUTER); do not turn it on.
+3. R2: if a real OpenRouter absent-optional EDIT golden is wanted, it needs a prompt or model that omits the optionals, or an assertion that the routed model's behavior is not the decoder's concern; one more bounded capture call would be needed, and OpenRouter has used 6 of its 6 per-vendor requests, so that run needs a fresh budget.
+4. R3: no OpenRouter cache hit observed on an immediate repeat; Phase 10's smoke should re-check before any claim that OpenRouter prompt caching is effective.
+
+phase 10 carry (not exercised here): Gate-2 low-credit mapping (OpenAI insufficient_quota 429, OpenRouter 402) and the accepted key character set.

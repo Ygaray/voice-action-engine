@@ -35,44 +35,6 @@
       }
     }
   },
-  "openrouter_forced_log_food": {
-    "id": "gen-GOLDEN",
-    "provider": "Example",
-    "model": "openai/gpt-5.4-mini",
-    "object": "chat.completion",
-    "created": 0,
-    "choices": [
-      {
-        "index": 0,
-        "message": {
-          "role": "assistant",
-          "content": null,
-          "refusal": null,
-          "tool_calls": [
-            {
-              "id": "call_GOLDEN1",
-              "type": "function",
-              "function": {
-                "name": "log_food",
-                "arguments": "{\"items\":[{\"name\":\"egg\",\"quantity\":2,\"unit\":null,\"confidence\":0.9}],\"target_date\":null,\"source\":null}"
-              }
-            }
-          ]
-        },
-        "finish_reason": "tool_calls",
-        "native_finish_reason": "tool_calls"
-      }
-    ],
-    "usage": {
-      "prompt_tokens": 120,
-      "completion_tokens": 40,
-      "total_tokens": 160,
-      "prompt_tokens_details": {
-        "cached_tokens": 0
-      },
-      "cost": 0
-    }
-  },
   "openai_forced_log_food_stop": {
     "id": "chatcmpl-GOLDEN",
     "object": "chat.completion",
@@ -96,68 +58,6 @@
               }
             }
           ]
-        },
-        "finish_reason": "stop"
-      }
-    ],
-    "usage": {
-      "prompt_tokens": 120,
-      "completion_tokens": 40,
-      "total_tokens": 160,
-      "prompt_tokens_details": {
-        "cached_tokens": 0
-      }
-    }
-  },
-  "openai_edit_absent_optional": {
-    "id": "chatcmpl-GOLDEN",
-    "object": "chat.completion",
-    "created": 0,
-    "model": "gpt-5.4-mini",
-    "system_fingerprint": null,
-    "choices": [
-      {
-        "index": 0,
-        "message": {
-          "role": "assistant",
-          "content": null,
-          "refusal": null,
-          "tool_calls": [
-            {
-              "id": "call_GOLDEN1",
-              "type": "function",
-              "function": {
-                "name": "edit_list_card",
-                "arguments": "{\"card_id\":\"c-7\",\"items\":[{\"text\":\"milk\"}]}"
-              }
-            }
-          ]
-        },
-        "finish_reason": "tool_calls"
-      }
-    ],
-    "usage": {
-      "prompt_tokens": 120,
-      "completion_tokens": 40,
-      "total_tokens": 160,
-      "prompt_tokens_details": {
-        "cached_tokens": 0
-      }
-    }
-  },
-  "openai_auto_prose": {
-    "id": "chatcmpl-GOLDEN",
-    "object": "chat.completion",
-    "created": 0,
-    "model": "gpt-5.4-mini",
-    "system_fingerprint": null,
-    "choices": [
-      {
-        "index": 0,
-        "message": {
-          "role": "assistant",
-          "content": "Added to your list.",
-          "refusal": null
         },
         "finish_reason": "stop"
       }

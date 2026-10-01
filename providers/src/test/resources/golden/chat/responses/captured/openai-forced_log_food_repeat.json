@@ -1,0 +1,44 @@
+{
+  "id": "chatcmpl-GOLDEN",
+  "object": "chat.completion",
+  "created": 0,
+  "model": "gpt-5.4-mini-2026-03-17",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_GOLDEN1",
+            "type": "function",
+            "function": {
+              "name": "log_food",
+              "arguments": "{\"items\":[{\"name\":\"scrambled eggs\",\"quantity\":2,\"unit\":null,\"confidence\":0.98},{\"name\":\"banana\",\"quantity\":1,\"unit\":null,\"confidence\":0.99}],\"target_date\":null,\"source\":\"user said: \\\"I had two scrambled eggs and a banana for breakfast.\\\"\"}"
+            }
+          }
+        ],
+        "refusal": null,
+        "annotations": []
+      },
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1407,
+    "completion_tokens": 78,
+    "total_tokens": 1485,
+    "prompt_tokens_details": {
+      "cached_tokens": 1152,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "system_fingerprint": null
+}
