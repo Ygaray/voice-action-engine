@@ -272,7 +272,35 @@ Plans:
   3. Reads return `NotConfigured | Ready | KeyMissing | Unreadable`. Decrypting after the Keystore key is gone (a restored backup) reports `KeyMissing` and never creates a key. Encryption uses a synchronized get-or-create path and `java.util.Base64` NO_WRAP-compatible encoding.
   4. `KeystoreCredentialSource` plugs into the provider seam. JVM tests prove the round trip through the crypto seam, and one instrumented test passes on the TESTER.
 
-**Plans**: TBD
+**Plans**: 7 plans (one per wave, strictly sequential: 06-01 → 06-07)
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — tracer save/read round trip on the JVM + build wiring (datastore `api`, no-DataStore-creation gate, androidTest toolchain)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06-02-PLAN.md — validated KeySlot table, per-provider save/replace/delete, atomic serialized writes
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06-03-PLAN.md — four typed read states, KeyMissing without key creation, catch chain + cause codes, observe stream
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 06-04-PLAN.md — SB/CT legacy-format compat (JVM leg) + golden vector + SB layout re-check
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 06-05-PLAN.md — KeystoreCredentialSource adapter, pipeline round trip, secrets canary, API shape sweep
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 06-06-PLAN.md — AndroidKeyStore key access (getKey, process-global lock), public constructors, instrumented class built + linted
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 06-07-PLAN.md — guarded TESTER runner + offline guard proof, phase gate + surface review, the one device run
+
 **Device note**: the instrumented test runs only on the wired TESTER (`…-s22-ultra-2`), never the personal phone. Read `~/.claude/context/devices/common.md` first and always use `adb -s`.
 
 ### Phase 7: SingleShot Strategy

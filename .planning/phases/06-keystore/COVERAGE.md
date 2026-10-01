@@ -1,0 +1,1 @@
+No external API integration: this phase wraps the on-device AndroidKeyStore (JCA AES/GCM) and an app-injected AndroidX DataStore, and adapts them to the engine's own CredentialSource seam; it calls no remote service (the word "API" in the goal is the user's BYO provider API key, stored but never used here).
