@@ -134,7 +134,8 @@ class ChatDecoderTest {
 
     @Test
     fun finishReasonErrorIsHttpErrorCarryingTheNativeFinishReason() {
-        val body = chatBody(chatMessage(null), "error", nativeFinishReason = "MALFORMED_FUNCTION_CALL", id = "gen-GOLDEN")
+        val message = chatMessage(null)
+        val body = chatBody(message, "error", nativeFinishReason = "MALFORMED_FUNCTION_CALL", id = "gen-GOLDEN")
         val decoded = decode(body, vendor = ChatVendor.OPENROUTER)
         val details = failureOf(decoded).details
         assertEquals("http_error", codeOf(decoded))
