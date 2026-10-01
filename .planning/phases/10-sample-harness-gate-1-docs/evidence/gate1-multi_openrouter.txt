@@ -1,0 +1,8 @@
+# gate1 leg=multi_openrouter captured_utc=2026-10-01T22:41:22Z target=R5CT10XNKQN head=4a586ed7b8
+VAE_ATTEMPT leg=multi_openrouter provider=openrouter n=1 kind=initial http=200 finish=tool_calls tool_calls=1
+VAE_TURN leg=multi_openrouter iteration=1 model=openai/gpt-5.4-mini stop_reason=tool_use tools=[find_items] tool_count=1 input_tokens=209 output_tokens=18 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=988
+VAE_ATTEMPT leg=multi_openrouter provider=openrouter n=1 kind=initial http=200 finish=stop tool_calls=0
+VAE_TURN leg=multi_openrouter iteration=2 model=openai/gpt-5.4-mini stop_reason=end_turn tools=[] tool_count=0 input_tokens=275 output_tokens=14 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=730
+VAE_OUTCOME leg=multi_openrouter kind=completed partial=false reason=none executed=0 committed=0 held=0 reply_len=39 terminal_tool=none
+VAE_VERDICT leg=multi_openrouter verdict=PASS calls=2 turn2_cache_read=0 key_charset=ok trigger=ui
+VAE_BUDGET core=10 optional=0 anthropic=3 openai=3 openrouter=4 est_usd=0.00051

@@ -1,0 +1,8 @@
+# gate1 leg=demo_clarify captured_utc=2026-10-01T22:42:32Z target=R5CT10XNKQN head=4a586ed7b8
+VAE_TURN leg=demo_clarify iteration=1 model=demo-model stop_reason=tool_use tools=[ask_user] tool_count=1 input_tokens=0 output_tokens=0 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=1
+VAE_OUTCOME leg=demo_clarify kind=completed partial=false reason=none executed=0 committed=0 held=0 reply_len=0 terminal_tool=ask_user
+VAE_VERDICT leg=demo_clarify verdict=PASS trigger=ui
+VAE_TURN leg=demo_clarify iteration=1 model=demo-model stop_reason=tool_use tools=[create_item] tool_count=1 input_tokens=0 output_tokens=0 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=0
+VAE_TURN leg=demo_clarify iteration=2 model=demo-model stop_reason=end_turn tools=[] tool_count=0 input_tokens=0 output_tokens=0 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=0
+VAE_OUTCOME leg=demo_clarify kind=completed partial=false reason=none executed=1 committed=1 held=0 reply_len=28 terminal_tool=none
+VAE_VERDICT leg=demo_clarify verdict=PASS trigger=ui

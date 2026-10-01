@@ -1,0 +1,15 @@
+# gate1 leg=ver02 captured_utc=2026-10-01T22:35:04Z target=R5CT10XNKQN head=4a586ed7b8
+VAE_VERDICT leg=ver02 verdict=REFUSED reason=fixture_absent trigger=ui
+# gate1 leg=ver02 captured_utc=2026-10-01T22:36:04Z target=R5CT10XNKQN head=4a586ed7b8
+VAE_ENV okhttp=5.2.1 fixture_sha=none fixture_tools=none min_cacheable=none prefix_chars=none est_prefix_tokens=none
+VAE_FIXTURE kind=absent searched=[files/fixture/sb-a10-fixture.json,asset/sb-a10-fixture.json]
+VAE_VERDICT leg=ver02 verdict=REFUSED reason=fixture_absent trigger=ui
+# gate1 leg=ver02 captured_utc=2026-10-01T22:39:37Z target=R5CT10XNKQN head=4a586ed7b8
+VAE_ENV okhttp=5.2.1 fixture_sha=ebd3ef4a fixture_tools=18 min_cacheable=4096 prefix_chars=21109 est_prefix_tokens=5277
+VAE_ATTEMPT leg=ver02 provider=anthropic n=1 kind=initial http=200 finish=none tool_calls=0
+VAE_TURN leg=ver02 iteration=1 model=claude-haiku-4-5 stop_reason=tool_use tools=redacted tool_count=1 input_tokens=376 output_tokens=64 cache_creation_input_tokens=7016 cache_read_input_tokens=0 prefix_chars=21109 latency_ms=1391
+VAE_ATTEMPT leg=ver02 provider=anthropic n=1 kind=initial http=200 finish=none tool_calls=0
+VAE_TURN leg=ver02 iteration=2 model=claude-haiku-4-5 stop_reason=end_turn tools=redacted tool_count=0 input_tokens=491 output_tokens=17 cache_creation_input_tokens=0 cache_read_input_tokens=7016 prefix_chars=21109 latency_ms=612
+VAE_OUTCOME leg=ver02 kind=completed partial=false reason=none executed=0 committed=0 held=0 reply_len=52 terminal_tool=none
+VAE_VERDICT leg=ver02 verdict=PASS turn1_write=7016 min_read=7016 calls=2 key_charset=ok trigger=ui
+VAE_BUDGET core=2 optional=0 anthropic=2 openai=0 openrouter=0 est_usd=0.01075

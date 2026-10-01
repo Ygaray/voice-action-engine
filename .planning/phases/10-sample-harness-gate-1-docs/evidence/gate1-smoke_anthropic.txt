@@ -1,0 +1,7 @@
+# gate1 leg=smoke_anthropic captured_utc=2026-10-01T22:40:15Z target=R5CT10XNKQN head=4a586ed7b8
+VAE_ATTEMPT leg=smoke_anthropic provider=anthropic n=1 kind=initial http=200 finish=none tool_calls=0
+VAE_TURN leg=smoke_anthropic iteration=1 model=claude-haiku-4-5 stop_reason=tool_use tools=[edit_item] tool_count=1 input_tokens=966 output_tokens=45 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=792
+VAE_OUTCOME leg=smoke_anthropic kind=completed partial=false reason=none executed=1 committed=1 held=0 reply_len=0 terminal_tool=none
+VAE_SMOKE leg=smoke_anthropic tool=edit_item arg_keys=[body,id] optional_absent=true prompt_variant=0
+VAE_VERDICT leg=smoke_anthropic verdict=PASS key_charset=ok trigger=ui
+VAE_BUDGET core=3 optional=0 anthropic=3 openai=0 openrouter=0 est_usd=0.00119

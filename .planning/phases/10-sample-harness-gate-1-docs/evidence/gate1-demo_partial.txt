@@ -1,0 +1,4 @@
+# gate1 leg=demo_partial captured_utc=2026-10-01T22:42:44Z target=R5CT10XNKQN head=4a586ed7b8
+VAE_TURN leg=demo_partial iteration=1 model=demo-model stop_reason=tool_use tools=[create_item,create_item] tool_count=2 input_tokens=0 output_tokens=0 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=0
+VAE_OUTCOME leg=demo_partial kind=completed partial=true reason=none executed=1 committed=1 held=0 reply_len=0 terminal_tool=none
+VAE_VERDICT leg=demo_partial verdict=PASS trigger=ui
