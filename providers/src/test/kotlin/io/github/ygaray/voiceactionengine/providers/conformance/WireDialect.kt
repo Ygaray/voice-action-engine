@@ -77,6 +77,12 @@ internal interface WireDialect {
     /** The wire form of that raw turn, or null when the golden itself is the only source. */
     fun expectedReplayWire(response: JsonObject): JsonElement?
 
+    /**
+     * For a turn whose [expectedReplayWire] is null (a Chat turn with empty-arguments forms): the wire form the
+     * dialect's own rules say the repaired turn takes, computed here and not by production code. Null otherwise.
+     */
+    fun repairedReplayWire(response: JsonObject): JsonElement? = null
+
     /** The positions of the assistant messages in a request's messages array, in order. */
     fun assistantWireIndices(messages: JsonArray): List<Int>
 
@@ -186,15 +192,43 @@ internal fun verbatimViolations(
 ): List<String> {
     val found = mutableListOf<String>()
     for ((index, turn) in turns.withIndex()) {
-        val expected = dialect.expectedReplayWire(turn.response)
-        if (expected == null || index + 1 >= bodies.size) continue
-        val number = index + 1
-        if (canonicalJson(expected.toString()) !in goldenText) found += "turn $number: not verbatim in the golden file"
-        for (request in index + 1 until bodies.size) {
-            found += requestViolations(dialect, number, expected, request + 1, bodies[request])
-        }
+        if (index + 1 >= bodies.size) continue
+        val expected = dialect.expectedReplayWire(turn.response) ?: repairedWire(dialect, turns, index, found)
+        if (expected != null) found += turnViolations(dialect, index + 1, expected, bodies, goldenText)
     }
     return found
+}
+
+private fun turnViolations(
+    dialect: WireDialect,
+    number: Int,
+    expected: JsonElement,
+    bodies: List<String>,
+    goldenText: String,
+): List<String> {
+    val found = mutableListOf<String>()
+    if (canonicalJson(expected.toString()) !in goldenText) found += "turn $number: not verbatim in the golden file"
+    for (request in number until bodies.size) {
+        found += requestViolations(dialect, number, expected, request + 1, bodies[request])
+    }
+    return found
+}
+
+// A turn the dialect repairs before replaying has no wire the stored response gives directly. The golden's next request
+// is then the source: its assistant element must equal the repair the dialect's own rules prescribe, and that
+// prescribed form is what every later request must repeat. Null when the dialect prescribes no repair.
+private fun repairedWire(
+    dialect: WireDialect,
+    turns: List<ConversationTurn>,
+    index: Int,
+    found: MutableList<String>,
+): JsonElement? {
+    val prescribed = dialect.repairedReplayWire(turns[index].response) ?: return null
+    val messages = turns[index + 1].messages
+    val at = dialect.assistantWireIndices(messages).getOrNull(index)
+    val golden = at?.let { dialect.assistantWire(messages[it] as JsonObject) }
+    if (golden != prescribed) found += "turn ${index + 1}: the golden's replayed turn is not the repaired stored turn"
+    return prescribed
 }
 
 private fun requestViolations(
@@ -303,6 +337,14 @@ internal class ChatWire(private val vendor: ChatVendor, override val name: Strin
     override fun expectedReplayWire(response: JsonObject): JsonElement? =
         storedMessage(response).let { if (hasEmptyArguments(it)) null else projection(it) }
 
+    // Each empty-form arguments value becomes "{}": in place when the key is there, else last in the function.
+    override fun repairedReplayWire(response: JsonObject): JsonElement? {
+        val message = storedMessage(response)
+        if (!hasEmptyArguments(message)) return null
+        val calls = JsonArray((message[KEY_TOOL_CALLS] as JsonArray).map { repairedCall(it as JsonObject) })
+        return JsonObject(projection(message).mapValues { (key, value) -> if (key == KEY_TOOL_CALLS) calls else value })
+    }
+
     override fun assistantWireIndices(messages: JsonArray): List<Int> =
         messages.withIndex().filter { (_, message) -> roleOf(message) == ROLE_ASSISTANT }.map { it.index }
 
@@ -341,6 +383,14 @@ internal class ChatWire(private val vendor: ChatVendor, override val name: Strin
             val function = (entry as JsonObject)[KEY_FUNCTION] as JsonObject
             isEmptyArgumentsForm(function[KEY_ARGUMENTS])
         }
+
+    private fun repairedCall(call: JsonObject): JsonObject {
+        val function = call[KEY_FUNCTION] as JsonObject
+        if (!isEmptyArgumentsForm(function[KEY_ARGUMENTS])) return call
+        val fixed = function.toMutableMap()
+        fixed[KEY_ARGUMENTS] = JsonPrimitive("{}")
+        return JsonObject(call.toMutableMap().also { it[KEY_FUNCTION] = JsonObject(fixed) })
+    }
 
     // An error is a string inside a one-key `error` object; any other content is the app's text as it went out.
     private fun toolResult(message: JsonObject): WireToolResult {
