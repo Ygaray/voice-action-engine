@@ -167,6 +167,49 @@ class AgenticLoopGateTest {
     }
 
     @Test
+    fun aReadToolReportingAPreviewLeavesNoActionAndTheModelStillGetsItsContent() = runTest {
+        NoNetworkGuard.during {
+            val step = ToolStep.Finished(FIND_TOOL, FinishedKind.PREVIEW, StepResult("would find"))
+            val executor = ScriptedToolExecutor.sequence(null, step)
+            val sink = RecordingCommitSink()
+            val fake = oneCallThenProse(FIND_TOOL)
+
+            val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool(), readTool())), sink = sink)
+
+            assertTrue(outcome.executed.isEmpty())
+            assertTrue(sink.actions.isEmpty())
+            val result = resultsAt(fake, 1).results.single()
+            assertEquals("would find", result.content)
+            assertFalse(result.isError)
+        }
+    }
+
+    @Test
+    fun aReadToolReportingAnErrorLeavesNoActionStaysAnErrorAndStillStrikes() = runTest {
+        NoNetworkGuard.during {
+            val rejection = ToolStep.Finished(FIND_TOOL, FinishedKind.ERROR, StepResult("no such entry", false))
+            val executor = ScriptedToolExecutor.sequence(null, rejection, rejection)
+            val sink = RecordingCommitSink()
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                toolTurn(1, callOf("c1", FIND_TOOL, loopArguments())),
+                toolTurn(1, callOf("c2", FIND_TOOL, loopArguments())),
+                FakeAiProvider.reply(FINAL_REPLY, usage(1)),
+            )
+
+            val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool(), readTool())), sink = sink)
+
+            assertTrue(outcome.executed.isEmpty())
+            assertTrue(sink.actions.isEmpty())
+            val result = resultsAt(fake, 1).results.single()
+            assertEquals("no such entry", result.content)
+            assertTrue(result.isError)
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Failed)
+            assertEquals(2, fake.calls.size)
+        }
+    }
+
+    @Test
     fun aThrowingPrepareIsAFixedErrorNoticeAndNeverTheExceptionText() = runTest {
         NoNetworkGuard.during {
             val saveFake = oneCallThenProse()

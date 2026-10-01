@@ -97,11 +97,24 @@ private suspend fun settle(context: DispatchContext, spec: ToolSpec, call: Assis
 }
 
 // A tool not declared mutating can never reach the gate: its change is dropped and the model gets an error. A read
-// step is never recorded, so nothing reaches the ledger or the sink.
-private suspend fun guardWrites(context: DispatchContext, spec: ToolSpec, step: ToolStep): ToolStep {
-    if (step !is ToolStep.Mutation || spec.mutating) return step
-    context.session.recordCode(TraceCode.READ_TOOL_MUTATION_REJECTED)
-    return ToolStep.Finished(spec.name, FinishedKind.READ, StepResult(NOT_A_MUTATING_TOOL_CONTENT, true))
+// step is never recorded, so nothing reaches the ledger or the sink. A read tool that reports a preview or an error
+// is treated as a plain read: the model still gets its content and error flag, but no action is recorded.
+private suspend fun guardWrites(context: DispatchContext, spec: ToolSpec, step: ToolStep): ToolStep = when {
+    spec.mutating -> step
+    step is ToolStep.Mutation -> {
+        context.session.recordCode(TraceCode.READ_TOOL_MUTATION_REJECTED)
+        ToolStep.Finished(spec.name, FinishedKind.READ, StepResult(NOT_A_MUTATING_TOOL_CONTENT, true))
+    }
+    step is ToolStep.Finished && step.kind != FinishedKind.READ -> asRead(step)
+    else -> step
+}
+
+// An error kind keeps its error flag even when the app left it unset, as the coordinator would have reported it.
+private fun asRead(step: ToolStep.Finished): ToolStep {
+    val result = step.result
+    val isError = result.isError || step.kind == FinishedKind.ERROR
+    val kept = StepResult(result.contentForModel, isError, result.appOutcomeToken, result.targetIds)
+    return ToolStep.Finished(step.toolName, FinishedKind.READ, kept, step.context)
 }
 
 // An executor fault is answered with a fixed notice, never the exception text. A failed attempt on a mutating tool is
