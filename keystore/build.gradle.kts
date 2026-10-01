@@ -31,7 +31,10 @@ kotlin {
 
 dependencies {
     api(project(":core"))
-    implementation(libs.datastore.prefs)
+    api(libs.datastore.prefs)
+    testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
+    testImplementation(testFixtures(project(":core")))
 }
 
 val engineGroup: String by rootProject.extra
