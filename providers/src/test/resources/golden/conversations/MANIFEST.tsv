@@ -3,3 +3,4 @@
 # provenance is derived (hand-built from documented shapes) or captured (recorded, then sanitized); the case name starts with it.
 # Prompts, tools and results come only from ConversationScript and name no app domain.
 case	dialect	provenance	model	file	tags	note
+derived_parallel_tools	anthropic	derived	claude-haiku-4-5	anthropic/derived_parallel_tools.json	parallel,zero_arg,error_result,interleaved_text	derived: documented content-array shape; four parallel calls with a zero-argument call and an error result
