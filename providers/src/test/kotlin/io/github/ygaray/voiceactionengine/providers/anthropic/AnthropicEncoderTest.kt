@@ -18,6 +18,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -378,5 +379,39 @@ class AnthropicEncoderTest {
             assertFalse(refused.message.orEmpty().contains(ProviderId.OPENAI.toString()))
             assertFalse(refused.message.orEmpty().contains(ProviderId.ANTHROPIC.toString()))
         }
+    }
+
+    @Test
+    fun aReplayedToolUseWithoutAnObjectInputGoesBackWithAnEmptyOneAndNothingElseChanges() {
+        val noInput = buildJsonObject {
+            put("type", "tool_use")
+            put("id", "toolu_1")
+            put("name", "list_items")
+        }
+        val nullInput = toolUseBlock("toolu_2", "list_items", JsonNull)
+        val valid = toolUseBlock("toolu_3", "add_item", buildJsonObject { put("item", "milk") })
+        val raw = JsonArray(listOf(thinkingBlock("pondering"), noInput, nullInput, valid))
+        val parts = listOf(
+            AssistantPart.ToolCall("toolu_1", "list_items", buildJsonObject { }),
+            AssistantPart.ToolCall("toolu_2", "list_items", buildJsonObject { }),
+            AssistantPart.ToolCall("toolu_3", "add_item", buildJsonObject { put("item", "milk") }),
+        )
+        val results = ToolResultsMessage(listOf("toolu_1", "toolu_2", "toolu_3").map { ToolResult(it, "ok") })
+        val replayed = AssistantMessage(parts, NativeReplay(ProviderId.ANTHROPIC, model, raw))
+        val request = call(messages = listOf(UserMessage("go"), replayed, results))
+
+        val sent = parse(request).getValue("messages").jsonArray[1].jsonObject.getValue("content").jsonArray
+        val empty = JsonObject(emptyMap())
+        val repairedNone = buildJsonObject {
+            put("type", "tool_use")
+            put("id", "toolu_1")
+            put("name", "list_items")
+            put("input", empty)
+        }
+        assertEquals(
+            JsonArray(listOf(raw[0], repairedNone, toolUseBlock("toolu_2", "list_items", empty), valid)),
+            sent,
+        )
+        assertEquals(encode(request), encode(request))
     }
 }
