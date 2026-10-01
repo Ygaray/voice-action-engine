@@ -2,9 +2,9 @@
 phase: "3"
 slug: "transcript-types-providerrouter-on-device-gate"
 # status lifecycle: draft (seeded by plan-phase) -> validated (set by validate-phase §6)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-09-30"
 ---
 
@@ -40,18 +40,18 @@ created: "2026-09-30"
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 03-01-T1..T3 | 03-01 | 1 | PROV-01 | T-03-01, T-03-02 | transcript types / NativeReplay redacted `toString`; sealed set of seven | unit + script | `./gradlew :core:test --tests '*TranscriptTypesTest' --tests '*NativeReplayTest' -q` | ❌ W0 | ⬜ pending |
-| 03-02-T1..T2 | 03-02 | 1 | TEL-03 (inputs) | T-03-08 | capability lookup: override over provider default over unknown default, exact ids | unit | `./gradlew :core:test --tests '*ModelCapabilityTableTest' -q` | ❌ W0 | ⬜ pending |
-| 03-02-T3 | 03-02 | 1 | CLN-03, CLN-04, PROV-10 | T-03-06, T-03-07, T-03-43 | no model-id/limit literals; no settings reads; no on-device implementation tokens (SC3); positive controls | unit (source scan) | `./gradlew :core:test --tests '*NoHardCodedConstantsTest' -q` | ❌ W0 | ⬜ pending |
-| 03-03-T1..T3 | 03-03 | 1 | PROV-02, PROV-10, CLN-04 | T-03-10, T-03-12 | typed credential lookup, CredentialUnreadable, fallback only on ON_DEVICE, ML Kit statuses | unit | `./gradlew :core:test --tests '*SeamTypesTest' --tests '*FailureTaxonomyTest' -q` | ❌ W0 | ⬜ pending |
-| 03-04-T1..T2 | 03-04 | 1 | PROV-10, PROV-02 | T-03-15 | fallbackFrom in TurnRecord/TierAttempt; thirteen router trace codes | unit | `./gradlew :core:test --tests '*TraceTest' -q` | ✅ extend | ⬜ pending |
-| 03-05-T1..T3 | 03-05 | 2 | PROV-01, PROV-02 | T-03-18, T-03-19 | AiProvider contract, FakeAiProvider loud on exhaustion, ToolSpec.strict binary-compatible | unit | `./gradlew :core:test --tests '*FakeAiProviderTest' --tests '*ApiShapeTest' --tests '*ToolSpecClarificationTest' -q` | ❌ W0 | ⬜ pending |
-| 03-06-T1..T3 | 03-06 | 3 | PROV-02, PROV-10 | T-03-23, T-03-24, T-03-26..T-03-28 | bind refusals with zero calls and one trace code; key mismatch refused; on-device without fallback loud; capability check before call; provider faults typed | unit | `./gradlew :core:test --tests '*ModelRouterTest' -q` | ❌ W0 | ⬜ pending |
-| 03-07-T1..T3 | 03-07 | 4 | PROV-02, PROV-03, PROV-10, CLN-04 | T-03-25, T-03-44..T-03-46 | selection once per tier-run; frozen under turns/tiers/mid-command change/concurrency; one probe instance shared with the pre-check; build-time override validation | unit | `./gradlew :core:test --tests '*ProviderRouterTest' -q` | ❌ W0 | ⬜ pending |
-| 03-08-T1..T2 | 03-08 | 5 | PROV-10 | T-03-29, T-03-31 | fallback re-checked vs offlineOnly/allowedProviders/declaration; one gate; no on-device implementation code | unit | `./gradlew :core:test --tests '*OnDeviceGateTest' --tests '*TierPolicyTest' --tests '*NoHardCodedConstantsTest' -q` | ❌ W0 | ⬜ pending |
-| 03-08-T3 | 03-08 | 5 | PROV-02 | T-03-30 | key never crosses providers (tiers, commands, hostile source, fallback) | unit | `./gradlew :core:test --tests '*KeyIsolationTest' -q` | ❌ W0 | ⬜ pending |
-| 03-09-T1..T3 | 03-09 | 5 | TEL-03 | T-03-34..T-03-37 | CacheNotEngaged matrix, boundaries, silent below/unknown minimum, one event per response | unit | `./gradlew :core:test --tests '*CacheNotEngagedTest' -q` | ❌ W0 | ⬜ pending |
-| 03-10-T1..T3 | 03-10 | 6 | all seven | T-03-38..T-03-42 | routed-path canary; full gate; sealed-complete review; constructor audit | unit + gate | `./gradlew check` then `scripts/review-api-surface.sh --expect-sealed-complete` | ✅ extend | ⬜ pending |
+| 03-01-T1..T3 | 03-01 | 1 | PROV-01 | T-03-01, T-03-02 | transcript types / NativeReplay redacted `toString`; sealed set of seven | unit + script | `./gradlew :core:test --tests '*TranscriptTypesTest' --tests '*NativeReplayTest' -q` | yes | ✅ green |
+| 03-02-T1..T2 | 03-02 | 1 | TEL-03 (inputs) | T-03-08 | capability lookup: override over provider default over unknown default, exact ids | unit | `./gradlew :core:test --tests '*ModelCapabilityTableTest' -q` | yes | ✅ green |
+| 03-02-T3 | 03-02 | 1 | CLN-03, CLN-04, PROV-10 | T-03-06, T-03-07, T-03-43 | no model-id/limit literals; no settings reads; no on-device implementation tokens (SC3); positive controls | unit (source scan) | `./gradlew :core:test --tests '*NoHardCodedConstantsTest' -q` | yes | ✅ green |
+| 03-03-T1..T3 | 03-03 | 1 | PROV-02, PROV-10, CLN-04 | T-03-10, T-03-12 | typed credential lookup, CredentialUnreadable, fallback only on ON_DEVICE, ML Kit statuses | unit | `./gradlew :core:test --tests '*SeamTypesTest' --tests '*FailureTaxonomyTest' -q` | yes | ✅ green |
+| 03-04-T1..T2 | 03-04 | 1 | PROV-10, PROV-02 | T-03-15 | fallbackFrom in TurnRecord/TierAttempt; thirteen router trace codes | unit | `./gradlew :core:test --tests '*TraceTest' -q` | yes | ✅ green |
+| 03-05-T1..T3 | 03-05 | 2 | PROV-01, PROV-02 | T-03-18, T-03-19 | AiProvider contract, FakeAiProvider loud on exhaustion, ToolSpec.strict binary-compatible | unit | `./gradlew :core:test --tests '*FakeAiProviderTest' --tests '*ApiShapeTest' --tests '*ToolSpecClarificationTest' -q` | yes | ✅ green |
+| 03-06-T1..T3 | 03-06 | 3 | PROV-02, PROV-10 | T-03-23, T-03-24, T-03-26..T-03-28 | bind refusals with zero calls and one trace code; key mismatch refused; on-device without fallback loud; capability check before call; provider faults typed | unit | `./gradlew :core:test --tests '*ModelRouterTest' -q` | yes | ✅ green |
+| 03-07-T1..T3 | 03-07 | 4 | PROV-02, PROV-03, PROV-10, CLN-04 | T-03-25, T-03-44..T-03-46 | selection once per tier-run; frozen under turns/tiers/mid-command change/concurrency; one probe instance shared with the pre-check; build-time override validation | unit | `./gradlew :core:test --tests '*ProviderRouterTest' -q` | yes | ✅ green |
+| 03-08-T1..T2 | 03-08 | 5 | PROV-10 | T-03-29, T-03-31 | fallback re-checked vs offlineOnly/allowedProviders/declaration; one gate; no on-device implementation code | unit | `./gradlew :core:test --tests '*OnDeviceGateTest' --tests '*TierPolicyTest' --tests '*NoHardCodedConstantsTest' -q` | yes | ✅ green |
+| 03-08-T3 | 03-08 | 5 | PROV-02 | T-03-30 | key never crosses providers (tiers, commands, hostile source, fallback) | unit | `./gradlew :core:test --tests '*KeyIsolationTest' -q` | yes | ✅ green |
+| 03-09-T1..T3 | 03-09 | 5 | TEL-03 | T-03-34..T-03-37 | CacheNotEngaged matrix, boundaries, silent below/unknown minimum, one event per response | unit | `./gradlew :core:test --tests '*CacheNotEngagedTest' -q` | yes | ✅ green |
+| 03-10-T1..T3 | 03-10 | 6 | all seven | T-03-38..T-03-42 | routed-path canary; full gate; sealed-complete review; constructor audit | unit + gate | `./gradlew check` then `scripts/review-api-surface.sh --expect-sealed-complete` | yes | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -59,9 +59,9 @@ created: "2026-09-30"
 
 ## Wave 0 Requirements
 
-- [ ] `FakeAiProvider` (+ scripted credential/selection sources) in `core` testFixtures — ROADMAP SC5 harness
-- [ ] Test classes: `TranscriptTypesTest`, `NativeReplayTest`, `ModelRouterTest`, `ProviderRouterTest`, `KeyIsolationTest`, `OnDeviceGateTest`, `ModelCapabilityTableTest`, `CacheNotEngagedTest`, `NoHardCodedConstantsTest`, `FakeAiProviderTest`, `SeamTypesTest` (each created by the plan that owns it; see the map above)
-- [ ] Edit `scripts/review-api-surface.sh` allowed-sealed list if `Message`/`AssistantPart` are sealed
+- [x] `FakeAiProvider` (+ scripted credential/selection sources) in `core` testFixtures — ROADMAP SC5 harness
+- [x] Test classes: `TranscriptTypesTest`, `NativeReplayTest`, `ModelRouterTest`, `ProviderRouterTest`, `KeyIsolationTest`, `OnDeviceGateTest`, `ModelCapabilityTableTest`, `CacheNotEngagedTest`, `NoHardCodedConstantsTest`, `FakeAiProviderTest`, `SeamTypesTest` (each created by the plan that owns it; see the map above)
+- [x] Edit `scripts/review-api-surface.sh` allowed-sealed list if `Message`/`AssistantPart` are sealed
 
 *No framework install needed.*
 
@@ -69,7 +69,7 @@ created: "2026-09-30"
 
 ## Manual-Only Verifications
 
-All phase behaviors have automated verification (pure JVM, no HTTP, no device).
+All phase behaviors have automated verification (pure JVM, no HTTP, no device). Real-provider/on-device behavior is Gate-2 territory in later phases (providers/keystore/sample); the on-device gate here is a seam answering `not_implemented`.
 
 ---
 
@@ -81,12 +81,28 @@ All phase behaviors have automated verification (pure JVM, no HTTP, no device).
 > set `nyquist_compliant: true` — or otherwise "sign off" compliance — at plan time, and do not let
 > the plan-checker do so (INC-2026-07-27-01).
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 150s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` — leave `false` at plan time; the
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 150s
+- [x] _(finalizer-only, post-execution)_ `nyquist_compliant` — leave `false` at plan time; the
       finalizer sets `true` iff its gap analysis finds zero gaps
 
-**Approval:** pending — finalizer-owned, not set at plan time
+**Approval:** approved 2026-09-30 (Nyquist finalizer; zero gaps)
+
+---
+
+## Validation Audit 2026-09-30
+
+| Metric | Count |
+|--------|-------|
+| Requirements audited (PROV-01, PROV-02, PROV-03, PROV-10, TEL-03, CLN-03, CLN-04) | 7 |
+| Per-task rows audited | 13 |
+| COVERED | 7 |
+| PARTIAL / MISSING | 0 / 0 |
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Evidence: `./gradlew :core:test --rerun-tasks` exit 0; 422 tests, 0 failures/skipped. All 16 named classes ran green (TranscriptTypes 12, NativeReplay 5, ModelCapabilityTable 10, NoHardCodedConstants 12, SeamTypes 15, FailureTaxonomy 14, Trace 12, FakeAiProvider 11, ApiShape 10, ToolSpecClarification 13, ModelRouter 30, ProviderRouter 18, OnDeviceGate 13, TierPolicy 24, KeyIsolation 5, CacheNotEngaged 32). The routed-path canary lives in `RedactionCanaryTest` (extended in 03-10). The review-fix rename `ProviderCall` -> `ProviderRequest` does not affect the map: it names test classes, all of which still exist. No new tests were needed.
