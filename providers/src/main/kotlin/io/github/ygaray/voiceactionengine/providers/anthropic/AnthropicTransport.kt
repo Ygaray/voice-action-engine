@@ -54,6 +54,11 @@ private fun isHeaderSafe(value: String): Boolean = value.all { it == '\t' || it 
  * a ceiling of [MAX_REQUESTS] requests per call, in either order. It holds no per-call state, so concurrent calls are
  * independent.
  *
+ * A timeout counts as a failure that can clear on its own, so it gets the one transient retry. The worst case for a
+ * server that hangs is therefore two full call timeouts plus the backoff (about two minutes with the 60 s default), and
+ * the first request may still be running, and billed, on the server side. Apps that cannot afford that lower the call
+ * timeout.
+ *
  * Both repeats happen here, below the provider seam, and only repeat the HTTP request. The OkHttp body is one-shot, so
  * this loop is the only place a request is ever sent twice.
  *
