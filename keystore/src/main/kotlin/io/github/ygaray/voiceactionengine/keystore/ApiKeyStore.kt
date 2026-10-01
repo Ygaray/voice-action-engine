@@ -55,8 +55,14 @@ public class ApiKeyStore internal constructor(
     /**
      * Encrypts [apiKey] (trimmed) and stores it for [provider], replacing any previous one.
      *
-     * @throws IllegalArgumentException when [provider] has no slot or the trimmed key is empty. Neither message
-     * contains the key.
+     * Saving fails loudly rather than storing a key it cannot protect, so a caller should surface "could not store the
+     * key" to the user. No message contains the key.
+     *
+     * @throws IllegalArgumentException when [provider] has no slot or the trimmed key is empty.
+     * @throws java.security.GeneralSecurityException when the device key or the cipher cannot be used.
+     * @throws java.security.ProviderException when the platform key store fails while looking up, creating or using the
+     * device key.
+     * @throws java.io.IOException when the preferences cannot be written.
      */
     public suspend fun save(provider: ProviderId, apiKey: String) {
         val slot = requireNotNull(slotsByProvider[provider]) { "No key slot for provider $provider" }
