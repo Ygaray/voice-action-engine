@@ -36,16 +36,18 @@ internal const val BUDGET_EXHAUSTED = "sample_budget_exhausted"
  * @property optional HTTP requests the optional probe has sent.
  * @property perProvider requests per provider id, core and optional together.
  * @property agenticStartEpochSeconds when the last Anthropic agentic leg started, or null.
+ * @property legRuns how many times each leg (by wire name) has started, which selects the prompt variant of a rerun.
  */
 internal class BudgetState(
     val core: Int,
     val optional: Int,
     val perProvider: Map<String, Int>,
     val agenticStartEpochSeconds: Long?,
+    val legRuns: Map<String, Int> = emptyMap(),
 ) {
     override fun toString(): String =
         "BudgetState(core=$core, optional=$optional, perProvider=$perProvider, " +
-            "agenticStartEpochSeconds=$agenticStartEpochSeconds)"
+            "agenticStartEpochSeconds=$agenticStartEpochSeconds, legRuns=$legRuns)"
 
     companion object {
         /** Nothing spent, nothing started. */
@@ -66,6 +68,7 @@ private const val FIELD_CORE = "core"
 private const val FIELD_OPTIONAL = "optional"
 private const val FIELD_AGENTIC_START = "agentic_start"
 private const val PROVIDER_PREFIX = "provider."
+private const val RUN_PREFIX = "run."
 
 /**
  * A [BudgetStore] in one small text file, one `key=value` line per field. A write goes to a temp file first and is then
@@ -84,6 +87,7 @@ internal class FileBudgetStore(private val file: File) : BudgetStore {
         var optional = 0
         var start: Long? = null
         val providers = LinkedHashMap<String, Int>()
+        val runs = LinkedHashMap<String, Int>()
         for (line in lines) {
             val at = line.indexOf('=')
             if (at <= 0) continue
@@ -94,9 +98,10 @@ internal class FileBudgetStore(private val file: File) : BudgetStore {
                 key == FIELD_OPTIONAL -> optional = value.toIntOrNull() ?: 0
                 key == FIELD_AGENTIC_START -> start = value.toLongOrNull()
                 key.startsWith(PROVIDER_PREFIX) -> providers[key.removePrefix(PROVIDER_PREFIX)] = value.toIntOrNull() ?: 0
+                key.startsWith(RUN_PREFIX) -> runs[key.removePrefix(RUN_PREFIX)] = value.toIntOrNull() ?: 0
             }
         }
-        return BudgetState(core, optional, providers, start)
+        return BudgetState(core, optional, providers, start, runs)
     }
 
     override fun write(state: BudgetState) {
@@ -105,6 +110,9 @@ internal class FileBudgetStore(private val file: File) : BudgetStore {
             append(FIELD_OPTIONAL).append('=').append(state.optional).append('\n')
             for ((provider, count) in state.perProvider) {
                 append(PROVIDER_PREFIX).append(provider).append('=').append(count).append('\n')
+            }
+            for ((leg, count) in state.legRuns) {
+                append(RUN_PREFIX).append(leg).append('=').append(count).append('\n')
             }
             val start = state.agenticStartEpochSeconds
             if (start != null) append(FIELD_AGENTIC_START).append('=').append(start).append('\n')
@@ -168,6 +176,7 @@ internal class RequestBudget(
                     optional = if (optional) state.optional + 1 else state.optional,
                     perProvider = perProvider,
                     agenticStartEpochSeconds = state.agenticStartEpochSeconds,
+                    legRuns = state.legRuns,
                 ),
             )
         }
@@ -183,7 +192,22 @@ internal class RequestBudget(
     fun markAgenticStart(nowSeconds: Long) {
         synchronized(lock) {
             val state = store.read()
-            store.write(BudgetState(state.core, state.optional, state.perProvider, nowSeconds))
+            store.write(BudgetState(state.core, state.optional, state.perProvider, nowSeconds, state.legRuns))
+        }
+    }
+
+    /** How many times [leg] (a wire name) has started. */
+    fun runsOf(leg: String): Int = synchronized(lock) { store.read().legRuns[leg] ?: 0 }
+
+    /** Counts one start of [leg] (a wire name); a rerun then picks the next prompt variant. */
+    fun recordRun(leg: String) {
+        synchronized(lock) {
+            val state = store.read()
+            val runs = LinkedHashMap(state.legRuns)
+            runs[leg] = (runs[leg] ?: 0) + 1
+            store.write(
+                BudgetState(state.core, state.optional, state.perProvider, state.agenticStartEpochSeconds, runs),
+            )
         }
     }
 
