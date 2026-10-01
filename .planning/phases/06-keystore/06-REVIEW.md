@@ -43,7 +43,7 @@ findings:
   warning: 6
   info: 5
   total: 11
-status: issues_found
+status: resolved
 ---
 
 # Phase 6: Code Review Report
