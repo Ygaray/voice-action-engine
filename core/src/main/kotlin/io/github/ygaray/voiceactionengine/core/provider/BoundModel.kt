@@ -10,6 +10,7 @@ import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * A model a strategy can call, resolved once for one command and one tier and frozen for the rest of that command.
@@ -71,8 +72,9 @@ internal class RefusedModel(override val refusal: FailureReason) : BoundModel() 
 }
 
 /**
- * A usable handle. It holds no mutable state, so concurrent [complete] calls are independent; each records its own turn
- * through [recorder] on [clock] (the same path a strategy's own `recordTurn` takes).
+ * A usable handle. Concurrent [complete] calls are independent; each records its own turn through [recorder] on
+ * [clock] (the same path a strategy's own `recordTurn` takes). The only state is a count of successful responses, which
+ * the cache diagnostic needs to tell a first request from a later one.
  */
 internal class RoutedModel(
     private val binding: Binding,
@@ -85,6 +87,8 @@ internal class RoutedModel(
     override val capabilities: ModelCapabilities? get() = binding.capabilities
     override val fallbackFrom: ProviderId? get() = binding.fallbackFrom
     override val refusal: FailureReason? get() = null
+
+    private val successfulResponses = AtomicInteger()
 
     override suspend fun complete(request: ModelRequest): ModelResult {
         if (request.tools.isNotEmpty() && !binding.capabilities.supportsTools) {
@@ -103,7 +107,16 @@ internal class RoutedModel(
             ModelResult.Failure(reason)
         }) { binding.provider.complete(call) }
         recorder.turnRecorded(strategy, turnOf(result, clock() - started))
+        if (result is ModelResult.Success) reportMissedCache(request, result.response.usage)
         return result
+    }
+
+    /** Raises one `CacheNotEngaged` event, ids only, when the cache should have engaged on this successful response. */
+    private suspend fun reportMissedCache(request: ModelRequest, usage: Usage) {
+        val turn = successfulResponses.incrementAndGet()
+        if (shouldFlagCacheMiss(request.cache, binding.capabilities, usage, turn, prefixChars(request))) {
+            recorder.cacheNotEngaged(strategy, binding.provider.id, binding.model)
+        }
     }
 
     private fun turnOf(result: ModelResult, latencyMillis: Long): TurnRecord {

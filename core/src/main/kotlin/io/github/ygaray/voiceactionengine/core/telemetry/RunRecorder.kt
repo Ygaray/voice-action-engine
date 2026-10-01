@@ -115,8 +115,8 @@ internal class RunRecorder(
     }
 
     /**
-     * Announces that a provider response showed the prompt cache was not used. The provider transports call this once
-     * they report cache usage; until then only tests reach it.
+     * Announces that a provider response showed the prompt cache was not used. The engine calls this after a routed
+     * response whose cache should have engaged; the event carries ids only.
      */
     suspend fun cacheNotEngaged(strategy: StrategyId, provider: ProviderId, model: String?) {
         dispatch.send(PipelineEvent.CacheNotEngaged(runId, strategy, provider, model))
