@@ -6,6 +6,7 @@ import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
@@ -195,6 +196,17 @@ class SingleShotRequestTest {
         }
 
         assertTrue(error.message.orEmpty(), error.message.orEmpty().contains("resolver"))
+    }
+
+    @Test
+    fun theTierDeclaresAnyProviderUnlessTheBuilderNarrowsIt() {
+        val default = singleShot(savingResolver(), snapshotOf(entriesTool()))
+        val cloudOnly = singleShot(savingResolver(), snapshotOf(entriesTool())) {
+            capabilities = StrategyCapabilities(setOf(ProviderId.ANTHROPIC))
+        }
+
+        assertEquals(StrategyCapabilities.ANY_PROVIDER, default.capabilities)
+        assertEquals(setOf(ProviderId.ANTHROPIC), cloudOnly.capabilities.providers)
     }
 
     @Test

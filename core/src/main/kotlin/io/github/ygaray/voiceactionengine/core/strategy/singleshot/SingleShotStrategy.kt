@@ -12,6 +12,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
@@ -65,6 +66,7 @@ public class SingleShotStrategy internal constructor(
     override val id: StrategyId,
     settings: Builder,
 ) : CommandStrategy {
+    override val capabilities: StrategyCapabilities = settings.capabilities
     private val tooling: ToolSpecProvider = requireNotNull(settings.tooling) {
         "SingleShotStrategy: tooling is required"
     }
@@ -166,6 +168,13 @@ public class SingleShotStrategy internal constructor(
 
         /** Turns what the model extracted into prepared steps or a verdict. Required. */
         public var resolver: OutcomeResolver? = null
+
+        /**
+         * The providers this tier may use, checked against the command's policy before the tier runs (for example an
+         * offline-only command runs only a tier declared on-device only). Defaults to
+         * [StrategyCapabilities.ANY_PROVIDER].
+         */
+        public var capabilities: StrategyCapabilities = StrategyCapabilities.ANY_PROVIDER
 
         /** Renders the one user message of the request. Defaults to [UserTurnRenderer.standard]. */
         public var userTurn: UserTurnRenderer = UserTurnRenderer.standard()
