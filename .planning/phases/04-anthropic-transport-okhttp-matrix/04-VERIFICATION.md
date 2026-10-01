@@ -1,7 +1,7 @@
 ---
 phase: 04-anthropic-transport-okhttp-matrix
 verified: 2026-10-01T02:00:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified
 covered_files:
   - ".planning/REQUIREMENTS.md"
@@ -60,21 +60,17 @@ covered_files:
   - "providers/src/test/kotlin/io/github/ygaray/voiceactionengine/providers/http/CleanClientTest.kt"
   - "providers/src/test/kotlin/io/github/ygaray/voiceactionengine/providers/http/RetryPolicyTest.kt"
   - "providers/src/test/kotlin/io/github/ygaray/voiceactionengine/providers/http/SafeFieldsTest.kt"
-covered_digest: "v1:sha256:fc94aea739e536abd47ce235424a60b78bc8573048ef47800d2be9950f8c0219"
+covered_digest: "v1:sha256:2a48d2ca8b3ff9ffe077e07a6c1241a40ad3c2b511c6eba1ee094f7eaa730d7f"
 behavior_unverified: 0
 overrides_applied: 0
 unverified_prohibitions:
   - statement: "No new @Suppress (plan 04-02, 04-04, 04-05, 04-07, 04-08 prohibitions); CLAUDE.md stack note says the never-throw collapse is the repo's only justified @Suppress"
     verification: judgment
-    status: flagged
-    note: "Two function-level @Suppress(\"TooGenericExceptionCaught\") were added by post-plan review fixes (AnthropicTransport.notify, CallAwait.onResponse). Each carries a written justification and passes detekt. NON-AUTHORITATIVE verdict: defensible, human acceptance recommended."
-human_verification:
-  - test: "Decide whether the two review-fix @Suppress(\"TooGenericExceptionCaught\") entries are accepted (AnthropicTransport.kt:126 notify, CallAwait.kt:45 onResponse)"
-    expected: "Owner accepts them as justified exceptions to the plans' 'no new @Suppress' prohibition (suggested override below), or asks for a narrower catch"
-    why_human: "Judgment-tier prohibition; plans said none, review fixes CR/WR-01 and IN-06 added them deliberately. Not checkable by grep, it is a policy call."
-  - test: "Confirm the WR-03 low-credit-balance mapping (400 whose message contains 'credit balance is too low' -> Billing) against a real Anthropic response, and the CR-01 accepted header-key character set (tab, space, visible ASCII)"
-    expected: "A real low-balance 400 maps to Billing; real keys never contain characters outside the accepted set"
-    why_human: "Needs a real account state / real key; the review-fix report itself marks both 'requires human verification'. Planned home is the Phase 10 live smoke. Not part of the roadmap success criteria."
+    status: resolved
+    note: "Post-verification (2026-10-01, commit a6def62): both review-fix @Suppress entries removed; the catch blocks use the ignored-name convention that detekt already allows, and ./gradlew check is green with zero @Suppress in providers/core main. No owner decision needed."
+human_verification: []
+deferred_gate2:
+  - "Phase 10 live smoke: confirm WR-03 low-credit-balance 400 -> Billing and CR-01 accepted header-key character set against a real Anthropic account/key (registered in .planning/uat-pending/04-anthropic-transport-okhttp-matrix.md)"
 ---
 
 # Phase 4: Anthropic Transport & OkHttp Matrix Verification Report
@@ -187,29 +183,11 @@ The `runCatching` in `AnthropicCanaryTest` is test code, outside the scanner's l
 
 ### Human Verification Required
 
-#### 1. Accept or reject the two review-fix `@Suppress` entries
-
-**Test:** Read `AnthropicTransport.kt:126` (`notify`) and `CallAwait.kt:45` (`onResponse`) and their comments.
-**Expected:** You accept them as justified, scoped exceptions to the plans' "no new @Suppress" rule (or ask for a narrower catch).
-**Why human:** Judgment-tier prohibition; a policy decision, not something a check can settle. If accepted, suggested override:
-
-```yaml
-overrides:
-  - must_have: "No new @Suppress in providers main code"
-    reason: "Review fixes WR-01 (observer isolation) and IN-06 (non-IO body failure must not hang the awaiter) need a broad catch in two non-cancellation-sensitive spots; each is function-scoped and justified in a comment"
-    accepted_by: "{name}"
-    accepted_at: "{ISO timestamp}"
-```
-
-#### 2. Live confirmation of two review-fix behaviors (optional, Phase 10 live smoke is the natural home)
-
-**Test:** With a real key, trigger Anthropic's low-credit-balance 400 (or compare the live message text) and confirm real keys fit tab/space/visible-ASCII.
-**Expected:** Low-balance 400 -> `Billing`; no real key is refused as `Auth` by the header-safety check.
-**Why human:** Needs real account state; review-fix report marks both as requiring human verification. Not in the roadmap success criteria.
+None blocking. The two review-fix `@Suppress` entries were removed after verification (commit `a6def62`; detekt accepts the `ignored`-named catches, `./gradlew check` green, zero `@Suppress` in `providers`/`core` main), so the owner decision is moot. The live confirmation of WR-03 (low-credit 400 -> Billing) and CR-01 (header-key character set) is deferred to the Phase 10 live smoke via the Gate-2 ledger fragment; it is not part of the roadmap success criteria.
 
 ### Gaps Summary
 
-No gaps. All five roadmap success criteria and all nine requirement IDs are backed by code I read and tests I observed passing on all three OkHttp legs, plus the gate scripts and the recorded live capture. Status is `human_needed` only because two review-fix `@Suppress` annotations contradict a judgment-tier plan prohibition and need an explicit owner decision (non-authoritative verdict: acceptable), and two review-fix behaviors await live confirmation.
+No gaps. All five roadmap success criteria and all nine requirement IDs are backed by code I read and tests I observed passing on all three OkHttp legs, plus the gate scripts and the recorded live capture. Status is `passed`: the only flagged item (two review-fix `@Suppress` annotations) was resolved by removing them after verification, and the live confirmation of two review-fix behaviors is a Gate-2 obligation for Phase 10.
 
 ---
 
