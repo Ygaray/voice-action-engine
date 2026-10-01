@@ -33,6 +33,20 @@ MIN_SDK=35
 PKG="io.github.ygaray.voiceactionengine.sample"
 LOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/vae-keystore-tester.lock"
 ADB="${ADB:-adb}"
+# The key helper: it moves a key by file reference and refuses the personal phone itself. PUSH_TEST_KEY names a binary only.
+PUSH_TEST_KEY="${PUSH_TEST_KEY:-push-test-key}"
+
+PHASE_DIR=".planning/phases/10-sample-harness-gate-1-docs"
+DECISION_FILE="$PHASE_DIR/10-LIVE-LEG-DECISION.md"
+EVIDENCE_DIR="$PHASE_DIR/evidence"
+HOST_FIXTURE="sample/src/debug/assets/sb-a10-fixture.json"
+# The expected fixture digest is read from this Kotlin constant (single source of truth), never duplicated here.
+FIXTURE_KT="sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/fixture/FixtureLoader.kt"
+DEVICE_FIXTURE="files/fixture/sb-a10-fixture.json"
+LOG_DIR="sample/build/device-run"
+APK_DIR="sample/build/outputs/apk/debug"
+STAMP_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/vae-gate1/anthropic-agentic.ts"
+WARM_WINDOW_SECONDS=360
 
 SUBCOMMANDS="preflight build-install push-fixture push-keys capture-start capture-save cold-stamp verify-keys-gone cleanup"
 # Exactly the LegId.wire set of sample/.../evidence/EvidenceLine.kt (the verifier proves the parity).
@@ -45,6 +59,7 @@ ARG=""
 TARGET=""
 MODEL=""
 SDK=""
+STAGING=""
 
 # Every adb invocation goes through adb_t: a timeout, and fd 9 (the lock) closed so a daemonized adb server never
 # inherits and holds the lock. The caller supplies -s <target> (or `connect <wifi>`).
@@ -52,9 +67,21 @@ adb_t() { local secs="$1"; shift; timeout "$secs" "$ADB" "$@" 9>&-; }
 adbt() { adb_t 30 -s "$TARGET" "$@"; }
 strip_cr() { tr -d '\r'; }
 
-# finish <code> <OK|FAIL|INFRA|ERROR> <details>: print the one final line and exit.
+# The device-side staging file of push-fixture is ALWAYS removed: on every normal finish, and on a signal or abnormal exit.
+rm_staging() {
+  [ -n "$STAGING" ] || return 0
+  local path="$STAGING"
+  STAGING=""
+  [ -n "$TARGET" ] && adb_t 15 -s "$TARGET" shell rm -f "$path" >/dev/null 2>&1
+  return 0
+}
+trap 'rm_staging; exit 130' INT TERM HUP
+trap 'rm_staging' EXIT
+
+# finish <code> <OK|FAIL|INFRA|ERROR> <details>: remove any staging file, print the one final line and exit.
 finish() {
   local code="$1" outcome="$2" details="$3"
+  rm_staging
   echo "SAMPLE_GATE1: $outcome sub=$SUB $details"
   exit "$code"
 }
@@ -149,18 +176,194 @@ package_installed() {
 
 not_implemented() { finish 2 ERROR "reason=not_implemented"; }
 
+# ---- host-side checks, run before the lock and before any adb call ----------------------------------------------------
+
+# The expected fixture digest: the 64-hex literal of the FIXTURE_SHA256 constant in FixtureLoader.kt.
+expected_fixture_sha() {
+  grep -oE 'FIXTURE_SHA256 *= *"[0-9a-f]{64}"' "$FIXTURE_KT" 2>/dev/null | grep -oE '[0-9a-f]{64}' | head -1
+}
+
+host_precheck() {
+  case "$SUB" in
+    push-keys)
+      # D-13: no live spend, and no key leaves the host, until the recorded decision says so. A deferred or missing file refuses.
+      if ! grep -qx 'decision: approved' "$DECISION_FILE" 2>/dev/null; then
+        echo "live legs are not approved: $DECISION_FILE does not record 'decision: approved' - not pushing keys"
+        finish 2 ERROR "reason=live_legs_not_approved"
+      fi
+      ;;
+    push-fixture)
+      if [ ! -f "$HOST_FIXTURE" ]; then
+        echo "fixture missing on the host: copy the LE-1 fixture by hand per GATE1-RUNBOOK step A2"
+        finish 2 ERROR "reason=fixture_missing_on_host"
+      fi
+      EXPECTED_SHA="$(expected_fixture_sha)"
+      if [ -z "$EXPECTED_SHA" ]; then
+        echo "cannot read the FIXTURE_SHA256 constant from $FIXTURE_KT"
+        finish 2 ERROR "reason=fixture_digest_unreadable"
+      fi
+      HOST_SHA="$(sha256sum "$HOST_FIXTURE" | cut -d' ' -f1)"
+      if [ "$HOST_SHA" != "$EXPECTED_SHA" ]; then
+        echo "fixture digest mismatch (host ${HOST_SHA:0:8}, expected ${EXPECTED_SHA:0:8}): do not use; ask the orchestrator to regenerate"
+        finish 1 FAIL "reason=fixture_sha_mismatch host=${HOST_SHA:0:8} expected=${EXPECTED_SHA:0:8}"
+      fi
+      ;;
+  esac
+}
+
+# ---- cold-run stamp (host only: no device, no lock) --------------------------------------------------------------------
+
+# D-03: a cold Anthropic agentic start must be at least 360 s after the previous one. The app enforces the same window itself.
+do_cold_stamp() {
+  local now last age remaining
+  now="$(date +%s)"
+  if [ "$ARG" = write ]; then
+    if ! { mkdir -p "$(dirname "$STAMP_FILE")" && echo "$now" >"$STAMP_FILE"; }; then
+      finish 2 ERROR "reason=stamp_write_failed"
+    fi
+    finish 0 OK "stamp=written epoch=$now"
+  fi
+  if [ -e "$STAMP_FILE" ]; then
+    last="$(tr -d '[:space:]' <"$STAMP_FILE" 2>/dev/null)"
+    case "$last" in
+      '' | *[!0-9]*)
+        echo "cold stamp $STAMP_FILE is unreadable; cannot prove the run is cold"
+        finish 3 INFRA "reason=stamp_invalid"
+        ;;
+    esac
+    age=$((now - last))
+    if [ "$age" -lt "$WARM_WINDOW_SECONDS" ]; then
+      remaining=$((WARM_WINDOW_SECONDS - age))
+      [ "$remaining" -le "$WARM_WINDOW_SECONDS" ] || remaining="$WARM_WINDOW_SECONDS"
+      echo "WARM WINDOW - the last Anthropic agentic start was ${age}s ago; wait ${remaining}s for a cold run"
+      finish 3 INFRA "reason=warm_window remaining=$remaining"
+    fi
+  fi
+  finish 0 OK "cold=yes"
+}
+
+# ---- device subcommands ------------------------------------------------------------------------------------------------
+
 do_preflight() {
-  echo "target=$TARGET model=$MODEL sdk=$SDK"
-  print_foreground
   local installed=no
   package_installed && installed=yes
   finish 0 OK "target=$TARGET model=$MODEL sdk=$SDK installed=$installed"
 }
 
-# Dispatch. Device subcommands refuse a foreign serial, take the lock, resolve and verify the TESTER, then run.
+do_build_install() {
+  mkdir -p "$LOG_DIR"
+  if ! ./gradlew :sample:assembleDebug --offline -q >"$LOG_DIR/gradle.log" 2>&1 9>&-; then
+    echo "Gradle build failed; the last lines of $LOG_DIR/gradle.log:"
+    tail -n 40 "$LOG_DIR/gradle.log"
+    finish 2 ERROR "reason=build_failed target=$TARGET"
+  fi
+  local apk_count apk md5 head dirty asset listing
+  apk_count="$(find "$APK_DIR" -maxdepth 1 -name '*.apk' 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$apk_count" = 1 ] || finish 2 ERROR "reason=apk_missing target=$TARGET"
+  apk="$(find "$APK_DIR" -maxdepth 1 -name '*.apk')"
+  md5="$(md5sum "$apk" | cut -d' ' -f1)"
+  head="$(git -C "$ROOT" rev-parse --short=10 HEAD 2>/dev/null || echo unknown)"
+  if listing="$(git -C "$ROOT" status --porcelain -- sample core providers keystore scripts gradle build.gradle.kts settings.gradle.kts 2>/dev/null)"; then
+    if [ -n "$listing" ]; then dirty=1; else dirty=0; fi
+  else
+    dirty=unknown
+  fi
+  if listing="$(unzip -l "$apk" 2>/dev/null)"; then
+    if printf '%s\n' "$listing" | grep -q 'assets/sb-a10-fixture'; then asset=present; else asset=absent; fi
+  else
+    asset=unknown
+  fi
+  echo "apk_md5=$md5 head=$head dirty=$dirty asset_fixture=$asset"
+
+  if ! adb_t 180 -s "$TARGET" install -r "$apk" >/dev/null 2>&1; then
+    if [ "$(adb_t 15 -s "$TARGET" get-state 2>/dev/null | strip_cr)" != "device" ]; then
+      finish 3 INFRA "reason=tester_offline target=$TARGET"
+    fi
+    finish 2 ERROR "reason=install_failed target=$TARGET"
+  fi
+  # Freecess can freeze a backgrounded app mid-run; whitelisting is best effort and is undone by cleanup.
+  adbt shell cmd deviceidle whitelist "+$PKG" >/dev/null 2>&1 || true
+  package_installed || finish 2 ERROR "reason=install_failed target=$TARGET"
+  finish 0 OK "target=$TARGET apk_md5=$md5 head=$head dirty=$dirty asset_fixture=$asset"
+}
+
+do_push_fixture() {
+  # The digest was proven on the host (host_precheck). The staging file is removed by finish and by the EXIT trap.
+  STAGING="/data/local/tmp/vae-fx-$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n')"
+  if ! adbt push "$HOST_FIXTURE" "$STAGING" >/dev/null 2>&1; then
+    finish 2 ERROR "reason=push_failed target=$TARGET"
+  fi
+  if ! adbt shell "run-as $PKG sh -c 'mkdir -p files/fixture && cat > $DEVICE_FIXTURE' < $STAGING" >/dev/null 2>&1; then
+    finish 2 ERROR "reason=run_as_failed target=$TARGET"
+  fi
+  local remote
+  remote="$(adbt shell "run-as $PKG sha256sum $DEVICE_FIXTURE" 2>/dev/null | strip_cr | cut -d' ' -f1)"
+  if [ "$remote" != "$EXPECTED_SHA" ]; then
+    finish 1 FAIL "reason=fixture_readback_mismatch device=${remote:0:8} expected=${EXPECTED_SHA:0:8}"
+  fi
+  finish 0 OK "fixture_sha=${EXPECTED_SHA:0:8}...${EXPECTED_SHA: -7} target=$TARGET"
+}
+
+do_push_keys() {
+  local provider
+  for provider in anthropic openai openrouter; do
+    if ! timeout 120 "$PUSH_TEST_KEY" "$provider" --device "$TARGET" --package "$PKG" 9>&-; then
+      echo "stop: tell Yahir which key file to (re)create, per test-keys.md; do not work around"
+      finish 2 ERROR "reason=push_key_failed provider=$provider"
+    fi
+  done
+  finish 0 OK "providers=anthropic,openai,openrouter target=$TARGET"
+}
+
+do_verify_keys_gone() {
+  local out count
+  out="$(adbt shell "run-as $PKG ls files/test-keys" 2>&1 | strip_cr)"
+  case "$out" in
+    '' | *"No such file"*)
+      echo "test-keys dir empty"
+      finish 0 OK "keys_gone=yes"
+      ;;
+    "run-as:"* | *"not debuggable"* | *"Unknown package"*)
+      finish 2 ERROR "reason=run_as_failed target=$TARGET"
+      ;;
+  esac
+  count="$(printf '%s\n' "$out" | grep -c .)"
+  echo "plaintext key files are still present on the device (count only; names and contents are never printed)"
+  finish 1 FAIL "reason=plaintext_keys_present count=$count"
+}
+
+do_cleanup() {
+  adbt shell am force-stop "$PKG" >/dev/null 2>&1 || true
+  adbt shell "run-as $PKG rm -rf files/test-keys files/fixture" >/dev/null 2>&1 || true
+  adbt shell cmd deviceidle whitelist "-$PKG" >/dev/null 2>&1 || true
+  adb_t 60 -s "$TARGET" uninstall "$PKG" >/dev/null 2>&1 || true
+  local listing
+  listing="$(adbt shell pm list packages 2>/dev/null | strip_cr)"
+  if [ -n "$listing" ] && ! printf '%s\n' "$listing" | grep -qxF "package:$PKG"; then
+    echo "sample package removed"
+    finish 0 OK "target=$TARGET"
+  fi
+  echo "WARNING: could not prove that $PKG is gone from $TARGET"
+  finish 1 FAIL "reason=uninstall_failed target=$TARGET"
+}
+
+# ---- dispatch ----------------------------------------------------------------------------------------------------------
+
+cd "$ROOT" || finish 2 ERROR "reason=bad_root"
+[ "$SUB" = cold-stamp ] && do_cold_stamp
+
+# Device subcommands refuse a foreign serial, pass the host checks, take the lock, then resolve and verify the TESTER.
 refuse_foreign_serial
+host_precheck
 acquire_and_resolve
+echo "target=$TARGET model=$MODEL sdk=$SDK"
+print_foreground
 case "$SUB" in
   preflight) do_preflight ;;
-  *) print_foreground; not_implemented ;;
+  build-install) do_build_install ;;
+  push-fixture) do_push_fixture ;;
+  push-keys) do_push_keys ;;
+  verify-keys-gone) do_verify_keys_gone ;;
+  cleanup) do_cleanup ;;
+  *) not_implemented ;;
 esac
