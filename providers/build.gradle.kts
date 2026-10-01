@@ -61,6 +61,23 @@ val floorVersion = libs.versions.okhttp.get()
 tasks.named<Test>("test") {
     systemProperty("expected.okhttp", expectedOverride.getOrElse(floorVersion))
     testLogging { showStandardStreams = true }
+    // check stays key-free and offline: the opt-in live capture runs only through liveAnthropicCapture.
+    filter { excludeTestsMatching("*Live*") }
+}
+
+// Opt-in live capture: never a dependency of check, never up to date, and skipped unless VAE_LIVE_ANTHROPIC is 1.
+val liveTestSet = the<SourceSetContainer>()["test"]
+tasks.register<Test>("liveAnthropicCapture") {
+    group = "verification"
+    description = "Opt-in: a few bounded real Anthropic calls (Haiku 4.5, at most 6 requests); needs VAE_LIVE_ANTHROPIC=1 and a key"
+    val testSet = liveTestSet
+    testClassesDirs = testSet.output.classesDirs
+    classpath = testSet.runtimeClasspath
+    filter { includeTestsMatching("*AnthropicLiveCaptureTest") }
+    outputs.upToDateWhen { false }
+    val optIn = providers.environmentVariable("VAE_LIVE_ANTHROPIC")
+    onlyIf { optIn.orNull == "1" }
+    testLogging { showStandardStreams = true }
 }
 
 okhttpLegs.forEach { (legName, legVersion) ->
@@ -91,6 +108,7 @@ okhttpLegs.forEach { (legName, legVersion) ->
         classpath = sourceSets["test"].output + sourceSets["main"].output + legClasspath
         systemProperty("expected.okhttp", expectedOverride.getOrElse(legVersion))
         testLogging { showStandardStreams = true }
+        filter { excludeTestsMatching("*Live*") }
     }
     tasks.named("check") { dependsOn(legTest) }
 }
