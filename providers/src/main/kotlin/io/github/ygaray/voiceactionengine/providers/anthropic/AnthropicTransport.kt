@@ -35,6 +35,19 @@ private const val CONTENT_TYPE_JSON = "application/json"
 private const val MAX_REQUESTS = 3
 private const val STATUS_BAD_REQUEST = 400
 
+// No usable credential means no request. A key OkHttp would refuse as a header value (a pasted trailing newline, a
+// non-ASCII character) is a wrong key: it is answered as Auth here, because OkHttp's own refusal quotes the whole
+// value of the header in its message.
+private fun refusalFor(credential: Credential?): FailureReason? = when {
+    credential == null || credential.provider != ProviderId.ANTHROPIC ->
+        FailureReason.NotConfigured(ProviderId.ANTHROPIC)
+    !isHeaderSafe(credential.apiKey) -> FailureReason.Auth()
+    else -> null
+}
+
+// Visible ASCII, space and tab: what a header value may carry without OkHttp rejecting it.
+private fun isHeaderSafe(value: String): Boolean = value.all { it == '\t' || it in ' '..'~' }
+
 /**
  * One logical call against the Messages endpoint: encode, POST, await, decode, and at most two more POSTs: one when a
  * request failed in a way that can clear on its own, and one when the model refused a forced tool choice. The two share
@@ -88,19 +101,6 @@ internal class AnthropicTransport(
         return withContext(ioDispatcher) { sendWithRetry(call, credential, first) }
     }
 
-    // No usable credential means no request. A key OkHttp would refuse as a header value (a pasted trailing newline, a
-    // non-ASCII character) is a wrong key: it is answered as Auth here, because OkHttp's own refusal quotes the whole
-    // value of the header in its message.
-    private fun refusalFor(credential: Credential?): FailureReason? = when {
-        credential == null || credential.provider != ProviderId.ANTHROPIC ->
-            FailureReason.NotConfigured(ProviderId.ANTHROPIC)
-        !isHeaderSafe(credential.apiKey) -> FailureReason.Auth()
-        else -> null
-    }
-
-    // Visible ASCII, space and tab: what a header value may carry without OkHttp rejecting it.
-    private fun isHeaderSafe(value: String): Boolean = value.all { it == '\t' || it in ' '..'~' }
-
     // The capabilities already say whether this model takes a forced tool choice (the table, then any app override).
     private fun needsReshape(call: ProviderRequest): Boolean =
         call.request.toolChoice is ToolChoice.Required && !call.capabilities.supportsForcedToolChoice
@@ -108,10 +108,23 @@ internal class AnthropicTransport(
     // Recursion depth is bounded by MAX_REQUESTS; the wait is a suspend call, so cancelling the command ends it.
     private suspend fun sendWithRetry(call: ProviderRequest, credential: Credential, progress: Progress): ModelResult {
         val attempted = attempt(call, credential, progress.reshape)
-        observer?.onAttempt(AnthropicAttempt(progress.requestsSent, progress.kind, attempted.status))
+        notify(AnthropicAttempt(progress.requestsSent, progress.kind, attempted.status))
         val resend = planResend(call, attempted, progress) ?: return attempted.result
         resend.waitMillis?.let { sleep(it) }
         return sendWithRetry(call, credential, resend.progress)
+    }
+
+    // The observer is optional diagnostics supplied by the app: whatever it throws must never change the call's outcome
+    // (a billed, decoded answer would be lost), and its exception, which could carry any text, is dropped unread. The
+    // only function here that catches this broadly, for that one reason; it is not a suspend function, so no
+    // cancellation signal can pass through it.
+    @Suppress("TooGenericExceptionCaught")
+    private fun notify(attempt: AnthropicAttempt) {
+        try {
+            observer?.onAttempt(attempt)
+        } catch (ignored: Exception) {
+            // Intentionally empty: see above.
+        }
     }
 
     // A forced request that got the tool_choice 400 is re-sent at once, reshaped; any other failure that can clear on

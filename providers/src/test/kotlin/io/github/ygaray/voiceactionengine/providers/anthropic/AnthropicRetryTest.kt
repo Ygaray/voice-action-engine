@@ -292,6 +292,26 @@ class AnthropicRetryTest {
     }
 
     @Test(timeout = 30_000)
+    fun anObserverThatThrowsNeitherLosesTheAnswerNorStopsTheRetry() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(failure(529))
+            server.enqueue(toolAnswer())
+            server.start()
+            val provider = AnthropicProvider {
+                baseUrl = server.url("/")
+                callTimeoutMillis = 2_000
+                sleep = { }
+                attemptObserver = AnthropicAttemptObserver { error("observer bug carrying text") }
+            }
+
+            val result = provider.complete(call())
+
+            assertTrue(result is ModelResult.Success)
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test(timeout = 30_000)
     fun aRequestRefusedBeforeTheNetworkIsNotAnAttempt() {
         val otherProvider = ProviderRequest(
             model,

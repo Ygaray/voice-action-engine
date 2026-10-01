@@ -7,12 +7,13 @@ import java.util.Objects
  * one happened. Set it with [AnthropicProvider.Builder.attemptObserver].
  *
  * The observer receives facts only: the attempt's number, why it was made and the HTTP status. It never receives text,
- * headers, a body, a key or an exception message.
+ * headers, a body, a key or an exception message. Observing is diagnostics only: if the observer throws, the exception
+ * is dropped unread and the call goes on as if it had returned.
  */
 public fun interface AnthropicAttemptObserver {
     /**
      * Called once per HTTP attempt, on the provider's I/O dispatcher, after the status is known (or after the attempt
-     * failed without an answer). Return quickly and do not throw: an observer that throws fails the call.
+     * failed without an answer). Return quickly. An exception it throws is ignored and never changes the call's result.
      */
     public fun onAttempt(attempt: AnthropicAttempt)
 }
