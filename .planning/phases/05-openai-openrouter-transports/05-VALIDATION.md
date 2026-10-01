@@ -2,9 +2,9 @@
 phase: "5"
 slug: openai-openrouter-transports
 # status lifecycle: draft (seeded by plan-phase) -> validated (set by validate-phase)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-01"
 ---
 
@@ -43,32 +43,32 @@ Seeded from 05-RESEARCH.md "Validation Architecture"; the plans' `<automated>` c
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
-| PROV-08 | nested tool shape, key order, reasoning_effort/token param per rules row, forced tool_choice, require_parameters on OpenRouter forced calls only | unit (golden request) | `./gradlew :providers:test --tests '*ChatEncoderTest' --offline -q` | W0 | pending |
-| PROV-08 | capability rows, OpenRouter id normalization, GPT-6 Astra / 6.1 Sol tools-unsupported on OpenAI only | unit | `./gradlew :providers:test --tests '*ChatModelsTest' --offline -q` | W0 | pending |
-| PROV-08 | GPT-6 Astra through pipeline gives ModelUnsupported with zero requests | integration | `./gradlew :providers:test --tests '*ChatTransportTest' --offline -q` | W0 | pending |
-| PROV-08 | decode precedence, arguments decode, refusal, finish_reason, usage | unit (golden response) | `./gradlew :providers:test --tests '*ChatDecoderTest' --offline -q` | W0 | pending |
-| PROV-08 | 200-envelope errors, finish_reason error | unit + MockWebServer | `./gradlew :providers:test --tests '*ChatErrorMapTest' --offline -q` | W0 | pending |
-| PROV-12 | extended optional-property detector | unit | `./gradlew :providers:test --tests '*OptionalPropertiesTest' --offline -q` | W0 | pending |
-| PROV-12 | strict eligibility, authority, strip data | unit | `./gradlew :providers:test --tests '*ChatStrictTest' --offline -q` | W0 | pending |
-| PROV-12 | per-vendor omitted optional arrives absent | integration | `./gradlew :providers:test --tests '*ChatAbsentOptionalTest' --offline -q` | W0 | pending |
-| PROV-09 | retry matrix; one tool execution and one commit under retry | MockWebServer + pipeline | `./gradlew :providers:test --tests '*ChatRetryTest' --tests '*ChatPipelineRetryTest' --offline -q` | W0 | pending |
-| PROV-11 / PROV-13 | clean client reuse, body API, 60 s default, cancellation | MockWebServer | `./gradlew :providers:test --tests '*ChatTimeoutTest' --tests '*ChatCancellationTest' --offline -q` | W0 | pending |
-| TEL-04 | canary through pipeline + Chat transport | integration (all legs) | `./gradlew :providers:test --tests '*ChatCanaryTest' --offline -q` | W0 | pending |
-| TEL-01 | identical normalized Usage and ceiling accounting across Anthropic, OpenAI, OpenRouter | integration | `./gradlew :providers:test --tests '*TokenParityTest' --offline -q` | W0 | pending |
-| BLD-06 | all of the above on 4.12.0 / 5.2.1 / 5.5.0 | matrix | `./gradlew :providers:test :providers:testOkhttp521 :providers:testOkhttp550 --offline` | automatic | pending |
+| PROV-08 | nested tool shape, key order, reasoning_effort/token param per rules row, forced tool_choice, require_parameters on OpenRouter forced calls only | unit (golden request) | `./gradlew :providers:test --tests '*ChatEncoderTest' --offline -q` | ✅ | green |
+| PROV-08 | capability rows, OpenRouter id normalization, GPT-6 Astra / 6.1 Sol tools-unsupported on OpenAI only | unit | `./gradlew :providers:test --tests '*ChatModelsTest' --offline -q` | ✅ | green |
+| PROV-08 | GPT-6 Astra through pipeline gives ModelUnsupported with zero requests | integration | `./gradlew :providers:test --tests '*ChatTransportTest' --offline -q` | ✅ | green |
+| PROV-08 | decode precedence, arguments decode, refusal, finish_reason, usage | unit (golden response) | `./gradlew :providers:test --tests '*ChatDecoderTest' --offline -q` | ✅ | green |
+| PROV-08 | 200-envelope errors, finish_reason error | unit + MockWebServer | `./gradlew :providers:test --tests '*ChatErrorMapTest' --offline -q` | ✅ | green |
+| PROV-12 | extended optional-property detector | unit | `./gradlew :providers:test --tests '*OptionalPropertiesTest' --offline -q` | ✅ | green |
+| PROV-12 | strict eligibility, authority, strip data | unit | `./gradlew :providers:test --tests '*ChatStrictTest' --offline -q` | ✅ | green |
+| PROV-12 | per-vendor omitted optional arrives absent | integration | `./gradlew :providers:test --tests '*ChatAbsentOptionalTest' --offline -q` | ✅ | green |
+| PROV-09 | retry matrix; one tool execution and one commit under retry | MockWebServer + pipeline | `./gradlew :providers:test --tests '*ChatRetryTest' --tests '*ChatPipelineRetryTest' --offline -q` | ✅ | green |
+| PROV-11 / PROV-13 | clean client reuse, body API, 60 s default, cancellation | MockWebServer | `./gradlew :providers:test --tests '*ChatTimeoutTest' --tests '*ChatCancellationTest' --offline -q` | ✅ | green |
+| TEL-04 | canary through pipeline + Chat transport | integration (all legs) | `./gradlew :providers:test --tests '*ChatCanaryTest' --offline -q` | ✅ | green |
+| TEL-01 | identical normalized Usage and ceiling accounting across Anthropic, OpenAI, OpenRouter | integration | `./gradlew :providers:test --tests '*TokenParityTest' --offline -q` | ✅ | green |
+| BLD-06 | all of the above on 4.12.0 / 5.2.1 / 5.5.0 | matrix | `./gradlew :providers:test :providers:testOkhttp521 :providers:testOkhttp550 --offline` | ✅ | green |
 
-*Status: pending / green / red / flaky*
+*Status: pending / green / red / flaky. All rows green: 411 tests per leg (4.12.0, 5.2.1, 5.5.0), 0 failures, 0 skipped; `./gradlew check --offline` rerun green by the finalizer.*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `schema/OptionalPropertiesTest.kt`, `chat/ChatStrictTest.kt`, `chat/ChatModelsTest.kt`
-- [ ] `chat/ChatFixtures.kt`
-- [ ] `chat/ChatEncoderTest.kt`, `chat/ChatDecoderTest.kt`, `chat/ChatErrorMapTest.kt`
-- [ ] `chat/ChatTransportTest.kt`, `ChatRetryTest.kt`, `ChatPipelineRetryTest.kt`, `ChatTimeoutTest.kt`, `ChatCancellationTest.kt`, `ChatMalformedKeyTest.kt`
-- [ ] `chat/ChatAbsentOptionalTest.kt`, `chat/ChatCanaryTest.kt`, `parity/TokenParityTest.kt`
-- [ ] golden resources plus manifest (derivatives first); a replay test fails when a manifest entry marked captured has no file
+- [x] `schema/OptionalPropertiesTest.kt`, `chat/ChatStrictTest.kt`, `chat/ChatModelsTest.kt`
+- [x] `chat/ChatFixtures.kt`
+- [x] `chat/ChatEncoderTest.kt`, `chat/ChatDecoderTest.kt`, `chat/ChatErrorMapTest.kt`
+- [x] `chat/ChatTransportTest.kt`, `ChatRetryTest.kt`, `ChatPipelineRetryTest.kt`, `ChatTimeoutTest.kt`, `ChatCancellationTest.kt`, `ChatMalformedKeyTest.kt`
+- [x] `chat/ChatAbsentOptionalTest.kt`, `chat/ChatCanaryTest.kt`, `parity/TokenParityTest.kt`
+- [x] golden resources plus manifest (derivatives first); a replay test fails when a manifest entry marked captured has no file
 
 No new framework install.
 
@@ -85,13 +85,27 @@ No new framework install.
 
 ## Validation Sign-Off
 
-> Plan-time state is a DRAFT. `status: draft` and `nyquist_compliant: false` are finalized post-execution by the Nyquist finalizer only.
+> Finalized post-execution (2026-10-01) by the Nyquist finalizer.
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 240s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` stays `false` at plan time
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 240s
+- [x] _(finalizer-only, post-execution)_ `nyquist_compliant: true` - zero automatable gaps
 
-**Approval:** pending (finalizer-owned)
+**Approval:** validated 2026-10-01 (finalizer)
+
+---
+
+## Validation Audit 2026-10-01
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 automatable |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Every requirement row maps to an existing test class (plus extra classes: ChatMessageEncoderTest, OpenAiModelRulesTest, ChatGoldenReplayTest, ChatGoldenSanitizerTest, ChatCaptureRunTest, ChatCaptureCallPlanTest, RetryPolicyTest, SafeFieldsTest). `./gradlew check --offline` was rerun green: 411 tests on each of the 4.12.0, 5.2.1 and 5.5.0 legs, 0 failures, 0 skipped.
+
+Non-automatable carries (not gaps): a real OpenRouter response body with omitted optionals (EDIT-shaped live proof per provider is assigned to Phase 10 via VER-03; the derived `openrouter_edit_absent_optional` golden covers it deterministically), and low-credit mapping plus accepted key character set (Phase 10 Gate-2 smoke). The live capture (11 requests) ran once and is audited as evidence outside `check`.
