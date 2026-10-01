@@ -84,6 +84,9 @@ internal object OpenAiModelRules {
         }
     }
 
+    /** The rules for a routed model that is not OpenAI's: no reasoning parameter, the legacy token name, floor 16. */
+    fun routedDefaultRules(): ChatWireRules = rules(null, MAX_TOKENS, OPENROUTER_MIN_MAX_TOKENS)
+
     private fun rules(effort: String?, tokenParam: String, minTokens: Int) =
         ChatWireRules(effort, tokenParam, minTokens)
 
