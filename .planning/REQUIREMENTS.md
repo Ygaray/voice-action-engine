@@ -28,8 +28,8 @@
 - [ ] **CORE-03**: `TierSelector.Linear` (default) and `TierSelector.Fixed(tier)` select the start tier.
 - [ ] **CORE-04**: `TierPolicy` is read per call from an app-supplied source and caps `offlineOnly`, `maxTier` (expressed as a stable public `StrategyId`, not a ladder index — consumers persist it and the ladder grows in v1.1), `allowedProviders`, max iterations (default 6), token ceiling (default 60,000) and max tokens per turn (default 4,096); `maxIterations < 2` is rejected. `offlineOnly` with no on-device provider available returns a loud `Failed` with **zero** HTTP calls; likewise an ON_DEVICE tier with no usable declared fallback returns loud `Failed(ProviderUnavailable)` and never silently climbs to a cloud tier (orchestrator ruling).
 - [ ] **CORE-05**: Every command outcome is returned, never thrown: any exception collapses to a typed outcome through one collapse helper, and `CancellationException` always propagates (rethrown before any broad catch; engine timeouts are `TIMEOUT`, distinct from `NETWORK`).
-- [ ] **CORE-06**: Failures carry a typed, open (`Other` leaf) `FailureReason` at least as fine as SB's: auth, billing, rate-limit, overloaded, timeout, network, malformed-response, malformed-tool-args, refusal, max-tokens, no-tool-call, budget-exceeded, tool-failure, not-configured, provider-unavailable — plus the provider request id when one exists. Never CT-style collapse to one opaque bucket.
-- [ ] **CORE-07**: Growing public taxonomies (failure/escalation/hold reasons, events) are open or carry an `Other` leaf, and growing public types are regular classes (not `data class`), so post-tag additions don't break consumers' exhaustive `when` or binary compat. `ProviderId` is a value class with `ANTHROPIC | OPENAI | OPENROUTER | ON_DEVICE` constants.
+- [x] **CORE-06**: Failures carry a typed, open (`Other` leaf) `FailureReason` at least as fine as SB's: auth, billing, rate-limit, overloaded, timeout, network, malformed-response, malformed-tool-args, refusal, max-tokens, no-tool-call, budget-exceeded, tool-failure, not-configured, provider-unavailable — plus the provider request id when one exists. Never CT-style collapse to one opaque bucket.
+- [x] **CORE-07**: Growing public taxonomies (failure/escalation/hold reasons, events) are open or carry an `Other` leaf, and growing public types are regular classes (not `data class`), so post-tag additions don't break consumers' exhaustive `when` or binary compat. `ProviderId` is a value class with `ANTHROPIC | OPENAI | OPENROUTER | ON_DEVICE` constants.
 
 - [ ] **CORE-08 (A19)**: An app can declare a non-mutating tool as `terminal` (declaring it mutating fails at build time). When the model calls it, the engine sends no tool_result and starts no further turn; earlier calls in that turn dispatch normally, in order; the run ends as `Completed` with a new nullable `terminalCall = TerminalCall(toolName, arguments: JsonObject)` field (`reply` null; commits/held carried; tier terminal). `:core` ships `Clarification(question, options: List<ClarificationOption(id, label)>)` (opaque app ids — CT food rows, SB list ids), a `ToolSpec.clarification(...)` builder and `TerminalCall.asClarification()`.
 - [ ] **CORE-09 (A19)**: `CommandInput` gains `parentRunId: String? = null`; a follow-up command (e.g. the chosen clarification option, rendered by the app's user-turn hook with the original transcript + question + choice) is a new run linked by `parentRunId` in the trace and in `CommitSink`/`onRunClosed`. No prior-transcript resumption in v1.0; the cached prefix is unchanged.
@@ -166,8 +166,8 @@
 | CORE-03 | Phase 2 | Pending |
 | CORE-04 | Phase 2 | Pending |
 | CORE-05 | Phase 2 | Pending |
-| CORE-06 | Phase 2 | Pending |
-| CORE-07 | Phase 2 | Pending |
+| CORE-06 | Phase 2 | Complete |
+| CORE-07 | Phase 2 | Complete |
 | CORE-08 | Phase 2 | Pending |
 | CORE-09 | Phase 2 | Pending |
 | GATE-01 | Phase 2 | Pending |
