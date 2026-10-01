@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.provider.AiProvider
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
@@ -41,6 +42,9 @@ private const val ROLE_ASSISTANT = "assistant"
 private const val MAX_TOKENS = ConversationScript.MAX_TOKENS
 private const val THINKING_MAX_TOKENS = ConversationScript.THINKING_MAX_TOKENS
 private const val TAG_LONG_SYSTEM = "long_system"
+private const val MESSAGES_NOT_ONCE = "messages array not found exactly once"
+private const val PREFIX_CHANGED = "prefix changed"
+private const val TAIL_CHANGED = "tail changed"
 private val THINKING_TAGS = setOf("thinking", "reasoning_details")
 
 /** One tool result as it appears on the wire of a request. [content] is null when the wire carried no text. */
@@ -125,8 +129,6 @@ private class Replayer(private val dialect: WireDialect, private val row: Conver
     private val bodies = mutableListOf<String>()
     private val violations = mutableListOf<String>()
     private val messages = mutableListOf<Message>(UserMessage(ConversationScript.USER_PROMPT))
-    private val longSystem = TAG_LONG_SYSTEM in row.tags
-    private val maxTokens = if (row.tags.any { it in THINKING_TAGS }) THINKING_MAX_TOKENS else MAX_TOKENS
 
     fun run(turns: List<ConversationTurn>): ConversationReplay {
         for ((index, turn) in turns.withIndex()) {
@@ -137,7 +139,7 @@ private class Replayer(private val dialect: WireDialect, private val row: Conver
 
     // True while the conversation can go on to a next turn.
     private fun replayTurn(number: Int, turn: ConversationTurn, last: Boolean): Boolean {
-        val body = dialect.encode(row.model, ConversationScript.request(messages.toList(), longSystem, maxTokens))
+        val body = dialect.encode(row.model, rowRequest(row, messages.toList()))
         bodies += body
         if (!sameMessages(sentMessages(body), turn.messages)) {
             violations += "turn $number: messages differ from the golden"
@@ -175,9 +177,64 @@ private class Replayer(private val dialect: WireDialect, private val row: Conver
     }
 }
 
+/**
+ * The request a row's conversation sends for [messages]: the row's system text and token limit, and [tools] (the
+ * script's own tools unless a caller changes them). The one place the row's tags are turned into request settings.
+ */
+internal fun rowRequest(
+    row: ConversationRow,
+    messages: List<Message>,
+    tools: List<ToolSpec> = ConversationScript.tools(),
+): ModelRequest {
+    val maxTokens = if (row.tags.any { it in THINKING_TAGS }) THINKING_MAX_TOKENS else MAX_TOKENS
+    val base = ConversationScript.request(messages, TAG_LONG_SYSTEM in row.tags, maxTokens)
+    return ModelRequest(
+        base.system,
+        messages,
+        tools,
+        base.toolChoice,
+        base.maxTokens,
+        base.cache,
+        base.singleToolCall,
+    )
+}
+
 /** The messages array of a request body. */
 internal fun sentMessages(body: String): JsonArray =
     (Json.parseToJsonElement(body) as JsonObject)[KEY_MESSAGES] as JsonArray
+
+// The bytes of a body that the append-only rule compares: everything up to the end of the last message, and the rest.
+private class MessagesSplit(val head: String, val tail: String) {
+    override fun toString(): String = "MessagesSplit"
+}
+
+// Null unless the body holds its messages array, as compact text after the key, exactly once.
+private fun splitAtMessages(body: String): MessagesSplit? {
+    val array = (Json.parseToJsonElement(body) as? JsonObject)?.get(KEY_MESSAGES) as? JsonArray
+    val needle = "\"$KEY_MESSAGES\":" + array?.let { canonicalJson(it.toString()) }
+    val at = body.indexOf(needle)
+    val once = array != null && at >= 0 && body.indexOf(needle, at + 1) < 0
+    // The head stops short of the array's closing bracket, so a longer array still starts with it.
+    val end = at + needle.length
+    return if (once) MessagesSplit(body.substring(0, end - 1), body.substring(end)) else null
+}
+
+/**
+ * The append-only rule for two request bodies of one conversation, [previous] sent before [next]. The head of a body is
+ * its bytes from the start through the end of its last message; the tail is whatever follows the messages array. A
+ * later request may only extend the head and must repeat the tail. Returns a fixed phrase naming the kind of change
+ * ("prefix changed", "tail changed"), never any body text, or null when [next] only appends.
+ */
+internal fun appendOnlyViolation(previous: String, next: String): String? {
+    val before = splitAtMessages(previous)
+    val after = splitAtMessages(next)
+    return when {
+        before == null || after == null -> MESSAGES_NOT_ONCE
+        !next.startsWith(before.head) -> PREFIX_CHANGED
+        before.tail != after.tail -> TAIL_CHANGED
+        else -> null
+    }
+}
 
 /**
  * The whole-history replay rule: the raw turn of every response that is followed by a later request must appear, as the

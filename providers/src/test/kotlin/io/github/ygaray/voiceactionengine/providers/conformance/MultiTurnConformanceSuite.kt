@@ -2,6 +2,7 @@ package io.github.ygaray.voiceactionengine.providers.conformance
 
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.Message
@@ -14,6 +15,7 @@ import kotlinx.serialization.json.JsonArray
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -89,6 +91,42 @@ internal abstract class MultiTurnConformanceSuite {
     }
 
     @Test
+    fun everyIterationOnlyAppendsToTheCachedPrefix() {
+        for (row in rows()) {
+            val bodies = replayConversation(dialect, row, turnsOf(row)).bodies
+            bodies.zipWithNext().forEachIndexed { pair, (previous, next) ->
+                val label = "${row.case}: request ${pair + 1} to ${pair + 2}"
+                assertEquals(label, null, appendOnlyViolation(previous, next))
+            }
+        }
+    }
+
+    @Test
+    fun aRewriteOfAnEarlierTurnOrOfTheToolsFailsTheAppendOnlyCheck() {
+        val row = rows().first()
+        val assistants = assistantTurns(row, turnsOf(row))
+        val previous = replayConversation(dialect, row, turnsOf(row)).bodies.last()
+        val next = { history: List<Message>, tools: List<ToolSpec> ->
+            dialect.encode(row.model, rowRequest(row, history + UserMessage(FOLLOW_UP), tools))
+        }
+        val history = fullHistory(assistants)
+        // The control: the unchanged history, one more user message and the same tools only append.
+        val control = next(history, ConversationScript.tools())
+        assertEquals("${row.case}: control", null, appendOnlyViolation(previous, control))
+        val edited = listOf<Message>(UserMessage(ConversationScript.USER_PROMPT + "!")) + history.drop(1)
+        val rewritten = history.toMutableList().also { it[1] = withoutStamp(assistants.first()) }
+        val tools = ConversationScript.tools().map { if (it.name == "count_items") describedAs(it, "Counts.") else it }
+        val mutated = mapOf(
+            "an earlier user message" to next(edited, ConversationScript.tools()),
+            "an earlier assistant turn" to next(rewritten, ConversationScript.tools()),
+            "a tool description" to next(history, tools),
+        )
+        for ((what, body) in mutated) {
+            assertNotNull("${row.case}: a rewrite of $what went unnoticed", appendOnlyViolation(previous, body))
+        }
+    }
+
+    @Test
     fun aStampForAnotherProviderOrModelFailsBeforeAnyRequest() {
         val (row, turn) = firstToolTurn()
         val stamp = checkNotNull(turn.nativeReplay)
@@ -138,6 +176,12 @@ internal abstract class MultiTurnConformanceSuite {
         return row to turn
     }
 
+    // The whole conversation as the loop holds it after the last turn: the prompt, then every turn and its results.
+    private fun fullHistory(assistants: List<AssistantMessage>): List<Message> =
+        listOf<Message>(UserMessage(ConversationScript.USER_PROMPT)) + assistants.flatMap { turn ->
+            if (turn.toolCalls.isEmpty()) listOf(turn) else listOf(turn, ConversationScript.results(turn))
+        }
+
     private fun checkResults(label: String, assistant: AssistantMessage, messages: JsonArray, at: Int, next: Int) {
         val calls = assistant.toolCalls
         assertEquals("$label: result message count", dialect.resultMessageCount(calls.size), next - at - 1)
@@ -152,6 +196,24 @@ internal abstract class MultiTurnConformanceSuite {
 }
 
 private const val HTTP_OK = 200
+private const val FOLLOW_UP = "And once more."
+private const val EDIT = "!"
+
+// The turn without its native replay, with one text part changed (or one added when it has none).
+private fun withoutStamp(turn: AssistantMessage): AssistantMessage {
+    val at = turn.parts.indexOfFirst { it is AssistantPart.Text }
+    val parts = if (at < 0) {
+        listOf<AssistantPart>(AssistantPart.Text(EDIT)) + turn.parts
+    } else {
+        turn.parts.mapIndexed { index, part ->
+            if (index == at) AssistantPart.Text((part as AssistantPart.Text).text + EDIT) else part
+        }
+    }
+    return AssistantMessage(parts)
+}
+
+private fun describedAs(tool: ToolSpec, description: String): ToolSpec =
+    ToolSpec(tool.name, description, tool.inputSchema, tool.mutating, tool.terminal, tool.strict)
 
 /** What the real provider answered to a request and how many HTTP requests reached the server meanwhile. */
 private class Sent(val result: ModelResult, val requests: Int) {
