@@ -21,6 +21,11 @@ private const val EPHEMERAL = "ephemeral"
 private const val ROLE = "role"
 private const val ROLE_USER = "user"
 private const val CONTENT = "content"
+private const val TYPE = "type"
+private const val TEXT = "text"
+
+// The most tools one request may mark strict; Anthropic rejects a request with more.
+private const val MAX_STRICT_TOOLS = 20
 
 /**
  * Encodes one request as the Messages API body.

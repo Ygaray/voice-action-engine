@@ -8,9 +8,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.longOrNull
 
-/** The most tools one request may mark strict; Anthropic rejects a request with more. */
-internal const val MAX_STRICT_TOOLS = 20
-
 private const val TYPE_KEY = "type"
 private const val TYPE_OBJECT = "object"
 private const val PROPERTIES = "properties"

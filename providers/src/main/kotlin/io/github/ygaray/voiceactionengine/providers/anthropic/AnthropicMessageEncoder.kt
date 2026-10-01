@@ -14,8 +14,8 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-internal const val TYPE = "type"
-internal const val TEXT = "text"
+private const val TYPE = "type"
+private const val TEXT = "text"
 private const val ROLE_USER = "user"
 private const val ROLE_ASSISTANT = "assistant"
 

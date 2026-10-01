@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
 
 class OkHttpVersionGuardTest {
 
@@ -19,6 +20,17 @@ class OkHttpVersionGuardTest {
         val jar = OkHttpClient::class.java.protectionDomain.codeSource.location
         println("OKHTTP_RUNTIME=$actual expected=$expected jar=$jar")
         assertEquals(expected, actual)
+    }
+
+    @Test
+    fun mockWebServerRuntimeMatchesLeg() {
+        val expected = System.getProperty("expected.okhttp") ?: FLOOR_VERSION
+        // okhttp and mockwebserver are swapped together per leg; a leg that kept the floor mockwebserver would be a
+        // false green, so the jar the legacy MockWebServer class was really loaded from has to carry the leg's version.
+        val server = Class.forName("okhttp3.mockwebserver.MockWebServer")
+        val jar = File(server.protectionDomain.codeSource.location.toURI()).name
+        println("MOCKWEBSERVER_RUNTIME=$jar expected=$expected")
+        assertEquals("mockwebserver-$expected.jar", jar)
     }
 
     @Test
