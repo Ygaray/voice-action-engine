@@ -6,13 +6,23 @@ import io.github.ygaray.voiceactionengine.providers.http.isTransientStatus
 import io.github.ygaray.voiceactionengine.providers.http.safeRequestId
 import io.github.ygaray.voiceactionengine.providers.http.safeToken
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 private const val STATUS_OK = 200
+private const val STATUS_BAD_REQUEST = 400
 private const val STATUS_UNAUTHORIZED = 401
+private const val STATUS_PAYMENT_REQUIRED = 402
+private const val STATUS_FORBIDDEN = 403
+private const val STATUS_NOT_FOUND = 404
+private const val STATUS_REQUEST_TIMEOUT = 408
 private const val STATUS_TOO_MANY_REQUESTS = 429
+private const val STATUS_SERVICE_UNAVAILABLE = 503
+private const val STATUS_GATEWAY_TIMEOUT = 504
+private const val STATUS_ORIGIN_TIMEOUT = 524
+private const val STATUS_OVERLOADED = 529
 private const val STATUS_MIN = 100
 private const val STATUS_MAX = 599
 
@@ -22,10 +32,26 @@ private const val KEY_CODE = "code"
 private const val KEY_TYPE = "type"
 private const val KEY_METADATA = "metadata"
 private const val KEY_ERROR_TYPE = "error_type"
+private const val KEY_MESSAGE = "message"
+private const val KEY_REASONS = "reasons"
 
+private const val QUOTA_MARKER = "insufficient_quota"
+private const val CONTEXT_LENGTH_CODE = "context_length_exceeded"
+private const val RESPONSES_ENDPOINT_MARKER = "/v1/responses"
+private const val NO_ENDPOINTS_MARKER = "No endpoints found that support"
+
+// The status decides the reason once refine() has had its say; any status not listed (500, 502, 524, 418...) is
+// HttpError.
 private val STATUS_REASONS: Map<Int, () -> FailureReason> = mapOf(
     STATUS_UNAUTHORIZED to { FailureReason.Auth() },
+    STATUS_FORBIDDEN to { FailureReason.Auth() },
+    STATUS_PAYMENT_REQUIRED to { FailureReason.Billing() },
+    STATUS_NOT_FOUND to { FailureReason.ModelNotFound() },
+    STATUS_REQUEST_TIMEOUT to { FailureReason.Timeout() },
+    STATUS_GATEWAY_TIMEOUT to { FailureReason.Timeout() },
     STATUS_TOO_MANY_REQUESTS to { FailureReason.RateLimited() },
+    STATUS_SERVICE_UNAVAILABLE to { FailureReason.Overloaded() },
+    STATUS_OVERLOADED to { FailureReason.Overloaded() },
 )
 
 /**
@@ -68,7 +94,9 @@ internal fun parseChatError(
  */
 internal fun chatEnvelopeError(root: JsonObject, requestIdHeader: String?, requestIdInBody: Boolean): ChatErrorInfo? {
     val error = root[KEY_ERROR] as? JsonObject ?: return null
-    val status = numericCode(error) ?: STATUS_OK
+    // OpenRouter reports its HTTP-like status as a number in error.code; OpenAI's code is a string.
+    val code = (error[KEY_CODE] as? JsonPrimitive)?.takeUnless { it.isString }
+    val status = code?.content?.toIntOrNull()?.takeIf { it in STATUS_MIN..STATUS_MAX } ?: STATUS_OK
     return buildInfo(status, root, requestIdHeader, requestIdInBody)
 }
 
@@ -87,24 +115,40 @@ private fun buildInfo(
 ): ChatErrorInfo {
     val error = root?.get(KEY_ERROR) as? JsonObject
     val bodyId = if (requestIdInBody) safeRequestId(textField(root, KEY_ID)) else null
+    val quota = isQuotaExhausted(error)
     return ChatErrorInfo(
         status = status,
-        errorType = errorTypeOf(error),
+        // The code names the failure best (OpenAI's string code), then the type, then OpenRouter's metadata error_type.
+        errorType = safeToken(textField(error, KEY_CODE))
+            ?: safeToken(textField(error, KEY_TYPE))
+            ?: safeToken(textField(error?.get(KEY_METADATA) as? JsonObject, KEY_ERROR_TYPE)),
         requestId = safeRequestId(requestIdHeader) ?: bodyId,
-        refined = null,
-        transient = isTransientStatus(status),
+        refined = refine(status, error, quota),
+        // An exhausted quota arrives as a 429 yet never clears by waiting, so it is final.
+        transient = (isTransientStatus(status) || status == STATUS_ORIGIN_TIMEOUT) && !quota,
     )
 }
 
-private fun errorTypeOf(error: JsonObject?): String? =
-    safeToken(textField(error, KEY_CODE))
-        ?: safeToken(textField(error, KEY_TYPE))
-        ?: safeToken(textField(error?.get(KEY_METADATA) as? JsonObject, KEY_ERROR_TYPE))
+// Refinements read the error text into locals only; they win over the status table, in this order.
+private fun refine(status: Int, error: JsonObject?, quota: Boolean): FailureReason? = when {
+    quota -> FailureReason.Billing()
+    textField(error, KEY_CODE) == CONTEXT_LENGTH_CODE -> FailureReason.ContextWindowExceeded()
+    isUnsupportedEndpoint(status, textField(error, KEY_MESSAGE)) -> FailureReason.ModelUnsupported()
+    status == STATUS_FORBIDDEN && (error?.get(KEY_METADATA) as? JsonObject)?.get(KEY_REASONS) is JsonArray ->
+        FailureReason.Refusal()
+    else -> null
+}
 
-// OpenRouter reports its HTTP-like status as a number in error.code; OpenAI's code is a string.
-private fun numericCode(error: JsonObject): Int? {
-    val primitive = (error[KEY_CODE] as? JsonPrimitive)?.takeUnless { it.isString }
-    return primitive?.content?.toIntOrNull()?.takeIf { it in STATUS_MIN..STATUS_MAX }
+private fun isQuotaExhausted(error: JsonObject?): Boolean =
+    textField(error, KEY_CODE) == QUOTA_MARKER || textField(error, KEY_TYPE) == QUOTA_MARKER
+
+// A model that cannot take the request on this endpoint: OpenAI points reasoning-with-tools models at the Responses
+// API, and OpenRouter has no route for a parameter the model does not support.
+private fun isUnsupportedEndpoint(status: Int, message: String?): Boolean {
+    val responsesApi = status == STATUS_BAD_REQUEST || status == STATUS_NOT_FOUND
+    return message != null &&
+        ((responsesApi && message.contains(RESPONSES_ENDPOINT_MARKER)) ||
+            (status == STATUS_NOT_FOUND && message.contains(NO_ENDPOINTS_MARKER)))
 }
 
 private fun parseObject(body: String?): JsonObject? {
