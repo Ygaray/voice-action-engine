@@ -35,6 +35,9 @@ private const val MAX_STRICT_TOOLS = 20
  * for every call that shares them. Per-request content (the user's words, language, date) only ever appears under
  * `messages`. Nothing outside those keys is sent.
  *
+ * The one cache breakpoint sits after the static prefix. The request's `conversationTail` cache flag is deliberately
+ * ignored in v1.0: no breakpoint is ever placed on a message (a moving-tail breakpoint is a later version's work).
+ *
  * With [reshape] the request asks for a tool the model may not be forced to call: the tool choice is `auto`, the tools
  * that can take strict mode get it, and one line naming the required tool closes the last user message. The system text
  * and the tool definitions are otherwise untouched.

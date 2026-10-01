@@ -95,7 +95,9 @@ private const val AUTO_HASH = 1
  * Which parts of a request the provider is asked to cache.
  *
  * @property staticPrefix true to cache the frozen tools plus system prefix.
- * @property conversationTail true to also cache the moving tail of the conversation.
+ * @property conversationTail true to also cache the moving tail of the conversation. A provider may ignore it: the
+ * Anthropic provider in v1.0 does (it places a single breakpoint after the static prefix), and honouring the tail for
+ * growing agentic transcripts is deferred to a later version.
  */
 public class CacheDirective(
     public val staticPrefix: Boolean,
