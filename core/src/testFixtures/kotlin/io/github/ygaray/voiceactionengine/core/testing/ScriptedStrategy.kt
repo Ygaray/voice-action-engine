@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -17,13 +18,19 @@ public typealias StrategyStep = suspend (CommandInput, CommandSession) -> Strate
  *
  * @param id the tier's id.
  * @param steps one step per expected execution, in order.
+ * @param capabilities the providers the tier declares; any provider unless a test says otherwise.
  */
 public class ScriptedStrategy(
     override val id: StrategyId,
     steps: List<StrategyStep>,
+    override val capabilities: StrategyCapabilities = StrategyCapabilities.ANY_PROVIDER,
 ) : CommandStrategy {
     /** A strategy playing [steps] in order. */
     public constructor(id: StrategyId, vararg steps: StrategyStep) : this(id, steps.toList())
+
+    /** A strategy declaring [capabilities] and playing [steps] in order. */
+    public constructor(id: StrategyId, capabilities: StrategyCapabilities, vararg steps: StrategyStep) :
+        this(id, steps.toList(), capabilities)
 
     private val script = ScriptedResponses(steps)
     private val executionCount = AtomicInteger()

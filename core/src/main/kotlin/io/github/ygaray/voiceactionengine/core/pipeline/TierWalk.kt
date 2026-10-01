@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 
 private const val ATTEMPT_COMPLETED = "completed"
 private const val ATTEMPT_ESCALATED = "escalated"
@@ -18,8 +19,7 @@ private const val ATTEMPT_FAILED = "failed"
  * escalating tier hands its carry to the next; a tier with no match hands over nothing. Used for one command only.
  */
 internal class TierWalk(
-    private val strategies: List<CommandStrategy>,
-    private val selector: TierSelector,
+    private val ladder: Ladder,
     private val policy: TierPolicy,
     private val coordinator: CommitCoordinator,
     private val recorder: RunRecorder,
@@ -31,9 +31,11 @@ internal class TierWalk(
 
     /** Walks the ladder and returns the command's outcome. */
     suspend fun run(input: CommandInput): CommandOutcome {
-        val start = selector.startIndex(strategies.map { it.id })
-            ?: return CommandOutcome.Failed(effects(), FailureReason.NoEligibleTier(), null)
-        return climb(strategies.drop(start), input) ?: CommandOutcome.Unhandled(effects(), lastReason)
+        val start = if (ladder.refusal == null) ladder.selector.startIndex(ladder.tiers.map { it.id }) else null
+        if (start == null) {
+            return CommandOutcome.Failed(effects(), ladder.refusal ?: FailureReason.NoEligibleTier(), null)
+        }
+        return climb(ladder.tiers.drop(start), input) ?: CommandOutcome.Unhandled(effects(), lastReason)
     }
 
     private suspend fun climb(tiers: List<CommandStrategy>, input: CommandInput): CommandOutcome? {
@@ -47,6 +49,10 @@ internal class TierWalk(
     private fun effects(): RunEffects = snapshotEffects(runId, parentRunId, coordinator, recorder)
 
     private suspend fun runTier(strategy: CommandStrategy, input: CommandInput): CommandOutcome? {
+        if (ladder.blockedOnDevice(strategy)) {
+            recorder.tierSkipped(strategy.id, TraceCode.ON_DEVICE_UNAVAILABLE)
+            return CommandOutcome.Failed(effects(), ladder.onDeviceFailure(), null)
+        }
         recorder.tierStarted(strategy.id)
         val session = RunSession(runId, parentRunId, strategy.id, policy, carry, coordinator)
         return when (val outcome = strategy.execute(input, session)) {

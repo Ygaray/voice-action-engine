@@ -6,8 +6,8 @@ import io.github.ygaray.voiceactionengine.core.commit.CommitCoordinator
 import io.github.ygaray.voiceactionengine.core.commit.CommitSink
 import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.commit.RunTermination
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.guarded
-import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import kotlinx.coroutines.NonCancellable
@@ -17,8 +17,7 @@ import kotlinx.coroutines.withContext
  * An app's composed ladder. Build one with [commandPipeline] and call [execute] once per spoken command.
  */
 public class CommandPipeline internal constructor(
-    private val strategies: List<CommandStrategy>,
-    private val selector: TierSelector,
+    private val preCheck: PolicyPreCheck,
     private val gate: PreApplyGate,
     private val sink: CommitSink,
     private val policySource: TierPolicySource,
@@ -26,7 +25,7 @@ public class CommandPipeline internal constructor(
     private val runIds: () -> String,
 ) {
     /** The ladder's tier ids, lowest tier first. */
-    public val tiers: List<StrategyId> = strategies.map { it.id }
+    public val tiers: List<StrategyId> = preCheck.strategies.map { it.id }
 
     /**
      * Runs [input] up the ladder and returns what happened. The sink's `onRunClosed` is called exactly once, even
@@ -38,14 +37,30 @@ public class CommandPipeline internal constructor(
         val coordinator = CommitCoordinator(runId, input.parentRunId, gate, sink, recorder)
         var outcome: CommandOutcome? = null
         try {
-            val policy = policySource.current()
-            outcome = TierWalk(strategies, selector, policy, coordinator, recorder, runId, input.parentRunId).run(input)
+            outcome = runCommand(input, runId, coordinator, recorder)
             return outcome
         } finally {
             val termination = outcome?.let { terminationOf(it) }
                 ?: RunTermination.Cancelled(snapshotEffects(runId, input.parentRunId, coordinator, recorder))
             close(runId, recorder, termination)
         }
+    }
+
+    private suspend fun runCommand(
+        input: CommandInput,
+        runId: String,
+        coordinator: CommitCoordinator,
+        recorder: RunRecorder,
+    ): CommandOutcome {
+        val policy = guarded(onFault = { recorder.recordCode(TraceCode.POLICY_SOURCE_ERROR); null }) {
+            policySource.current()
+        } ?: return CommandOutcome.Failed(
+            snapshotEffects(runId, input.parentRunId, coordinator, recorder),
+            FailureReason.PolicyUnavailable(),
+            null,
+        )
+        val ladder = preCheck.check(policy, recorder)
+        return TierWalk(ladder, policy, coordinator, recorder, runId, input.parentRunId).run(input)
     }
 
     private suspend fun close(runId: String, recorder: RunRecorder, termination: RunTermination) {

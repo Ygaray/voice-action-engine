@@ -39,6 +39,12 @@ public class PipelineBuilder internal constructor() {
     /** Makes the id of each run; replace it in tests. */
     public var runIds: () -> String = { UUID.randomUUID().toString() }
 
+    /**
+     * Whether on-device inference can run right now. Defaults to unavailable; the on-device tier plugs in here, so a
+     * ladder with an on-device-only tier fails loudly instead of climbing silently to the cloud.
+     */
+    internal var onDeviceAvailability: suspend () -> Boolean = { false }
+
     /** Adds [strategy] above the tiers already added. The first tier added is tried first. */
     public fun tier(strategy: CommandStrategy) {
         strategies.add(strategy)
@@ -54,7 +60,14 @@ public class PipelineBuilder internal constructor() {
         }
         val finalGate = requireNotNull(gate) { "commandPipeline: gate is required (no auto-commit default)" }
         val finalSink = requireNotNull(commitSink) { "commandPipeline: commitSink is required" }
-        return CommandPipeline(strategies.toList(), selector, finalGate, finalSink, policy, clock, runIds)
+        return CommandPipeline(
+            PolicyPreCheck(strategies.toList(), selector, onDeviceAvailability),
+            finalGate,
+            finalSink,
+            policy,
+            clock,
+            runIds,
+        )
     }
 }
 
