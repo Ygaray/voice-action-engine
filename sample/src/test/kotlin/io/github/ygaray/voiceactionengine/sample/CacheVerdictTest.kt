@@ -74,10 +74,10 @@ class CacheVerdictTest {
             assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
             assertEquals(
                 listOf(
-                    "VAE_TURN leg=ver02 iteration=1 model=claude-haiku-4-5 stop_reason=tool_use tools=[find_items] " +
+                    "VAE_TURN leg=ver02 iteration=1 model=claude-haiku-4-5 stop_reason=tool_use tools=redacted tool_count=1 " +
                         "input_tokens=40 output_tokens=20 cache_creation_input_tokens=7016 " +
                         "cache_read_input_tokens=0 prefix_chars=21109 latency_ms=0",
-                    "VAE_TURN leg=ver02 iteration=2 model=claude-haiku-4-5 stop_reason=end_turn tools=[] " +
+                    "VAE_TURN leg=ver02 iteration=2 model=claude-haiku-4-5 stop_reason=end_turn tools=redacted tool_count=0 " +
                         "input_tokens=30 output_tokens=15 cache_creation_input_tokens=0 " +
                         "cache_read_input_tokens=7016 prefix_chars=21109 latency_ms=0",
                 ),

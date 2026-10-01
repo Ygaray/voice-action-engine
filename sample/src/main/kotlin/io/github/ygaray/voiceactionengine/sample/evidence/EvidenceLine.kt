@@ -27,6 +27,14 @@ internal enum class LegId(val wire: String) {
     DEMO_PARTIAL("demo_partial"),
 }
 
+/**
+ * True for a leg that runs on the private SB fixture. Its tool names (the tools the model called, the terminal tool) are
+ * fixture content and must never reach a committed evidence file (LE-7), so its lines carry counts and the word
+ * `redacted` instead. Decided here, from the leg alone, so no caller can forget it.
+ */
+internal val LegId.fixtureBacked: Boolean get() = this == LegId.VER02
+
+private const val REDACTED = "redacted"
 private const val INVALID_TOKEN = "invalid_token"
 private const val INVALID_KEY = "invalid_key"
 private const val NONE = "none"
@@ -53,7 +61,9 @@ internal const val ALLOW_PATTERN =
  * One line of Gate-1 evidence. It is a closed vocabulary by construction: the constructor is private, the factories
  * take only typed values (enums, numbers, provider ids, tool-name lists, hex fingerprints, stable codes), and every
  * value is restricted to a token alphabet of at most 96 characters. Anything else renders as `invalid_token`, so a
- * prompt, a reply, a tool argument or a key cannot reach a log line.
+ * prompt with spaces, a reply, a tool argument with punctuation cannot reach a log line. The alphabet is a shape filter,
+ * not a vocabulary: a value that fits it passes, so names that are private content (the fixture's tool names) are kept
+ * out by redaction at the source (see [fixtureBacked]) and by the host filter, never by the alphabet alone.
  *
  * @property type the line type word, for example `TURN`; the rendered line starts with `VAE_` plus it.
  * @property loud true when the line must be logged at error level so a failure cannot hide in the noise.
@@ -147,7 +157,8 @@ internal class EvidenceLine private constructor(
                 "iteration" to iteration.toString(),
                 "model" to tokenOrNone(record.model),
                 "stop_reason" to tokenOrNone(record.stopReason),
-                "tools" to list(record.toolNames),
+                "tools" to if (leg.fixtureBacked) REDACTED else list(record.toolNames),
+                "tool_count" to record.toolNames.size.toString(),
                 "input_tokens" to record.usage.inputUncached.toString(),
                 "output_tokens" to record.usage.output.toString(),
                 "cache_creation_input_tokens" to record.usage.cacheWrite.toString(),
@@ -219,7 +230,7 @@ internal class EvidenceLine private constructor(
                 "committed" to summary.committed.toString(),
                 "held" to summary.held.toString(),
                 "reply_len" to summary.replyLength.toString(),
-                "terminal_tool" to tokenOrNone(summary.terminalTool),
+                "terminal_tool" to terminalTool(leg, summary.terminalTool),
             ),
         )
 
@@ -269,6 +280,10 @@ internal class EvidenceLine private constructor(
         internal fun token(value: String): String = if (VALUE_TOKEN.matches(value)) value else INVALID_TOKEN
 
         private fun tokenOrNone(value: String?): String = if (value == null) NONE else token(value)
+
+        // A fixture leg reports only that a terminal tool ended the run, never which one.
+        private fun terminalTool(leg: LegId, name: String?): String =
+            if (leg.fixtureBacked) (if (name == null) NONE else REDACTED) else tokenOrNone(name)
 
         private fun numOrNone(value: Int?): String = value?.toString() ?: NONE
 

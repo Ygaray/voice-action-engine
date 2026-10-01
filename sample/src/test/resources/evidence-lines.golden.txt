@@ -1,7 +1,8 @@
 VAE_ENV okhttp=5.2.1 fixture_sha=0123abcd fixture_tools=4 min_cacheable=4096 prefix_chars=21109 est_prefix_tokens=5277
 VAE_FIXTURE kind=absent searched=[files,asset]
 VAE_KEY provider=anthropic state=Ready cause=none deleted=true in_datastore=false
-VAE_TURN leg=ver02 iteration=1 model=claude-haiku-4-5 stop_reason=tool_use tools=[find_items] input_tokens=40 output_tokens=20 cache_creation_input_tokens=7016 cache_read_input_tokens=0 prefix_chars=21109 latency_ms=812
+VAE_TURN leg=ver02 iteration=1 model=claude-haiku-4-5 stop_reason=tool_use tools=redacted tool_count=1 input_tokens=40 output_tokens=20 cache_creation_input_tokens=7016 cache_read_input_tokens=0 prefix_chars=21109 latency_ms=812
+VAE_TURN leg=multi_openai iteration=1 model=gpt-5-mini stop_reason=tool_calls tools=[find_items] tool_count=1 input_tokens=40 output_tokens=20 cache_creation_input_tokens=7016 cache_read_input_tokens=0 prefix_chars=none latency_ms=812
 VAE_ATTEMPT leg=ver02 provider=anthropic n=1 kind=initial http=200 finish=none tool_calls=0
 VAE_CACHE leg=ver02 provider=anthropic model=claude-haiku-4-5 event=not_engaged
 VAE_SMOKE leg=smoke_openrouter tool=edit_item arg_keys=[body,id] optional_absent=true prompt_variant=0

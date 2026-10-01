@@ -163,11 +163,15 @@ internal fun legRig(
     return LegRig(runner, sink, budget, vault, commits, demoCommits, demo, clock, fakes, tap)
 }
 
-/** The committed synthetic fixture, loaded with its own digest. */
-internal fun loadedSyntheticFixture(): FixtureState.Loaded {
-    val bytes = checkNotNull(LegRig::class.java.classLoader?.getResourceAsStream(SYNTHETIC_RESOURCE)) {
+/**
+ * The committed synthetic fixture, loaded with its own digest. [rename] rewrites the fixture text first (for example to
+ * give its tools names that must never reach evidence); the digest is taken over the rewritten bytes.
+ */
+internal fun loadedSyntheticFixture(rename: (String) -> String = { it }): FixtureState.Loaded {
+    val original = checkNotNull(LegRig::class.java.classLoader?.getResourceAsStream(SYNTHETIC_RESOURCE)) {
         "missing test resource"
     }.use { it.readBytes() }
+    val bytes = rename(original.toString(Charsets.UTF_8)).toByteArray(Charsets.UTF_8)
     val digest = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
     val state = FixtureLoader(listOf(NamedFixtureSource("files", FixtureSource { bytes })), digest).load()
     check(state is FixtureState.Loaded) { state.toString() }

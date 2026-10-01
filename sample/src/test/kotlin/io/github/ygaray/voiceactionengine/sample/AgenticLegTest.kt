@@ -75,6 +75,33 @@ class AgenticLegTest {
     }
 
     @Test
+    fun noEmittedLineEverNamesAFixtureTool() = runTest {
+        NoNetworkGuard.during {
+            // A fixture whose tools carry names that must never be committed: the model calls one of them.
+            val private = loadedSyntheticFixture { it.replace("find_items", "zz_private_find_items") }
+            val lookup = ok(
+                FakeAiProvider.toolCall(
+                    "call_1",
+                    "zz_private_find_items",
+                    buildJsonObject { put("query", "paper") },
+                    Usage(40, 0, ANCHOR, 20),
+                ),
+            )
+            val rig = rig(lookup, answer(), state = private)
+
+            val result = rig.runner.run(LegId.VER02)
+
+            assertEquals(result.toString(), VerdictKind.PASS, result.verdict.kind)
+            val lines = rig.sink.rendered
+            assertTrue(lines.toString(), lines.none { "zz_private" in it })
+            val turns = rig.sink.starting("VAE_TURN ")
+            assertEquals(turns.toString(), 2, turns.size)
+            assertTrue(turns.first(), " tools=redacted tool_count=1 " in turns.first())
+            assertTrue(turns.last(), " tools=redacted tool_count=0 " in turns.last())
+        }
+    }
+
+    @Test
     fun aWarmRunIsReportedAsWarm() = runTest {
         NoNetworkGuard.during {
             val warmFirst = ok(

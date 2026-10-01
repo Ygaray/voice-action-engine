@@ -21,6 +21,7 @@ import org.junit.Test
 private const val CANARY_PROMPT_TEXT = "CANARY_PROMPT_TEXT with spaces, \"quotes\" and\na newline"
 private const val GOLDEN_RESOURCE = "evidence-lines.golden.txt"
 private const val MAX_TOKEN = 96
+private const val HEX_REST = 56
 
 /** The evidence vocabulary contract: nothing free-form reaches a line, and every line fits the allow pattern. */
 class EvidenceLineTest {
@@ -36,6 +37,7 @@ class EvidenceLineTest {
         EvidenceLine.fixture(FixtureState.Absent(listOf("files", "asset"))),
         EvidenceLine.key(ImportReport(ProviderId.ANTHROPIC, ImportReport.READY, null, true, false)),
         EvidenceLine.turn(LegId.VER02, 1, turnWith("claude-haiku-4-5", "tool_use", listOf("find_items")), 21109),
+        EvidenceLine.turn(LegId.MULTI_OPENAI, 1, turnWith("gpt-5-mini", "tool_calls", listOf("find_items")), null),
         EvidenceLine.attempt(LegId.VER02, AttemptRecord(ProviderId.ANTHROPIC, 1, "initial", 200, null, 0)),
         EvidenceLine.cache(LegId.VER02, ProviderId.ANTHROPIC, "claude-haiku-4-5"),
         EvidenceLine.smoke(LegId.SMOKE_OPENROUTER, "edit_item", setOf("id", "body"), "true", 0),
@@ -99,9 +101,38 @@ class EvidenceLineTest {
 
     @Test
     fun aToolNameThatBreaksTheListIsReplacedNotSplit() {
-        val line = EvidenceLine.turn(LegId.VER02, 1, turnWith("m", "s", listOf("a,b", "c]d", "ok")), null).render()
+        val line = EvidenceLine.turn(LegId.MULTI_OPENAI, 1, turnWith("m", "s", listOf("a,b", "c]d", "ok")), null).render()
         assertTrue(line, line.contains("tools=[invalid_token,invalid_token,ok]"))
         assertTrue(line, line.contains("prefix_chars=none"))
+    }
+
+    @Test
+    fun theFixtureLegNeverNamesATool() {
+        val names = listOf("zz_private_tool_one", "zz_private_tool_two")
+        val turn = EvidenceLine.turn(LegId.VER02, 1, turnWith("m", "s", names), 1).render()
+        assertTrue(turn, turn.contains(" tools=redacted tool_count=2 "))
+        val outcome = OutcomeSummary(OutcomeSummary.COMPLETED, false, null, 1, 1, 0, 4, names.first())
+        val outcomeLine = EvidenceLine.outcome(LegId.VER02, outcome).render()
+        assertTrue(outcomeLine, outcomeLine.contains(" terminal_tool=redacted"))
+        for (text in listOf(turn, outcomeLine)) {
+            assertFalse(text, text.contains("zz_private"))
+            assertTrue(text, allow.matches(text))
+        }
+        // Another leg keeps its (synthetic) names: only the fixture leg is redacted.
+        val other = EvidenceLine.turn(LegId.MULTI_OPENAI, 1, turnWith("m", "s", names), 1).render()
+        assertTrue(other, other.contains("tools=[zz_private_tool_one,zz_private_tool_two] tool_count=2"))
+    }
+
+    @Test
+    fun theFixtureLegLogsOnlyTheEightHexDigestPrefix() {
+        val full = "0123abcd" + "f".repeat(HEX_REST)
+        val env = EvidenceLine.env("5.2.1", full, 4, 4096, 21109, 5277).render()
+        assertTrue(env, env.contains(" fixture_sha=0123abcd "))
+        assertFalse(env, env.contains("fff"))
+        val loaded = EvidenceLine.fixture(FixtureState.Loaded("sys", emptyList(), full, "files", 1, 1)).render()
+        assertTrue(loaded, loaded.contains(" sha=0123abcd "))
+        val mismatch = EvidenceLine.fixture(FixtureState.ShaMismatch("files", full)).render()
+        assertTrue(mismatch, mismatch.endsWith(" actual=0123abcd"))
     }
 
     @Test
@@ -134,7 +165,7 @@ class EvidenceLineTest {
     @Test
     fun everyRenderedLineMatchesTheAllowPattern() {
         val lines = oneOfEach()
-        assertEquals(11, lines.size)
+        assertEquals(12, lines.size)
         for (line in lines) {
             val text = line.render()
             assertTrue(text, allow.matches(text))

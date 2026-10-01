@@ -289,6 +289,42 @@ for plant in "$PLANT_A" "$PLANT_B" "$PLANT_C"; do
   grep -qx "LEAK SCAN FAIL" "$WORK/leak.err" || die "filter_rejects_key_shape: no LEAK SCAN FAIL"
 done
 
+# filter_rejects_fixture_content (LE-7 negative control): a ver02 line that names a tool, or a digest longer than the 8-hex
+# prefix, is a leak: exit 1, nothing on stdout. The same shapes on a non-fixture leg are legitimate and are kept.
+SCENARIOS=$((SCENARIOS + 1))
+for planted in \
+  "VAE_TURN leg=ver02 iteration=1 model=m stop_reason=tool_use tools=[zz_marker_tool] tool_count=1" \
+  "VAE_TURN leg=ver02 iteration=1 model=m stop_reason=tool_use tools=zz_marker_tool tool_count=1" \
+  "VAE_OUTCOME leg=ver02 kind=completed partial=false reason=none executed=1 committed=1 held=0 reply_len=4 terminal_tool=zz_marker_tool" \
+  "VAE_SMOKE leg=ver02 tool=zz_marker_tool arg_keys=[id] optional_absent=true prompt_variant=0" \
+  "VAE_ENV okhttp=5.2.1 fixture_sha=0123abcdef012 fixture_tools=4 min_cacheable=4096 prefix_chars=1 est_prefix_tokens=1" \
+  "VAE_FIXTURE kind=loaded source=files sha=0123abcdef012 tools=4 bytes=1"; do
+  printf '%s\n' "VAE_AUTORUN leg=ver02" "$planted" >"$WORK/fx.in"
+  "$FILTER_SRC" <"$WORK/fx.in" >"$WORK/fx.out" 2>"$WORK/fx.err"; rc=$?
+  [ "$rc" = 1 ] || die "filter_rejects_fixture_content: exit $rc, expected 1 for: $planted"
+  [ ! -s "$WORK/fx.out" ] || die "filter_rejects_fixture_content: something reached stdout for: $planted"
+  grep -qx "LEAK SCAN FAIL" "$WORK/fx.err" || die "filter_rejects_fixture_content: no LEAK SCAN FAIL for: $planted"
+done
+printf '%s\n' \
+  "VAE_TURN leg=ver02 iteration=1 model=m stop_reason=tool_use tools=redacted tool_count=1" \
+  "VAE_OUTCOME leg=ver02 kind=completed partial=false reason=none executed=1 committed=1 held=0 reply_len=4 terminal_tool=redacted" \
+  "VAE_TURN leg=multi_openai iteration=1 model=m stop_reason=tool_calls tools=[find_items] tool_count=1" >"$WORK/fx.in"
+"$FILTER_SRC" <"$WORK/fx.in" >"$WORK/fx.out" 2>"$WORK/fx.err" || die "filter_rejects_fixture_content: a redacted or non-fixture line was rejected"
+cmp -s "$WORK/fx.out" "$WORK/fx.in" || die "filter_rejects_fixture_content: a redacted or non-fixture line was changed"
+
+# capture_save_fixture_names: the same leak coming out of the (fake) logcat: leak_scan_failed and no evidence file.
+{ cat "$GOLDEN"; echo "VAE_TURN leg=ver02 iteration=2 model=m stop_reason=tool_use tools=[zz_marker_tool] tool_count=1"; } >"$WORK/fx.logcat"
+FAKE_LOGCAT_FILE="$WORK/fx.logcat" run_scenario capture_save_fixture_names 1 "LEAK SCAN FAIL" "FAIL sub=capture-save reason=leak_scan_failed" \
+  capture-save ver02
+[ ! -e "$LAST_DIR/repo/$EVID_REL/gate1-ver02.txt" ] || die "capture_save_fixture_names: an evidence file was written"
+
+# capture_save_ver02_redacted: the golden (redacted) fixture-leg lines are saved, and no tool name is in the file.
+FAKE_LOGCAT_FILE="$GOLDEN" run_scenario capture_save_ver02_redacted 0 "-" "OK sub=capture-save kept=$(grep -c '' "$GOLDEN") dropped=0" \
+  capture-save ver02
+if grep -E 'leg=ver02' "$LAST_DIR/repo/$EVID_REL/gate1-ver02.txt" | grep -qE ' tools=\[| terminal_tool=[^nr ]'; then
+  die "capture_save_ver02_redacted: a fixture-leg line names a tool"
+fi
+
 # capture_save_leak: the planted line comes out of the (fake) logcat: leak_scan_failed and no evidence file.
 { printf '%s\n' "VAE_TURN leg=smoke_openai iteration=1 model=$PLANT_A"; cat "$GOLDEN"; } >"$WORK/leak.logcat"
 FAKE_LOGCAT_FILE="$WORK/leak.logcat" run_scenario capture_save_leak 1 "LEAK SCAN FAIL" "FAIL sub=capture-save reason=leak_scan_failed" \
@@ -305,13 +341,13 @@ FAKE_LOGCAT_FILE="$GOLDEN" run_scenario capture_save_no_verdict 1 "nothing was w
 
 # capture_save_happy: golden lines + a verdict for the leg + noise: the file holds the header and the kept lines only.
 { cat "$GOLDEN"; echo "some free text from another tag"; echo "VAE_VERDICT leg=smoke_openai verdict=PASS trigger=ui"; } >"$WORK/happy.logcat"
-FAKE_LOGCAT_FILE="$WORK/happy.logcat" run_scenario capture_save_happy 0 "-" "OK sub=capture-save kept=12 dropped=1 file=$EVID_REL/gate1-smoke_openai.txt" \
+FAKE_LOGCAT_FILE="$WORK/happy.logcat" run_scenario capture_save_happy 0 "-" "OK sub=capture-save kept=13 dropped=1 file=$EVID_REL/gate1-smoke_openai.txt" \
   capture-save smoke_openai
 ev="$LAST_DIR/repo/$EVID_REL/gate1-smoke_openai.txt"
 [ -f "$ev" ] || die "capture_save_happy: no evidence file"
 head -1 "$ev" | grep -qE '^# gate1 leg=smoke_openai captured_utc=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z target=R5CT10XNKQN head=' \
   || die "capture_save_happy: bad header ($(head -1 "$ev"))"
-[ "$(grep -c '^VAE_' "$ev")" = 12 ] || die "capture_save_happy: expected 12 evidence lines"
+[ "$(grep -c '^VAE_' "$ev")" = 13 ] || die "capture_save_happy: expected 13 evidence lines"
 ! grep -q 'free text' "$ev" || die "capture_save_happy: free text was written"
 assert_calls capture_save_happy "-s R5CT10XNKQN logcat -d -v raw -s VaeSample:I"
 
