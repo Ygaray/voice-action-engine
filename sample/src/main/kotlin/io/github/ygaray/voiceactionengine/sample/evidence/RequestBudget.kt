@@ -37,6 +37,9 @@ internal const val BUDGET_EXHAUSTED = "sample_budget_exhausted"
  * @property perProvider requests per provider id, core and optional together.
  * @property agenticStartEpochSeconds when the last Anthropic agentic leg started, or null.
  * @property legRuns how many times each leg (by wire name) has started, which selects the prompt variant of a rerun.
+ * @property inflight 1 while a provider call is out, else 0. It is saved before the call and cleared when the call is
+ *   settled, so a call that never settled (a force-stop mid-request) is found on the next start: its one request that
+ *   may be on the wire is counted then.
  */
 internal class BudgetState(
     val core: Int,
@@ -44,10 +47,11 @@ internal class BudgetState(
     val perProvider: Map<String, Int>,
     val agenticStartEpochSeconds: Long?,
     val legRuns: Map<String, Int> = emptyMap(),
+    val inflight: Int = 0,
 ) {
     override fun toString(): String =
         "BudgetState(core=$core, optional=$optional, perProvider=$perProvider, " +
-            "agenticStartEpochSeconds=$agenticStartEpochSeconds, legRuns=$legRuns)"
+            "agenticStartEpochSeconds=$agenticStartEpochSeconds, legRuns=$legRuns, inflight=$inflight)"
 
     companion object {
         /** Nothing spent, nothing started. */
@@ -79,6 +83,7 @@ internal interface BudgetStore {
 private const val FIELD_CORE = "core"
 private const val FIELD_OPTIONAL = "optional"
 private const val FIELD_AGENTIC_START = "agentic_start"
+private const val FIELD_INFLIGHT = "inflight"
 private const val PROVIDER_PREFIX = "provider."
 private const val RUN_PREFIX = "run."
 
@@ -106,6 +111,7 @@ internal class FileBudgetStore(private val file: File) : BudgetStore {
         var core: Int? = null
         var optional: Int? = null
         var start: Long? = null
+        var inflight = 0
         val providers = LinkedHashMap<String, Int>()
         val runs = LinkedHashMap<String, Int>()
         for (line in lines) {
@@ -118,12 +124,13 @@ internal class FileBudgetStore(private val file: File) : BudgetStore {
                 key == FIELD_CORE -> core = count(value) ?: return null
                 key == FIELD_OPTIONAL -> optional = count(value) ?: return null
                 key == FIELD_AGENTIC_START -> start = value.toLongOrNull() ?: return null
+                key == FIELD_INFLIGHT -> inflight = count(value) ?: return null
                 key.startsWith(PROVIDER_PREFIX) ->
                     providers[key.removePrefix(PROVIDER_PREFIX)] = count(value) ?: return null
                 key.startsWith(RUN_PREFIX) -> runs[key.removePrefix(RUN_PREFIX)] = count(value) ?: return null
             }
         }
-        return if (core == null || optional == null) null else BudgetState(core, optional, providers, start, runs)
+        return if (core == null || optional == null) null else BudgetState(core, optional, providers, start, runs, inflight)
     }
 
     // A non-negative whole number, or null.
@@ -141,6 +148,7 @@ internal class FileBudgetStore(private val file: File) : BudgetStore {
             }
             val start = state.agenticStartEpochSeconds
             if (start != null) append(FIELD_AGENTIC_START).append('=').append(start).append('\n')
+            if (state.inflight > 0) append(FIELD_INFLIGHT).append('=').append(state.inflight).append('\n')
         }
         val temp = File(file.parentFile, file.name + ".tmp")
         temp.writeText(text, Charsets.UTF_8)
@@ -180,6 +188,15 @@ internal class RequestBudget(
     @Volatile
     private var writeFailed = false
 
+    init {
+        // A call that never settled belongs to a process that died (a force-stop mid-request): one request may be on the
+        // wire that nobody counted. Count it now.
+        synchronized(lock) {
+            val state = store.read()
+            if (state.inflight > 0) save(counted(state, null, optional = false).cleared())
+        }
+    }
+
     /**
      * Whether a leg that may send up to [reservation] requests may start. The optional probe may run once only, and
      * only while core plus its worst case stays within the total ceiling.
@@ -198,26 +215,29 @@ internal class RequestBudget(
      * not be saved; the guard then refuses every further call until the app is restarted (fail closed), and the caller
      * must say so loudly.
      */
-    fun record(provider: ProviderId, optional: Boolean): Boolean {
+    fun record(provider: ProviderId, optional: Boolean): Boolean = synchronized(lock) {
+        save(counted(store.read(), provider, optional))
+    }
+
+    /**
+     * Marks a provider call as out, before its first request can leave. [settle] clears the mark; a mark that is still
+     * set when the process starts again is counted as one request by the next [RequestBudget]. Returns false when the
+     * mark could not be saved, in which case the call must not be sent.
+     */
+    fun reserve(): Boolean = synchronized(lock) {
+        val state = store.read()
+        save(state.updated(inflight = 1))
+    }
+
+    /**
+     * Clears the mark of [reserve]. When the call did not return ([returned] false: it was cancelled or threw), the
+     * request on the wire at that moment never reached the attempt observer, so it is counted here as one request to
+     * [provider] (at most one request is ever on the wire, because a call sends them one after another).
+     */
+    fun settle(provider: ProviderId, optional: Boolean, returned: Boolean) {
         synchronized(lock) {
             val state = store.read()
-            val perProvider = LinkedHashMap(state.perProvider)
-            perProvider[provider.value] = (perProvider[provider.value] ?: 0) + 1
-            val next = BudgetState(
-                core = if (optional) state.core else state.core + 1,
-                optional = if (optional) state.optional + 1 else state.optional,
-                perProvider = perProvider,
-                agenticStartEpochSeconds = state.agenticStartEpochSeconds,
-                legRuns = state.legRuns,
-            )
-            try {
-                store.write(next)
-            } catch (unwritable: IOException) {
-                writeFailed = true
-            } catch (denied: SecurityException) {
-                writeFailed = true
-            }
-            return !writeFailed
+            save((if (returned) state else counted(state, provider, optional)).cleared())
         }
     }
 
@@ -229,10 +249,7 @@ internal class RequestBudget(
 
     /** Remembers that an Anthropic agentic leg started at [nowSeconds] (epoch seconds). */
     fun markAgenticStart(nowSeconds: Long) {
-        synchronized(lock) {
-            val state = store.read()
-            store.write(BudgetState(state.core, state.optional, state.perProvider, nowSeconds, state.legRuns))
-        }
+        synchronized(lock) { save(store.read().updated(agenticStart = nowSeconds)) }
     }
 
     /** How many times [leg] (a wire name) has started. */
@@ -244,9 +261,7 @@ internal class RequestBudget(
             val state = store.read()
             val runs = LinkedHashMap(state.legRuns)
             runs[leg] = (runs[leg] ?: 0) + 1
-            store.write(
-                BudgetState(state.core, state.optional, state.perProvider, state.agenticStartEpochSeconds, runs),
-            )
+            save(state.updated(legRuns = runs))
         }
     }
 
@@ -255,6 +270,40 @@ internal class RequestBudget(
         val start = store.read().agenticStartEpochSeconds ?: return@synchronized 0L
         (start + warmWindowSeconds - nowSeconds).coerceAtLeast(0L)
     }
+
+    // Saves [next]; false (and latched closed) when the store cannot take it.
+    private fun save(next: BudgetState): Boolean {
+        try {
+            store.write(next)
+        } catch (unwritable: IOException) {
+            writeFailed = true
+        } catch (denied: SecurityException) {
+            writeFailed = true
+        }
+        return !writeFailed
+    }
+
+    // [state] plus one request; per provider only when the provider is known.
+    private fun counted(state: BudgetState, provider: ProviderId?, optional: Boolean): BudgetState {
+        val perProvider = LinkedHashMap(state.perProvider)
+        if (provider != null) perProvider[provider.value] = (perProvider[provider.value] ?: 0) + 1
+        return BudgetState(
+            core = if (optional) state.core else state.core + 1,
+            optional = if (optional) state.optional + 1 else state.optional,
+            perProvider = perProvider,
+            agenticStartEpochSeconds = state.agenticStartEpochSeconds,
+            legRuns = state.legRuns,
+            inflight = state.inflight,
+        )
+    }
+
+    private fun BudgetState.cleared(): BudgetState = updated(inflight = 0)
+
+    private fun BudgetState.updated(
+        agenticStart: Long? = agenticStartEpochSeconds,
+        legRuns: Map<String, Int> = this.legRuns,
+        inflight: Int = this.inflight,
+    ): BudgetState = BudgetState(core, optional, perProvider, agenticStart, legRuns, inflight)
 
     private fun fits(state: BudgetState, requests: Int, optional: Boolean): Boolean =
         if (writeFailed) {
@@ -268,8 +317,9 @@ internal class RequestBudget(
 
 /**
  * Wraps a provider so a call that could break the request ceiling is refused before anything is sent. It returns the
- * typed failure `sample_budget_exhausted` and never calls [delegate]. Counting happens elsewhere, from the transports'
- * attempt observers, because only they see each real HTTP request.
+ * typed failure `sample_budget_exhausted` and never calls [delegate]. Requests are counted one by one from the
+ * transports' attempt observers, because only they see each real HTTP request; this wrapper only closes the gap a call
+ * that does not return leaves (see [RequestBudget.reserve] and [RequestBudget.settle]).
  *
  * @param optional whether the call in progress belongs to the optional probe.
  */
@@ -284,12 +334,22 @@ internal class BudgetedProvider(
 
     override fun capabilities(model: String): ModelCapabilities = delegate.capabilities(model)
 
-    override suspend fun complete(call: ProviderRequest): ModelResult =
-        if (budget.headroomFor(optional())) {
-            delegate.complete(call)
-        } else {
-            ModelResult.Failure(FailureReason.Other(BUDGET_EXHAUSTED))
+    override suspend fun complete(call: ProviderRequest): ModelResult {
+        val isOptional = optional()
+        if (!budget.headroomFor(isOptional) || !budget.reserve()) {
+            return ModelResult.Failure(FailureReason.Other(BUDGET_EXHAUSTED))
         }
+        // The call is marked out before its first request can leave, so a call cancelled on the wire, or a process that
+        // dies there, still counts that request. Normal returns were already counted attempt by attempt.
+        var returned = false
+        try {
+            val result = delegate.complete(call)
+            returned = true
+            return result
+        } finally {
+            budget.settle(delegate.id, isOptional, returned)
+        }
+    }
 
     /** The provider id only. */
     override fun toString(): String = "BudgetedProvider(${delegate.id.value})"

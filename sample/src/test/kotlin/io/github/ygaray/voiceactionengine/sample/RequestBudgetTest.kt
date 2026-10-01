@@ -1,6 +1,7 @@
 package io.github.ygaray.voiceactionengine.sample
 
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.provider.AiProvider
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
@@ -21,6 +22,7 @@ import io.github.ygaray.voiceactionengine.sample.net.AttemptTap
 import io.github.ygaray.voiceactionengine.sample.net.LegContext
 import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.cancellation.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -161,6 +163,74 @@ class RequestBudgetTest {
         assertEquals(1, sink.starting("VAE_ATTEMPT ").size)
         assertEquals(listOf("VAE_BUDGET fault=store_write_failed"), sink.starting("VAE_BUDGET "))
         assertTrue(EvidenceLine.budgetFault().loud)
+    }
+
+    private class CancelledOnTheWire(override val id: ProviderId) : AiProvider {
+        override fun capabilities(model: String): ModelCapabilities = ModelCapabilities.UNKNOWN
+
+        override suspend fun complete(call: ProviderRequest): ModelResult = throw CancellationException("cancelled")
+    }
+
+    @Test
+    fun aCallCancelledOnTheWireIsStillCounted() = runTest {
+        val store = MemoryStore()
+        val budget = RequestBudget(store)
+        val provider = BudgetedProvider(CancelledOnTheWire(ProviderId.ANTHROPIC), budget) { false }
+
+        var cancelled = false
+        try {
+            provider.complete(request())
+        } catch (expected: CancellationException) {
+            cancelled = true
+        }
+
+        assertTrue(cancelled)
+        assertEquals(1, budget.snapshot().core)
+        assertEquals(mapOf("anthropic" to 1), budget.snapshot().perProvider)
+        assertEquals(0, store.state.inflight)
+        // Settled: a later start does not count it again.
+        assertEquals(1, RequestBudget(store).snapshot().core)
+    }
+
+    @Test
+    fun aCallThatReturnsIsNotCountedTwice() = runTest {
+        val store = MemoryStore()
+        val budget = RequestBudget(store)
+        val fake = FakeAiProvider(ProviderId.OPENAI, FakeAiProvider.reply("ok", Usage.ZERO))
+        val provider = BudgetedProvider(fake, budget) { false }
+
+        assertTrue(provider.complete(request()) is ModelResult.Success)
+
+        // The fake reports no attempt, so nothing is counted for a call that returned.
+        assertEquals(0, budget.snapshot().core)
+        assertEquals(0, store.state.inflight)
+    }
+
+    @Test
+    fun aCallThatNeverSettledIsCountedWhenTheAppStartsAgain() {
+        val file = File(folder.root, "killed.txt")
+        file.writeText("core=5\noptional=0\ninflight=1\n")
+
+        val budget = RequestBudget(FileBudgetStore(file))
+
+        assertEquals(6, budget.snapshot().core)
+        assertFalse(file.readText().contains("inflight"))
+        assertEquals(6, RequestBudget(FileBudgetStore(file)).snapshot().core)
+    }
+
+    @Test
+    fun aCallIsNotSentWhenItsReservationCannotBeSaved() = runTest {
+        val failing = object : BudgetStore {
+            override fun read(): BudgetState = BudgetState.EMPTY
+            override fun write(state: BudgetState) {
+                throw IOException("read-only")
+            }
+        }
+        val fake = FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("ok", Usage.ZERO))
+        val result = BudgetedProvider(fake, RequestBudget(failing)) { false }.complete(request())
+
+        assertEquals("sample_budget_exhausted", (result as ModelResult.Failure).reason.code)
+        assertEquals(0, fake.callCount)
     }
 
     @Test
