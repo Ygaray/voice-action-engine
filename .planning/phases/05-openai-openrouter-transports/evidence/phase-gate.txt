@@ -1,0 +1,35 @@
+Phase 05 key-free gate (plan 05-11, last autonomous plan)
+date: 2026-10-01
+environment: no VAE_LIVE_CHAT, no OPENAI_API_KEY, no OPENROUTER_API_KEY set; no live call made
+tree: worktree agent-a37b72abd0b461e21 at the commit that adds ChatCaptureRunTest (7eb35ce)
+
+command: ./gradlew check --offline
+result: BUILD SUCCESSFUL (all modules: core, providers, keystore, sample; detekt, scanBannedConstructs, floor, bytecode, explicit API, module graph, no-DI, lint)
+
+command: ./gradlew check --dry-run --offline --console=plain
+result: graph holds :providers:test, :providers:testOkhttp521, :providers:testOkhttp550; it holds no liveChatCompletionsCapture and no liveAnthropicCapture
+
+command: ./gradlew :providers:liveChatCompletionsCapture --offline --console=plain   (no opt-in variable)
+result: > Task :providers:liveChatCompletionsCapture SKIPPED
+
+command: scripts/review-api-surface.sh --expect-sealed-complete
+result: API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=161
+
+command: scripts/verify-negative-controls.sh
+result: 69 planted violations went red for the right reason (parts 1 to 3, including the three OkHttp legs rejecting a wrong expected version); last line: negative-control failures: 0
+
+command: scripts/verify-api-dump.sh
+result: API DUMP PROOF OK (real tree untouched; copy removed on exit)
+
+command: scripts/verify-repo-hygiene.sh
+result: HYGIENE OK
+
+command: git ls-files -co --exclude-standard -- '*api.txt' '*baseline*.xml'
+result: (no output)
+
+Chat transport test counts per OkHttp leg, from the JUnit XML (19 classes in package providers.chat, no class with Live in its name ran):
+  test            (4.12.0): tests=245 failures=0 skipped=0
+  testOkhttp521   (5.2.1):  tests=245 failures=0 skipped=0
+  testOkhttp550   (5.5.0):  tests=245 failures=0 skipped=0
+
+Left for 05-12 behind its gate: the live run itself (probe C5,R4, then C1,C2,C3,C4,R1,R2,R3,R5,R6).
