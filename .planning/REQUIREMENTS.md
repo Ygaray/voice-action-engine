@@ -32,7 +32,7 @@
 - [x] **CORE-07**: Growing public taxonomies (failure/escalation/hold reasons, events) are open or carry an `Other` leaf, and growing public types are regular classes (not `data class`), so post-tag additions don't break consumers' exhaustive `when` or binary compat. `ProviderId` is a value class with `ANTHROPIC | OPENAI | OPENROUTER | ON_DEVICE` constants.
 
 - [ ] **CORE-08 (A19)**: An app can declare a non-mutating tool as `terminal` (declaring it mutating fails at build time). When the model calls it, the engine sends no tool_result and starts no further turn; earlier calls in that turn dispatch normally, in order; the run ends as `Completed` with a new nullable `terminalCall = TerminalCall(toolName, arguments: JsonObject)` field (`reply` null; commits/held carried; tier terminal). `:core` ships `Clarification(question, options: List<ClarificationOption(id, label)>)` (opaque app ids — CT food rows, SB list ids), a `ToolSpec.clarification(...)` builder and `TerminalCall.asClarification()`.
-- [ ] **CORE-09 (A19)**: `CommandInput` gains `parentRunId: String? = null`; a follow-up command (e.g. the chosen clarification option, rendered by the app's user-turn hook with the original transcript + question + choice) is a new run linked by `parentRunId` in the trace and in `CommitSink`/`onRunClosed`. No prior-transcript resumption in v1.0; the cached prefix is unchanged.
+- [x] **CORE-09 (A19)**: `CommandInput` gains `parentRunId: String? = null`; a follow-up command (e.g. the chosen clarification option, rendered by the app's user-turn hook with the original transcript + question + choice) is a new run linked by `parentRunId` in the trace and in `CommitSink`/`onRunClosed`. No prior-transcript resumption in v1.0; the cached prefix is unchanged.
 
 ### Commit, Gate & Undo Seam (steps 2, 6b; A2, A6, A17, E1)
 
@@ -40,9 +40,9 @@
 - [ ] **GATE-02**: `PreApplyGate` supports **suspend mode** (SB: waits for the user inside `admit`; fail-closed on timeout/decline/error) via a shipped `AwaitingConfirmGate` helper (mutex, configurable timeout, default 120 s) and **defer mode** (CT: returns `Hold` immediately; the app later calls `commitHeld`, optionally with an amended batch — covers weak-match and "confirm all").
 - [x] **GATE-03**: A `Hold` reason is optional and app-typed (the engine never requires or constructs one; A2's needs-confirmation + reason is carried when the app supplies it). A held action is never reported as success: inside the agent loop it yields the SB-byte-compatible `tool_result` `{"applied":false,"status":"held_for_confirmation"}`, and every outcome lists its held proposals.
 - [x] **GATE-04 (A17)**: `CommitSink` is notified **per mutating action as it happens** (not at run end) — every mutating call, including held, `is_error` and dry-run preview, not just commits — with a `runId` and an `ExecutedToolCall`-shaped payload: tool name, mutating flag, outcome (`committed | held | preview | is_error`), target ids, and the pre-mutation snapshot captured at the gate (shape kept compatible with the v1.1 `:undo` journal, A18).
-- [ ] **GATE-05 (A17)**: `CommitSink.onRunClosed(runId, terminalOutcome)` fires exactly once on **every** exit path — done, cancelled, budget exceeded, provider error, escalation exhausted — proven by one test per path.
-- [ ] **GATE-06 (A17)**: Every outcome variant carries the full **ordered** executed-action list — every mutating call (committed, held, `is_error`, preview), not just commits — and the committed actions, so consumers can classify outcomes and offer Retry only when nothing committed.
-- [ ] **GATE-07 (A17, no duplicate writes)**: A tier that has committed ≥1 action (any admitted mutation whose apply ran, including errored applies) **or holds ≥1 pending proposal** cannot escalate (HOLD-terminal clarification of A17). A committed tier that asks to escalate becomes `Completed` with a public, non-defaultable `partial = true` field and the suppressed escalation reason in the trace; the agentic budget stop stays `Failed(BudgetExceeded)`. Explicit tests show a committing tier that asks to escalate never reaches the next tier and no write is repeated.
+- [x] **GATE-05 (A17)**: `CommitSink.onRunClosed(runId, terminalOutcome)` fires exactly once on **every** exit path — done, cancelled, budget exceeded, provider error, escalation exhausted — proven by one test per path.
+- [x] **GATE-06 (A17)**: Every outcome variant carries the full **ordered** executed-action list — every mutating call (committed, held, `is_error`, preview), not just commits — and the committed actions, so consumers can classify outcomes and offer Retry only when nothing committed.
+- [x] **GATE-07 (A17, no duplicate writes)**: A tier that has committed ≥1 action (any admitted mutation whose apply ran, including errored applies) **or holds ≥1 pending proposal** cannot escalate (HOLD-terminal clarification of A17). A committed tier that asks to escalate becomes `Completed` with a public, non-defaultable `partial = true` field and the suppressed escalation reason in the trace; the agentic budget stop stays `Failed(BudgetExceeded)`. Explicit tests show a committing tier that asks to escalate never reaches the next tier and no write is repeated.
 
 ### Telemetry (step 2)
 
@@ -169,14 +169,14 @@
 | CORE-06 | Phase 2 | Complete |
 | CORE-07 | Phase 2 | Complete |
 | CORE-08 | Phase 2 | Pending |
-| CORE-09 | Phase 2 | Pending |
+| CORE-09 | Phase 2 | Complete |
 | GATE-01 | Phase 2 | Complete |
 | GATE-02 | Phase 2 | Pending |
 | GATE-03 | Phase 2 | Complete |
 | GATE-04 | Phase 2 | Complete |
-| GATE-05 | Phase 2 | Pending |
-| GATE-06 | Phase 2 | Pending |
-| GATE-07 | Phase 2 | Pending |
+| GATE-05 | Phase 2 | Complete |
+| GATE-06 | Phase 2 | Complete |
+| GATE-07 | Phase 2 | Complete |
 | TEL-01 | Phase 2 | Pending |
 | TEL-02 | Phase 2 | Pending |
 | TEL-03 | Phase 3 | Pending |
