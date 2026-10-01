@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
  */
 public class CommandPipeline internal constructor(
     private val strategies: List<CommandStrategy>,
+    private val selector: TierSelector,
     private val gate: PreApplyGate,
     private val sink: CommitSink,
     private val policySource: TierPolicySource,
@@ -38,7 +39,7 @@ public class CommandPipeline internal constructor(
         var outcome: CommandOutcome? = null
         try {
             val policy = policySource.current()
-            outcome = TierWalk(strategies, policy, coordinator, recorder, runId, input.parentRunId).run(input)
+            outcome = TierWalk(strategies, selector, policy, coordinator, recorder, runId, input.parentRunId).run(input)
             return outcome
         } finally {
             val termination = outcome?.let { terminationOf(it) }

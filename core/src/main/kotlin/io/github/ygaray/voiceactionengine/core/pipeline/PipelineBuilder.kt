@@ -27,6 +27,9 @@ public class PipelineBuilder internal constructor() {
     /** Where actions and run endings are reported. Required. */
     public var commitSink: CommitSink? = null
 
+    /** Which tier a command starts at; the default [TierSelector.Linear] starts at the first tier that may run. */
+    public var selector: TierSelector = TierSelector.Linear
+
     /** The limits each command runs under; the default is [TierPolicy.DEFAULT] for every command. */
     public var policy: TierPolicySource = TierPolicySource.fixed(TierPolicy.DEFAULT)
 
@@ -45,9 +48,13 @@ public class PipelineBuilder internal constructor() {
         require(strategies.isNotEmpty()) { "commandPipeline: at least one tier is required" }
         val duplicate = strategies.map { it.id }.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }
         require(duplicate == null) { "commandPipeline: duplicate tier id ${duplicate?.key}" }
+        val fixed = (selector as? TierSelector.Fixed)?.tier
+        require(fixed == null || strategies.any { it.id == fixed }) {
+            "commandPipeline: selector names unknown tier $fixed"
+        }
         val finalGate = requireNotNull(gate) { "commandPipeline: gate is required (no auto-commit default)" }
         val finalSink = requireNotNull(commitSink) { "commandPipeline: commitSink is required" }
-        return CommandPipeline(strategies.toList(), finalGate, finalSink, policy, clock, runIds)
+        return CommandPipeline(strategies.toList(), selector, finalGate, finalSink, policy, clock, runIds)
     }
 }
 

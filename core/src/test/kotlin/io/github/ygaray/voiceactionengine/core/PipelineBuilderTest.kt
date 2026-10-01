@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.PipelineBuilder
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource
+import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
@@ -80,6 +81,22 @@ class PipelineBuilderTest {
         }
         assertEquals(listOf(StrategyId("c"), StrategyId("a"), StrategyId("b")), pipeline.tiers)
         assertEquals("CommandPipeline(tiers=[c, a, b])", pipeline.toString())
+    }
+
+    @Test
+    fun fixedSelectorNamingAnUnknownTierIsRejectedAtBuild() {
+        val message = buildFailure {
+            tier(strategy("a"))
+            selector = TierSelector.Fixed(StrategyId("missing"))
+            gate = ScriptedGate.admitAll()
+            commitSink = RecordingCommitSink()
+        }
+        assertEquals("commandPipeline: selector names unknown tier missing", message)
+    }
+
+    @Test
+    fun linearIsTheDefaultSelector() {
+        assertSame(TierSelector.Linear, PipelineBuilder().selector)
     }
 
     private fun pipelineSeeing(
