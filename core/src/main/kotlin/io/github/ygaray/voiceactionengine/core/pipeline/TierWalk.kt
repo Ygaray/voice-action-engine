@@ -14,6 +14,7 @@ private const val ATTEMPT_COMPLETED = "completed"
 private const val ATTEMPT_ESCALATED = "escalated"
 private const val ATTEMPT_NO_MATCH = "no_match"
 private const val ATTEMPT_FAILED = "failed"
+private const val ATTEMPT_SUPPRESSED = "escalation_suppressed"
 
 /**
  * Runs the ladder once, starting at the tier the selector picks. A completed or failed tier ends the walk; an
@@ -78,18 +79,40 @@ internal class TierWalk(
                 recorder.tierFinished(strategy.id, ATTEMPT_FAILED, null, outcome.reason, null)
                 CommandOutcome.Failed(effects(), outcome.reason, outcome.details)
             }
-            is StrategyOutcome.Escalate -> {
-                recorder.tierFinished(strategy.id, ATTEMPT_ESCALATED, outcome.reason, null, null)
-                carry = outcome.carry
-                lastReason = outcome.reason
-                null
-            }
-            is StrategyOutcome.NoMatch -> {
-                recorder.tierFinished(strategy.id, ATTEMPT_NO_MATCH, null, null, null)
-                carry = null
-                lastReason = null
-                null
-            }
+            is StrategyOutcome.Escalate ->
+                if (hasWorked()) suppressed(strategy, outcome.reason) else handUp(strategy, outcome)
+            is StrategyOutcome.NoMatch ->
+                if (hasWorked()) suppressed(strategy, null) else startFresh(strategy)
         }
+    }
+
+    private fun handUp(strategy: CommandStrategy, outcome: StrategyOutcome.Escalate): CommandOutcome? {
+        recorder.tierFinished(strategy.id, ATTEMPT_ESCALATED, outcome.reason, null, null)
+        carry = outcome.carry
+        lastReason = outcome.reason
+        return null
+    }
+
+    private fun startFresh(strategy: CommandStrategy): CommandOutcome? {
+        recorder.tierFinished(strategy.id, ATTEMPT_NO_MATCH, null, null, null)
+        carry = null
+        lastReason = null
+        return null
+    }
+
+    /**
+     * True once the run has applied anything (an errored or throwing apply included, since it may have written) or
+     * holds a proposal. Read from the coordinator's own counts; a strategy's claim about what it did is never used.
+     */
+    private fun hasWorked(): Boolean = coordinator.appliedCount + coordinator.heldCount > 0
+
+    /**
+     * The tier asked to hand the command up after the run had already written or held something, so no later tier may
+     * run: it would repeat the write. The command ends as a partial completion with the handed-up reason in the trace.
+     */
+    private fun suppressed(strategy: CommandStrategy, reason: EscalationReason?): CommandOutcome {
+        recorder.recordCode(TraceCode.ESCALATION_SUPPRESSED)
+        recorder.tierFinished(strategy.id, ATTEMPT_SUPPRESSED, null, null, reason)
+        return CommandOutcome.Completed(effects(), reply = null, terminalCall = null, partial = true)
     }
 }
