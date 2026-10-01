@@ -44,9 +44,10 @@ internal object ChatModels {
         if (!vendor.routedModelIds) return ChatModelKey(FAMILY_OPENAI, model)
         val withoutVariant = model.substringBefore(VARIANT_SEPARATOR)
         val vendorPrefix = withoutVariant.substringBefore(VENDOR_SEPARATOR, missingDelimiterValue = "")
-        val id = withoutVariant.substringAfter(VENDOR_SEPARATOR)
+        // Lowercased for lookup only, like the vendor prefix, because every rule pattern is lowercase.
+        val id = withoutVariant.substringAfter(VENDOR_SEPARATOR).lowercase()
         val family = when (vendorPrefix.lowercase()) {
-            FAMILY_OPENAI -> if (id.lowercase().startsWith(OPEN_WEIGHT_ID_PREFIX)) FAMILY_OTHER else FAMILY_OPENAI
+            FAMILY_OPENAI -> if (id.startsWith(OPEN_WEIGHT_ID_PREFIX)) FAMILY_OTHER else FAMILY_OPENAI
             FAMILY_ANTHROPIC -> FAMILY_ANTHROPIC
             else -> FAMILY_OTHER
         }

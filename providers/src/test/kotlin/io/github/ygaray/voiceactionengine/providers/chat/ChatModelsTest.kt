@@ -252,6 +252,9 @@ class ChatModelsTest {
         check("anthropic/claude-sonnet-5.5", null, "max_tokens", 16)
         check("example/tool-model", null, "max_tokens", 16)
         check("openai/gpt-4o-mini", null, "max_tokens", 16)
+        // A routed id in any case takes the same rules as its lowercase form.
+        check("openai/GPT-5.4-mini", "none", "max_completion_tokens", 1)
+        check("OpenAI/GPT-4o-Mini", null, "max_tokens", 16)
 
         val direct = ChatModels.wireRules(ChatVendor.OPENAI, "gpt-4o-mini")
         assertEquals("max_tokens", direct.tokenParam)
