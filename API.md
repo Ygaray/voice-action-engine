@@ -2,14 +2,51 @@
 
 > **Audience: coding agents (and humans) integrating the engine.** This is the map of what you can call and what you can
 > implement. For a step-by-step adoption, read [`INTEGRATION.md`](INTEGRATION.md); for install and a minimal pipeline,
-> [`README.md`](README.md). The package root is `io.github.ygaray.voiceactionengine`: `core` has no suffix beyond
-> `.core`, the transports live under `.providers`, the key store under `.keystore`. The engine is domain-free; no
+> [`README.md`](README.md). The package root is `io.github.ygaray.voiceactionengine`; the types are in sub-packages,
+> listed in "Packages and imports" below (`.core` and its sub-packages, `.providers.anthropic` and `.providers.chat`,
+> `.keystore`). The engine is domain-free; no
 > example here names an app's data. No concrete version appears in these docs: pin an immutable release tag or a commit
 > SHA.
 
 The public API grows strictly additively once tagged. Open sets (marked **open** below) gain members in later
 versions, so always keep an `else` branch when you switch over one; closed sets (**closed**, the sealed classes) are
 matched exhaustively with no `else`.
+
+## Packages and imports
+
+Import each type from its own package (Kotlin has no wildcard re-export). Root `io.github.ygaray.voiceactionengine`:
+
+```text
+core                    CommandInput, Credential, ProviderId, StrategyId
+core.commit             ActionEvent, ActionKind, AwaitingConfirmGate, CommitProposal, CommitSink, ConfirmAmendHook,
+                        ConfirmationPolicy, DispatchResult, ExecutedAction, FinishedKind, GateDecision, HeldProposal,
+                        PendingConfirmation, PendingMutation, PreApplyGate, RunTermination, StepResult, ToolStep
+core.failure            BudgetBound, EscalationReason, FailureDetails, FailureReason
+core.pipeline           CommandOutcome, CommandPipeline, PipelineBuilder, PipelineDsl, TierPolicy, TierPolicySource,
+                        TierSelector, and the function commandPipeline
+core.provider           AiProvider, BoundModel, CachingMode, CredentialLookup, CredentialSource, ModelCapabilities,
+                        ModelCapabilityTable, ModelResult, OnDeviceAvailability, OnDeviceCapability, ProviderRequest,
+                        ProviderSelection, ProviderSelectionSource, SelectionRequest
+core.strategy           Clarification, ClarificationOption, CommandSession, CommandStrategy, Extraction,
+                        OutcomeResolver, Resolution, StrategyCapabilities, StrategyOutcome, TerminalCall, ToolExecutor,
+                        ToolSpec, ToolSpecProvider, ToolingSnapshot, UserTurnContext, UserTurnRenderer
+core.strategy.agentic   AgenticLoopStrategy
+core.strategy.singleshot SingleShotStrategy
+core.telemetry          CommandTrace, PipelineEvent, PipelineEventListener, TierAttempt, TraceCode, TurnRecord, Usage
+core.transcript         AssistantMessage, AssistantPart, CacheDirective, Message, ModelRequest, ModelResponse,
+                        NativeReplay, StopReason, ToolChoice, ToolResult, ToolResultsMessage, UserMessage
+providers.anthropic     AnthropicAttempt, AnthropicAttemptKind, AnthropicAttemptObserver, AnthropicProvider
+providers.chat          ChatCompletionsAttempt, ChatCompletionsAttemptKind, ChatCompletionsAttemptObserver,
+                        ChatCompletionsProvider (openAi { } and openRouter { } are on its companion)
+keystore                ApiKeyStore, KeySlot, KeyState, KeystoreCredentialSource
+```
+
+For example `import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline` and
+`import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec`. Nested types (`CommandOutcome.Completed`,
+`FailureReason.NotConfigured`, `AssistantPart.ToolCall`) come with their parent. The tool schemas and arguments are
+kotlinx `JsonObject`s: `kotlinx-serialization-json` and `kotlinx-coroutines-core` are `api` dependencies of `core`,
+so they reach your compile classpath through it (import `kotlinx.serialization.json.*` helpers such as
+`buildJsonObject`, `put` and `JsonPrimitive` directly).
 
 ## Surface at a glance
 
@@ -200,8 +237,8 @@ written.
 
 ## Credentials and keystore
 
-`CredentialSource.credential(provider)` returns a `CredentialLookup` (**open**): `Present(Credential)`, `Missing` or
-`Unreadable(cause)`. `KeystoreCredentialSource(ApiKeyStore(dataStore, slots))` is the ready-made source: the app owns
+`CredentialSource.credential(provider)` returns a `CredentialLookup` (**open**): `Present(Credential)`, `Missing()` (a
+class: construct it with parentheses) or `Unreadable(cause)`. `KeystoreCredentialSource(ApiKeyStore(dataStore, slots))` is the ready-made source: the app owns
 the `DataStore` (one per file per process) and the `KeySlot` table. `ApiKeyStore` offers `save`, `delete`, `read` and
 `observe`; the plaintext key never leaves through a public member. `KeyState` is **open**. The unreadable causes are
 stable codes: `key_missing`, `decrypt_failed`, `stored_value_malformed` (re-enter the key) and `keystore_unavailable`,

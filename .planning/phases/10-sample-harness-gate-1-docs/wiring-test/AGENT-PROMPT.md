@@ -6,7 +6,7 @@ published on JitPack; the version to use is `{{VERSION}}` (a commit SHA).
 
 ## Rules
 
-- Read ONLY files under this directory. Start with `docs/README.md`, then `docs/INTEGRATION.md` and `docs/API.md`.
+- Read ONLY files under this directory. Start with `docs/README.md`, then `docs/INTEGRATION.md` and `docs/API.md` (`docs/ECOSYSTEM.md` has the coordinate table).
   Do not read any path outside this directory, do not browse the network, and do not open any engine source, any
   other copy of the engine, or any Gradle cache contents. Build output under this directory is fine to read.
 - Do not guess an API the docs do not show. If you need something the docs do not give (a package name, a dependency,

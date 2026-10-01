@@ -11,7 +11,9 @@ bring the tools, the resolver, the gate and the sink.
 - **[`INTEGRATION.md`](INTEGRATION.md)**: numbered adoption steps from repository to a rendered outcome, ending in notes and gotchas.
 - **[`API.md`](API.md)**: the public surface at a glance, one section per area, and every extension point.
 - **[`ECOSYSTEM.md`](ECOSYSTEM.md)**: the coordinate table, the consumers and the invariants.
-- Working example: the `:sample` app in [`sample/`](sample/), never published. Start with
+- Working example: the `:sample` app in [`sample/`](sample/), never published. It is in the repository
+  (<https://github.com/Ygaray/voice-action-engine>), not in the published artifacts, so a consumer workspace does not
+  contain it; the docs are written to be followed without it. Start with
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/SampleEngine.kt` (the composition root),
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/legs/LegRunner.kt` and
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/OutcomeText.kt`.
@@ -46,9 +48,48 @@ implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keysto
 
 ## Minimal usage
 
-Imports are left out; every type is in `io.github.ygaray.voiceactionengine.*`. This is the whole wiring of one tier
-(the code below is compiled and run by the repository's tests). Nothing is committed unless your gate admits it, so
-a gate and a sink are required:
+This is the whole wiring of one tier (the code below is compiled and run by the repository's tests). Nothing is
+committed unless your gate admits it, so a gate and a sink are required. The types live in sub-packages of
+`io.github.ygaray.voiceactionengine` (not directly in it); the imports the snippet needs are:
+
+```text
+import io.github.ygaray.voiceactionengine.core.CommandInput
+import io.github.ygaray.voiceactionengine.core.StrategyId
+import io.github.ygaray.voiceactionengine.core.commit.ActionEvent
+import io.github.ygaray.voiceactionengine.core.commit.ActionKind
+import io.github.ygaray.voiceactionengine.core.commit.CommitSink
+import io.github.ygaray.voiceactionengine.core.commit.GateDecision
+import io.github.ygaray.voiceactionengine.core.commit.PendingMutation
+import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
+import io.github.ygaray.voiceactionengine.core.commit.RunTermination
+import io.github.ygaray.voiceactionengine.core.commit.StepResult
+import io.github.ygaray.voiceactionengine.core.commit.ToolStep
+import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
+import io.github.ygaray.voiceactionengine.core.pipeline.PipelineBuilder
+import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
+import io.github.ygaray.voiceactionengine.core.provider.AiProvider
+import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
+import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.Extraction
+import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
+import io.github.ygaray.voiceactionengine.core.strategy.Resolution
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
+import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
+import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+```
+
+[`API.md`](API.md) has the package of every public type, for anything beyond this snippet.
 
 <!-- doc-snippet: minimal-pipeline -->
 ```kotlin

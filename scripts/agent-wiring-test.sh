@@ -21,7 +21,7 @@ PROMPT="$PHASE_DIR/wiring-test/AGENT-PROMPT.md"
 REFERENCE="$PHASE_DIR/wiring-test/reference"
 GROUP_DEFAULT="$(grep -E '^engineGroup=' "$ROOT/gradle.properties" | cut -d= -f2)"
 GROUP="${GROUP:-$GROUP_DEFAULT}"
-DOC_FILES="README.md INTEGRATION.md API.md"
+DOC_FILES="README.md INTEGRATION.md API.md ECOSYSTEM.md"
 
 # ---------------------------------------------------------------------------------------------------------------------
 # make_workspace <dir> <version> <repo_url> <docs_rev>
@@ -228,7 +228,7 @@ KTS
   cp "$REFERENCE/WireTest.kt" "$ws/jvmconsumer/src/test/kotlin/wire/WireTest.kt"
   cp "$REFERENCE/AppWire.kt" "$ws/app/src/main/kotlin/wire/AppWire.kt"
   printf 'none\n' > "$ws/STUMBLES.md"
-  printf 'docs/README.md\ndocs/INTEGRATION.md\ndocs/API.md\n' > "$ws/CONSULTED.md"
+  printf 'docs/README.md\ndocs/INTEGRATION.md\ndocs/API.md\ndocs/ECOSYSTEM.md\n' > "$ws/CONSULTED.md"
 
   # The planted bad copy is taken before any build output exists in the workspace.
   bad="$SELFTEST_TMP/ws-bad"

@@ -2,12 +2,14 @@
 
 > **Audience: coding agents (and humans) wiring the engine into an app.** Follow the numbered steps in order. Every
 > Kotlin block below is compiled and run by the repository's tests (`DocSnippetsTest`) over the public API only, so it
-> is safe to copy. Imports are left out; every type lives in `io.github.ygaray.voiceactionengine.*`. The names starting
+> is safe to copy. Imports are left out: the types live in sub-packages of `io.github.ygaray.voiceactionengine`, and [`API.md`](API.md) ("Packages and imports") gives the package of every public type. The names starting
 > with `My` are your app's own types. The engine is domain-free: the tool names `find_items`, `create_item` and
 > `ask_user` are examples.
 
 Read [`API.md`](API.md) for the full public surface. The working example is the `:sample` app (`sample/`); each step
-below says which of its files does the same thing.
+below says which of its files does the same thing. The `sample/` paths are in the repository
+(<https://github.com/Ygaray/voice-action-engine>), not in the published artifacts, so a consumer workspace does not
+have them; every step here stands on its own without them.
 
 ## 1. Add the JitPack repository
 
@@ -38,7 +40,12 @@ implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keysto
 - `providers` adds the Anthropic, OpenAI and OpenRouter transports over OkHttp. It compiles against the OkHttp 4.12
   floor and is tested on 4.12 and 5.x, so your app keeps its own OkHttp version; do not force one.
 - `keystore` is an Android library (AAR) that stores a bring-your-own API key encrypted with a device key. Skip it if
-  you keep keys elsewhere.
+  you keep keys elsewhere. It exposes `androidx.datastore:datastore-preferences` as an `api` dependency (the store takes
+  your `DataStore<Preferences>`), so step 7 needs no extra dependency line in the app.
+- What you get transitively: `core` exposes `kotlinx-serialization-json` (tool schemas and arguments are
+  `JsonObject`s) and `kotlinx-coroutines-core`; `providers` exposes OkHttp. You do not declare these yourself.
+- For tests (step 10) you add your own `junit:junit` and `org.jetbrains.kotlinx:kotlinx-coroutines-test` (for
+  `runTest`) as test dependencies; the engine does not publish them.
 
 ## 3. Permissions
 
@@ -322,7 +329,7 @@ fun PipelineBuilder.registerProviders(shared: OkHttpClient?) {
   names a model; model ids are yours. A tier may only use the providers it declares (`StrategyCapabilities`, any
   provider by default).
 - **Keys.** A `CredentialSource` answers `CredentialLookup.Present`, `Missing` or `Unreadable` for the provider about
-  to be called, and the engine refuses a credential stamped for another provider. `CredentialLookup` is an open set.
+  to be called, and the engine refuses a credential stamped for another provider. `CredentialLookup` is an open set; `Missing` is a class, so write `CredentialLookup.Missing()`.
 - **`:keystore`.** Spell out your key table (one `KeySlot` per provider: the AndroidKeyStore alias and the two
   preference names, copied verbatim from your existing storage so saved keys keep working), own one `DataStore` per
   file per process, and hand `KeystoreCredentialSource(ApiKeyStore(...))` to the pipeline:
@@ -422,6 +429,8 @@ when a case is missing. The reasons inside are open sets and always need an `els
 - A pressed option is a new command, not a resumed one. Start it with `parentRunId = previous.runId` and let your
   `UserTurnRenderer` write the choice into the user turn (the renderer reads it from `input.context`), so the model
   sees the original transcript, the question and the answer. The outcome and the sink both carry the link.
+
+The snippet below calls `keyAdvice` from step 7 (the `keystore-wiring` block); copy that function with it.
 
 <!-- doc-snippet: render-outcome -->
 ```kotlin
@@ -550,7 +559,7 @@ private fun answerOf(parts: List<AssistantPart>, stopReason: StopReason): ModelR
     ModelResult.Success(ModelResponse(AssistantMessage(parts), stopReason, Usage(100, 0, 0, 20)))
 ```
 
-Drive the pipeline with `runTest` and assert on the outcome (`commits`, `held`, `executed`, `trace`) and on
+`Usage` takes four token counts in order: uncached input, cache read, cache write, output. Drive the pipeline with `runTest` and assert on the outcome (`commits`, `held`, `executed`, `trace`) and on
 `requests`. Return `ModelResult.Failure(...)` to test your failure rendering; no network is involved.
 
 Sample: `sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/docs/DocSnippetsTest.kt` runs every snippet
