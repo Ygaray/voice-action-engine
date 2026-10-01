@@ -7,7 +7,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.util.concurrent.CopyOnWriteArrayList
 
 // The bytes a strategy receives for a held change; apps compare against this exact string.
 private const val HELD_FOR_CONFIRMATION = """{"applied":false,"status":"held_for_confirmation"}"""
@@ -26,13 +25,13 @@ internal fun heldForConfirmationContent(): String = HELD_FOR_CONFIRMATION
 internal class CommitCoordinator(
     private val runId: String,
     private val parentRunId: String?,
-    private val gate: PreApplyGate,
+    gate: PreApplyGate,
     private val sink: CommitSink,
     private val recorder: RunRecorder,
 ) {
     private val mutex = Mutex()
-    private val recorded = CopyOnWriteArrayList<ExecutedAction>()
-    private val heldProposals = CopyOnWriteArrayList<HeldProposal>()
+    private val ledger = ActionLedger()
+    private val gateStep = GateStep(gate, recorder)
 
     /** Applies, in order, whatever [step] asks for and the gate allows. */
     suspend fun submit(step: ToolStep): DispatchResult = mutex.withLock {
@@ -43,29 +42,44 @@ internal class CommitCoordinator(
     }
 
     /** Every action recorded so far, in position order. */
-    fun executed(): List<ExecutedAction> = recorded.toList()
+    fun executed(): List<ExecutedAction> = ledger.executed()
 
     /** Changes the gate held so far. */
-    fun held(): List<HeldProposal> = heldProposals.toList()
+    fun held(): List<HeldProposal> = ledger.held()
 
     /** How many actions had their apply run, including errored applies. */
     val appliedCount: Int
-        get() = recorded.count { it.applied }
+        get() = ledger.appliedCount
 
     /** How many held proposals exist. */
     val heldCount: Int
-        get() = heldProposals.size
+        get() = ledger.heldCount
 
     private suspend fun submitMutation(step: ToolStep.Mutation): DispatchResult {
-        val proposal = CommitProposal(runId, parentRunId, step.mutations)
-        val decision = guarded(onFault = {
-            recorder.recordCode(TraceCode.GATE_ERROR)
-            GateDecision.Hold()
-        }) { gate.admit(proposal) }
+        val decision = gateStep.decide(CommitProposal(runId, parentRunId, step.mutations))
         return when (decision) {
             is GateDecision.Admit -> applyAll(decision.amended ?: step.mutations)
-            is GateDecision.Hold -> DispatchResult(heldForConfirmationContent(), false, true, emptyList())
+            is GateDecision.Hold -> hold(step, decision)
         }
+    }
+
+    /**
+     * Nothing is written. Every mutation is reported as a held action carrying the gate's own token, one proposal
+     * lists them with the gate's reason object, and the strategy gets the fixed not-applied notice. A held change is
+     * not done and the model must not retry it.
+     */
+    private suspend fun hold(step: ToolStep.Mutation, decision: GateDecision.Hold): DispatchResult {
+        ledger.addHeld(HeldProposal(runId, parentRunId, step.mutations, decision.reason, decision.appOutcomeToken))
+        val actions = step.mutations.map { mutation ->
+            val details = ActionDetails(
+                mutation.toolName,
+                decision.appOutcomeToken,
+                mutation.targetIds,
+                mutation.context,
+            )
+            ledger.record(ActionKind.HELD, applied = false, details = details).also { deliver(it) }
+        }
+        return DispatchResult(heldForConfirmationContent(), false, true, actions)
     }
 
     private suspend fun applyAll(mutations: List<PendingMutation>): DispatchResult {
@@ -92,17 +106,14 @@ internal class CommitCoordinator(
     }) { mutation.apply() }
 
     private fun record(mutation: PendingMutation, result: StepResult): ExecutedAction {
-        val action = ExecutedAction(
-            position = recorded.size,
-            kind = if (result.isError) ActionKind.IS_ERROR else ActionKind.COMMITTED,
-            applied = true,
-            appOutcomeToken = result.appOutcomeToken,
-            toolName = mutation.toolName,
-            targetIds = mutation.targetIds + result.targetIds,
-            context = mutation.context,
+        val kind = if (result.isError) ActionKind.IS_ERROR else ActionKind.COMMITTED
+        val details = ActionDetails(
+            mutation.toolName,
+            result.appOutcomeToken,
+            mutation.targetIds + result.targetIds,
+            mutation.context,
         )
-        recorded.add(action)
-        return action
+        return ledger.record(kind, applied = true, details = details)
     }
 
     private suspend fun deliver(action: ExecutedAction) {
