@@ -4,3 +4,36 @@
 case	vendor	provenance	source	http_status	tool_choice	expected	absent_keys	note
 openai_forced_log_food	openai	derived	derived.json#openai_forced_log_food	200	required	success:tool_use:log_food	-	derived: API reference response shape; replace on capture C1
 openrouter_forced_log_food	openrouter	derived	derived.json#openrouter_forced_log_food	200	required	success:tool_use:log_food	-	derived: API reference response shape; replace on capture R1
+openai_forced_log_food_stop	openai	derived	derived.json#openai_forced_log_food_stop	200	required	success:tool_use:log_food	-	derived: forced calls often end with finish stop; the tool call decides (research Pattern 4); replace on capture C1
+openai_edit_absent_optional	openai	derived	derived.json#openai_edit_absent_optional	200	required	success:tool_use:edit_list_card	title,items.0.item_id,items.0.completed_at	derived: EDIT call that omits every optional key; the decoder must not add defaults; replace on capture C3
+openai_auto_prose	openai	derived	derived.json#openai_auto_prose	200	auto	success:end_turn:-	-	derived: auto mode answers in prose: an end of turn; replace on capture C4
+openai_required_prose	openai	derived	derived.json#openai_required_prose	200	required	failure:no_tool_call	-	derived: forced call answered with prose only; not reproducible live
+openai_refusal	openai	derived	derived.json#openai_refusal	200	required	success:refusal:-	-	derived: message.refusal set (API reference shape); not reproducible live
+openai_content_filter	openai	derived	derived.json#openai_content_filter	200	auto	success:refusal:-	-	derived: finish_reason content_filter (API reference); not reproducible live
+openai_length_truncated_args	openai	derived	derived.json#openai_length_truncated_args	200	required	success:max_tokens:-	-	derived: output cut mid-arguments; truncated arguments are never decoded; not reproducible live
+openai_args_empty_string	openai	derived	derived.json#openai_args_empty_string	200	required	success:tool_use:log_food	-	derived: empty arguments string means no arguments; not reproducible live
+openai_args_invalid_json	openai	derived	derived.json#openai_args_invalid_json	200	required	failure:malformed_tool_args	-	derived: arguments string is not valid JSON; not reproducible live
+openai_args_array	openai	derived	derived.json#openai_args_array	200	required	failure:malformed_tool_args	-	derived: arguments are valid JSON but an array; not reproducible live
+openai_args_scalar	openai	derived	derived.json#openai_args_scalar	200	required	failure:malformed_tool_args	-	derived: arguments are valid JSON but a scalar; not reproducible live
+openai_tool_calls_finish_without_calls	openai	derived	derived.json#openai_tool_calls_finish_without_calls	200	required	failure:malformed_response	-	derived: finish_reason tool_calls with no tool_calls array; not reproducible live
+openai_custom_call_skipped	openai	derived	derived.json#openai_custom_call_skipped	200	auto	success:tool_use:log_food	-	derived: a non-function tool call is skipped, the function call kept (API reference); not reproducible live
+openai_unknown_finish	openai	derived	derived.json#openai_unknown_finish	200	auto	success:other:-	-	derived: legacy finish_reason function_call is unknown to the map; not reproducible live
+openai_200_error_object	openai	derived	derived.json#openai_200_error_object	200	auto	failure:http_error	-	derived: OpenAI-shaped error object inside a 200 answer; not reproducible live
+openai_401	openai	derived	derived.json#openai_401	401	-	failure:auth	-	derived: documented invalid-key error text without any key; confirm on capture C5
+openai_quota_429	openai	derived	derived.json#openai_quota_429	429	-	failure:billing	-	derived: quota exhausted arrives as 429 yet is billing; documented text; not reproducible live
+openai_rate_limit_429	openai	derived	derived.json#openai_rate_limit_429	429	-	failure:rate_limited	-	derived: documented rate-limit error shape; not reproducible live
+openai_astra_400	openai	derived	derived.json#openai_astra_400	400	-	failure:model_unsupported	-	derived: cited gpt-6-astra message pointing at /v1/responses (research error-map table); not reproducible live
+openai_context_length_400	openai	derived	derived.json#openai_context_length_400	400	-	failure:context_window_exceeded	-	derived: documented context length error; not reproducible live
+openai_500	openai	derived	derived.json#openai_500	500	-	failure:http_error	-	derived: documented server error shape; not reproducible live
+openrouter_edit_absent_optional	openrouter	derived	derived.json#openrouter_edit_absent_optional	200	required	success:tool_use:edit_list_card	title,items.0.item_id,items.0.completed_at	derived: EDIT call that omits every optional key; the decoder must not add defaults; replace on capture R2
+openrouter_raw_upstream_finish	openrouter	derived	derived.json#openrouter_raw_upstream_finish	200	auto	success:other:-	-	derived: raw upstream finish value passed through by the router; not reproducible live
+openrouter_args_object	openrouter	derived	derived.json#openrouter_args_object	200	required	success:tool_use:log_food	-	derived: some routed upstreams send arguments as an object instead of a string; not reproducible live
+openrouter_200_envelope_429	openrouter	derived	derived.json#openrouter_200_envelope_429	200	auto	failure:rate_limited	-	derived: HTTP 200 carrying an error envelope with code 429 and no choices; not reproducible live
+openrouter_choices_empty_with_error	openrouter	derived	derived.json#openrouter_choices_empty_with_error	200	auto	failure:http_error	-	derived: empty choices plus an error object with code 502; not reproducible live
+openrouter_finish_error	openrouter	derived	derived.json#openrouter_finish_error	200	required	failure:http_error	-	derived: finish_reason error with the upstream's native finish reason; not reproducible live
+openrouter_finish_error_no_native	openrouter	derived	derived.json#openrouter_finish_error_no_native	200	required	failure:http_error	-	derived: finish_reason error without a native finish reason; not reproducible live
+openrouter_402	openrouter	derived	derived.json#openrouter_402	402	-	failure:billing	-	derived: documented out-of-credits error; not reproducible live
+openrouter_404_no_endpoints	openrouter	derived	derived.json#openrouter_404_no_endpoints	404	-	failure:model_unsupported	-	derived: cited No endpoints found text for an unsupported parameter (research error-map table); not reproducible live
+openrouter_404_other	openrouter	derived	derived.json#openrouter_404_other	404	-	failure:model_not_found	-	derived: any other 404 is model_not_found; not reproducible live
+openrouter_403_moderation	openrouter	derived	derived.json#openrouter_403_moderation	403	-	failure:refusal	-	derived: moderation 403 carries error.metadata.reasons (documented shape); not reproducible live
+openrouter_401	openrouter	derived	derived.json#openrouter_401	401	-	failure:auth	-	derived: documented missing-credentials error text; confirm on capture R4
