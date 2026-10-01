@@ -32,15 +32,19 @@ private val GPT_3_5_FAMILY = Regex("""^gpt-3\.5(?:-.*)?$""")
  * send none. It is never sent without tools.
  * @property tokenParam the name of the output-limit parameter, `max_completion_tokens` or `max_tokens`.
  * @property minTokens the smallest output limit the endpoint accepts; a smaller request value is raised to it.
+ * @property acceptsParallelToolCalls false when the model rejects the parallel tool-call switch outright (the
+ * o-series reasoning models answer 400 for it); the encoder then leaves the switch out and the strategy's first-call
+ * rule bounds the answer.
  */
 internal class ChatWireRules(
     val reasoningEffortWithTools: String?,
     val tokenParam: String,
     val minTokens: Int,
+    val acceptsParallelToolCalls: Boolean,
 ) {
     override fun toString(): String =
         "ChatWireRules(reasoningEffortWithTools=$reasoningEffortWithTools, tokenParam=$tokenParam, " +
-            "minTokens=$minTokens)"
+            "minTokens=$minTokens, acceptsParallelToolCalls=$acceptsParallelToolCalls)"
 }
 
 /**
@@ -70,25 +74,29 @@ internal object OpenAiModelRules {
      * allowed with tools); gpt-4 and gpt-3.5 (no effort, the legacy `max_tokens`); anything else (no effort,
      * `max_completion_tokens`, which OpenAI prefers over the deprecated name).
      *
-     * A router enforces a floor of 16 on the legacy `max_tokens`, so the minimum rises only for that pair.
+     * A router enforces a floor of 16 on the legacy `max_tokens`, so the minimum rises only for that pair. Every row
+     * takes the parallel tool-call switch except the o-series, which rejects it.
      */
     fun wireRules(id: String, viaRouter: Boolean): ChatWireRules {
-        val completion = rules(null, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS)
+        val parallel = !O_SERIES.matches(id)
+        val completion = rules(null, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS, parallel)
         return when {
-            viaRouter && RESPONSES_ONLY.matches(id) -> rules(EFFORT_LOW, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS)
-            GPT_6_FAMILY.matches(id) || isLaterGpt5(id) -> rules(EFFORT_NONE, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS)
+            viaRouter && RESPONSES_ONLY.matches(id) ->
+                rules(EFFORT_LOW, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS, parallel)
+            GPT_6_FAMILY.matches(id) || isLaterGpt5(id) ->
+                rules(EFFORT_NONE, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS, parallel)
             GPT_5_BASE.matches(id) || GPT_5_MINOR.matches(id) || O_SERIES.matches(id) -> completion
             GPT_4_FAMILY.matches(id) || GPT_3_5_FAMILY.matches(id) ->
-                rules(null, MAX_TOKENS, if (viaRouter) OPENROUTER_MIN_MAX_TOKENS else NO_MIN_TOKENS)
+                rules(null, MAX_TOKENS, if (viaRouter) OPENROUTER_MIN_MAX_TOKENS else NO_MIN_TOKENS, parallel)
             else -> completion
         }
     }
 
     /** The rules for a routed model that is not OpenAI's: no reasoning parameter, the legacy token name, floor 16. */
-    fun routedDefaultRules(): ChatWireRules = rules(null, MAX_TOKENS, OPENROUTER_MIN_MAX_TOKENS)
+    fun routedDefaultRules(): ChatWireRules = rules(null, MAX_TOKENS, OPENROUTER_MIN_MAX_TOKENS, true)
 
-    private fun rules(effort: String?, tokenParam: String, minTokens: Int) =
-        ChatWireRules(effort, tokenParam, minTokens)
+    private fun rules(effort: String?, tokenParam: String, minTokens: Int, parallel: Boolean) =
+        ChatWireRules(effort, tokenParam, minTokens, parallel)
 
     private fun isLaterGpt5(id: String): Boolean {
         val minor = GPT_5_MINOR.matchEntire(id)?.groupValues?.get(1)?.toIntOrNull() ?: return false

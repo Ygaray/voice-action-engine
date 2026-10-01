@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -30,8 +31,16 @@ class ChatEncoderTest {
         choice: ToolChoice = ToolChoice.Required("log_food"),
         user: String = firstTurn,
         maxTokens: Int = 1024,
-    ): ModelRequest =
-        ModelRequest(FIXED_SYSTEM, listOf(UserMessage(user)), tools, choice, maxTokens, CacheDirective(true))
+        singleToolCall: Boolean = false,
+    ): ModelRequest = ModelRequest(
+        FIXED_SYSTEM,
+        listOf(UserMessage(user)),
+        tools,
+        choice,
+        maxTokens,
+        CacheDirective(true),
+        singleToolCall,
+    )
 
     private fun bytes(call: ProviderRequest, vendor: ChatVendor): String =
         String(encodeChatRequest(call, vendor), Charsets.UTF_8)
@@ -170,6 +179,65 @@ class ChatEncoderTest {
 
         assertNull(functionOf(firstTool(body))["strict"])
         assertNull(body["parallel_tool_calls"])
+    }
+
+    // ---- the parallel tool-call switch
+
+    private fun parallelOf(vendor: ChatVendor, model: String, request: ModelRequest): JsonElement? =
+        decoded(encoded(vendor, model, request))["parallel_tool_calls"]
+
+    @Test
+    fun aForcedOpenAiRequestStillTurnsTheParallelSwitchOffWithoutTheFlag() {
+        assertEquals(JsonPrimitive(false), parallelOf(ChatVendor.OPENAI, "gpt-5.4-mini", request()))
+    }
+
+    @Test
+    fun aSingleToolCallRequestTurnsTheSwitchOffEvenWithAutomaticChoiceAndANonStrictTool() {
+        val auto = request(listOf(editListCardTool()), ToolChoice.Auto(), "add milk", singleToolCall = true)
+        val plain = request(listOf(editListCardTool()), ToolChoice.Auto(), "add milk")
+
+        assertEquals(JsonPrimitive(false), parallelOf(ChatVendor.OPENAI, "gpt-5.4-mini", auto))
+        assertNull(parallelOf(ChatVendor.OPENAI, "gpt-5.4-mini", plain))
+    }
+
+    @Test
+    fun theOSeriesNeverGetsTheParallelSwitch() {
+        val flagged = request(listOf(editListCardTool()), ToolChoice.Auto(), singleToolCall = true)
+
+        assertNull(parallelOf(ChatVendor.OPENAI, "o3", request()))
+        assertNull(parallelOf(ChatVendor.OPENAI, "o3-mini", request()))
+        assertNull(parallelOf(ChatVendor.OPENAI, "o4-mini", request(choice = ToolChoice.Auto(), singleToolCall = true)))
+        assertNull(parallelOf(ChatVendor.OPENAI, "o1", flagged))
+        assertEquals(JsonPrimitive(false), parallelOf(ChatVendor.OPENAI, "gpt-5.4-mini", request()))
+    }
+
+    @Test
+    fun openRouterNeverCarriesTheParallelSwitchAndKeepsRequireParametersWhenForced() {
+        val forced = decoded(encoded(ChatVendor.OPENROUTER, "openai/gpt-5.4-mini", request(singleToolCall = true)))
+        val auto = request(choice = ToolChoice.Auto(), singleToolCall = true)
+
+        assertNull(forced["parallel_tool_calls"])
+        assertEquals(JsonPrimitive(true), forced.getValue("provider").jsonObject["require_parameters"])
+        assertNull(parallelOf(ChatVendor.OPENROUTER, "openai/gpt-5.4-mini", auto))
+        assertNull(parallelOf(ChatVendor.OPENROUTER, "example/tool-model", auto))
+        assertNull(parallelOf(ChatVendor.OPENROUTER, "anthropic/claude-sonnet-5.5", request(singleToolCall = true)))
+    }
+
+    @Test
+    fun aSingleToolCallRequestWithoutToolsCarriesNoParallelSwitch() {
+        val bare = request(emptyList(), ToolChoice.Auto(), singleToolCall = true)
+
+        assertNull(parallelOf(ChatVendor.OPENAI, "gpt-5.4-mini", bare))
+    }
+
+    @Test
+    fun theKeyOrderHoldsWhenTheParallelSwitchIsPresent() {
+        val keys = decoded(encoded(ChatVendor.OPENAI, "gpt-5.4-mini", request(singleToolCall = true))).keys.toList()
+
+        assertEquals(
+            listOf("model", "messages", "tools", "tool_choice", "parallel_tool_calls", "reasoning_effort"),
+            keys.take(6),
+        )
     }
 
     // ---- the tool choice

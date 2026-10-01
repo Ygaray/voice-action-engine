@@ -40,6 +40,9 @@ private const val CHOICE_AUTO = "auto"
  * automatic prompt caching needs. Per-request content only appears under `messages`. Nothing outside those keys is
  * sent.
  *
+ * The parallel tool-call switch goes off for a forced, strict or single-call request when the vendor does that and the
+ * model accepts the switch.
+ *
  * A tool is marked strict only when the engine's strict decision holds and the model is an OpenAI model; that tool's
  * schema is the stripped copy. Every other tool goes out without a `strict` key and with the app's schema untouched.
  *
@@ -62,7 +65,8 @@ internal fun encodeChatRequest(call: ProviderRequest, vendor: ChatVendor): ByteA
         if (tools.isNotEmpty()) {
             put(KEY_TOOLS, encodeTools(tools, strictNames))
             put(KEY_TOOL_CHOICE, encodeToolChoice(named))
-            if (vendor.parallelToolCallsFalseOnForced && (required != null || strictNames.isNotEmpty())) {
+            val oneCall = required != null || strictNames.isNotEmpty() || request.singleToolCall
+            if (vendor.parallelToolCallsFalseOnForced && rules.acceptsParallelToolCalls && oneCall) {
                 put(KEY_PARALLEL_TOOL_CALLS, false)
             }
             rules.reasoningEffortWithTools?.let { put(KEY_REASONING_EFFORT, it) }

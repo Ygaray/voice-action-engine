@@ -83,9 +83,23 @@ class OpenAiModelRulesTest {
     }
 
     @Test
-    fun theWireRulesPrintTheirThreeFields() {
+    fun theOSeriesRejectsTheParallelSwitchAndEveryOtherFamilyTakesIt() {
+        for (id in listOf("o1", "o3", "o3-mini", "o4-mini")) {
+            assertFalse(id, OpenAiModelRules.wireRules(id, viaRouter = false).acceptsParallelToolCalls)
+            assertFalse("$id routed", OpenAiModelRules.wireRules(id, viaRouter = true).acceptsParallelToolCalls)
+        }
+        for (id in listOf("gpt-5.4-mini", "gpt-4o-mini", "gpt-5", "gpt-6", "example-unknown-model")) {
+            assertTrue(id, OpenAiModelRules.wireRules(id, viaRouter = false).acceptsParallelToolCalls)
+            assertTrue("$id routed", OpenAiModelRules.wireRules(id, viaRouter = true).acceptsParallelToolCalls)
+        }
+        assertTrue(OpenAiModelRules.routedDefaultRules().acceptsParallelToolCalls)
+    }
+
+    @Test
+    fun theWireRulesPrintTheirFourFields() {
         assertEquals(
-            "ChatWireRules(reasoningEffortWithTools=none, tokenParam=max_completion_tokens, minTokens=1)",
+            "ChatWireRules(reasoningEffortWithTools=none, tokenParam=max_completion_tokens, minTokens=1, " +
+                "acceptsParallelToolCalls=true)",
             OpenAiModelRules.wireRules("gpt-6", viaRouter = false).toString(),
         )
     }
