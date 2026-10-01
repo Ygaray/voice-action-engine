@@ -45,6 +45,11 @@ private const val EXHAUSTED_CODE = "agentic_loop_exhausted"
  * and it fails the same way before running the calls of the last permitted turn. When the token ceiling and the
  * iteration limit trip on the same turn, the failure is the token ceiling's; the ceiling is checked first.
  *
+ * The two ceiling checks differ at the boundary on purpose. Before a model call the run is refused when the tokens used
+ * so far are at or above the ceiling. After a tool turn the run fails before any call runs only when the tokens used
+ * are strictly above the ceiling. A tool turn that ends exactly on the ceiling therefore still runs its calls, and the
+ * next model call is then refused, so the model never sees those results.
+ *
  * A tool that returns an error twice in one command ends the run as a tool failure, after the rest of that turn ran.
  * The first call to a terminal tool ends the run: the calls before it in the turn ran, the calls after it are dropped
  * and make the completion partial, and the call is delivered as the outcome's terminal call. A turn whose first call
