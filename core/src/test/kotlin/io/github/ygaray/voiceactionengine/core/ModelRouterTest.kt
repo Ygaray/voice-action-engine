@@ -34,6 +34,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -306,10 +307,39 @@ class ModelRouterTest {
         assertRefused(
             second,
             thrown,
-            FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "source_error"),
+            FailureReason.Unexpected("IllegalStateException"),
             listOf(TraceCode.CREDENTIAL_SOURCE_ERROR),
             fake,
         )
+    }
+
+    @Test
+    fun aCredentialSourceThatLeaksATimeoutRefusesWithTimeoutNotAnUnreadableKey() = runTest {
+        val fake = anthropicFake()
+        val recorder = recorder()
+        val source = CredentialSource { withTimeout(1) { delay(1_000) }; CredentialLookup.Missing() }
+
+        val handle = bindDefault(routerOf(listOf(fake), credentials = source), recorder)
+
+        assertRefused(handle, recorder, FailureReason.Timeout(), listOf(TraceCode.CREDENTIAL_SOURCE_ERROR), fake)
+    }
+
+    @Test
+    fun aProviderWhoseCapabilityAnswerLeaksATimeoutRefusesWithTimeout() = runTest {
+        val broken = object : AiProvider {
+            override val id: ProviderId = ProviderId.ANTHROPIC
+
+            override fun capabilities(model: String): ModelCapabilities =
+                runBlocking { withTimeout(1) { delay(1_000) }; error("unreachable") }
+
+            override suspend fun complete(call: ProviderCall): ModelResult = FakeAiProvider.reply("ok", Usage.ZERO)
+        }
+        val recorder = recorder()
+
+        val handle = bindDefault(routerOf(listOf(broken)), recorder)
+
+        assertEquals(FailureReason.Timeout(), handle.refusal)
+        assertEquals(listOf(TraceCode.CAPABILITY_LOOKUP_ERROR), recorder.snapshot().codes)
     }
 
     @Test

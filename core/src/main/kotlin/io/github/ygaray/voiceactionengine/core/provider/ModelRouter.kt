@@ -13,7 +13,6 @@ import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 private const val NOT_DECLARED_CAUSE = "provider_not_declared"
 private const val POLICY_FORBIDS_CAUSE = "policy_forbids_provider"
 private const val ON_DEVICE_UNAVAILABLE_CAUSE = "on_device_unavailable"
-private const val SOURCE_ERROR_CAUSE = "source_error"
 
 /** One resolution step: carry on with a value, or stop with the trace code and the typed reason to refuse with. */
 private sealed interface Step<out T> {
@@ -178,25 +177,26 @@ internal class ModelRouter(
 
     private suspend fun lookUp(id: ProviderId): Step<Credential?> {
         val source = credentials ?: return missing(id)
-        val lookup: CredentialLookup? = guarded(onFault = { null }) { source.credential(id) }
-        return when {
-            lookup == null -> Step.Stop(
-                TraceCode.CREDENTIAL_SOURCE_ERROR,
-                FailureReason.CredentialUnreadable(id, SOURCE_ERROR_CAUSE),
-            )
-            lookup is CredentialLookup.Present -> present(id, lookup.credential)
-            lookup is CredentialLookup.Unreadable -> Step.Stop(
-                TraceCode.CREDENTIAL_UNREADABLE,
-                FailureReason.CredentialUnreadable(id, lookup.cause),
-            )
-            else -> missing(id)
+        // A throwing source is an engine fault, not an unreadable key: only `Unreadable` asks the user to re-enter it.
+        val lookup: Step<CredentialLookup> = guarded(
+            onFault = { fault -> Step.Stop(TraceCode.CREDENTIAL_SOURCE_ERROR, unexpectedOrTimeout(fault)) },
+        ) { Step.Go(source.credential(id)) }
+        return lookup.then { found ->
+            when (found) {
+                is CredentialLookup.Present -> present(id, found.credential)
+                is CredentialLookup.Unreadable -> Step.Stop(
+                    TraceCode.CREDENTIAL_UNREADABLE,
+                    FailureReason.CredentialUnreadable(id, found.cause),
+                )
+                else -> missing(id)
+            }
         }
     }
 
     private suspend fun capabilities(provider: AiProvider, model: String): Step<ModelCapabilities> =
         guarded(
             onFault = { fault ->
-                Step.Stop(TraceCode.CAPABILITY_LOOKUP_ERROR, FailureReason.Unexpected(fault.errorClass))
+                Step.Stop(TraceCode.CAPABILITY_LOOKUP_ERROR, unexpectedOrTimeout(fault))
             },
         ) { Step.Go(table.lookup(provider.id, model)) }
 }
