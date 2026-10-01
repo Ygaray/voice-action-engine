@@ -50,7 +50,7 @@ private class SteppingClock(private var now: Instant, private val zone: ZoneId) 
     }
 }
 
-/** Per-command text reaches only the user message; the cached tools-plus-system prefix is the same for every command. */
+/** Per-command text reaches only the user message; the cached tools and system prefix is the same every time. */
 class SingleShotUserTurnTest {
 
     private fun answer(): ModelResult =
