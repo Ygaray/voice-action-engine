@@ -30,8 +30,14 @@ internal class HeldCommit(
     private val runIds: () -> String,
     private val listener: PipelineEventListener?,
 ) {
-    /** Commits [mutations] for [held] if nobody has yet, otherwise returns what the first caller got. */
-    suspend fun resolve(held: HeldProposal, mutations: List<PendingMutation>): CommandOutcome {
+    /**
+     * Commits [mutations] for [held] if nobody has yet, otherwise returns what the first caller got. An empty list is
+     * refused before the proposal is claimed, so a bad argument never uses the proposal up; the list is copied so the
+     * caller cannot change it after the call.
+     */
+    suspend fun resolve(held: HeldProposal, changes: List<PendingMutation>): CommandOutcome {
+        require(changes.isNotEmpty()) { "commitHeld: at least one mutation is required" }
+        val mutations = changes.toList()
         if (!held.claimed.compareAndSet(false, true)) return held.result.await()
         // The claim is taken, so whatever happens next the proposal's result must be completed or every other caller
         // would wait for ever.

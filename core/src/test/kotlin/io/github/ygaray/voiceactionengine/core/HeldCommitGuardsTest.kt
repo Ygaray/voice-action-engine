@@ -1,5 +1,7 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.commit.GateDecision
+import io.github.ygaray.voiceactionengine.core.commit.PendingMutation
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
@@ -60,6 +62,51 @@ class HeldCommitGuardsTest {
             assertEquals(listOf("run-1"), sink.closedRunIds)
         }
     }
+
+    @Test
+    fun anEmptyAmendedListIsRefusedWithoutUsingTheProposalUp() = runTest {
+        NoNetworkGuard.during {
+            val write = ok("write")
+            val pipeline = pipeline(RecordingCommitSink(), write) { "run-${ids.incrementAndGet()}" }
+            val held = pipeline.execute(CommandInput("save it")).held.single()
+
+            val refused = runCatching { pipeline.commitHeld(held, emptyList()) }
+            val later = pipeline.commitHeld(held)
+
+            assertTrue(refused.exceptionOrNull() is IllegalArgumentException)
+            assertTrue(later is CommandOutcome.Completed)
+            assertEquals(1, write.applyCount)
+        }
+    }
+
+    @Test
+    fun theAmendedListIsCopiedSoLaterEditsByTheCallerAreIgnored() = runTest {
+        NoNetworkGuard.during {
+            val extra = ok("extra")
+            val list = mutableListOf<PendingMutation>()
+            val first = FakeMutation("first", { list.add(extra); StepResult("saved") })
+            list.add(first)
+            val pipeline = pipeline(RecordingCommitSink(), ok("held")) { "run-${ids.incrementAndGet()}" }
+            val held = pipeline.execute(CommandInput("save it")).held.single()
+
+            val outcome = pipeline.commitHeld(held, list)
+
+            assertTrue(outcome is CommandOutcome.Completed)
+            assertEquals(1, first.applyCount)
+            assertEquals(0, extra.applyCount)
+        }
+    }
+
+    @Test
+    fun admitRefusesAnEmptyAmendedListAndCopiesANonEmptyOne() {
+        assertTrue(runCatching { GateDecision.Admit(emptyList()) }.exceptionOrNull() is IllegalArgumentException)
+        val source = mutableListOf<PendingMutation>(ok("a"))
+        val admit = GateDecision.Admit(source)
+        source.clear()
+        assertEquals(1, admit.amended?.size)
+    }
+
+    private val ids = AtomicInteger()
 
     private companion object {
         const val WAIT_MILLIS = 1_000L

@@ -71,11 +71,20 @@ public class CommandPipeline internal constructor(
      * run's close stays final. The first call applies; any later or concurrent call for the same [held] returns that
      * call's outcome with nothing applied. Like [execute] it never throws, except for the caller's own cancellation;
      * if that cancels the first call mid-apply, the proposal stays used up and later calls get a failed outcome with
-     * reason `Other("commit_held_cancelled")` carrying what was journaled.
+     * reason `Other("commit_held_cancelled")` carrying what was journaled. A change that threw or reported an error
+     * is an `is_error` action inside a `Completed` outcome, as the apps count them; read [CommandOutcome.commits] and
+     * [CommandOutcome.executed] to learn what was actually written, never the outcome type alone.
+     *
+     * The engine sets no deadline on this run: `TierPolicy.commandTimeoutMillis` covers [execute] only, so an `apply`
+     * that never returns holds the proposal's claim and every waiting caller. Bound it inside `apply` if that matters.
      */
     public suspend fun commitHeld(held: HeldProposal): CommandOutcome = heldCommit.resolve(held, held.mutations)
 
-    /** Like [commitHeld], but applies [amended] instead of the held changes; the held changes are never applied. */
+    /**
+     * Like [commitHeld], but applies [amended] instead of the held changes; the held changes are never applied.
+     *
+     * Throws [IllegalArgumentException], before the proposal is used up, when [amended] is empty. The list is copied.
+     */
     public suspend fun commitHeld(held: HeldProposal, amended: List<PendingMutation>): CommandOutcome =
         heldCommit.resolve(held, amended)
 

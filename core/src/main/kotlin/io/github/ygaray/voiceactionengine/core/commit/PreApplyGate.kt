@@ -17,9 +17,20 @@ public sealed class GateDecision {
     /**
      * Apply the changes.
      *
-     * @property amended replacement changes to apply instead of the proposed ones, or null to apply the proposal as is.
+     * @param amended replacement changes to apply instead of the proposed ones, or null to apply the proposal as is.
+     * Copied on construction. An empty list is refused with [IllegalArgumentException] (a gate that throws holds), as
+     * a change must have at least one mutation.
      */
-    public class Admit(public val amended: List<PendingMutation>?) : GateDecision() {
+    public class Admit(amended: List<PendingMutation>?) : GateDecision() {
+        /** The replacement changes, or null to apply the proposal as is. Never empty. */
+        public val amended: List<PendingMutation>? = amended?.toList()
+
+        init {
+            require(this.amended == null || this.amended.isNotEmpty()) {
+                "Admit: amended must be null or hold at least one mutation"
+            }
+        }
+
         /** Apply the proposal as is. */
         public constructor() : this(null)
 
