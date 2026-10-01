@@ -101,6 +101,9 @@ class ChatErrorMapTest {
         assertEquals("model_unsupported", withMessage(400, message).reason().code)
         assertEquals("model_unsupported", withMessage(404, "use /v1/responses instead").reason().code)
         assertEquals("http_error", withMessage(500, "use /v1/responses instead").reason().code)
+        val bare = "This model is only supported in v1/responses and not in v1/chat/completions."
+        assertEquals("model_unsupported", withMessage(400, bare).reason().code)
+        assertEquals("http_error", withMessage(500, bare).reason().code)
     }
 
     @Test
