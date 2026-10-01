@@ -3,8 +3,8 @@
 # never receives an api.txt (dumps are committed only at the v1.0.0 cut; a stray dump would arm the compat gate early).
 #   fails when core's dump:
 #     a. is missing, lacks the "Signature format" header, or lacks the core package (non-vacuity)
-#     b. has a sealed type outside {StrategyOutcome, CommandOutcome, RunTermination, GateDecision, ToolStep}
-#        (with --expect-sealed-complete the sealed set must equal all five)
+#     b. has a sealed type outside {StrategyOutcome, CommandOutcome, RunTermination, GateDecision, ToolStep, Message,
+#        AssistantPart} (with --expect-sealed-complete the sealed set must equal all seven)
 #     c. declares a copy( or componentN( method (data-shaped class)
 #     d. declares an enum
 #     e. has a public static field other than INSTANCE or Companion
@@ -12,7 +12,7 @@
 # Prints "API SURFACE OK sealed=<list|none> classes=<n>" or "API SURFACE FAIL: <reason>" (exit 1).
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
-ALLOWED_SEALED="StrategyOutcome CommandOutcome RunTermination GateDecision ToolStep"
+ALLOWED_SEALED="StrategyOutcome CommandOutcome RunTermination GateDecision ToolStep Message AssistantPart"
 EXPECT_COMPLETE=0
 OUT=""
 fail() { echo "API SURFACE FAIL: $1" >&2; exit 1; }
