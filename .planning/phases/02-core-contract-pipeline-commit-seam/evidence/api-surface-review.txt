@@ -1,0 +1,1113 @@
+// Signature format: 4.0
+package io.github.ygaray.voiceactionengine.core {
+
+  public final class CommandInput {
+    ctor public CommandInput(String transcript, optional String? language, optional Object? context, optional String? parentRunId);
+    method @InaccessibleFromKotlin public Object? getContext();
+    method @InaccessibleFromKotlin public String? getLanguage();
+    method @InaccessibleFromKotlin public String? getParentRunId();
+    method @InaccessibleFromKotlin public String getTranscript();
+    method public String toString();
+    property public Object? context;
+    property public String? language;
+    property public String? parentRunId;
+    property public String transcript;
+  }
+
+  public final class Credential {
+    ctor @KotlinOnly public Credential(io.github.ygaray.voiceactionengine.core.ProviderId provider, String apiKey);
+    method @InaccessibleFromKotlin public String getApiKey();
+    method public String toString();
+    property public String apiKey;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId provider;
+  }
+
+  @kotlin.jvm.JvmInline public final value class ProviderId {
+    ctor @KotlinOnly public ProviderId(String value);
+    method @InaccessibleFromKotlin public String getValue();
+    method public String toString();
+    property public String value;
+    field public static final io.github.ygaray.voiceactionengine.core.ProviderId.Companion Companion;
+  }
+
+  public static final class ProviderId.Companion {
+    property public io.github.ygaray.voiceactionengine.core.ProviderId ANTHROPIC;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId ON_DEVICE;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId OPENAI;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId OPENROUTER;
+  }
+
+  @kotlin.jvm.JvmInline public final value class StrategyId {
+    ctor @KotlinOnly public StrategyId(String value);
+    method @InaccessibleFromKotlin public String getValue();
+    method public String toString();
+    property public String value;
+  }
+
+}
+
+package io.github.ygaray.voiceactionengine.core.commit {
+
+  public final class ActionEvent {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.commit.ExecutedAction getAction();
+    method @InaccessibleFromKotlin public String? getParentRunId();
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.commit.ExecutedAction action;
+    property public String? parentRunId;
+    property public String runId;
+  }
+
+  @kotlin.jvm.JvmInline public final value class ActionKind {
+    method @InaccessibleFromKotlin public String getValue();
+    method public String toString();
+    property public String value;
+    field public static final io.github.ygaray.voiceactionengine.core.commit.ActionKind.Companion Companion;
+  }
+
+  public static final class ActionKind.Companion {
+    property public io.github.ygaray.voiceactionengine.core.commit.ActionKind COMMITTED;
+    property public io.github.ygaray.voiceactionengine.core.commit.ActionKind HELD;
+    property public io.github.ygaray.voiceactionengine.core.commit.ActionKind IS_ERROR;
+    property public io.github.ygaray.voiceactionengine.core.commit.ActionKind PREVIEW;
+  }
+
+  public final class AwaitingConfirmGate implements io.github.ygaray.voiceactionengine.core.commit.PreApplyGate {
+    ctor public AwaitingConfirmGate(io.github.ygaray.voiceactionengine.core.commit.ConfirmationPolicy policy);
+    ctor public AwaitingConfirmGate(io.github.ygaray.voiceactionengine.core.commit.ConfirmationPolicy policy, long timeoutMillis);
+    ctor public AwaitingConfirmGate(io.github.ygaray.voiceactionengine.core.commit.ConfirmationPolicy policy, long timeoutMillis, io.github.ygaray.voiceactionengine.core.commit.ConfirmAmendHook? amendHook, String? heldOutcomeToken);
+    method public suspend Object? admit(io.github.ygaray.voiceactionengine.core.commit.CommitProposal proposal, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.commit.GateDecision>);
+    method @InaccessibleFromKotlin public kotlinx.coroutines.flow.StateFlow<io.github.ygaray.voiceactionengine.core.commit.PendingConfirmation?> getPending();
+    method public boolean resolve(long confirmationId, boolean confirmed);
+    method public String toString();
+    property public kotlinx.coroutines.flow.StateFlow<io.github.ygaray.voiceactionengine.core.commit.PendingConfirmation?> pending;
+  }
+
+  public final class CommitProposal {
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation> getMutations();
+    method @InaccessibleFromKotlin public String? getParentRunId();
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation> mutations;
+    property public String? parentRunId;
+    property public String runId;
+  }
+
+  public interface CommitSink {
+    method public suspend Object? onAction(io.github.ygaray.voiceactionengine.core.commit.ActionEvent event, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public suspend Object? onRunClosed(String runId, io.github.ygaray.voiceactionengine.core.commit.RunTermination termination, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+  }
+
+  public fun interface ConfirmAmendHook {
+    method public suspend Object? afterConfirm(io.github.ygaray.voiceactionengine.core.commit.CommitProposal proposal, Object? subject, kotlin.coroutines.Continuation<? super java.util.List<? extends io.github.ygaray.voiceactionengine.core.commit.PendingMutation>?>);
+  }
+
+  public fun interface ConfirmationPolicy {
+    method public suspend Object? subjectFor(io.github.ygaray.voiceactionengine.core.commit.CommitProposal proposal, kotlin.coroutines.Continuation<java.lang.Object?>);
+  }
+
+  public final class DispatchResult {
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> getActions();
+    method @InaccessibleFromKotlin public String getContentForModel();
+    method @InaccessibleFromKotlin public boolean getHeld();
+    method @InaccessibleFromKotlin public boolean isError();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> actions;
+    property public String contentForModel;
+    property public boolean held;
+    property public boolean isError;
+  }
+
+  public final class ExecutedAction {
+    method @InaccessibleFromKotlin public String? getAppOutcomeToken();
+    method @InaccessibleFromKotlin public boolean getApplied();
+    method @InaccessibleFromKotlin public Object? getContext();
+    method @InaccessibleFromKotlin public boolean getMutating();
+    method @InaccessibleFromKotlin public int getPosition();
+    method @InaccessibleFromKotlin public java.util.Map<java.lang.String,java.lang.String> getTargetIds();
+    method @InaccessibleFromKotlin public String getToolName();
+    method public String toString();
+    property public String? appOutcomeToken;
+    property public boolean applied;
+    property public Object? context;
+    property public io.github.ygaray.voiceactionengine.core.commit.ActionKind kind;
+    property public boolean mutating;
+    property public int position;
+    property public java.util.Map<java.lang.String,java.lang.String> targetIds;
+    property public String toolName;
+  }
+
+  @kotlin.jvm.JvmInline public final value class FinishedKind {
+    method @InaccessibleFromKotlin public String getValue();
+    method public String toString();
+    property public String value;
+    field public static final io.github.ygaray.voiceactionengine.core.commit.FinishedKind.Companion Companion;
+  }
+
+  public static final class FinishedKind.Companion {
+    property public io.github.ygaray.voiceactionengine.core.commit.FinishedKind ERROR;
+    property public io.github.ygaray.voiceactionengine.core.commit.FinishedKind PREVIEW;
+    property public io.github.ygaray.voiceactionengine.core.commit.FinishedKind READ;
+  }
+
+  public abstract sealed exhaustive class GateDecision {
+  }
+
+  public static final class GateDecision.Admit extends io.github.ygaray.voiceactionengine.core.commit.GateDecision {
+    ctor public GateDecision.Admit();
+    ctor public GateDecision.Admit(java.util.List<? extends io.github.ygaray.voiceactionengine.core.commit.PendingMutation>? amended);
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation>? getAmended();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation>? amended;
+  }
+
+  public static final class GateDecision.Hold extends io.github.ygaray.voiceactionengine.core.commit.GateDecision {
+    ctor public GateDecision.Hold();
+    ctor public GateDecision.Hold(Object? reason);
+    ctor public GateDecision.Hold(Object? reason, String? appOutcomeToken);
+    method @InaccessibleFromKotlin public String? getAppOutcomeToken();
+    method @InaccessibleFromKotlin public Object? getReason();
+    method public String toString();
+    property public String? appOutcomeToken;
+    property public Object? reason;
+  }
+
+  public final class HeldProposal {
+    method @InaccessibleFromKotlin public String? getAppOutcomeToken();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation> getMutations();
+    method @InaccessibleFromKotlin public String? getParentRunId();
+    method @InaccessibleFromKotlin public Object? getReason();
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public String? appOutcomeToken;
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation> mutations;
+    property public String? parentRunId;
+    property public Object? reason;
+    property public String runId;
+  }
+
+  public final class PendingConfirmation {
+    method @InaccessibleFromKotlin public long getId();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.commit.CommitProposal getProposal();
+    method @InaccessibleFromKotlin public Object? getSubject();
+    method public String toString();
+    property public long id;
+    property public io.github.ygaray.voiceactionengine.core.commit.CommitProposal proposal;
+    property public Object? subject;
+  }
+
+  public interface PendingMutation {
+    method public suspend Object? apply(kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.commit.StepResult>);
+    method @InaccessibleFromKotlin public default Object? getContext();
+    method @InaccessibleFromKotlin public default java.util.Map<java.lang.String,java.lang.String> getTargetIds();
+    method @InaccessibleFromKotlin public String getToolName();
+    property public default Object? context;
+    property public default java.util.Map<java.lang.String,java.lang.String> targetIds;
+    property public abstract String toolName;
+  }
+
+  public fun interface PreApplyGate {
+    method public suspend Object? admit(io.github.ygaray.voiceactionengine.core.commit.CommitProposal proposal, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.commit.GateDecision>);
+  }
+
+  public abstract sealed exhaustive class RunTermination {
+    method @InaccessibleFromKotlin public abstract String getCode();
+    method @InaccessibleFromKotlin public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> getCommits();
+    method @InaccessibleFromKotlin public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> getExecuted();
+    method @InaccessibleFromKotlin public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.HeldProposal> getHeld();
+    method @InaccessibleFromKotlin public final String? getParentRunId();
+    method @InaccessibleFromKotlin public final String getRunId();
+    method @InaccessibleFromKotlin public final io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace getTrace();
+    method public String toString();
+    property public abstract String code;
+    property public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> commits;
+    property public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> executed;
+    property public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.HeldProposal> held;
+    property public final String? parentRunId;
+    property public final String runId;
+    property public final io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace trace;
+  }
+
+  public static final class RunTermination.Cancelled extends io.github.ygaray.voiceactionengine.core.commit.RunTermination {
+    method @InaccessibleFromKotlin public String getCode();
+    property public String code;
+  }
+
+  public static final class RunTermination.Done extends io.github.ygaray.voiceactionengine.core.commit.RunTermination {
+    method @InaccessibleFromKotlin public String getCode();
+    method @InaccessibleFromKotlin public boolean getPartial();
+    property public String code;
+    property public boolean partial;
+  }
+
+  public static final class RunTermination.Exhausted extends io.github.ygaray.voiceactionengine.core.commit.RunTermination {
+    method @InaccessibleFromKotlin public String getCode();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? getLastReason();
+    property public String code;
+    property public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? lastReason;
+  }
+
+  public static final class RunTermination.Failed extends io.github.ygaray.voiceactionengine.core.commit.RunTermination {
+    method @InaccessibleFromKotlin public String getCode();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.FailureDetails? getDetails();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.FailureReason getReason();
+    property public String code;
+    property public io.github.ygaray.voiceactionengine.core.failure.FailureDetails? details;
+    property public io.github.ygaray.voiceactionengine.core.failure.FailureReason reason;
+  }
+
+  public final class StepResult {
+    ctor public StepResult(String contentForModel);
+    ctor public StepResult(String contentForModel, boolean isError);
+    ctor public StepResult(String contentForModel, boolean isError, String? appOutcomeToken, java.util.Map<java.lang.String,java.lang.String> targetIds);
+    method @InaccessibleFromKotlin public String? getAppOutcomeToken();
+    method @InaccessibleFromKotlin public String getContentForModel();
+    method @InaccessibleFromKotlin public java.util.Map<java.lang.String,java.lang.String> getTargetIds();
+    method @InaccessibleFromKotlin public boolean isError();
+    method public String toString();
+    property public String? appOutcomeToken;
+    property public String contentForModel;
+    property public boolean isError;
+    property public java.util.Map<java.lang.String,java.lang.String> targetIds;
+  }
+
+  public abstract sealed exhaustive class ToolStep {
+  }
+
+  public static final class ToolStep.Finished extends io.github.ygaray.voiceactionengine.core.commit.ToolStep {
+    ctor @KotlinOnly public ToolStep.Finished(String toolName, io.github.ygaray.voiceactionengine.core.commit.FinishedKind kind, io.github.ygaray.voiceactionengine.core.commit.StepResult result);
+    ctor @KotlinOnly public ToolStep.Finished(String toolName, io.github.ygaray.voiceactionengine.core.commit.FinishedKind kind, io.github.ygaray.voiceactionengine.core.commit.StepResult result, Object? context);
+    method @InaccessibleFromKotlin public Object? getContext();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.commit.StepResult getResult();
+    method @InaccessibleFromKotlin public String getToolName();
+    method public String toString();
+    property public Object? context;
+    property public io.github.ygaray.voiceactionengine.core.commit.FinishedKind kind;
+    property public io.github.ygaray.voiceactionengine.core.commit.StepResult result;
+    property public String toolName;
+  }
+
+  public static final class ToolStep.Mutation extends io.github.ygaray.voiceactionengine.core.commit.ToolStep {
+    ctor public ToolStep.Mutation(io.github.ygaray.voiceactionengine.core.commit.PendingMutation mutation);
+    ctor public ToolStep.Mutation(java.util.List<? extends io.github.ygaray.voiceactionengine.core.commit.PendingMutation> mutations);
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation> getMutations();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.commit.PendingMutation> mutations;
+  }
+
+}
+
+package io.github.ygaray.voiceactionengine.core.failure {
+
+  @kotlin.jvm.JvmInline public final value class BudgetBound {
+    method @InaccessibleFromKotlin public String getValue();
+    method public String toString();
+    property public String value;
+    field public static final io.github.ygaray.voiceactionengine.core.failure.BudgetBound.Companion Companion;
+  }
+
+  public static final class BudgetBound.Companion {
+    property public io.github.ygaray.voiceactionengine.core.failure.BudgetBound ITERATIONS;
+    property public io.github.ygaray.voiceactionengine.core.failure.BudgetBound TOKENS;
+  }
+
+  public interface EscalationReason {
+    method @InaccessibleFromKotlin public String getCode();
+    property public abstract String code;
+  }
+
+  public static final class EscalationReason.MalformedExtraction implements io.github.ygaray.voiceactionengine.core.failure.EscalationReason {
+    ctor public EscalationReason.MalformedExtraction();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class EscalationReason.ModelDeclined implements io.github.ygaray.voiceactionengine.core.failure.EscalationReason {
+    ctor public EscalationReason.ModelDeclined();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class EscalationReason.NoToolCall implements io.github.ygaray.voiceactionengine.core.failure.EscalationReason {
+    ctor public EscalationReason.NoToolCall();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class EscalationReason.Other implements io.github.ygaray.voiceactionengine.core.failure.EscalationReason {
+    ctor public EscalationReason.Other(String code);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class EscalationReason.ProviderUnavailable implements io.github.ygaray.voiceactionengine.core.failure.EscalationReason {
+    ctor @KotlinOnly public EscalationReason.ProviderUnavailable(io.github.ygaray.voiceactionengine.core.ProviderId provider);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId provider;
+  }
+
+  public static final class EscalationReason.ResolverAmbiguous implements io.github.ygaray.voiceactionengine.core.failure.EscalationReason {
+    ctor public EscalationReason.ResolverAmbiguous();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public final class FailureDetails {
+    ctor public FailureDetails(Integer? httpStatus, String? providerErrorType, String? requestId);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public Integer? getHttpStatus();
+    method @InaccessibleFromKotlin public String? getProviderErrorType();
+    method @InaccessibleFromKotlin public String? getRequestId();
+    method public int hashCode();
+    method public String toString();
+    property public Integer? httpStatus;
+    property public String? providerErrorType;
+    property public String? requestId;
+  }
+
+  public interface FailureReason {
+    method @InaccessibleFromKotlin public String getCode();
+    property public abstract String code;
+  }
+
+  public static final class FailureReason.Auth implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Auth();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.Billing implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Billing();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.BudgetExceeded implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor @KotlinOnly public FailureReason.BudgetExceeded(io.github.ygaray.voiceactionengine.core.failure.BudgetBound bound);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.failure.BudgetBound bound;
+    property public String code;
+  }
+
+  public static final class FailureReason.ContextWindowExceeded implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.ContextWindowExceeded();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.HttpError implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.HttpError();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.MalformedResponse implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.MalformedResponse();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.MalformedToolArgs implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.MalformedToolArgs();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.MaxTokens implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.MaxTokens();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.ModelNotFound implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.ModelNotFound();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.ModelUnsupported implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.ModelUnsupported();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.Network implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Network();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.NoEligibleTier implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.NoEligibleTier();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.NoToolCall implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.NoToolCall();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.NotConfigured implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor @KotlinOnly public FailureReason.NotConfigured(io.github.ygaray.voiceactionengine.core.ProviderId? provider);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId? provider;
+  }
+
+  public static final class FailureReason.Other implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Other(String code);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.Overloaded implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Overloaded();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.PauseTurn implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.PauseTurn();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.PolicyUnavailable implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.PolicyUnavailable();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.ProviderUnavailable implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor @KotlinOnly public FailureReason.ProviderUnavailable(io.github.ygaray.voiceactionengine.core.ProviderId provider, String? cause);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String? getCause();
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String? cause;
+    property public String code;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId provider;
+  }
+
+  public static final class FailureReason.RateLimited implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.RateLimited();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.Refusal implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Refusal();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.Timeout implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Timeout();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.ToolFailure implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.ToolFailure();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class FailureReason.Unexpected implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.Unexpected(String errorClass);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method @InaccessibleFromKotlin public String getErrorClass();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+    property public String errorClass;
+  }
+
+  public static final class FailureReason.UnknownStop implements io.github.ygaray.voiceactionengine.core.failure.FailureReason {
+    ctor public FailureReason.UnknownStop();
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getCode();
+    method public int hashCode();
+    method public String toString();
+    property public String code;
+  }
+
+}
+
+package io.github.ygaray.voiceactionengine.core.pipeline {
+
+  public abstract sealed exhaustive class CommandOutcome {
+    method @InaccessibleFromKotlin public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> getCommits();
+    method @InaccessibleFromKotlin public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> getExecuted();
+    method @InaccessibleFromKotlin public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.HeldProposal> getHeld();
+    method @InaccessibleFromKotlin public final String? getParentRunId();
+    method @InaccessibleFromKotlin public final String getRunId();
+    method @InaccessibleFromKotlin public final io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace getTrace();
+    property public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> commits;
+    property public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.ExecutedAction> executed;
+    property public final java.util.List<io.github.ygaray.voiceactionengine.core.commit.HeldProposal> held;
+    property public final String? parentRunId;
+    property public final String runId;
+    property public final io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace trace;
+  }
+
+  public static final class CommandOutcome.Completed extends io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome {
+    method @InaccessibleFromKotlin public boolean getPartial();
+    method @InaccessibleFromKotlin public String? getReply();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.TerminalCall? getTerminalCall();
+    method public String toString();
+    property public boolean partial;
+    property public String? reply;
+    property public io.github.ygaray.voiceactionengine.core.strategy.TerminalCall? terminalCall;
+  }
+
+  public static final class CommandOutcome.Failed extends io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.FailureDetails? getDetails();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.FailureReason getReason();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.failure.FailureDetails? details;
+    property public io.github.ygaray.voiceactionengine.core.failure.FailureReason reason;
+  }
+
+  public static final class CommandOutcome.Unhandled extends io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? getLastReason();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? lastReason;
+  }
+
+  public final class CommandPipeline {
+    method public suspend Object? commitHeld(io.github.ygaray.voiceactionengine.core.commit.HeldProposal held, java.util.List<? extends io.github.ygaray.voiceactionengine.core.commit.PendingMutation> amended, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome>);
+    method public suspend Object? commitHeld(io.github.ygaray.voiceactionengine.core.commit.HeldProposal held, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome>);
+    method public suspend Object? execute(io.github.ygaray.voiceactionengine.core.CommandInput input, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome>);
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.StrategyId> getTiers();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.StrategyId> tiers;
+  }
+
+  @io.github.ygaray.voiceactionengine.core.pipeline.PipelineDsl public final class PipelineBuilder {
+    method @InaccessibleFromKotlin public kotlin.jvm.functions.Function0<java.lang.Long> getClock();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.commit.CommitSink? getCommitSink();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.commit.PreApplyGate? getGate();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener? getListener();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource getPolicy();
+    method @InaccessibleFromKotlin public kotlin.jvm.functions.Function0<java.lang.String> getRunIds();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.pipeline.TierSelector getSelector();
+    method @InaccessibleFromKotlin public void setClock(kotlin.jvm.functions.Function0<java.lang.Long>);
+    method @InaccessibleFromKotlin public void setCommitSink(io.github.ygaray.voiceactionengine.core.commit.CommitSink?);
+    method @InaccessibleFromKotlin public void setGate(io.github.ygaray.voiceactionengine.core.commit.PreApplyGate?);
+    method @InaccessibleFromKotlin public void setListener(io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener?);
+    method @InaccessibleFromKotlin public void setPolicy(io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource);
+    method @InaccessibleFromKotlin public void setRunIds(kotlin.jvm.functions.Function0<java.lang.String>);
+    method @InaccessibleFromKotlin public void setSelector(io.github.ygaray.voiceactionengine.core.pipeline.TierSelector);
+    method public void tier(io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy strategy);
+    property public kotlin.jvm.functions.Function0<java.lang.Long> clock;
+    property public io.github.ygaray.voiceactionengine.core.commit.CommitSink? commitSink;
+    property public io.github.ygaray.voiceactionengine.core.commit.PreApplyGate? gate;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener? listener;
+    property public io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource policy;
+    property public kotlin.jvm.functions.Function0<java.lang.String> runIds;
+    property public io.github.ygaray.voiceactionengine.core.pipeline.TierSelector selector;
+  }
+
+  public final class PipelineBuilderKt {
+    method public static io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline commandPipeline(kotlin.jvm.functions.Function1<? super io.github.ygaray.voiceactionengine.core.pipeline.PipelineBuilder,kotlin.Unit> block);
+  }
+
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @kotlin.DslMarker public @interface PipelineDsl {
+  }
+
+  public final class TierPolicy {
+    method @InaccessibleFromKotlin public java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId>? getAllowedProviders();
+    method @InaccessibleFromKotlin public Long? getCommandTimeoutMillis();
+    method @InaccessibleFromKotlin public int getMaxIterations();
+    method @InaccessibleFromKotlin public int getMaxTokensPerTurn();
+    method @InaccessibleFromKotlin public boolean getOfflineOnly();
+    method @InaccessibleFromKotlin public long getTokenCeiling();
+    method public String toString();
+    property public java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId>? allowedProviders;
+    property public Long? commandTimeoutMillis;
+    property public int maxIterations;
+    property public io.github.ygaray.voiceactionengine.core.StrategyId? maxTier;
+    property public int maxTokensPerTurn;
+    property public boolean offlineOnly;
+    property public long tokenCeiling;
+    field public static final io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy.Companion Companion;
+  }
+
+  public static final class TierPolicy.Builder {
+    method @InaccessibleFromKotlin public java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId>? getAllowedProviders();
+    method @InaccessibleFromKotlin public Long? getCommandTimeoutMillis();
+    method @InaccessibleFromKotlin public int getMaxIterations();
+    method @InaccessibleFromKotlin public int getMaxTokensPerTurn();
+    method @InaccessibleFromKotlin public boolean getOfflineOnly();
+    method @InaccessibleFromKotlin public long getTokenCeiling();
+    method @InaccessibleFromKotlin public void setAllowedProviders(java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId>?);
+    method @InaccessibleFromKotlin public void setCommandTimeoutMillis(Long?);
+    method @InaccessibleFromKotlin public void setMaxIterations(int);
+    method @InaccessibleFromKotlin public void setMaxTokensPerTurn(int);
+    method @InaccessibleFromKotlin public void setOfflineOnly(boolean);
+    method @InaccessibleFromKotlin public void setTokenCeiling(long);
+    property public java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId>? allowedProviders;
+    property public Long? commandTimeoutMillis;
+    property public int maxIterations;
+    property public io.github.ygaray.voiceactionengine.core.StrategyId? maxTier;
+    property public int maxTokensPerTurn;
+    property public boolean offlineOnly;
+    property public long tokenCeiling;
+  }
+
+  public static final class TierPolicy.Companion {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy getDEFAULT();
+    method public operator io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy invoke(kotlin.jvm.functions.Function1<? super io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy.Builder,kotlin.Unit> block);
+    property public io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy DEFAULT;
+  }
+
+  public fun interface TierPolicySource {
+    method public suspend Object? current(kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy>);
+    field public static final io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource.Companion Companion;
+  }
+
+  public static final class TierPolicySource.Companion {
+    method public io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource fixed(io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy policy);
+  }
+
+  public abstract class TierSelector {
+  }
+
+  public static final class TierSelector.Fixed extends io.github.ygaray.voiceactionengine.core.pipeline.TierSelector {
+    ctor @KotlinOnly public TierSelector.Fixed(io.github.ygaray.voiceactionengine.core.StrategyId tier);
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.StrategyId tier;
+  }
+
+  public static final class TierSelector.Linear extends io.github.ygaray.voiceactionengine.core.pipeline.TierSelector {
+    method public String toString();
+    field public static final io.github.ygaray.voiceactionengine.core.pipeline.TierSelector.Linear INSTANCE;
+  }
+
+}
+
+package io.github.ygaray.voiceactionengine.core.strategy {
+
+  public final class Clarification {
+    ctor public Clarification(String question, java.util.List<io.github.ygaray.voiceactionengine.core.strategy.ClarificationOption> options);
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.strategy.ClarificationOption> getOptions();
+    method @InaccessibleFromKotlin public String getQuestion();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.strategy.ClarificationOption> options;
+    property public String question;
+  }
+
+  public final class ClarificationOption {
+    ctor public ClarificationOption(String id, String label);
+    method @InaccessibleFromKotlin public String getId();
+    method @InaccessibleFromKotlin public String getLabel();
+    method public String toString();
+    property public String id;
+    property public String label;
+  }
+
+  public abstract class CommandSession {
+    method @InaccessibleFromKotlin public abstract Object? getCarry();
+    method @InaccessibleFromKotlin public abstract String? getParentRunId();
+    method @InaccessibleFromKotlin public abstract io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy getPolicy();
+    method @InaccessibleFromKotlin public abstract String getRunId();
+    method @InaccessibleFromKotlin public abstract long getTokensUsed();
+    method public abstract suspend Object? recordTurn(io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord turn, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public abstract suspend Object? submit(io.github.ygaray.voiceactionengine.core.commit.ToolStep step, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.commit.DispatchResult>);
+    method public final String toString();
+    property public abstract Object? carry;
+    property public abstract String? parentRunId;
+    property public abstract io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy policy;
+    property public abstract String runId;
+    property public abstract io.github.ygaray.voiceactionengine.core.StrategyId strategy;
+    property public abstract long tokensUsed;
+  }
+
+  public interface CommandStrategy {
+    method public suspend Object? execute(io.github.ygaray.voiceactionengine.core.CommandInput input, io.github.ygaray.voiceactionengine.core.strategy.CommandSession session, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome>);
+    method @InaccessibleFromKotlin public default io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities getCapabilities();
+    property public default io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities capabilities;
+    property public abstract io.github.ygaray.voiceactionengine.core.StrategyId id;
+  }
+
+  public final class StrategyCapabilities {
+    ctor public StrategyCapabilities(java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId> providers);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId> getProviders();
+    method public int hashCode();
+    method public String toString();
+    property public java.util.Set<io.github.ygaray.voiceactionengine.core.ProviderId> providers;
+    field public static final io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities.Companion Companion;
+  }
+
+  public static final class StrategyCapabilities.Companion {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities getANY_PROVIDER();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities getNO_PROVIDER();
+    property public io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities ANY_PROVIDER;
+    property public io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities NO_PROVIDER;
+  }
+
+  public abstract sealed exhaustive class StrategyOutcome {
+  }
+
+  public static final class StrategyOutcome.Completed extends io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome {
+    ctor public StrategyOutcome.Completed(String? reply);
+    ctor public StrategyOutcome.Completed(String? reply, io.github.ygaray.voiceactionengine.core.strategy.TerminalCall? terminalCall);
+    method @InaccessibleFromKotlin public String? getReply();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.strategy.TerminalCall? getTerminalCall();
+    method public String toString();
+    property public String? reply;
+    property public io.github.ygaray.voiceactionengine.core.strategy.TerminalCall? terminalCall;
+  }
+
+  public static final class StrategyOutcome.Escalate extends io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome {
+    ctor public StrategyOutcome.Escalate(io.github.ygaray.voiceactionengine.core.failure.EscalationReason reason);
+    ctor public StrategyOutcome.Escalate(io.github.ygaray.voiceactionengine.core.failure.EscalationReason reason, Object? carry);
+    method @InaccessibleFromKotlin public Object? getCarry();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.EscalationReason getReason();
+    method public String toString();
+    property public Object? carry;
+    property public io.github.ygaray.voiceactionengine.core.failure.EscalationReason reason;
+  }
+
+  public static final class StrategyOutcome.Failed extends io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome {
+    ctor public StrategyOutcome.Failed(io.github.ygaray.voiceactionengine.core.failure.FailureReason reason);
+    ctor public StrategyOutcome.Failed(io.github.ygaray.voiceactionengine.core.failure.FailureReason reason, io.github.ygaray.voiceactionengine.core.failure.FailureDetails? details);
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.FailureDetails? getDetails();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.FailureReason getReason();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.failure.FailureDetails? details;
+    property public io.github.ygaray.voiceactionengine.core.failure.FailureReason reason;
+  }
+
+  public static final class StrategyOutcome.NoMatch extends io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome {
+    ctor public StrategyOutcome.NoMatch();
+    method public String toString();
+  }
+
+  public final class TerminalCall {
+    ctor public TerminalCall(String toolName, kotlinx.serialization.json.JsonObject arguments);
+    method public io.github.ygaray.voiceactionengine.core.strategy.Clarification? asClarification();
+    method @InaccessibleFromKotlin public kotlinx.serialization.json.JsonObject getArguments();
+    method @InaccessibleFromKotlin public String getToolName();
+    method public String toString();
+    property public kotlinx.serialization.json.JsonObject arguments;
+    property public String toolName;
+  }
+
+  public final class ToolSpec {
+    ctor public ToolSpec(String name, String description, kotlinx.serialization.json.JsonObject inputSchema, optional boolean mutating, optional boolean terminal);
+    method @InaccessibleFromKotlin public String getDescription();
+    method @InaccessibleFromKotlin public kotlinx.serialization.json.JsonObject getInputSchema();
+    method @InaccessibleFromKotlin public boolean getMutating();
+    method @InaccessibleFromKotlin public String getName();
+    method @InaccessibleFromKotlin public boolean getTerminal();
+    method public String toString();
+    property public String description;
+    property public kotlinx.serialization.json.JsonObject inputSchema;
+    property public boolean mutating;
+    property public String name;
+    property public boolean terminal;
+    field public static final io.github.ygaray.voiceactionengine.core.strategy.ToolSpec.Companion Companion;
+  }
+
+  public static final class ToolSpec.Companion {
+    method public io.github.ygaray.voiceactionengine.core.strategy.ToolSpec clarification(String name);
+    method public io.github.ygaray.voiceactionengine.core.strategy.ToolSpec clarification(String name, String description);
+  }
+
+}
+
+package io.github.ygaray.voiceactionengine.core.telemetry {
+
+  public final class CommandTrace {
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt> getAttempts();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TraceCode> getCodes();
+    method @InaccessibleFromKotlin public long getDurationMillis();
+    method @InaccessibleFromKotlin public String? getLanguage();
+    method @InaccessibleFromKotlin public String? getParentRunId();
+    method @InaccessibleFromKotlin public String getRunId();
+    method @InaccessibleFromKotlin public long getStartedAtMillis();
+    method @InaccessibleFromKotlin public int getTranscriptLength();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.telemetry.Usage getUsage();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt> attempts;
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TraceCode> codes;
+    property public long durationMillis;
+    property public String? language;
+    property public String? parentRunId;
+    property public String runId;
+    property public long startedAtMillis;
+    property public int transcriptLength;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.Usage usage;
+  }
+
+  public interface PipelineEvent {
+    method @InaccessibleFromKotlin public String getRunId();
+    property public abstract String runId;
+  }
+
+  public static final class PipelineEvent.ActionRecorded implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public boolean getApplied();
+    method @InaccessibleFromKotlin public int getPosition();
+    method @InaccessibleFromKotlin public String getRunId();
+    method @InaccessibleFromKotlin public String getToolName();
+    method public String toString();
+    property public boolean applied;
+    property public io.github.ygaray.voiceactionengine.core.commit.ActionKind kind;
+    property public int position;
+    property public String runId;
+    property public String toolName;
+  }
+
+  public static final class PipelineEvent.CacheNotEngaged implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public String? getModel();
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public String? model;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId provider;
+    property public String runId;
+    property public io.github.ygaray.voiceactionengine.core.StrategyId strategy;
+  }
+
+  public static final class PipelineEvent.CommandStarted implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public String? getParentRunId();
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public String? parentRunId;
+    property public String runId;
+  }
+
+  public static final class PipelineEvent.EngineCode implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode code;
+    property public String runId;
+  }
+
+  public static final class PipelineEvent.ProviderCall implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public String getRunId();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord getTurn();
+    method public String toString();
+    property public String runId;
+    property public io.github.ygaray.voiceactionengine.core.StrategyId strategy;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord turn;
+  }
+
+  public static final class PipelineEvent.RunClosed implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public int getCommittedCount();
+    method @InaccessibleFromKotlin public int getExecutedCount();
+    method @InaccessibleFromKotlin public String getRunId();
+    method @InaccessibleFromKotlin public String getTerminationCode();
+    method public String toString();
+    property public int committedCount;
+    property public int executedCount;
+    property public String runId;
+    property public String terminationCode;
+  }
+
+  public static final class PipelineEvent.TierFinished implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt getAttempt();
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt attempt;
+    property public String runId;
+  }
+
+  public static final class PipelineEvent.TierSkipped implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode code;
+    property public String runId;
+    property public io.github.ygaray.voiceactionengine.core.StrategyId strategy;
+  }
+
+  public static final class PipelineEvent.TierStarted implements io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent {
+    method @InaccessibleFromKotlin public String getRunId();
+    method public String toString();
+    property public String runId;
+    property public io.github.ygaray.voiceactionengine.core.StrategyId strategy;
+  }
+
+  public fun interface PipelineEventListener {
+    method public void onEvent(io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent event);
+  }
+
+  public final class TierAttempt {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? getEscalationReason();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.FailureReason? getFailure();
+    method @InaccessibleFromKotlin public long getLatencyMillis();
+    method @InaccessibleFromKotlin public String? getModel();
+    method @InaccessibleFromKotlin public String getOutcome();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? getSuppressedEscalation();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord> getTurns();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.telemetry.Usage getUsage();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? escalationReason;
+    property public io.github.ygaray.voiceactionengine.core.failure.FailureReason? failure;
+    property public long latencyMillis;
+    property public String? model;
+    property public String outcome;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId? provider;
+    property public io.github.ygaray.voiceactionengine.core.StrategyId strategy;
+    property public io.github.ygaray.voiceactionengine.core.failure.EscalationReason? suppressedEscalation;
+    property public java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord> turns;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.Usage usage;
+  }
+
+  @kotlin.jvm.JvmInline public final value class TraceCode {
+    method @InaccessibleFromKotlin public String getValue();
+    method public String toString();
+    property public String value;
+    field public static final io.github.ygaray.voiceactionengine.core.telemetry.TraceCode.Companion Companion;
+  }
+
+  public static final class TraceCode.Companion {
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode APPLY_CANCELLED;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode APPLY_ERROR;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode COMMIT_HELD_CANCELLED;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode ENGINE_TIMEOUT;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode ESCALATION_SUPPRESSED;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode GATE_ERROR;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode LISTENER_ERROR;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode MAX_TIER_UNKNOWN;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode OFFLINE_UNAVAILABLE;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode ON_DEVICE_UNAVAILABLE;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode POLICY_SOURCE_ERROR;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode SINK_ERROR;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode STRATEGY_ERROR;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.TraceCode TIER_SKIPPED_POLICY;
+  }
+
+  public final class TurnRecord {
+    ctor @KotlinOnly public TurnRecord(io.github.ygaray.voiceactionengine.core.ProviderId? provider, String? model, String? stopReason, java.util.List<java.lang.String> toolNames, io.github.ygaray.voiceactionengine.core.telemetry.Usage usage, long latencyMillis);
+    method @InaccessibleFromKotlin public long getLatencyMillis();
+    method @InaccessibleFromKotlin public String? getModel();
+    method @InaccessibleFromKotlin public String? getStopReason();
+    method @InaccessibleFromKotlin public java.util.List<java.lang.String> getToolNames();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.telemetry.Usage getUsage();
+    method public String toString();
+    property public long latencyMillis;
+    property public String? model;
+    property public io.github.ygaray.voiceactionengine.core.ProviderId? provider;
+    property public String? stopReason;
+    property public java.util.List<java.lang.String> toolNames;
+    property public io.github.ygaray.voiceactionengine.core.telemetry.Usage usage;
+  }
+
+  public final class Usage {
+    ctor public Usage(long inputUncached, long cacheRead, long cacheWrite, long output);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public long getCacheRead();
+    method @InaccessibleFromKotlin public long getCacheWrite();
+    method @InaccessibleFromKotlin public long getInputUncached();
+    method @InaccessibleFromKotlin public long getOutput();
+    method @InaccessibleFromKotlin public long getTotal();
+    method public int hashCode();
+    method public operator io.github.ygaray.voiceactionengine.core.telemetry.Usage plus(io.github.ygaray.voiceactionengine.core.telemetry.Usage other);
+    method public String toString();
+    property public long cacheRead;
+    property public long cacheWrite;
+    property public long inputUncached;
+    property public long output;
+    property public long total;
+    field public static final io.github.ygaray.voiceactionengine.core.telemetry.Usage.Companion Companion;
+  }
+
+  public static final class Usage.Companion {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.core.telemetry.Usage getZERO();
+    property public io.github.ygaray.voiceactionengine.core.telemetry.Usage ZERO;
+  }
+
+}
+

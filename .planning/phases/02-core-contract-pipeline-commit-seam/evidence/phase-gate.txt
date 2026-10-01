@@ -1,0 +1,78 @@
+== Phase 2 phase gate  plan=02-09  base=528a3f2d44291bd8e6d7e5d8812d15fa5dd88bd5  run=2026-10-01 (UTC)
+
+Run on the final merged tree after one KDoc-only fix (see 'Fix recorded' at the end). Pre-existing unrelated changes under .planning/graphs/, .planning/config.json, .planning/v1.0-MILESTONE-RUN.md, .planning/phases/11-*/ and graphify-out/ were left unstaged.
+
+[1] $ ./gradlew check   (00:50:21Z)
+exit=0
+BUILD SUCCESSFUL in 3s
+137 actionable tasks: 31 executed, 5 from cache, 101 up-to-date
+  > Task :core:detekt
+  > Task :core:detektNegativeControls UP-TO-DATE
+  > Task :providers:detekt FROM-CACHE
+  > Task :core:testFixturesClasses UP-TO-DATE
+  > Task :core:testFixturesJar UP-TO-DATE
+  > Task :core:testClasses UP-TO-DATE
+  > Task :core:test UP-TO-DATE
+  > Task :providers:testClasses UP-TO-DATE
+  > Task :providers:test FROM-CACHE
+  > Task :providers:testOkhttp521 FROM-CACHE
+  > Task :providers:testOkhttp550 FROM-CACHE
+
+[1b] $ ./gradlew :core:cleanTest :core:test --no-build-cache   (real execution, not cache/up-to-date)
+exit=0
+> Task :core:testFixturesClasses UP-TO-DATE
+> Task :core:testFixturesJar UP-TO-DATE
+> Task :core:testClasses UP-TO-DATE
+> Task :core:test
+BUILD SUCCESSFUL in 1s
+
+[2] per-class JUnit results under core/build/test-results/test/
+PipelineBuilderTest      tests=11 skipped=0 failures=0 errors=0
+TierWalkTest             tests=9 skipped=0 failures=0 errors=0
+TierSelectorTest         tests=4 skipped=0 failures=0 errors=0
+TierPolicyTest           tests=24 skipped=0 failures=0 errors=0
+NeverThrowTest           tests=7 skipped=0 failures=0 errors=0
+FailureTaxonomyTest      tests=10 skipped=0 failures=0 errors=0
+ApiShapeTest             tests=6 skipped=0 failures=0 errors=0
+TerminalCallTest         tests=4 skipped=0 failures=0 errors=0
+ParentRunIdTest          tests=3 skipped=0 failures=0 errors=0
+CommitPathTest           tests=7 skipped=0 failures=0 errors=0
+AwaitingConfirmGateTest  tests=17 skipped=0 failures=0 errors=0
+DeferModeTest            tests=7 skipped=0 failures=0 errors=0
+HeldReportingTest        tests=4 skipped=0 failures=0 errors=0
+ActionEventTest          tests=5 skipped=0 failures=0 errors=0
+BatchIsolationTest       tests=3 skipped=0 failures=0 errors=0
+RunClosedPathsTest       tests=7 skipped=0 failures=0 errors=0
+ExecutedListTest         tests=4 skipped=0 failures=0 errors=0
+EscalationSafetyTest     tests=10 skipped=0 failures=0 errors=0
+TraceTest                tests=7 skipped=0 failures=0 errors=0
+EventsTest               tests=7 skipped=0 failures=0 errors=0
+RedactionCanaryTest      tests=2 skipped=0 failures=0 errors=0
+all :core result files: 27 classes, 209 tests, failures=0 errors=0
+
+[3] $ scripts/verify-negative-controls.sh
+exit=0
+ok lines: 69, FAIL lines: 0
+negative-control failures: 0
+
+[4] $ scripts/verify-repo-hygiene.sh
+exit=0
+HYGIENE OK
+
+[5] $ scripts/verify-api-dump.sh
+exit=0
+API DUMP PROOF OK (real tree untouched; copy removed on exit)
+
+[6] $ scripts/review-api-surface.sh --expect-sealed-complete --out .planning/phases/02-core-contract-pipeline-commit-seam/evidence/api-surface-review.txt
+exit=0
+API SURFACE OK sealed=CommandOutcome,GateDecision,RunTermination,StrategyOutcome,ToolStep classes=117
+dump: 1113 lines, first line: // Signature format: 4.0, 'sealed exhaustive' declarations: 5
+
+[7] suppression / planning-id / module api.txt checks
+@Suppress occurrences under core/src/main: 1  ->  core/internal/Guarded.kt
+planning-id hits under core/src/main + core/src/testFixtures: 0
+git status --porcelain -- core/api.txt providers/api.txt keystore/api.txt: '' (empty = none)
+
+Fix recorded: hand-off KDoc in core/commit/HeldProposal.kt said 'In memory only'; reworded to 'In-memory only' so the literal in-memory note exists (KDoc only, no signature change; the api surface dump above was taken from the same tree).
+
+RESULT: every section above exited 0; Task 1 gate green.
