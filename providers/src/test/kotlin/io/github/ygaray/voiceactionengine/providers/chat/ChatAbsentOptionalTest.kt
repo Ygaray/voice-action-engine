@@ -38,6 +38,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
 import java.util.concurrent.CopyOnWriteArrayList
 
 private const val RESPONSES_DIR = "/golden/chat/responses/"
@@ -124,8 +126,14 @@ private fun modelSent(body: String): JsonObject {
     return if (call is JsonPrimitive) Json.parseToJsonElement(call.content).jsonObject else call.jsonObject
 }
 
-/** A forced EDIT-shaped call through the pipeline and the real Chat provider: omitted optionals reach the app absent. */
-class ChatAbsentOptionalTest {
+/**
+ * A forced EDIT-shaped call through the pipeline and the real Chat provider, on both vendors: omitted optionals reach
+ * the app absent, strict goes only to the schema that is eligible, and an app's strict = true cannot cause data loss.
+ */
+@RunWith(Parameterized::class)
+class ChatAbsentOptionalTest(private val label: String, private val model: String) {
+
+    private val vendor: ChatVendor = if (label == "openai") ChatVendor.OPENAI else ChatVendor.OPENROUTER
 
     private fun forcedRequest(tool: ToolSpec): ModelRequest = ModelRequest(
         FIXED_SYSTEM,
@@ -136,7 +144,7 @@ class ChatAbsentOptionalTest {
         CacheDirective(true),
     )
 
-    private fun runEdit(vendor: ChatVendor, model: String, body: String, tool: ToolSpec): EditRun = runBlocking {
+    private fun runForced(body: String, tool: ToolSpec): EditRun = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setResponseCode(200).setBody(body))
             server.start()
@@ -177,15 +185,15 @@ class ChatAbsentOptionalTest {
         }
     }
 
-    private fun assertEditContract(vendor: ChatVendor, model: String, row: EditRow) {
+    private fun assertEditContract(row: EditRow) {
         val tool = editListCardTool()
-        val run = runEdit(vendor, model, row.body, tool)
+        val run = runForced(row.body, tool)
 
         assertTrue("${row.case}: ${run.outcome}", run.outcome is CommandOutcome.Completed)
         val function = run.sentTool["function"]!!.jsonObject
         assertNull("${row.case}: strict was sent", function["strict"])
         assertEquals(tool.inputSchema.toString(), function["parameters"].toString())
-        assertEquals("${row.case}: the app received something the model did not send", modelSent(row.body), run.received)
+        assertEquals("${row.case}: the app got more or less than was sent", modelSent(row.body), run.received)
         assertNotNull("${row.case}: card_id missing", run.received["card_id"])
         assertNotNull("${row.case}: items missing", run.received["items"])
         row.absentKeys.forEach { path ->
@@ -198,8 +206,71 @@ class ChatAbsentOptionalTest {
         assertEquals(1, run.commits)
     }
 
+    private fun answerId(): String = if (vendor == ChatVendor.OPENAI) "chatcmpl-GOLDEN" else "gen-GOLDEN"
+
+    private fun answerWith(toolName: String, arguments: String): String = chatBody(
+        chatMessage(null, listOf(chatToolCall("call_GOLDEN1", toolName, arguments))),
+        "tool_calls",
+        chatUsage(120, 40),
+        id = answerId(),
+    )
+
     @Test(timeout = TEST_TIMEOUT_MILLIS)
-    fun anOmittedOptionalOnOpenAiArrivesAtTheMutationAbsentWithTheSchemaSentUntouched() {
-        EditRows.forVendor("openai").forEach { assertEditContract(ChatVendor.OPENAI, "gpt-5.4-mini", it) }
+    fun anOmittedOptionalArrivesAtTheMutationAbsentWithTheSchemaSentUntouched() {
+        EditRows.forVendor(label).forEach { assertEditContract(it) }
+    }
+
+    @Test
+    fun theRowLoaderFailsInsteadOfSkippingWhenAVendorHasNoEditRow() {
+        val failure = runCatching { EditRows.forVendor("nobody") }.exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is IllegalStateException)
+    }
+
+    @Test
+    fun theVendorHasEditRowsAndEachListsItsAbsentKeys() {
+        val rows = EditRows.forVendor(label)
+
+        assertTrue(rows.isNotEmpty())
+        rows.forEach { assertTrue(it.case, it.absentKeys.isNotEmpty()) }
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun anEligibleLogFoodShapedToolIsSentStrictWithTheStrippedSchema() {
+        val tool = logFoodTool()
+
+        val run = runForced(answerWith("log_food", LOG_FOOD_ARGUMENTS), tool)
+
+        assertTrue(run.outcome.toString(), run.outcome is CommandOutcome.Completed)
+        val function = run.sentTool["function"]!!.jsonObject
+        assertEquals("true", function["strict"].toString())
+        assertEquals(stripForChatStrict(tool.inputSchema).toString(), function["parameters"].toString())
+        assertEquals(setOf("items", "target_date", "source"), run.received.keys)
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun anAppsStrictTrueOnTheEditToolIsStillSentWithoutStrictAndWithItsSchemaUntouched() {
+        val tool = editListCardTool(strict = true)
+
+        val run = runForced(answerWith(EDIT_TOOL, EDIT_ARGUMENTS), tool)
+
+        assertTrue(run.outcome.toString(), run.outcome is CommandOutcome.Completed)
+        val function = run.sentTool["function"]!!.jsonObject
+        assertNull(function["strict"])
+        assertEquals(tool.inputSchema.toString(), function["parameters"].toString())
+        assertEquals(setOf("card_id", "items"), run.received.keys)
+    }
+
+    companion object {
+        private const val LOG_FOOD_ARGUMENTS =
+            """{"items":[{"name":"egg","quantity":2,"unit":null,"confidence":0.9}],"target_date":null,"source":null}"""
+        private const val EDIT_ARGUMENTS = """{"card_id":"c-7","items":[{"text":"milk"}]}"""
+
+        @JvmStatic
+        @Parameterized.Parameters(name = "{0}")
+        fun vendors(): List<Array<Any>> = listOf(
+            arrayOf("openai", "gpt-5.4-mini"),
+            arrayOf("openrouter", "openai/gpt-5.4-mini"),
+        )
     }
 }
