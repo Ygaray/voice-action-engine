@@ -22,7 +22,7 @@ import javax.crypto.SecretKey
  * writer at a time: either the older code or this library, never both concurrently.
  *
  * The key specification (AES, 256 bits, GCM, no padding, encrypt and decrypt, randomized encryption, no
- * user-authentication binding, no hardware-module request) is the one the SecondBrain and CalTracker apps already use,
+ * user-authentication binding, no hardware-module request) is the one the existing adopter apps already use,
  * so keys created by either side are interchangeable. This is the only main source file that touches
  * `android.security.keystore`.
  */

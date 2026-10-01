@@ -12,7 +12,7 @@ internal class Sealed(val iv: ByteArray, val ciphertext: ByteArray) {
 
 /**
  * The one AES/GCM code path, shared by production keys and test keys. The layout is byte-compatible with the values
- * the SecondBrain and CalTracker apps already store: a provider-generated 12-byte nonce and the encrypted bytes with
+ * the existing adopter apps already store: a provider-generated 12-byte nonce and the encrypted bytes with
  * the tag appended.
  */
 internal object AesGcm {

@@ -39,7 +39,7 @@ val rawRules = listOf(
         "app-domain name in source",
         Regex(
             """\b(LogFood\w*|log_food|MutationTier\w*|SYSTEM_PROMPT|TAG_DISAMBIGUATION\w*""" +
-                """|find_tags|create_tag|edit_list_card|edit_text_card)\b""",
+                """|find_tags|create_tag|edit_list_card|edit_text_card|SecondBrain|CalTracker)\b""",
         ),
     ),
     Rule(

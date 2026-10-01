@@ -28,7 +28,7 @@ import java.util.Base64
  * throws at runtime. The app also supplies the [KeySlot] table that says which names each provider's key lives under.
  * The plaintext key never leaves through a public member.
  *
- * To adopt it, inject the app's existing DataStore (for SecondBrain its hoisted `app_preferences` singleton) and a
+ * To adopt it, inject the app's existing DataStore (for example a hoisted app-wide preferences singleton) and a
  * [KeySlot] table that names the app's existing alias and preference names verbatim. No stored key is copied or
  * migrated: values already written by the app read back as they are, and values this store writes can be read by the
  * app's older code.
