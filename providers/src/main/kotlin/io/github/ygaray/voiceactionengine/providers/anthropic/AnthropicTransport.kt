@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
+import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.providers.http.HttpReply
 import io.github.ygaray.voiceactionengine.providers.http.OneShotJsonBody
 import io.github.ygaray.voiceactionengine.providers.http.await
@@ -81,6 +82,10 @@ internal class AnthropicTransport(
         return sendWithRetry(call, credential, requestsSent + 1, retried = true)
     }
 
+    // The capabilities already say whether this model takes a forced tool choice (the table, then any app override).
+    private fun needsReshape(call: ProviderRequest): Boolean =
+        call.request.toolChoice is ToolChoice.Required && !call.capabilities.supportsForcedToolChoice
+
     private fun retryWait(attempted: Attempted): Long? =
         if (attempted.transient) {
             transientWaitMillis(attempted.retryAfterSeconds, retryAfterCapMillis, transientBackoffMillis)
@@ -94,7 +99,7 @@ internal class AnthropicTransport(
             .header(HEADER_API_KEY, credential.apiKey)
             .header(HEADER_VERSION, API_VERSION)
             .header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
-            .post(OneShotJsonBody(encodeAnthropicRequest(call)))
+            .post(OneShotJsonBody(encodeAnthropicRequest(call, needsReshape(call))))
             .build()
         return try {
             interpret(client.newCall(request).await(), call.model)
