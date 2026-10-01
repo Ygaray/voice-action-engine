@@ -33,10 +33,24 @@ private class MalformedAnswer(val reason: FailureReason) : IllegalArgumentExcept
 /**
  * Turns the body of a 2xx Messages answer into a typed result. It never throws and never copies body text anywhere:
  * every unusable answer becomes a reason-only failure.
+ *
+ * When [toolRequired] is set, a plain end of turn with no tool call is a [FailureReason.NoToolCall]: the app needed a
+ * tool and the model answered in words. A refusal or a truncation stays a success carrying its stop reason, because
+ * those say why no tool was called.
  */
-internal fun decodeAnthropicResponse(body: String?, requestIdHeader: String?, model: String): ModelResult =
+internal fun decodeAnthropicResponse(
+    body: String?,
+    requestIdHeader: String?,
+    model: String,
+    toolRequired: Boolean = false,
+): ModelResult =
     try {
-        ModelResult.Success(decodeResponse(body, requestIdHeader, model))
+        val response = decodeResponse(body, requestIdHeader, model)
+        if (toolRequired && response.message.toolCalls.isEmpty() && response.stopReason == StopReason.END_TURN) {
+            ModelResult.Failure(FailureReason.NoToolCall())
+        } else {
+            ModelResult.Success(response)
+        }
     } catch (e: IllegalArgumentException) {
         // Also covers SerializationException, a subclass: both mean the body is not the JSON we were promised.
         ModelResult.Failure((e as? MalformedAnswer)?.reason ?: FailureReason.MalformedResponse())

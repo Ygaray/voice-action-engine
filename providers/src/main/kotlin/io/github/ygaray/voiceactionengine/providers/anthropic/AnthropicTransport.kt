@@ -150,7 +150,9 @@ internal class AnthropicTransport(
     private fun interpret(reply: HttpReply, call: ProviderRequest): Attempted {
         val requestId = reply.headers[HEADER_REQUEST_ID]
         if (reply.isSuccessful) {
-            return Attempted(decodeAnthropicResponse(reply.body, requestId, call.model), reply.code, false, null)
+            val toolRequired = call.request.toolChoice is ToolChoice.Required
+            val decoded = decodeAnthropicResponse(reply.body, requestId, call.model, toolRequired)
+            return Attempted(decoded, reply.code, false, null)
         }
         val info = parseAnthropicError(reply.code, requestId, reply.body)
         // A spend cap arrives as a 429 but never clears by waiting, so it is final like any other billing failure.
