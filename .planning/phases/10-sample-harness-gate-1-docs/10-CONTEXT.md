@@ -94,3 +94,7 @@ None beyond the decisions above.
 See REQUIREMENTS.md v2 / LATER items.
 
 </deferred>
+
+## Runtime Decisions
+
+- **Gate-2 live-smoke items carried from Phase 4 (milestone master):** (1) a low-credit / spend-exhausted HTTP 400 maps to `FailureReason.Billing`; (2) the accepted API-key character set holds for real keys from every provider (Anthropic, OpenAI, OpenRouter).
