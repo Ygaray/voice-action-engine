@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -25,6 +26,11 @@ import java.util.Base64
  * The app owns and injects the [DataStore]; this library never creates one, because a second DataStore on the same file
  * throws at runtime. The app also supplies the [KeySlot] table that says which names each provider's key lives under.
  * The plaintext key never leaves through a public member.
+ *
+ * To adopt it, inject the app's existing DataStore (for SecondBrain its hoisted `app_preferences` singleton) and a
+ * [KeySlot] table that names the app's existing alias and preference names verbatim. No stored key is copied or
+ * migrated: values already written by the app read back as they are, and values this store writes can be read by the
+ * app's older code.
  */
 public class ApiKeyStore internal constructor(
     private val dataStore: DataStore<Preferences>,
@@ -36,6 +42,14 @@ public class ApiKeyStore internal constructor(
     private val writeMutex = Mutex()
     private val encoder: Base64.Encoder = Base64.getEncoder()
     private val reader = SecretReader(keyAccess)
+
+    /** Builds a store over the app's [dataStore] and [slots], doing its blocking work on [Dispatchers.IO]. */
+    public constructor(dataStore: DataStore<Preferences>, slots: List<KeySlot>) :
+        this(dataStore, slots, Dispatchers.IO, AndroidKeyStoreKeyAccess)
+
+    /** As the two-argument constructor, but doing its blocking work on [ioDispatcher]. */
+    public constructor(dataStore: DataStore<Preferences>, slots: List<KeySlot>, ioDispatcher: CoroutineDispatcher) :
+        this(dataStore, slots, ioDispatcher, AndroidKeyStoreKeyAccess)
 
     /**
      * Encrypts [apiKey] (trimmed) and stores it for [provider], replacing any previous one.
