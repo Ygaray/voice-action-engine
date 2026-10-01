@@ -79,3 +79,42 @@ internal class ImportReport(
         }
     }
 }
+
+/** What the user should do about a key that cannot be read. */
+internal enum class KeyAction {
+    /** The stored key is lost or damaged: the user must type it again. */
+    REENTER_KEY,
+
+    /** The failure may pass by itself: try again. */
+    TRANSIENT_RETRY,
+}
+
+/** The sample's wording and actions for the keystore library's states and cause codes. */
+internal object KeyUx {
+    /**
+     * The action for a cause code of [KeyState.Unreadable]. The codes are an open set, so anything not known means the
+     * user must re-enter the key.
+     */
+    fun action(cause: String): KeyAction = when (cause) {
+        "key_missing", "decrypt_failed", "stored_value_malformed" -> KeyAction.REENTER_KEY
+        "keystore_unavailable", "storage_unreadable" -> KeyAction.TRANSIENT_RETRY
+        else -> KeyAction.REENTER_KEY
+    }
+
+    /**
+     * The on-screen line for [state]. A ready key shows its last four characters: this is for the screen only, so never
+     * log or report the result.
+     */
+    fun label(state: KeyState): String = when (state) {
+        is KeyState.NotConfigured -> "Not configured"
+        is KeyState.Ready -> if (state.last4.isEmpty()) "Ready" else "Ready - ends in ${state.last4}"
+        is KeyState.KeyMissing -> "Key missing - re-enter key"
+        is KeyState.Unreadable -> unreadableLabel(state.cause)
+        else -> "Unknown key state - re-enter key"
+    }
+
+    private fun unreadableLabel(cause: String): String = when (action(cause)) {
+        KeyAction.REENTER_KEY -> "Key unreadable ($cause) - re-enter key"
+        KeyAction.TRANSIENT_RETRY -> "Key unreadable ($cause) - transient, retry"
+    }
+}
