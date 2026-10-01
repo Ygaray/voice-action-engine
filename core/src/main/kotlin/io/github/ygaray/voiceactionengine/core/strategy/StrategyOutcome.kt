@@ -11,21 +11,28 @@ public sealed class StrategyOutcome {
      *
      * @property reply text to show the user, or null.
      * @property terminalCall the terminal tool call that ended the run (for example a clarification request), or null.
-     * A completed outcome carries a reply or a terminal call, never both.
+     * A completed outcome carries a reply or a terminalCall, never both.
+     * @property partial true when the strategy finished but dropped part of what the model asked for (for example
+     * extra tool calls it never acted on), so the user may have asked for more than was done. The engine reports the
+     * command as a partial completion. False for a clean finish.
      */
     public class Completed(
         public val reply: String?,
         public val terminalCall: TerminalCall?,
+        public val partial: Boolean,
     ) : StrategyOutcome() {
-        /** Finished with [reply] and no terminal call. */
-        public constructor(reply: String?) : this(reply, null)
+        /** Finished with [reply] and [terminalCall] and nothing dropped. */
+        public constructor(reply: String?, terminalCall: TerminalCall?) : this(reply, terminalCall, false)
+
+        /** Finished with [reply], no terminal call, and nothing dropped. */
+        public constructor(reply: String?) : this(reply, null, false)
 
         init {
             require(reply == null || terminalCall == null) { "Completed carries a reply or a terminalCall, not both" }
         }
 
         override fun toString(): String =
-            "Completed(replyLength=${reply?.length}, terminalCall=$terminalCall)"
+            "Completed(replyLength=${reply?.length}, terminalCall=$terminalCall, partial=$partial)"
     }
 
     /**

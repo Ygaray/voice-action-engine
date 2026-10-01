@@ -1,0 +1,31 @@
+Phase 7 post-phase follow-up - SHOT-02 partial-drop ruling (quick fix, 2026-10-01)
+
+Ruling (orchestrator yahir-gsd-control-plane-f2, 2026-10-01, SHOT-02 for OpenRouter), verbatim:
+  "Taking the first tool call is fine, but dropped extras must not be silent: the user may have asked for 2 things.
+  When any tool call is dropped, the outcome is Completed(partial=true) (D-15), with the drop recorded in the trace and
+  in the outcome, so the sheet reads 'did X, couldn't finish'. Add a test for it."
+
+What changed (additive public API; no default args, no data/sealed/enum):
+  - StrategyOutcome.Completed gains `public val partial: Boolean` as a third primary-constructor parameter, with the
+    existing two public constructors kept as secondaries that pass false:
+      public class Completed(reply: String?, terminalCall: TerminalCall?, partial: Boolean)
+      public constructor(reply: String?, terminalCall: TerminalCall?)   // partial = false
+      public constructor(reply: String?)                                // partial = false
+  - TierWalk maps a strategy Completed to CommandOutcome.Completed(partial = outcome.partial) (was a literal false).
+  - SingleShotStrategy.route: when the answer holds more than one tool call it still records
+    TraceCode.EXTRA_TOOL_CALLS_DROPPED and now re-wraps a Completed result as partial = true, whether the first call
+    committed, was held, was rejected, or was a terminal call. Failed and Escalate outcomes are returned unchanged.
+  - KDoc updated: CommandOutcome.Completed.partial, StrategyOutcome.Completed.partial, SingleShotStrategy class doc,
+    ModelRequest.singleToolCall, TraceCode.EXTRA_TOOL_CALLS_DROPPED.
+
+Tests (core/src/test/.../SingleShotAcceptanceTest.kt unless noted):
+  - twoToolCallsApplyTheFirstAndCompleteAsPartialWithTheDropInTheTrace   (admit-all gate: first committed, partial=true, code in trace)
+  - oneToolCallCompletesWithoutPartial                                   (partial=false, no dropped code)
+  - twoToolCallsWhereTheGateHoldsTheFirstCompleteAsPartialWithTheHeldProposal (first held, partial=true, held=1)
+  - s10OnlyTheFirstOfSeveralToolCallsIsResolved                          (now also asserts partial=true)
+  - SingleShotTerminalTest.aTerminalFirstCallFollowedByAnExtraCallStillRecordsTheDroppedCallsCode (now also asserts partial=true)
+  - providers SingleShotWireTest.openRouterBodyOmitsParallelToolCallsAndUsesTheFirstCall (now also asserts partial=true)
+
+Verification: ./gradlew check --offline exit 0 (all OkHttp legs, detekt zero);
+  scripts/review-api-surface.sh --expect-sealed-complete -> API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=177;
+  scripts/verify-repo-hygiene.sh -> HYGIENE OK.

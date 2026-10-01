@@ -259,6 +259,7 @@ class SingleShotWireTest {
         )
         assertEquals(listOf(entryArguments("milk")), exchange.resolver.extractions.map { it.arguments })
         assertTrue(TraceCode.EXTRA_TOOL_CALLS_DROPPED in exchange.outcome.trace.codes)
+        assertTrue((exchange.outcome as CommandOutcome.Completed).partial)
         assertCommittedOnce(exchange)
     }
 

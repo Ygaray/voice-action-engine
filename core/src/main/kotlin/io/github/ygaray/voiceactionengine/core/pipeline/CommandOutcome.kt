@@ -92,10 +92,13 @@ public sealed class CommandOutcome {
      *
      * @property reply text to show the user, or null.
      * @property terminalCall the terminal tool call that ended the run, or null.
-     * @property partial true when the command did some work and could not finish: a tier committed or held a change
-     * and then asked for a later tier, which the engine blocks so nothing is written twice. Render it as "did X,
-     * couldn't finish" and never as full success; [commits] and [held] say what was done. [reply] and [terminalCall]
-     * are null in that case. The reason the tier gave is on its trace attempt as the suppressed escalation.
+     * @property partial true when the command did some work and could not finish, in either of two cases. A tier
+     * committed or held a change and then asked for a later tier, which the engine blocks so nothing is written twice
+     * ([reply] and [terminalCall] are null then, and the tier's reason is on its trace attempt as the suppressed
+     * escalation). Or a tier acted on the model's first tool call and dropped the extra calls of the same answer, so
+     * the user may have asked for more than was done ([reply] and [terminalCall] are those of the first call, and the
+     * trace holds `extra_tool_calls_dropped`). Render it as "did X, couldn't finish" and never as full success;
+     * [commits] and [held] say what was done.
      */
     public class Completed internal constructor(
         internal override val effects: RunEffects,

@@ -116,6 +116,7 @@ class SingleShotTerminalTest {
 
             assertEndedWithTheClarification(run)
             assertEquals(1, run.outcome.trace.codes.count { it == TraceCode.EXTRA_TOOL_CALLS_DROPPED })
+            assertTrue((run.outcome as CommandOutcome.Completed).partial)
         }
     }
 

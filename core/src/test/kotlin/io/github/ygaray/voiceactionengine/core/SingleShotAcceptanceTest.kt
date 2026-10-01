@@ -325,8 +325,58 @@ class SingleShotAcceptanceTest {
             assertEquals(1, rig.resolver.invocations)
             assertEquals(first, rig.resolver.extractions.single().arguments)
             assertEquals(1, outcome.trace.codes.count { it == TraceCode.EXTRA_TOOL_CALLS_DROPPED })
+            assertTrue((outcome as CommandOutcome.Completed).partial)
             assertEquals(listOf(ENTRIES_TOOL, ENTRIES_TOOL), outcome.trace.attempts.single().turns.single().toolNames)
             assertEquals(listOf("applied:alpha:1.0:item-a:$TARGET_DATE"), rig.appliedLines)
+        }
+    }
+
+    private fun twoEntryCalls(firstConfidence: Double = 0.95): ModelResult = FakeAiProvider.toolCalls(
+        Usage(1, 0, 0, 1),
+        callOf("call-1", ENTRIES_TOOL, entriesArgs(TARGET_DATE, entry("alpha", firstConfidence))),
+        callOf("call-2", ENTRIES_TOOL, entriesArgs(TARGET_DATE, entry("beta", 0.95))),
+    )
+
+    // SHOT-02 ruling (OpenRouter): a dropped extra call is never silent; the outcome is Completed(partial = true).
+    @Test
+    fun twoToolCallsApplyTheFirstAndCompleteAsPartialWithTheDropInTheTrace() = runTest {
+        NoNetworkGuard.during {
+            val rig = Rig(twoEntryCalls(), ScriptedGate.admitAll())
+
+            val outcome = rig.say()
+
+            val completed = outcome as CommandOutcome.Completed
+            assertTrue(completed.toString(), completed.partial)
+            assertEquals(1, completed.commits.size)
+            assertEquals(listOf("applied:alpha:1.0:item-a:$TARGET_DATE"), rig.appliedLines)
+            assertTrue(TraceCode.EXTRA_TOOL_CALLS_DROPPED in completed.trace.codes)
+        }
+    }
+
+    @Test
+    fun oneToolCallCompletesWithoutPartial() = runTest {
+        NoNetworkGuard.during {
+            val rig = Rig(answerWith(entry("alpha", 0.95)), ScriptedGate.admitAll())
+
+            val completed = rig.say() as CommandOutcome.Completed
+
+            assertFalse(completed.toString(), completed.partial)
+            assertFalse(TraceCode.EXTRA_TOOL_CALLS_DROPPED in completed.trace.codes)
+        }
+    }
+
+    @Test
+    fun twoToolCallsWhereTheGateHoldsTheFirstCompleteAsPartialWithTheHeldProposal() = runTest {
+        NoNetworkGuard.during {
+            val rig = Rig(twoEntryCalls(firstConfidence = 0.5))
+
+            val completed = rig.say() as CommandOutcome.Completed
+
+            assertTrue(completed.toString(), completed.partial)
+            assertEquals(1, completed.held.size)
+            assertTrue(completed.commits.isEmpty())
+            assertEquals(1, rig.resolver.invocations)
+            assertTrue(TraceCode.EXTRA_TOOL_CALLS_DROPPED in completed.trace.codes)
         }
     }
 

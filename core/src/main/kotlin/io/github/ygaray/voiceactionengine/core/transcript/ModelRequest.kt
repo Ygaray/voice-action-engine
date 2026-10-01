@@ -16,7 +16,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
  * @property cache which parts of the request the provider is asked to cache.
  * @property singleToolCall true to ask the model for at most one tool call in its answer (exactly one when
  * [toolChoice] requires a tool). A provider whose wire format cannot express this sends the request without it, and
- * the strategy still uses only the first call. It has no effect when [tools] is empty.
+ * the strategy still uses only the first call and marks a completed outcome partial. It has no effect when [tools]
+ * is empty.
  * @throws IllegalArgumentException when [messages] is empty, [maxTokens] is below 1, two tools share a name, or
  * [toolChoice] requires a tool that is not in [tools].
  */

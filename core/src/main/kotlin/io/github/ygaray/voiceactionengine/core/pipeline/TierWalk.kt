@@ -77,7 +77,7 @@ internal class TierWalk(
         return when (val outcome = executeGuarded(strategy, input, session)) {
             is StrategyOutcome.Completed -> {
                 recorder.tierFinished(strategy.id, ATTEMPT_COMPLETED, null, null, null)
-                CommandOutcome.Completed(effects(), outcome.reply, outcome.terminalCall, partial = false)
+                CommandOutcome.Completed(effects(), outcome.reply, outcome.terminalCall, partial = outcome.partial)
             }
             is StrategyOutcome.Failed -> {
                 recorder.tierFinished(strategy.id, ATTEMPT_FAILED, null, outcome.reason, null)

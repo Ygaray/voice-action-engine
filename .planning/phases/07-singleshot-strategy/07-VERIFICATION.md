@@ -149,5 +149,9 @@ No gaps. All three roadmap success criteria and the PLAN must-haves are backed b
 
 ---
 
+Post-phase follow-up (2026-10-01, orchestrator SHOT-02 ruling): dropped extra tool calls now make the SingleShot outcome `Completed(partial=true)` in addition to the `extra_tool_calls_dropped` trace code; see `evidence/shot02-partial-drop.txt`.
+
+---
+
 _Verified: 2026-10-01_
 _Verifier: Claude (gsd-verifier)_

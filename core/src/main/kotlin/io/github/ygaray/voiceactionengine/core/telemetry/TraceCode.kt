@@ -98,7 +98,10 @@ public value class TraceCode internal constructor(public val value: String) {
         /** The declared fallback was forbidden by the policy or the tier's declaration, so nothing was sent. */
         public val FALLBACK_REFUSED: TraceCode = TraceCode("fallback_refused")
 
-        /** The model answered with more tool calls than the strategy takes; only the first was used. */
+        /**
+         * The model answered with more tool calls than the strategy takes; only the first was used, and a completed
+         * outcome is partial.
+         */
         public val EXTRA_TOOL_CALLS_DROPPED: TraceCode = TraceCode("extra_tool_calls_dropped")
     }
 }

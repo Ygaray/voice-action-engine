@@ -55,6 +55,11 @@ private object CurrentZoneClock : Clock() {
  * decides. Finished steps are submitted first, in list order; all mutations are then combined, in list order, into one
  * step, so the gate sees one proposal. The tier makes at most one provider call per command and never retries.
  *
+ * Only the model's first tool call is acted on. When the answer holds more, the extra calls are dropped, never run,
+ * and not silently: the trace records `extra_tool_calls_dropped` and a completed outcome is marked partial
+ * ([StrategyOutcome.Completed.partial]), because the user may have asked for more than was done. A run that ends
+ * failed or handed up keeps that outcome.
+ *
  * The tier reads its limits from the session policy. It sends the policy's per-turn token limit with the request,
  * refuses before calling when the run has already reached the token ceiling, fails before resolving or
  * writing anything when its one call took the run past the ceiling, and makes exactly one model call, so the iteration
@@ -120,11 +125,19 @@ public class SingleShotStrategy internal constructor(
     }
 
     // decideResult returned null only for a successful answer that holds at least one tool call, so calls is not empty.
-    // Only the first call is ever acted on; a call to a tool the snapshot never offered is not trusted.
+    // Only the first call is ever acted on; a call to a tool the snapshot never offered is not trusted. Dropped extras
+    // make a Completed outcome partial (whether the first call committed, was held or was rejected); Failed and
+    // Escalate outcomes are left as they are.
     private suspend fun route(attempt: Attempt, calls: List<AssistantPart.ToolCall>): StrategyOutcome {
         val call = calls.first()
-        if (calls.size > 1) attempt.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
-        return ceilingCrossed(attempt.session) ?: dispatch(attempt, call)
+        val dropped = calls.size > 1
+        if (dropped) attempt.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+        val outcome = ceilingCrossed(attempt.session) ?: dispatch(attempt, call)
+        return if (dropped && outcome is StrategyOutcome.Completed) {
+            StrategyOutcome.Completed(outcome.reply, outcome.terminalCall, true)
+        } else {
+            outcome
+        }
     }
 
     private suspend fun dispatch(attempt: Attempt, call: AssistantPart.ToolCall): StrategyOutcome {
