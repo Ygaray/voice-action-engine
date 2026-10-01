@@ -13,8 +13,13 @@ import io.github.ygaray.voiceactionengine.sample.evidence.BudgetState
 import io.github.ygaray.voiceactionengine.sample.evidence.BudgetStore
 import io.github.ygaray.voiceactionengine.sample.evidence.BudgetedProvider
 import io.github.ygaray.voiceactionengine.sample.evidence.CostEstimate
+import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.FileBudgetStore
+import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.evidence.RequestBudget
+import io.github.ygaray.voiceactionengine.sample.net.AttemptTap
+import io.github.ygaray.voiceactionengine.sample.net.LegContext
+import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,6 +30,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.io.IOException
 
 private const val COST_DELTA = 1e-9
 
@@ -82,6 +88,79 @@ class RequestBudgetTest {
         assertFalse(RequestBudget(MemoryStore(state(core = 32))).headroomFor(optional = true))
         assertTrue(RequestBudget(MemoryStore(state(core = 31))).canStart(3, optional = true))
         assertFalse(RequestBudget(MemoryStore(state(core = 31))).canStart(4, optional = true))
+    }
+
+    @Test
+    fun theTotalCeilingHoldsInEitherOrder() {
+        // The probe spent 2 requests first; core may then not climb to a total above 34 (33 core alone would be 35).
+        val afterProbe = RequestBudget(MemoryStore(state(core = 30, optional = 2)))
+        assertFalse(afterProbe.headroomFor(optional = false))
+        assertFalse(afterProbe.canStart(3, optional = false))
+        assertTrue(RequestBudget(MemoryStore(state(core = 28, optional = 2))).headroomFor(optional = false))
+        assertTrue(RequestBudget(MemoryStore(state(core = 30, optional = 0))).headroomFor(optional = false))
+    }
+
+    @Test
+    fun aCorruptOrUnreadableStoreFailsClosed() {
+        val bad = listOf(
+            "core=abc\noptional=0\n",
+            "core=3\noptional=0\ntruncated-line-without-equals\n",
+            "core=-5\noptional=0\n",
+            "optional=0\n",
+            "",
+            "core=3\noptional=0\nprovider.anthropic=x\n",
+            "core=3\noptional=0\nagentic_start=soon\n",
+        )
+        for ((index, text) in bad.withIndex()) {
+            val file = File(folder.root, "corrupt-$index.txt")
+            file.writeText(text)
+            val budget = RequestBudget(FileBudgetStore(file))
+            assertFalse(text, budget.headroomFor(optional = false))
+            assertFalse(text, budget.headroomFor(optional = true))
+            assertFalse(text, budget.canStart(1, optional = false))
+            assertEquals(text, BudgetState.UNREADABLE_COUNT, budget.snapshot().core)
+        }
+        // A directory where the file should be is unreadable too, not "nothing spent".
+        val directory = folder.newFolder("budget-is-a-directory")
+        assertFalse(RequestBudget(FileBudgetStore(directory)).headroomFor(optional = false))
+    }
+
+    @Test
+    fun aWellFormedFileStillReadsAndAnAddedUnknownKeyIsIgnored() {
+        val file = File(folder.root, "ok.txt")
+        file.writeText("core=3\noptional=1\nprovider.openai=4\nrun.ver02=2\nagentic_start=77\nfuture_key=whatever\n\n")
+        val budget = RequestBudget(FileBudgetStore(file))
+        assertEquals(3, budget.snapshot().core)
+        assertEquals(1, budget.snapshot().optional)
+        assertEquals(2, budget.runsOf("ver02"))
+        assertTrue(budget.headroomFor(optional = false))
+    }
+
+    @Test
+    fun aCountThatCannotBeSavedFailsClosedAndSaysSo() {
+        val failing = object : BudgetStore {
+            override fun read(): BudgetState = BudgetState.EMPTY
+            override fun write(state: BudgetState) {
+                throw IOException("disk full")
+            }
+        }
+        val budget = RequestBudget(failing)
+        assertTrue(budget.headroomFor(optional = false))
+        assertFalse(budget.record(ProviderId.ANTHROPIC, optional = false))
+        assertFalse(budget.headroomFor(optional = false))
+        assertFalse(budget.headroomFor(optional = true))
+        assertTrue(RequestBudget(MemoryStore()).record(ProviderId.ANTHROPIC, optional = false))
+
+        val sink = ListSink()
+        val tap = AttemptTap(RequestBudget(failing), sink)
+        val context = LegContext(LegId.SMOKE_OPENAI, false)
+        tap.current = context
+        tap.record(AttemptRecord(ProviderId.OPENAI, 1, "initial", 200, null, 0))
+        // The attempt is still kept and shown, and a loud line says the count was lost.
+        assertEquals(1, context.attempts.size)
+        assertEquals(1, sink.starting("VAE_ATTEMPT ").size)
+        assertEquals(listOf("VAE_BUDGET fault=store_write_failed"), sink.starting("VAE_BUDGET "))
+        assertTrue(EvidenceLine.budgetFault().loud)
     }
 
     @Test

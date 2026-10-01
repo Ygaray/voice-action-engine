@@ -52,12 +52,24 @@ internal class BudgetState(
     companion object {
         /** Nothing spent, nothing started. */
         val EMPTY = BudgetState(0, 0, emptyMap(), null)
+
+        /**
+         * What an unreadable or corrupt store reads as: far above every ceiling, so the guard refuses every call (fail
+         * closed) and the header shows the absurd count instead of a comforting zero.
+         */
+        const val UNREADABLE_COUNT = 1_000
+
+        /** The state of a store that exists but cannot be trusted. */
+        val UNREADABLE = BudgetState(UNREADABLE_COUNT, UNREADABLE_COUNT, emptyMap(), null)
     }
 }
 
 /** Where the budget keeps its [BudgetState]. */
 internal interface BudgetStore {
-    /** The saved state, or [BudgetState.EMPTY] when nothing was saved. */
+    /**
+     * The saved state, [BudgetState.EMPTY] only when nothing was ever saved, and [BudgetState.UNREADABLE] when something
+     * was saved and cannot be read back: a spend guard never resets to "nothing spent" on corruption.
+     */
     fun read(): BudgetState
 
     /** Saves [state], replacing the previous one. */
@@ -72,37 +84,50 @@ private const val RUN_PREFIX = "run."
 
 /**
  * A [BudgetStore] in one small text file, one `key=value` line per field. A write goes to a temp file first and is then
- * moved over the real one, so a force-stop mid-write leaves the old state, never half of a new one. A line it cannot
- * read counts as zero.
+ * moved over the real one, so a force-stop mid-write leaves the old state, never half of a new one. A file that exists
+ * but cannot be read, or has a line or a number it cannot read, a missing count or a negative count, reads as
+ * [BudgetState.UNREADABLE] (fail closed): it never silently resets to zero spent.
  */
 internal class FileBudgetStore(private val file: File) : BudgetStore {
     override fun read(): BudgetState {
-        if (!file.isFile) return BudgetState.EMPTY
+        if (!file.exists()) return BudgetState.EMPTY
         val lines = try {
             file.readLines(Charsets.UTF_8)
         } catch (unreadable: IOException) {
-            return BudgetState.EMPTY
+            return BudgetState.UNREADABLE
+        } catch (denied: SecurityException) {
+            return BudgetState.UNREADABLE
         }
-        var core = 0
-        var optional = 0
+        return parse(lines) ?: BudgetState.UNREADABLE
+    }
+
+    // The parsed state, or null when any line is not one this store wrote.
+    private fun parse(lines: List<String>): BudgetState? {
+        var core: Int? = null
+        var optional: Int? = null
         var start: Long? = null
         val providers = LinkedHashMap<String, Int>()
         val runs = LinkedHashMap<String, Int>()
         for (line in lines) {
+            if (line.isEmpty()) continue
             val at = line.indexOf('=')
-            if (at <= 0) continue
+            if (at <= 0) return null
             val key = line.substring(0, at)
             val value = line.substring(at + 1)
             when {
-                key == FIELD_CORE -> core = value.toIntOrNull() ?: 0
-                key == FIELD_OPTIONAL -> optional = value.toIntOrNull() ?: 0
-                key == FIELD_AGENTIC_START -> start = value.toLongOrNull()
-                key.startsWith(PROVIDER_PREFIX) -> providers[key.removePrefix(PROVIDER_PREFIX)] = value.toIntOrNull() ?: 0
-                key.startsWith(RUN_PREFIX) -> runs[key.removePrefix(RUN_PREFIX)] = value.toIntOrNull() ?: 0
+                key == FIELD_CORE -> core = count(value) ?: return null
+                key == FIELD_OPTIONAL -> optional = count(value) ?: return null
+                key == FIELD_AGENTIC_START -> start = value.toLongOrNull() ?: return null
+                key.startsWith(PROVIDER_PREFIX) ->
+                    providers[key.removePrefix(PROVIDER_PREFIX)] = count(value) ?: return null
+                key.startsWith(RUN_PREFIX) -> runs[key.removePrefix(RUN_PREFIX)] = count(value) ?: return null
             }
         }
-        return BudgetState(core, optional, providers, start, runs)
+        return if (core == null || optional == null) null else BudgetState(core, optional, providers, start, runs)
     }
+
+    // A non-negative whole number, or null.
+    private fun count(text: String): Int? = text.toIntOrNull()?.takeIf { it >= 0 }
 
     override fun write(state: BudgetState) {
         val text = buildString {
@@ -151,6 +176,10 @@ internal class RequestBudget(
 ) {
     private val lock = Any()
 
+    // Set when a count could not be saved: a request was sent that the store never saw, so nothing more may be sent.
+    @Volatile
+    private var writeFailed = false
+
     /**
      * Whether a leg that may send up to [reservation] requests may start. The optional probe may run once only, and
      * only while core plus its worst case stays within the total ceiling.
@@ -164,21 +193,31 @@ internal class RequestBudget(
         fits(store.read(), perCallWorstCase, optional)
     }
 
-    /** Counts one HTTP request to [provider], against the core or the optional budget. */
-    fun record(provider: ProviderId, optional: Boolean) {
+    /**
+     * Counts one HTTP request to [provider], against the core or the optional budget. Returns false when the count could
+     * not be saved; the guard then refuses every further call until the app is restarted (fail closed), and the caller
+     * must say so loudly.
+     */
+    fun record(provider: ProviderId, optional: Boolean): Boolean {
         synchronized(lock) {
             val state = store.read()
             val perProvider = LinkedHashMap(state.perProvider)
             perProvider[provider.value] = (perProvider[provider.value] ?: 0) + 1
-            store.write(
-                BudgetState(
-                    core = if (optional) state.core else state.core + 1,
-                    optional = if (optional) state.optional + 1 else state.optional,
-                    perProvider = perProvider,
-                    agenticStartEpochSeconds = state.agenticStartEpochSeconds,
-                    legRuns = state.legRuns,
-                ),
+            val next = BudgetState(
+                core = if (optional) state.core else state.core + 1,
+                optional = if (optional) state.optional + 1 else state.optional,
+                perProvider = perProvider,
+                agenticStartEpochSeconds = state.agenticStartEpochSeconds,
+                legRuns = state.legRuns,
             )
+            try {
+                store.write(next)
+            } catch (unwritable: IOException) {
+                writeFailed = true
+            } catch (denied: SecurityException) {
+                writeFailed = true
+            }
+            return !writeFailed
         }
     }
 
@@ -218,10 +257,12 @@ internal class RequestBudget(
     }
 
     private fun fits(state: BudgetState, requests: Int, optional: Boolean): Boolean =
-        if (optional) {
+        if (writeFailed) {
+            false
+        } else if (optional) {
             state.optional == 0 && state.core + state.optional + requests <= totalCeiling
         } else {
-            state.core + requests <= coreCeiling
+            state.core + requests <= coreCeiling && state.core + state.optional + requests <= totalCeiling
         }
 }
 

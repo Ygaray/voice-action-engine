@@ -273,6 +273,9 @@ internal class EvidenceLine private constructor(
             ),
         )
 
+        /** The request count could not be saved, so the spend guard now refuses every call. Always loud. */
+        fun budgetFault(): EvidenceLine = EvidenceLine("BUDGET", true, listOf("fault" to "store_write_failed"))
+
         /** A debug rerun was started by the autorun intent instead of a tap. */
         fun autorun(leg: LegId): EvidenceLine = EvidenceLine("AUTORUN", false, listOf("leg" to leg.wire))
 

@@ -41,14 +41,17 @@ internal class AttemptTap(private val budget: RequestBudget, private val sink: E
     @Volatile
     var current: LegContext? = null
 
-    /** Counts [attempt], keeps it with the current leg and emits its evidence line. */
+    /**
+     * Keeps [attempt] with the current leg, emits its evidence line, then counts it. The count goes last so a store that
+     * fails cannot hide the attempt; if it fails the budget refuses every further call and a loud line says so.
+     */
     fun record(attempt: AttemptRecord) {
         val context = current
-        budget.record(attempt.provider, context?.optional ?: false)
         if (context != null) {
             context.add(attempt)
             sink.emit(EvidenceLine.attempt(context.leg, attempt))
         }
+        if (!budget.record(attempt.provider, context?.optional ?: false)) sink.emit(EvidenceLine.budgetFault())
     }
 
     /** The observer for the Anthropic transport. */
