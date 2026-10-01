@@ -272,14 +272,14 @@ Plans:
   3. Reads return `NotConfigured | Ready | KeyMissing | Unreadable`. Decrypting after the Keystore key is gone (a restored backup) reports `KeyMissing` and never creates a key. Encryption uses a synchronized get-or-create path and `java.util.Base64` NO_WRAP-compatible encoding.
   4. `KeystoreCredentialSource` plugs into the provider seam. JVM tests prove the round trip through the crypto seam, and one instrumented test passes on the TESTER.
 
-**Plans**: 1/7 plans executed (one per wave, strictly sequential: 06-01 → 06-07)
+**Plans**: 2/7 plans executed (one per wave, strictly sequential: 06-01 → 06-07)
 **Wave 1**
 
 - [x] 06-01-PLAN.md — tracer save/read round trip on the JVM + build wiring (datastore `api`, no-DataStore-creation gate, androidTest toolchain)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06-02-PLAN.md — validated KeySlot table, per-provider save/replace/delete, atomic serialized writes
+- [x] 06-02-PLAN.md — validated KeySlot table, per-provider save/replace/delete, atomic serialized writes
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -392,7 +392,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Transcript Types, ProviderRouter & On-Device Gate | 10/10 | Complete    | 2026-09-30 |
 | 4. Anthropic Transport & OkHttp Matrix | 8/8 | Complete    | 2026-10-01 |
 | 5. OpenAI & OpenRouter Transports | 12/12 | Complete    | 2026-10-01 |
-| 6. Keystore | 1/7 | In Progress|  |
+| 6. Keystore | 2/7 | In Progress|  |
 | 7. SingleShot Strategy | 0/TBD | Not started | - |
 | 8. Multi-turn Mappers | 0/TBD | Not started | - |
 | 9. Agentic Loop Strategy | 0/TBD | Not started | - |
