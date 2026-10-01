@@ -105,8 +105,11 @@ class ChatErrorMapTest {
 
     @Test
     fun noEndpointsForAParameterIsModelUnsupportedButOtherNotFoundIsNot() {
-        val message = "No endpoints found that support the provided 'tool_choice' value."
-        assertEquals("model_unsupported", withMessage(404, message).reason().code)
+        val live = "No endpoints found that can handle the requested parameters."
+        assertEquals("model_unsupported", withMessage(404, live).reason().code)
+        val older = "No endpoints found that support the provided 'tool_choice' value."
+        assertEquals("model_unsupported", withMessage(404, older).reason().code)
+        assertEquals("model_not_found", withMessage(404, "No endpoints found for foo/bar.").reason().code)
         assertEquals("model_not_found", withMessage(404, "No such model").reason().code)
     }
 

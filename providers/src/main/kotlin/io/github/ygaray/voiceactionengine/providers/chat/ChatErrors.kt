@@ -38,7 +38,9 @@ private const val KEY_REASONS = "reasons"
 private const val QUOTA_MARKER = "insufficient_quota"
 private const val CONTEXT_LENGTH_CODE = "context_length_exceeded"
 private const val RESPONSES_ENDPOINT_MARKER = "/v1/responses"
-private const val NO_ENDPOINTS_MARKER = "No endpoints found that support"
+// Both live OpenRouter shapes ("... that support ...", "... that can handle the requested parameters"); the unknown
+// model answer "No endpoints found for <model>" does not contain it and stays ModelNotFound.
+private const val NO_ENDPOINTS_MARKER = "No endpoints found that"
 
 // The status decides the reason once refine() has had its say; any status not listed (500, 502, 524, 418...) is
 // HttpError.

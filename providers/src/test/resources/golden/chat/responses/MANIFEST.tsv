@@ -28,7 +28,7 @@ openrouter_choices_empty_with_error	openrouter	derived	derived.json#openrouter_c
 openrouter_finish_error	openrouter	derived	derived.json#openrouter_finish_error	200	required	failure:http_error	-	derived: finish_reason error with the upstream's native finish reason; not reproducible live
 openrouter_finish_error_no_native	openrouter	derived	derived.json#openrouter_finish_error_no_native	200	required	failure:http_error	-	derived: finish_reason error without a native finish reason; not reproducible live
 openrouter_402	openrouter	derived	derived.json#openrouter_402	402	-	failure:billing	-	derived: documented out-of-credits error; not reproducible live
-openrouter_404_no_endpoints	openrouter	derived	derived.json#openrouter_404_no_endpoints	404	-	failure:model_unsupported	-	derived: cited No endpoints found text for an unsupported parameter (research error-map table); not reproducible live
+openrouter_404_no_endpoints	openrouter	derived	derived.json#openrouter_404_no_endpoints	404	-	failure:model_unsupported	-	derived: body text copied from the live OpenRouter wording seen in probe R5 (404 No endpoints found that can handle the requested parameters); the R5 body itself was not committed
 openrouter_404_other	openrouter	derived	derived.json#openrouter_404_other	404	-	failure:model_not_found	-	derived: any other 404 is model_not_found; not reproducible live
 openrouter_403_moderation	openrouter	derived	derived.json#openrouter_403_moderation	403	-	failure:refusal	-	derived: moderation 403 carries error.metadata.reasons (documented shape); not reproducible live
 openai_invalid_key_captured	openai	captured	captured/openai-invalid_key.json	401	-	failure:auth	-	captured 2026-10-01 gpt-5.4-mini invalid_key
