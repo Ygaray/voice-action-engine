@@ -43,13 +43,20 @@ adb_t() { local secs="$1"; shift; timeout "$secs" "$ADB" "$@" 9>&-; }
 adbt() { adb_t 30 -s "$TARGET" "$@"; }
 strip_cr() { tr -d '\r'; }
 
-# Remove the test package from the target (idempotent). Prints "test package removed" once it is confirmed gone.
+# Remove the test package from the target (idempotent). Prints "test package removed" only once a package listing taken
+# after the uninstall positively shows it gone; an unreachable device or an empty listing is a warning, never "removed".
 cleanup() {
   [ "$INSTALLED" = 1 ] || return 0
   INSTALLED=0
-  adb_t 60 -s "$TARGET" uninstall "$TEST_PKG" >/dev/null 2>&1 || true
-  if adb_t 30 -s "$TARGET" shell pm list packages 2>/dev/null | strip_cr | grep -qxF "package:$TEST_PKG"; then
+  local uninstall_ok=1 listing
+  adb_t 60 -s "$TARGET" uninstall "$TEST_PKG" >/dev/null 2>&1 || uninstall_ok=0
+  listing="$(adb_t 30 -s "$TARGET" shell pm list packages 2>/dev/null | strip_cr)"
+  if [ -z "$listing" ]; then
+    echo "WARNING: could not verify the removal of $TEST_PKG on $TARGET (device unreachable?)"
+  elif printf '%s\n' "$listing" | grep -qxF "package:$TEST_PKG"; then
     echo "WARNING: test package $TEST_PKG is still installed on $TARGET"
+  elif [ "$uninstall_ok" = 0 ]; then
+    echo "WARNING: uninstall reported a problem, but $TEST_PKG is not installed on $TARGET"
   else
     echo "test package removed"
   fi
