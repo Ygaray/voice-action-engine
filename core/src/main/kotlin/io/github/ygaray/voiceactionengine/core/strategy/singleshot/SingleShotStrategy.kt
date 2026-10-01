@@ -38,6 +38,10 @@ private const val TOOL_MISSING_CODE = "single_shot_tool_missing"
  * whatever steps the resolver prepared. It never writes by itself: every change goes through the session, so the gate
  * decides. The tier makes at most one provider call per command and never retries.
  *
+ * The tier reads its limits from the session policy. It sends the policy's per-turn token limit with the request,
+ * refuses before calling when the run has already reached the token ceiling, and makes exactly one model call, so the
+ * iteration limit is never reached.
+ *
  * Build one with `SingleShotStrategy(id) { ... }`; the builder requires [Builder.tooling] and [Builder.resolver].
  */
 public class SingleShotStrategy internal constructor(
@@ -55,7 +59,10 @@ public class SingleShotStrategy internal constructor(
     private val forceTool: Boolean = settings.forceTool
     private val hooks = OutcomeHooks(settings.onNoToolCall, settings.onRefusal)
 
-    override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome {
+    override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome =
+        ceilingReached(session) ?: withTooling(input, session)
+
+    private suspend fun withTooling(input: CommandInput, session: CommandSession): StrategyOutcome {
         val snapshot = tooling.tooling(input)
         val tool = snapshot.singleShotTool ?: return StrategyOutcome.Failed(FailureReason.Other(TOOL_MISSING_CODE))
         return withModel(Attempt(input, session, snapshot), tool)

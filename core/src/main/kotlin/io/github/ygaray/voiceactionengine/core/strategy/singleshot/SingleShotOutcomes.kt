@@ -1,7 +1,9 @@
 package io.github.ygaray.voiceactionengine.core.strategy.singleshot
 
+import io.github.ygaray.voiceactionengine.core.failure.BudgetBound
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
+import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
@@ -63,3 +65,10 @@ internal suspend fun resolutionOutcome(
         is Resolution.Failed -> StrategyOutcome.Failed(resolution.reason, resolution.details)
         else -> StrategyOutcome.Failed(FailureReason.Other(UNKNOWN_RESOLUTION_CODE))
     }
+
+/** Fails the tier before it calls when the run has already reached the token ceiling; a call costs at least a token. */
+internal fun ceilingReached(session: CommandSession): StrategyOutcome? =
+    if (session.tokensUsed >= session.policy.tokenCeiling) tokenBudgetFailure() else null
+
+private fun tokenBudgetFailure(): StrategyOutcome =
+    StrategyOutcome.Failed(FailureReason.BudgetExceeded(BudgetBound.TOKENS))
