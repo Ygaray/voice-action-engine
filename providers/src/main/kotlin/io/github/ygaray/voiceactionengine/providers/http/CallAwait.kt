@@ -38,6 +38,11 @@ internal suspend fun Call.await(): HttpReply = suspendCancellableCoroutine { con
                 if (continuation.isActive) continuation.resumeWithException(e)
             }
 
+            // OkHttp has already marked this callback as delivered, so anything thrown out of it never reaches
+            // onFailure and would leave the awaiter suspended until its caller cancels. Every failure to read the
+            // body therefore resumes the awaiter; a non-IOException is turned into a text-free IOException, because
+            // its own message could carry anything.
+            @Suppress("TooGenericExceptionCaught")
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body
                 try {
@@ -46,6 +51,8 @@ internal suspend fun Call.await(): HttpReply = suspendCancellableCoroutine { con
                     if (continuation.isActive) continuation.resume(HttpReply(response.code, response.headers, text))
                 } catch (e: IOException) {
                     if (continuation.isActive) continuation.resumeWithException(e)
+                } catch (ignored: RuntimeException) {
+                    if (continuation.isActive) continuation.resumeWithException(IOException("unreadable body"))
                 } finally {
                     body?.close()
                 }

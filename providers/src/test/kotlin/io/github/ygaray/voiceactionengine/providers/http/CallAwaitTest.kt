@@ -137,6 +137,27 @@ class CallAwaitTest {
     }
 
     @Test
+    fun aBodyThatThrowsANonIoExceptionStillFailsTheAwaiterInsteadOfHangingIt() = runBlocking {
+        val call = FakeCall()
+        val outcome = async(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                call.await()
+                null
+            } catch (e: IOException) {
+                e
+            }
+        }
+        val source = ThrowingSource(IllegalStateException("secret-bearing text"))
+
+        call.callback!!.onResponse(call, call.responseWith(source))
+
+        val failure = outcome.await()
+        assertNotNull(failure)
+        assertFalse(failure!!.toString().contains("secret-bearing"))
+        assertTrue(source.closed)
+    }
+
+    @Test
     fun cancellingAgainstARealSlowServerStopsTheCallPromptly() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("slow").setHeadersDelay(SLOW_SECONDS, TimeUnit.SECONDS))
@@ -176,10 +197,10 @@ class CallAwaitTest {
     }
 
     /** A body whose connection dies while it is being read. */
-    private class ThrowingSource : Source {
+    private class ThrowingSource(private val failure: Exception = IOException("connection lost")) : Source {
         var closed = false
 
-        override fun read(sink: Buffer, byteCount: Long): Long = throw IOException("connection lost")
+        override fun read(sink: Buffer, byteCount: Long): Long = throw failure
 
         override fun timeout(): Timeout = Timeout.NONE
 
