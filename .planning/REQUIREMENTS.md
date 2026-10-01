@@ -88,14 +88,14 @@
 
 ### Agentic Loop Strategy (step 6b)
 
-- [ ] **LOOP-01**: Consumer can run an `AgenticLoopStrategy` over its `ToolSpecProvider` + two-phase `ToolExecutor` (`prepare` → `Finished | Mutation`) on any cloud provider, with mutating steps enforced through the gate by the engine.
-- [ ] **LOOP-02**: The loop keeps SB's guards as named tests: whole-turn validation, token-ceiling check before dispatch, final-iteration guard (no tool runs on the last permitted iteration), sequential dispatch, 2-strike tool-failure abort, unknown tool → `is_error`, bounds from `TierPolicy`.
-- [ ] **LOOP-03**: Every exit path (done, budget, cancel, error) reports the executed actions and commits made so far; nothing committed is hidden behind a failure.
+- [x] **LOOP-01**: Consumer can run an `AgenticLoopStrategy` over its `ToolSpecProvider` + two-phase `ToolExecutor` (`prepare` → `Finished | Mutation`) on any cloud provider, with mutating steps enforced through the gate by the engine.
+- [x] **LOOP-02**: The loop keeps SB's guards as named tests: whole-turn validation, token-ceiling check before dispatch, final-iteration guard (no tool runs on the last permitted iteration), sequential dispatch, 2-strike tool-failure abort, unknown tool → `is_error`, bounds from `TierPolicy`.
+- [x] **LOOP-03**: Every exit path (done, budget, cancel, error) reports the executed actions and commits made so far; nothing committed is hidden behind a failure.
 
 ### Port Cleanups (leave-behinds)
 
 - [x] **CLN-01**: Library code has no DI-framework annotations; everything is wired with plain constructors/builders/DSL.
-- [ ] **CLN-02**: Library code contains no app-domain types or prompts (no `LogFood*`, `log_food`, SB `SYSTEM_PROMPT`, SB tool names, `MutationTier`) and hard-codes no tool count.
+- [x] **CLN-02**: Library code contains no app-domain types or prompts (no `LogFood*`, `log_food`, SB `SYSTEM_PROMPT`, SB tool names, `MutationTier`) and hard-codes no tool count.
 - [x] **CLN-03**: Limits and model ids come from policy/config defaults, not hard-coded constants.
 - [x] **CLN-04**: The library never reads app settings storage directly (provider/model/key/policy arrive through seams).
 - [x] **CLN-05**: Library comments carry no app planning ids (T-xx-xx, WR-xx, "Phase NN D-xx").
@@ -204,11 +204,11 @@
 | XCR-01 | Phase 8 | Complete |
 | XCR-02 | Phase 8 | Complete |
 | XCR-03 | Phase 8 | Complete |
-| LOOP-01 | Phase 9 | Pending |
-| LOOP-02 | Phase 9 | Pending |
-| LOOP-03 | Phase 9 | Pending |
+| LOOP-01 | Phase 9 | Complete |
+| LOOP-02 | Phase 9 | Complete |
+| LOOP-03 | Phase 9 | Complete |
 | CLN-01 | Phase 1 | Complete |
-| CLN-02 | Phase 9 | Pending |
+| CLN-02 | Phase 9 | Complete |
 | CLN-03 | Phase 3 | Complete |
 | CLN-04 | Phase 3 | Complete |
 | CLN-05 | Phase 1 | Complete |
