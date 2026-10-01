@@ -42,8 +42,24 @@ The `:sample` app module is never published.
 
 **Repo:** public at `github.com/Ygaray/voice-action-engine` (created 2026-09-29).
 
+**Status:** v1.0 in verification (Phase 10: sample harness, Gate-1, docs; the tag is cut in Phase 11).
+
 **Current published tag:** none. Staged plan (two milestones, A4): `v1.0.0` (contract + pipeline + providers + keystore +
 2 ported strategies), `v1.1.0` (grammar / plan / router / on-device spike). See the contract, L8.
+
+## The doc set an integrating agent receives
+
+| Doc | What it holds |
+|-----|---------------|
+| [`README.md`](README.md) | Purpose, install (JitPack, per-module coordinates), a minimal compiled pipeline, links |
+| [`INTEGRATION.md`](INTEGRATION.md) | Numbered adoption steps from repository to a rendered outcome, ending in notes and gotchas |
+| [`API.md`](API.md) | The public surface at a glance, one section per area, extension points, safety model |
+
+Every Kotlin block in these docs is a byte-equal copy of a region of
+`sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/docs/DocSnippetsTest.kt`, which compiles and runs
+them over the public API; `scripts/verify-docs-coverage.sh` checks that and the rest of the checklist. The working
+example is the never-published `:sample` app in `sample/` (composition root:
+`sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/SampleEngine.kt`).
 
 ## Invariants
 
