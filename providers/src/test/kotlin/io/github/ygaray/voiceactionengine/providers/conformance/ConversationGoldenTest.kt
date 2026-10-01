@@ -255,6 +255,14 @@ class ConversationGoldenTest {
     }
 
     @Test
+    fun everyDialectHasADerivedRow() {
+        val derived = conversationRows().filter { it.provenance == "derived" }
+        DIALECTS.forEach { dialect ->
+            assertTrue("$dialect has no derived row", derived.any { it.dialect == dialect })
+        }
+    }
+
+    @Test
     fun theKnownTagSetIsClosed() {
         assertEquals(
             setOf(
