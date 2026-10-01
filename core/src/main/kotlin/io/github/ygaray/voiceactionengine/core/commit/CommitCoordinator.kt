@@ -1,6 +1,8 @@
 package io.github.ygaray.voiceactionengine.core.commit
 
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -16,6 +18,12 @@ internal fun heldForConfirmationContent(): String = HELD_FOR_CONFIRMATION
  * sink observes each action before the next change starts. A strategy never reaches `apply` any other way.
  *
  * Submissions are serialized by a mutex so positions stay in dispatch order even if a strategy submits concurrently.
+ *
+ * A submission is refused, before anything is recorded, asked of the gate, applied or delivered, when the calling
+ * coroutine has been cancelled (a strategy that swallowed its cancellation cannot keep writing) or the run is closed.
+ * The closed flag is read again after the gate answers, so a change admitted while the run closed is not applied.
+ * [close] does not wait for an in-flight apply: a coroutine a strategy leaked past the end of its tier may still finish
+ * a write it had already started, and that late write is outside the contract and may be missing from the snapshot.
  */
 internal class CommitCoordinator(
     private val runId: String,
@@ -35,10 +43,11 @@ internal class CommitCoordinator(
 
     /**
      * Applies, in order, whatever [step] asks for and the gate allows. Throws [IllegalStateException] once the run is
-     * closed, before anything is recorded, asked of the gate, applied or delivered.
+     * closed, before anything is recorded, asked of the gate, applied or delivered, and the caller's
+     * `CancellationException` when the calling coroutine is cancelled.
      */
     suspend fun submit(step: ToolStep): DispatchResult = mutex.withLock {
-        check(!closed) { "run $runId is closed" }
+        admitCaller()
         when (step) {
             is ToolStep.Mutation -> submitMutation(step)
             is ToolStep.Finished -> finished(step)
@@ -50,8 +59,14 @@ internal class CommitCoordinator(
      * change. Used to commit held changes later; throws [IllegalStateException] once the run is closed.
      */
     suspend fun applyWithoutGate(mutations: List<PendingMutation>): DispatchResult = mutex.withLock {
-        check(!closed) { "run $runId is closed" }
+        admitCaller()
         applyAll(mutations)
+    }
+
+    /** Refuses a caller that was cancelled while it waited for the lock, or a run that is closed. */
+    private suspend fun admitCaller() {
+        currentCoroutineContext().ensureActive()
+        check(!closed) { "run $runId is closed" }
     }
 
     /** Ends the run's write path. Called once by the pipeline before the sink hears the run closed. */
@@ -94,6 +109,8 @@ internal class CommitCoordinator(
 
     private suspend fun submitMutation(step: ToolStep.Mutation): DispatchResult {
         val decision = gateStep.decide(CommitProposal(runId, parentRunId, step.mutations))
+        // The gate may have waited a long time for the user; the run or the caller may have ended meanwhile.
+        admitCaller()
         return when (decision) {
             is GateDecision.Admit -> applyAll(decision.amended ?: step.mutations)
             is GateDecision.Hold -> hold(step, decision)
