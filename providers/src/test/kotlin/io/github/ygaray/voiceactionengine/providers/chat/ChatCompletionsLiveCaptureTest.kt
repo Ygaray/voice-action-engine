@@ -7,6 +7,8 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import io.github.ygaray.voiceactionengine.providers.conformance.ConversationPlans
+import io.github.ygaray.voiceactionengine.providers.conformance.ConversationRecorder
 import io.github.ygaray.voiceactionengine.providers.http.OneShotJsonBody
 import io.github.ygaray.voiceactionengine.providers.http.await
 import io.github.ygaray.voiceactionengine.providers.http.cleanClient
@@ -29,6 +31,10 @@ private const val OPENAI_KEY_VAR = "OPENAI_API_KEY"
 private const val OPENROUTER_KEY_VAR = "OPENROUTER_API_KEY"
 private const val RAW_DIR_PROPERTY = "vae.raw.dir"
 private const val GOLDEN_DIR_PROPERTY = "vae.golden.dir"
+private const val MULTI_TURN_VAR = "VAE_LIVE_CHAT_MULTITURN"
+private const val CONVERSATIONS_VAR = "VAE_LIVE_CHAT_CONVERSATIONS"
+private const val GOLDEN_CONVERSATIONS_PROPERTY = "vae.golden.conversations.dir"
+private const val CONVERSATIONS_RAW_SUBDIR = "conversations"
 
 // A syntactically valid credential that no vendor accepts, for the 401 probes.
 private const val INVALID_CREDENTIAL = "invalid-credential-for-capture"
@@ -405,9 +411,18 @@ internal class CaptureRun(
 
 /**
  * Opt-in capture of real OpenAI and OpenRouter answers, run only by the liveChatCompletionsCapture task and never by
- * check. It is skipped unless VAE_LIVE_CHAT is 1 and the keys of the selected calls are in the environment. It makes at
- * most 12 HTTP requests (6 per vendor, one per call, no retries) and prints ids, statuses and counts: never a key, a
- * body, message text or tool arguments.
+ * check. It is skipped unless VAE_LIVE_CHAT is 1 and the keys of the selected calls are in the environment, and it
+ * prints ids, statuses and counts: never a key, a body, message text or tool arguments. It has two modes, which never
+ * run together.
+ *
+ * The single-call mode (the default) makes at most 12 HTTP requests (6 per vendor, one per call, no retries).
+ *
+ * The multi-turn mode needs VAE_LIVE_CHAT_MULTITURN=1 as well. It records whole tool-calling conversations (O1 on
+ * gpt-5.4-mini and its echo probe OP, R1 on openai/gpt-5.4-mini, R2 on openai/gpt-oss-120b, R3 on
+ * anthropic/claude-sonnet-5.5), at most 13 HTTP requests in all (4 to OpenAI, 9 to OpenRouter), counted before each is
+ * sent and never retried. VAE_LIVE_CHAT_CONVERSATIONS picks the codes to run (O1,OP,R1,R2,R3; blank means all). Raw
+ * bodies go under the conversations folder of the raw directory; each completed, sanitized and replayed conversation
+ * goes to the conversation golden directory.
  */
 class ChatCompletionsLiveCaptureTest {
 
@@ -418,6 +433,7 @@ class ChatCompletionsLiveCaptureTest {
     @Test(timeout = TEST_TIMEOUT_MILLIS)
     fun boundedCaptureAgainstOpenAiAndOpenRouter() {
         Assume.assumeTrue("opt-in variable not set", System.getenv(OPT_IN_VAR) == "1")
+        Assume.assumeFalse("multi-turn run selected", System.getenv(MULTI_TURN_VAR) == "1")
         val calls = CapturePlan.selected(System.getenv(CALLS_VAR))
         val broken = CapturePlan.violations(CapturePlan.all) + CapturePlan.violations(calls)
         check(broken.isEmpty()) { "capture plan is unsound: $broken" }
@@ -439,5 +455,37 @@ class ChatCompletionsLiveCaptureTest {
         )
         assertTrue("HTTP requests over the ceiling: ${run.requests}", run.requests <= MAX_HTTP_REQUESTS)
         assertTrue("live expectations not met: ${run.unmet}", run.unmet.isEmpty())
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    fun boundedMultiTurnCapture() {
+        Assume.assumeTrue("opt-in variable not set", System.getenv(OPT_IN_VAR) == "1")
+        Assume.assumeTrue("multi-turn variable not set", System.getenv(MULTI_TURN_VAR) == "1")
+        val plans = ConversationPlans.selected(System.getenv(CONVERSATIONS_VAR), ConversationPlans.CHAT)
+        val broken = ConversationPlans.violations(ConversationPlans.CHAT) + ConversationPlans.violations(plans)
+        check(broken.isEmpty()) { "conversation plan is unsound: $broken" }
+        val needed = plans.map { it.dialect }.toSet()
+        val keys = needed.mapNotNull { vendor -> keyFor(vendor)?.let { vendor to it } }.toMap()
+        Assume.assumeTrue("no usable key for $needed", keys.keys == needed)
+
+        val rawDir = File(checkNotNull(System.getProperty(RAW_DIR_PROPERTY)) { "$RAW_DIR_PROPERTY is not set" })
+        val recorder = ConversationRecorder(
+            keys,
+            File(rawDir, CONVERSATIONS_RAW_SUBDIR),
+            File(
+                checkNotNull(System.getProperty(GOLDEN_CONVERSATIONS_PROPERTY)) {
+                    "$GOLDEN_CONVERSATIONS_PROPERTY is not set"
+                },
+            ),
+        )
+        recorder.run(plans)
+
+        val ceiling = ConversationPlans.MAX_CHAT_REQUESTS
+        println(
+            "LIVE_CAPTURE requests=${recorder.requests} ceiling=$ceiling " +
+                "openai=${recorder.perVendor(VENDOR_OPENAI)} openrouter=${recorder.perVendor(VENDOR_OPENROUTER)}",
+        )
+        assertTrue("HTTP requests over the ceiling: ${recorder.requests}", recorder.requests <= ceiling)
+        assertTrue("live expectations not met: ${recorder.unmet}", recorder.unmet.isEmpty())
     }
 }

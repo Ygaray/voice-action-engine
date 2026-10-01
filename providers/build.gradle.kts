@@ -69,7 +69,9 @@ tasks.named<Test>("test") {
 val liveTestSet = the<SourceSetContainer>()["test"]
 tasks.register<Test>("liveAnthropicCapture") {
     group = "verification"
-    description = "Opt-in: a few bounded real Anthropic calls (Haiku 4.5, at most 6 requests); needs VAE_LIVE_ANTHROPIC=1 and a key"
+    description = "Opt-in: bounded real Anthropic calls; single-turn: Haiku 4.5, at most 6 requests; " +
+        "with VAE_LIVE_ANTHROPIC_MULTITURN=1: Haiku 4.5 and Sonnet 5.5 conversations, at most 6 requests; " +
+        "needs VAE_LIVE_ANTHROPIC=1 and a key"
     val testSet = liveTestSet
     testClassesDirs = testSet.output.classesDirs
     classpath = testSet.runtimeClasspath
@@ -77,6 +79,10 @@ tasks.register<Test>("liveAnthropicCapture") {
     outputs.upToDateWhen { false }
     val optIn = providers.environmentVariable("VAE_LIVE_ANTHROPIC")
     onlyIf { optIn.orNull == "1" }
+    // Absolute paths: raw bodies stay under build/, only sanitized conversations go where they can be committed.
+    val conversationsDir = layout.projectDirectory.dir("src/test/resources/golden/conversations")
+    systemProperty("vae.golden.conversations.dir", conversationsDir.asFile.absolutePath)
+    systemProperty("vae.raw.dir", layout.buildDirectory.dir("live-anthropic/raw").get().asFile.absolutePath)
     testLogging { showStandardStreams = true }
 }
 
@@ -85,7 +91,8 @@ tasks.register<Test>("liveAnthropicCapture") {
 tasks.register<Test>("liveChatCompletionsCapture") {
     group = "verification"
     description = "Opt-in: bounded real OpenAI and OpenRouter calls (gpt-5.4-mini, haiku route; at most 12 requests); " +
-        "needs VAE_LIVE_CHAT=1 and the two keys"
+        "with VAE_LIVE_CHAT_MULTITURN=1: conversations on gpt-5.4-mini, openai/gpt-oss-120b and " +
+        "anthropic/claude-sonnet-5.5, at most 13 requests; needs VAE_LIVE_CHAT=1 and the two keys"
     val testSet = liveTestSet
     testClassesDirs = testSet.output.classesDirs
     classpath = testSet.runtimeClasspath
@@ -96,6 +103,8 @@ tasks.register<Test>("liveChatCompletionsCapture") {
     // Absolute paths: a Test task runs in the project directory, but the capture must not depend on that.
     val goldenDir = layout.projectDirectory.dir("src/test/resources/golden/chat/responses/captured")
     systemProperty("vae.golden.dir", goldenDir.asFile.absolutePath)
+    val conversationsDir = layout.projectDirectory.dir("src/test/resources/golden/conversations")
+    systemProperty("vae.golden.conversations.dir", conversationsDir.asFile.absolutePath)
     systemProperty("vae.raw.dir", layout.buildDirectory.dir("live-chat/raw").get().asFile.absolutePath)
     testLogging { showStandardStreams = true }
 }

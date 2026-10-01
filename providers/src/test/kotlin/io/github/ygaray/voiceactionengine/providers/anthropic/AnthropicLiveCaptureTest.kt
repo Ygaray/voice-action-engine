@@ -12,6 +12,8 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import io.github.ygaray.voiceactionengine.providers.conformance.ConversationPlans
+import io.github.ygaray.voiceactionengine.providers.conformance.ConversationRecorder
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
@@ -21,10 +23,16 @@ import kotlinx.serialization.json.putJsonObject
 import org.junit.Assert.assertTrue
 import org.junit.Assume
 import org.junit.Test
+import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 private const val OPT_IN_VAR = "VAE_LIVE_ANTHROPIC"
 private const val KEY_VAR = "ANTHROPIC_API_KEY"
+private const val MULTI_TURN_VAR = "VAE_LIVE_ANTHROPIC_MULTITURN"
+private const val CONVERSATIONS_VAR = "VAE_LIVE_ANTHROPIC_CONVERSATIONS"
+private const val RAW_DIR_PROPERTY = "vae.raw.dir"
+private const val GOLDEN_DIR_PROPERTY = "vae.golden.conversations.dir"
+private const val DIALECT = "anthropic"
 
 // The one model the capture may call: the cheapest, and one that accepts a forced tool choice.
 private const val CAPTURE_MODEL = "claude-haiku-4-5"
@@ -43,12 +51,21 @@ private const val HAIKU_MIN_CACHEABLE_PREFIX = 4096
 private const val MAX_OUTPUT_TOKENS = 128
 private const val PROBE_OUTPUT_TOKENS = 16
 private const val TEST_TIMEOUT_MILLIS = 300_000L
+private const val MULTI_TURN_TIMEOUT_MILLIS = 600_000L
 
 /**
- * Opt-in capture of a few real Anthropic answers, run only by the liveAnthropicCapture task and never by check.
+ * Opt-in capture of real Anthropic answers, run only by the liveAnthropicCapture task and never by check.
  *
- * It is skipped unless VAE_LIVE_ANTHROPIC is 1 and ANTHROPIC_API_KEY is set, makes at most six HTTP requests, calls
- * Haiku 4.5 only, and prints ids, statuses and counts: never the key, a body, text or tool arguments.
+ * It is skipped unless VAE_LIVE_ANTHROPIC is 1 and ANTHROPIC_API_KEY is set, and it prints ids, statuses and counts:
+ * never the key, a body, text or tool arguments. It has two modes, which never run together.
+ *
+ * The single-turn mode (the default) makes at most six HTTP requests and calls Haiku 4.5 only.
+ *
+ * The multi-turn mode needs VAE_LIVE_ANTHROPIC_MULTITURN=1 as well. It records whole tool-calling conversations
+ * (A1 on Haiku 4.5 with a long cached system text, A2 on Sonnet 5.5 that must think), at most six HTTP requests in
+ * all, counted before each is sent and never retried. VAE_LIVE_ANTHROPIC_CONVERSATIONS picks the codes to run (A1,A2;
+ * blank means both). Raw bodies go under the raw directory (build/live-anthropic/raw); each completed, sanitized and
+ * replayed conversation goes to the conversation golden directory.
  */
 class AnthropicLiveCaptureTest {
 
@@ -133,6 +150,7 @@ class AnthropicLiveCaptureTest {
     @Test(timeout = TEST_TIMEOUT_MILLIS)
     fun boundedCaptureAgainstHaiku() {
         Assume.assumeTrue("opt-in variable not set", System.getenv(OPT_IN_VAR) == "1")
+        Assume.assumeFalse("multi-turn run selected", System.getenv(MULTI_TURN_VAR) == "1")
         val key = System.getenv(KEY_VAR).orEmpty()
         Assume.assumeTrue("no API key in the environment", key.isNotBlank())
 
@@ -164,5 +182,29 @@ class AnthropicLiveCaptureTest {
         println("LIVE_CAPTURE attempts=${requestCount.get()} ceiling=$MAX_HTTP_REQUESTS")
         assertTrue("HTTP requests over the ceiling: ${requestCount.get()}", requestCount.get() <= MAX_HTTP_REQUESTS)
         assertTrue("live expectations not met: $mismatches", mismatches.isEmpty())
+    }
+
+    @Test(timeout = MULTI_TURN_TIMEOUT_MILLIS)
+    fun boundedMultiTurnCapture() {
+        Assume.assumeTrue("opt-in variable not set", System.getenv(OPT_IN_VAR) == "1")
+        Assume.assumeTrue("multi-turn variable not set", System.getenv(MULTI_TURN_VAR) == "1")
+        val key = System.getenv(KEY_VAR).orEmpty()
+        Assume.assumeTrue("no API key in the environment", key.isNotBlank())
+
+        val plans = ConversationPlans.selected(System.getenv(CONVERSATIONS_VAR), ConversationPlans.ANTHROPIC)
+        val broken = ConversationPlans.violations(ConversationPlans.ANTHROPIC) + ConversationPlans.violations(plans)
+        check(broken.isEmpty()) { "conversation plan is unsound: $broken" }
+
+        val recorder = ConversationRecorder(
+            mapOf(DIALECT to key),
+            File(checkNotNull(System.getProperty(RAW_DIR_PROPERTY)) { "$RAW_DIR_PROPERTY is not set" }),
+            File(checkNotNull(System.getProperty(GOLDEN_DIR_PROPERTY)) { "$GOLDEN_DIR_PROPERTY is not set" }),
+        )
+        recorder.run(plans)
+
+        val ceiling = ConversationPlans.MAX_ANTHROPIC_REQUESTS
+        println("LIVE_CAPTURE requests=${recorder.requests} ceiling=$ceiling")
+        assertTrue("HTTP requests over the ceiling: ${recorder.requests}", recorder.requests <= ceiling)
+        assertTrue("live expectations not met: ${recorder.unmet}", recorder.unmet.isEmpty())
     }
 }
