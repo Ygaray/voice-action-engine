@@ -45,6 +45,23 @@ class ToolSpecClarificationTest {
     }
 
     @Test
+    fun terminalAndMutatingTogetherStillFailWhenStrictIsSet() {
+        try {
+            ToolSpec("x", "d", JsonObject(emptyMap()), mutating = true, terminal = true, strict = true)
+            fail("expected IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message.orEmpty().contains("non-mutating"))
+        }
+    }
+
+    @Test
+    fun strictDefaultsToNullAndKeepsAnExplicitValue() {
+        assertNull(ToolSpec("t", "d", JsonObject(emptyMap())).strict)
+        assertEquals(true, ToolSpec("t", "d", JsonObject(emptyMap()), strict = true).strict)
+        assertEquals(false, ToolSpec("t", "d", JsonObject(emptyMap()), strict = false).strict)
+    }
+
+    @Test
     fun mutatingAloneAndTerminalAloneConstruct() {
         val mutating = ToolSpec("w", "d", JsonObject(emptyMap()), mutating = true)
         val terminal = ToolSpec("t", "d", JsonObject(emptyMap()), terminal = true)
@@ -167,7 +184,7 @@ class ToolSpecClarificationTest {
     @Test
     fun toolSpecToStringNeverPrintsSchemaOrDescription() {
         val spec = ToolSpec.clarification(CLARIFY, "desc-CANARY")
-        assertEquals("ToolSpec(name=$CLARIFY, mutating=false, terminal=true)", spec.toString())
+        assertEquals("ToolSpec(name=$CLARIFY, mutating=false, terminal=true, strict=null)", spec.toString())
     }
 
     private companion object {

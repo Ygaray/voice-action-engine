@@ -35,14 +35,17 @@ private const val DEFAULT_CLARIFICATION_DESCRIPTION =
  * @property inputSchema the JSON schema of the tool's arguments.
  * @property mutating true when the tool changes app state, so every call goes through the pre-apply gate.
  * @property terminal true when calling the tool ends the run.
+ * @property strict true asks the provider for strict schema adherence, false asks it not to, and null lets the engine
+ * decide per provider and model.
  * @throws IllegalArgumentException when [name] is blank, or when the tool is both terminal and mutating.
  */
-public class ToolSpec(
+public class ToolSpec @JvmOverloads constructor(
     public val name: String,
     public val description: String,
     public val inputSchema: JsonObject,
     public val mutating: Boolean = false,
     public val terminal: Boolean = false,
+    public val strict: Boolean? = null,
 ) {
     init {
         require(name.isNotBlank()) { "a tool name must not be blank" }
@@ -50,7 +53,7 @@ public class ToolSpec(
     }
 
     /** Prints the name and flags only, never the schema or description. */
-    override fun toString(): String = "ToolSpec(name=$name, mutating=$mutating, terminal=$terminal)"
+    override fun toString(): String = "ToolSpec(name=$name, mutating=$mutating, terminal=$terminal, strict=$strict)"
 
     /** Builders for the tools every app declares the same way. */
     public companion object {

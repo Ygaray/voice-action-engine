@@ -1,5 +1,9 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.provider.ProviderCall
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
+import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -89,7 +93,64 @@ class ApiShapeTest {
         assertEquals(getters.map { it.name }.toString(), FOUR, getters.size)
     }
 
+    @Test
+    fun toolSpecKeepsItsFiveArgumentConstructorAndAddsTheOtherShapes() {
+        val cls = ToolSpec::class.java
+        val string = String::class.java
+        val schema = JsonObject::class.java
+        val bool = Boolean::class.javaPrimitiveType
+        val boxed = java.lang.Boolean::class.java
+        assertTrue(cls.getConstructor(string, string, schema).isTypeOf(cls))
+        assertTrue(cls.getConstructor(string, string, schema, bool).isTypeOf(cls))
+        assertTrue(cls.getConstructor(string, string, schema, bool, bool).isTypeOf(cls))
+        assertTrue(cls.getConstructor(string, string, schema, bool, bool, boxed).isTypeOf(cls))
+    }
+
+    private fun java.lang.reflect.Constructor<*>.isTypeOf(cls: Class<*>): Boolean =
+        Modifier.isPublic(modifiers) && declaringClass == cls
+
+    /**
+     * True when [cls] declares a default-argument constructor stub: a synthetic constructor ending in int and
+     * DefaultConstructorMarker whose leading parameters equal those of a real constructor. Such a class cannot grow a
+     * parameter without removing a constructor. A value class stub ends in the marker alone and is not flagged.
+     */
+    private fun hasDefaultArgumentStub(cls: Class<*>): Boolean {
+        val constructors = cls.declaredConstructors
+        val real = constructors.filter { !it.isSynthetic }.map { it.parameterTypes.toList() }
+        return constructors.filter { it.isSynthetic }.any { stub ->
+            val types = stub.parameterTypes.toList()
+            types.size >= 2 &&
+                types[types.size - 2] == Int::class.javaPrimitiveType &&
+                types.last().name == DEFAULT_MARKER &&
+                types.dropLast(2) in real
+        }
+    }
+
+    private class WithDefaultArgument(val first: Int, val second: String = "x")
+
+    @Test
+    fun noTranscriptOrProviderClassDeclaresADefaultArgumentConstructorStub() {
+        val inspected = allMainClasses().filter { c ->
+            GROWTH_PACKAGES.any { c.name.startsWith("$ROOT_PACKAGE.$it.") }
+        }
+        assertTrue("inspected only ${inspected.size} classes", inspected.size >= MIN_INSPECTED)
+        val names = inspected.map { it.name }
+        assertTrue(ModelRequest::class.java.name in names)
+        assertTrue(ProviderCall::class.java.name in names)
+        val flagged = inspected.filter { hasDefaultArgumentStub(it) }.map { it.name }
+        assertTrue("default-argument stubs freeze the constructor shape: $flagged", flagged.isEmpty())
+    }
+
+    @Test
+    fun theGrowthRulePredicateFlagsADefaultArgumentClass() {
+        assertTrue(hasDefaultArgumentStub(WithDefaultArgument::class.java))
+        assertTrue(!hasDefaultArgumentStub(ProviderId::class.java))
+    }
+
     private companion object {
+        const val DEFAULT_MARKER = "kotlin.jvm.internal.DefaultConstructorMarker"
+        const val MIN_INSPECTED = 10
+        val GROWTH_PACKAGES = listOf("transcript", "provider")
         const val ROOT_PACKAGE = "io.github.ygaray.voiceactionengine.core"
         const val FOUR = 4
     }
