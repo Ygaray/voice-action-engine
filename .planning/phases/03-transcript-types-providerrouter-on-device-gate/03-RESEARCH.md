@@ -485,22 +485,22 @@ fun aMissingKeyIsNotConfiguredAfterZeroProviderCalls() = runTest {
 | A6 | Chat Completions reports `cache_write_tokens` under `prompt_tokens_details` on GPT-5.6+ (docs page names it under `input_tokens_details`; Chat Completions form from secondary sources) | D-09 calibration | Phase 5 mapper reads the wrong key; Phase 3 unaffected |
 | A7 | Router failure cause for unavailable on-device is the same `"on_device_unavailable"` as Phase 2 (vs. the gate's own code) | Open Question 2 | UI distinguishes fewer cases |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Sealed set and the Phase 2 gate scripts.**
+1. **Sealed set and the Phase 2 gate scripts.** (RESOLVED: widen ALLOWED_SEALED to seven in Plan 03-01; Message and AssistantPart stay sealed.)
    - What we know: `review-api-surface.sh` pins five sealed types; Message/AssistantPart are listed sealed in milestone research.
    - What's unclear: whether the orchestrator accepts widening the allow-list (it is gate tooling, not a contract §).
    - Recommendation: widen to seven in the same plan, or make both open. Decide at plan time; do not leave it to the phase gate.
-2. **Failure cause code for an unavailable on-device gate at the router.**
+2. **Failure cause code for an unavailable on-device gate at the router.** (RESOLVED: use `on_device_unavailable` on both paths.)
    - What we know: the pre-check path emits `"on_device_unavailable"` (pinned by Phase 2 tests); the gate's own code would be `"not_implemented"`.
    - What's unclear: whether apps want to see the gate's code in the failure.
    - Recommendation: use `"on_device_unavailable"` on both paths for one consumer-visible code, and expose the gate's detail through the public `OnDeviceCapability` result and the trace. Revisit only if Phase 10 docs need it.
-3. **Should EXPLICIT also flag "turn >= 2, read == 0, write > 0" (prefix drift)?**
+3. **Should EXPLICIT also flag "turn >= 2, read == 0, write > 0" (prefix drift)?** (RESOLVED: implement D-10 as locked; limitation recorded and pinned by a test in the cache-detection plan.)
    - What we know: D-10 as locked does not; it would false-positive after the 5-minute TTL.
    - Recommendation: implement D-10 as locked; record the limitation in the plan and rely on Gate-1's `cache_read > 0` assertion. Raise with the orchestrator only if desired.
-4. **Estimator divisor default (4.0) differs from the CONTEXT hint "≈ 3".**
+4. **Estimator divisor default (4.0) differs from the CONTEXT hint "≈ 3".** (RESOLVED: default divisor 4.0, app-overridable, plus the prompt-token cap; surfaced in Plan 03-01 notes.)
    - Why: 3.0 is the *measured* tool-JSON ratio, but "erring silent" requires the larger divisor (see Pitfall 3). Within Claude's discretion ("calibrate via research"). Recommend 4.0 plus the prompt-token cap; surface in the plan so the orchestrator can object.
-5. **`ToolSpec` "cache" member.** CONTEXT lists "strict/cache members". A per-tool cache breakpoint is not used in v1.0 (A10 puts one breakpoint on the last system block; tools are cached implicitly by prefix). Recommendation: add `strict` only; add a cache member only if a concrete mapper need appears (Phase 4), via the verified additive pattern.
+5. **`ToolSpec` "cache" member.** (RESOLVED: add `strict` only, via @JvmOverloads.) CONTEXT lists "strict/cache members". A per-tool cache breakpoint is not used in v1.0 (A10 puts one breakpoint on the last system block; tools are cached implicitly by prefix). Recommendation: add `strict` only; add a cache member only if a concrete mapper need appears (Phase 4), via the verified additive pattern.
 
 ## Environment Availability
 
