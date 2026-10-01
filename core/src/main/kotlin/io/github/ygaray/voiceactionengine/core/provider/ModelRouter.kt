@@ -64,9 +64,10 @@ internal fun providerGate(provider: ProviderId, declared: Set<ProviderId>, polic
 }
 
 /**
- * Resolves the model a tier uses from the app's seams, in a fixed order, refusing with a typed reason and exactly one
- * trace code before any provider call: selection, the tier and policy gate, the on-device probe, provider
- * registration, the credential for that provider only, then the model's capabilities.
+ * Resolves the model a tier uses from the app's seams, in a fixed order, refusing with a typed reason and one terminal
+ * trace code (preceded by the code of its cause when there is one, such as a failed on-device probe) before any
+ * provider call: selection, the tier and policy gate, the on-device probe, provider registration, the credential for
+ * that provider only, then the model's capabilities. A fallback is recorded (`provider_fallback`) only once it bound.
  *
  * @param providers the registered providers by id.
  * @param selection the app's selection source, or null when none is set.
@@ -155,9 +156,9 @@ internal class ModelRouter(
                 recorder.recordCode(TraceCode.ON_DEVICE_UNAVAILABLE)
                 onDeviceStop(TraceCode.FALLBACK_REFUSED)
             }
-            else -> {
-                recorder.recordCode(TraceCode.PROVIDER_FALLBACK)
-                bound(fallback, ProviderId.ON_DEVICE)
+            else -> bound(fallback, ProviderId.ON_DEVICE).also { result ->
+                // Only a fallback that actually bound is a fallback; a refused one ends with its own terminal code.
+                if (result is Step.Go) recorder.recordCode(TraceCode.PROVIDER_FALLBACK)
             }
         }
     }

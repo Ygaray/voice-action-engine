@@ -369,7 +369,8 @@ class OnDeviceGateTest {
                 .execute(CommandInput("hi"))
 
             outcome.assertFailedWith(FailureReason.NotConfigured(ProviderId.ANTHROPIC))
-            assertEquals(listOf("provider_fallback", "credential_missing"), outcome.family())
+            // A fallback that never bound is not recorded as one; the refusal carries its own terminal code.
+            assertEquals(listOf("credential_missing"), outcome.family())
             assertEquals(0, cloud.callCount)
             assertEquals(listOf(ProviderId.ANTHROPIC), credentials.requested)
         }
