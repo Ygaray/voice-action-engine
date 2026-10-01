@@ -2,13 +2,12 @@ package io.github.ygaray.voiceactionengine.providers.anthropic
 
 import io.github.ygaray.voiceactionengine.core.Credential
 import io.github.ygaray.voiceactionengine.core.ProviderId
-import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
+import io.github.ygaray.voiceactionengine.providers.http.HttpReply
 import io.github.ygaray.voiceactionengine.providers.http.OneShotJsonBody
 import io.github.ygaray.voiceactionengine.providers.http.await
-import io.github.ygaray.voiceactionengine.providers.http.safeRequestId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -48,12 +47,13 @@ internal class AnthropicTransport(
             .header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
             .post(OneShotJsonBody(encodeAnthropicRequest(call)))
             .build()
-        val reply = client.newCall(request).await()
+        return interpret(client.newCall(request).await(), call.model)
+    }
+
+    private fun interpret(reply: HttpReply, model: String): ModelResult {
         val requestId = reply.headers[HEADER_REQUEST_ID]
-        return if (reply.isSuccessful) {
-            decodeAnthropicResponse(reply.body, requestId, call.model)
-        } else {
-            ModelResult.Failure(FailureReason.HttpError(), FailureDetails(reply.code, null, safeRequestId(requestId)))
-        }
+        if (reply.isSuccessful) return decodeAnthropicResponse(reply.body, requestId, model)
+        val info = parseAnthropicError(reply.code, requestId, reply.body)
+        return ModelResult.Failure(info.reason(), info.details())
     }
 }
