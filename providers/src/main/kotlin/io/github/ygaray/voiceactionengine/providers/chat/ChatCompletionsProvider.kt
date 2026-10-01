@@ -95,7 +95,8 @@ public class ChatCompletionsProvider internal constructor(
             require(transientBackoffMillis >= 0) { "transientBackoffMillis must not be negative" }
             require(baseUrl.isHttps || baseUrl.host in LOOPBACK_HOSTS) { "the base URL must use https" }
             val client = cleanClient(httpClient, callTimeoutMillis, readTimeoutMillis)
-            val transport = ChatTransport(client, baseUrl, vendor, ioDispatcher)
+            val timing = ChatRetryTiming(sleep, retryAfterCapMillis, transientBackoffMillis)
+            val transport = ChatTransport(client, baseUrl, vendor, ioDispatcher, timing, attemptObserver)
             return ChatCompletionsProvider(transport, callTimeoutMillis, readTimeoutMillis)
         }
     }

@@ -30,9 +30,13 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** The Chat Completions provider end to end against a local server, for both vendors. */
 class ChatTransportTest {
@@ -225,5 +229,222 @@ class ChatTransportTest {
         assertEquals(ProviderId.OPENAI, ChatCompletionsProvider.openAi { }.id)
         assertEquals(ProviderId.OPENROUTER, ChatCompletionsProvider.openRouter { }.id)
         assertTrue(ChatCompletionsProvider.openAi { }.requiresCredential)
+    }
+
+    // ---- retry and observer
+
+    private fun directCall(key: String = "sk-test-key"): ProviderRequest =
+        chatCall(ChatVendor.OPENAI, "gpt-5.4-mini", forcedRequest(), key)
+
+    private fun failure(status: Int, vararg headers: Pair<String, String>): MockResponse {
+        val response = MockResponse().setResponseCode(status)
+            .setBody(openAiErrorBody("server_error", "internal_error", "boom"))
+        headers.forEach { (name, value) -> response.setHeader(name, value) }
+        return response
+    }
+
+    private class Retried(
+        val result: ModelResult,
+        val requestCount: Int,
+        val waits: List<Long>,
+        val seen: List<ChatCompletionsAttempt>,
+    )
+
+    /** Serves [responses] in order, then one sentinel 200 so an unexpected extra request is counted, not hung. */
+    private fun retried(vararg responses: MockResponse, openRouter: Boolean = false): Retried = runBlocking {
+        MockWebServer().use { server ->
+            responses.forEach { server.enqueue(it) }
+            server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+            server.start()
+            val waits = CopyOnWriteArrayList<Long>()
+            val seen = CopyOnWriteArrayList<ChatCompletionsAttempt>()
+            val configure: ChatCompletionsProvider.Builder.() -> Unit = {
+                baseUrl = server.url("/")
+                callTimeoutMillis = 2_000
+                sleep = { waits.add(it) }
+                attemptObserver = ChatCompletionsAttemptObserver { seen.add(it) }
+            }
+            val provider = if (openRouter) {
+                ChatCompletionsProvider.openRouter(configure)
+            } else {
+                ChatCompletionsProvider.openAi(configure)
+            }
+            val call = if (openRouter) {
+                chatCall(ChatVendor.OPENROUTER, "openai/gpt-5.4-mini", forcedRequest())
+            } else {
+                directCall()
+            }
+            val result = provider.complete(call)
+            Retried(result, server.requestCount, waits.toList(), seen.toList())
+        }
+    }
+
+    private fun Retried.code(): String = (result as ModelResult.Failure).reason.code
+
+    private fun attempt(
+        number: Int,
+        kind: ChatCompletionsAttemptKind,
+        status: Int?,
+        finish: String? = null,
+        toolCalls: Int = 0,
+    ): ChatCompletionsAttempt = ChatCompletionsAttempt(number, kind, status, finish, toolCalls)
+
+    @Test(timeout = 30_000)
+    fun aTransientStatusIsRetriedOnceAfterTheBackoffAndEachAttemptIsObserved() {
+        val run = retried(failure(503), toolAnswer())
+
+        assertTrue(run.result is ModelResult.Success)
+        assertEquals(2, run.requestCount)
+        assertEquals(listOf(500L), run.waits)
+        assertEquals(
+            listOf(
+                attempt(1, ChatCompletionsAttemptKind.INITIAL, 503),
+                attempt(2, ChatCompletionsAttemptKind.TRANSIENT_RETRY, 200, "tool_calls", 1),
+            ),
+            run.seen,
+        )
+    }
+
+    @Test(timeout = 30_000)
+    fun aTransientEnvelopeInsideA200IsRetriedOnceOnOpenRouter() {
+        val envelope = MockResponse().setResponseCode(200).setBody(chatErrorEnvelope(429, "slow down"))
+
+        val run = retried(envelope, routerAnswer(), openRouter = true)
+
+        assertTrue(run.result is ModelResult.Success)
+        assertEquals(2, run.requestCount)
+        assertEquals(200, run.seen.first().httpStatus)
+        assertNull(run.seen.first().finishReason)
+        assertEquals(listOf(500L), run.waits)
+    }
+
+    @Test(timeout = 30_000)
+    fun aRetryAfterWithinTheCapSetsTheWaitAndOneBeyondItEndsTheCall() {
+        val within = retried(failure(429, "retry-after" to "2"), toolAnswer())
+        assertTrue(within.result is ModelResult.Success)
+        assertEquals(listOf(2_000L), within.waits)
+
+        val beyond = retried(failure(429, "retry-after" to "30"), toolAnswer())
+        assertEquals("rate_limited", beyond.code())
+        assertEquals(1, beyond.requestCount)
+        assertTrue(beyond.waits.isEmpty())
+    }
+
+    @Test(timeout = 30_000)
+    fun authQuotaAndOtherClientErrorsAreNeverRetried() {
+        val auth = retried(failure(401), toolAnswer())
+        assertEquals("auth", auth.code())
+        assertEquals(1, auth.requestCount)
+
+        val quota = MockResponse().setResponseCode(429)
+            .setBody(openAiErrorBody("insufficient_quota", "insufficient_quota", "You exceeded your quota"))
+        val billing = retried(quota, toolAnswer())
+        assertEquals("billing", billing.code())
+        assertEquals(1, billing.requestCount)
+
+        for (status in listOf(400, 403, 404, 413)) {
+            val run = retried(failure(status), toolAnswer())
+            assertEquals("status $status", 1, run.requestCount)
+            assertTrue("status $status", run.waits.isEmpty())
+        }
+    }
+
+    @Test(timeout = 30_000)
+    fun aMalformedSuccessIsNeverRetried() {
+        val run = retried(MockResponse().setResponseCode(200).setBody("this is not json"), toolAnswer())
+
+        assertEquals("malformed_response", run.code())
+        assertEquals(1, run.requestCount)
+        assertTrue(run.waits.isEmpty())
+    }
+
+    @Test(timeout = 30_000)
+    fun aSecondTransientFailureIsFinalAndNoThirdRequestIsSent() {
+        val run = retried(failure(503), failure(503), toolAnswer())
+
+        assertEquals("overloaded", run.code())
+        assertEquals(2, run.requestCount)
+    }
+
+    @Test(timeout = 30_000)
+    fun aConnectionLostOnBothAttemptsIsNetworkAfterTwoRequestsWithNoStatus() {
+        val dropped = MockResponse().setResponseCode(200).setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+
+        val run = retried(dropped, dropped, toolAnswer())
+
+        assertEquals("network", run.code())
+        assertEquals(2, run.requestCount)
+        assertEquals(
+            listOf(
+                attempt(1, ChatCompletionsAttemptKind.INITIAL, null),
+                attempt(2, ChatCompletionsAttemptKind.TRANSIENT_RETRY, null),
+            ),
+            run.seen,
+        )
+    }
+
+    @Test(timeout = 30_000)
+    fun aConnectionLostOnceIsRetriedAndSucceeds() {
+        val dropped = MockResponse().setResponseCode(200).setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+
+        val run = retried(dropped, toolAnswer())
+
+        assertTrue(run.result is ModelResult.Success)
+        assertEquals(2, run.requestCount)
+        assertEquals(listOf(500L), run.waits)
+    }
+
+    @Test(timeout = 30_000)
+    fun aToolCallWithFinishReasonStopIsReportedAsTheDisagreementAndStaysAToolTurn() {
+        val disagreeing = MockResponse().setResponseCode(200).setBody(
+            chatBody(chatMessage(null, listOf(chatToolCall("call_1", "log_food", toolArguments))), "stop"),
+        )
+
+        val run = retried(disagreeing)
+
+        val success = run.result as ModelResult.Success
+        assertEquals(StopReason.TOOL_USE, success.response.stopReason)
+        assertEquals(listOf(attempt(1, ChatCompletionsAttemptKind.INITIAL, 200, "stop", 1)), run.seen)
+    }
+
+    @Test(timeout = 30_000)
+    fun anObserverThatThrowsNeitherLosesTheAnswerNorStopsTheRetry() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(failure(503))
+            server.enqueue(toolAnswer())
+            server.start()
+            val provider = ChatCompletionsProvider.openAi {
+                baseUrl = server.url("/")
+                callTimeoutMillis = 2_000
+                sleep = { }
+                attemptObserver = ChatCompletionsAttemptObserver { error("observer bug carrying text") }
+            }
+
+            val result = provider.complete(directCall())
+
+            assertTrue(result is ModelResult.Success)
+            assertEquals(2, server.requestCount)
+        }
+    }
+
+    private fun assertAuthWithoutTheKey(key: String) = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val provider = ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+
+            val failure = provider.complete(directCall("sk-CANARY$key")) as ModelResult.Failure
+
+            assertEquals("auth", failure.reason.code)
+            assertNull(failure.details)
+            assertFalse(failure.toString().contains("sk-CANARY"))
+            assertEquals(0, server.requestCount)
+        }
+    }
+
+    @Test(timeout = 30_000)
+    fun aKeyOkHttpWouldRefuseAsAHeaderValueIsAuthWithZeroRequests() {
+        assertAuthWithoutTheKey("\n")
+        assertAuthWithoutTheKey("\rmore")
+        assertAuthWithoutTheKey("\u00eb")
     }
 }
