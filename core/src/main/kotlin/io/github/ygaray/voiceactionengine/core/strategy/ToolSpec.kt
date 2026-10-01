@@ -27,8 +27,11 @@ private const val DEFAULT_CLARIFICATION_DESCRIPTION =
  * A tool the model may call.
  *
  * A terminal tool ends the run: its call is delivered as the completed outcome's terminal call. A terminal tool must
- * be non-mutating, so the run can never end on an ungated write. Later versions may add members to this class
- * additively.
+ * be non-mutating, so the run can never end on an ungated write.
+ *
+ * The constructor keeps Kotlin default arguments so a call site can name any one optional argument. That freezes its
+ * parameter list: later versions add attributes as separate members (a `with...` function), never as a seventh
+ * constructor parameter.
  *
  * @property name the tool name the model calls.
  * @property description what the tool does, shown to the model.

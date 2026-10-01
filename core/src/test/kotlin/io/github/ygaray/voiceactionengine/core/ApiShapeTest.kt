@@ -129,16 +129,24 @@ class ApiShapeTest {
     private class WithDefaultArgument(val first: Int, val second: String = "x")
 
     @Test
-    fun noTranscriptOrProviderClassDeclaresADefaultArgumentConstructorStub() {
-        val inspected = allMainClasses().filter { c ->
-            GROWTH_PACKAGES.any { c.name.startsWith("$ROOT_PACKAGE.$it.") }
-        }
+    fun noClassOutsideTheDocumentedExceptionsDeclaresADefaultArgumentConstructorStub() {
+        val inspected = allMainClasses()
         assertTrue("inspected only ${inspected.size} classes", inspected.size >= MIN_INSPECTED)
         val names = inspected.map { it.name }
         assertTrue(ModelRequest::class.java.name in names)
         assertTrue(ProviderCall::class.java.name in names)
+        assertTrue(ToolSpec::class.java.name in names)
         val flagged = inspected.filter { hasDefaultArgumentStub(it) }.map { it.name }
-        assertTrue("default-argument stubs freeze the constructor shape: $flagged", flagged.isEmpty())
+        val unexpected = flagged - STUB_EXCEPTIONS
+        assertTrue("default-argument stubs freeze the constructor shape: $unexpected", unexpected.isEmpty())
+    }
+
+    /** Keeps [STUB_EXCEPTIONS] honest: an entry that no longer has a stub must be dropped from the list. */
+    @Test
+    fun everyDocumentedStubExceptionStillDeclaresAStub() {
+        val loader = javaClass.classLoader
+        val stale = STUB_EXCEPTIONS.filterNot { hasDefaultArgumentStub(Class.forName(it, false, loader)) }
+        assertTrue("stale stub exceptions: $stale", stale.isEmpty())
     }
 
     @Test
@@ -150,7 +158,27 @@ class ApiShapeTest {
     private companion object {
         const val DEFAULT_MARKER = "kotlin.jvm.internal.DefaultConstructorMarker"
         const val MIN_INSPECTED = 10
-        val GROWTH_PACKAGES = listOf("transcript", "provider")
+
+        /**
+         * Classes that keep a Kotlin default-argument constructor stub on purpose.
+         *
+         * Public constructors: [ToolSpec] and [CommandInput] were shipped with defaults by Phase 2, and call sites
+         * that name a single optional argument (`terminal = true`, `parentRunId = ...`) only compile against them, so
+         * replacing the defaults with explicit overloads would be a source break. Their constructor shapes are
+         * therefore frozen: new optional attributes must arrive as separate members (a `with...` function or a new
+         * factory), never as a further constructor parameter.
+         *
+         * The rest have an internal constructor or are internal classes, so no consumer binds to the stub.
+         */
+        val STUB_EXCEPTIONS = setOf(
+            "$ROOT_PACKAGE.CommandInput",
+            "$ROOT_PACKAGE.strategy.ToolSpec",
+            "$ROOT_PACKAGE.commit.ActionDetails",
+            "$ROOT_PACKAGE.commit.ExecutedAction",
+            "$ROOT_PACKAGE.telemetry.CommandTrace",
+            "$ROOT_PACKAGE.telemetry.RunRecorder",
+            "$ROOT_PACKAGE.telemetry.TierAttempt",
+        )
         const val ROOT_PACKAGE = "io.github.ygaray.voiceactionengine.core"
         const val FOUR = 4
     }
