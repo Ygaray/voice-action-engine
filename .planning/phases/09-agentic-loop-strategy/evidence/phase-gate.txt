@@ -1,0 +1,61 @@
+Phase 9 Agentic Loop Strategy - phase gate (plan 09-09, Task 1)
+date (UTC): 2026-10-01T18:49:38Z
+HEAD: dd3c26ee96ca72e3971358856d72cb8b9c9a17c9 (merged tree through plan 09-08; this plan changes no source, test, build, config or script file, only evidence files after it)
+
+COMMANDS (run one at a time, offline)
+1. ./gradlew check --offline                                   exit=0   BUILD SUCCESSFUL in 3s (179 actionable tasks: 32 executed, 147 up-to-date; mostly cache-warm, so the genuine counts come from command 5)
+2. scripts/review-api-surface.sh --expect-sealed-complete      exit=0   API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=181
+3. scripts/verify-repo-hygiene.sh                              exit=0   HYGIENE OK
+4. scripts/verify-negative-controls.sh                         exit=0   negative-control failures: 0
+5. clean re-run: ./gradlew :core:cleanTest :providers:cleanTest :providers:cleanTestOkhttp521 :providers:cleanTestOkhttp550 :keystore:cleanTestDebugUnitTest --offline -q
+   then ./gradlew check --offline --no-build-cache            exit=0   BUILD SUCCESSFUL in 1m 40s (179 actionable tasks: 42 executed, 137 up-to-date; every test task re-executed, none restored from the build cache)
+
+NOTE on test counts: command 4 deliberately forces the OkHttp guard tests red (expected=9.9.9) and so leaves failing JUnit XML
+in providers/build/test-results. Command 5 cleaned every test task first and re-ran check with --no-build-cache, so the counts
+below come from a genuine run of the unmodified tree (the red XML is gone). After that run, `:core:test --tests '*NoHardCodedConstantsTest'`
+was run once for the limits evidence (it rewrites core's XML directory to that one suite); all counts and per-method results in
+this plan's evidence files were read from the XML BEFORE that filtered run, by script.
+
+TEST COUNTS (summed over TEST-*.xml, clean re-run, same HEAD)
+core/build/test-results/test                        suites=67 tests=643 failures=0 errors=0 skipped=0
+providers/build/test-results/test            (4.12.0) suites=49 tests=587 failures=0 errors=0 skipped=0
+providers/build/test-results/testOkhttp521   (5.2.1)  suites=49 tests=587 failures=0 errors=0 skipped=0
+providers/build/test-results/testOkhttp550   (5.5.0)  suites=49 tests=587 failures=0 errors=0 skipped=0
+keystore/build/test-results/testDebugUnitTest       suites=15 tests=96 failures=0 errors=0 skipped=0
+vs the Phase 8 baseline (core 535, providers 555 per leg, keystore 96): core +108, providers +32 per leg, keystore unchanged.
+No *Live* class ran in any of these: test and both matrix legs exclude them.
+
+REPO STATE
+git ls-files -- '*api.txt'  -> (empty)
+git tag                     -> (none)
+git diff --stat dd3c26ee96ca72e3971358856d72cb8b9c9a17c9 -- core providers keystore gradle config scripts
+                            -> (empty): this plan changes no source, build, config or script file
+
+REQUIREMENT COVERAGE
+LOOP-01  provider-neutral tool-use loop over the ToolExecutor seam, gated mutations, same userTurn seam, SB byte-exact framing on every wire
+         ToolExecutorSeamTest, AgenticLoopDispatchTest, AgenticLoopGateTest, AgenticLoopUserTurnTest,
+         AgenticLoopProviderNeutralityTest, AgenticLoopWireTest (Anthropic, OpenAI, OpenRouter; all three OkHttp legs)
+LOOP-02  guards, every stop leaf, the 6 / 60000 / 4096 limits, terminal tool
+         AgenticLoopGuardsTest, AgenticLoopStopLeavesTest, AgenticLoopLimitsTest, AgenticLoopTerminalTest
+LOOP-03  every exit path reports executed actions and commits; O-1 cancellation; the native-replay carry
+         AgenticLoopExitPathsTest, BatchCancellationTest, AgenticLoopCarryTest
+CLN-02   no app-domain names, no hard-coded tool count
+         :core/:providers/:keystore:scanBannedConstructs, :core:verifyInvariantScannerControls, scripts/verify-negative-controls.sh,
+         AgenticLoopDispatchTest.theLoopRunsWithOneTwoOrTwentyFiveTools
+
+SEAM SIGN-OFF: SIGNOFF: APPROVE-WITH-CHANGES (PLANS-AMENDED: yes; evidence/seam-signoff.txt)
+  CARRY: 5 -> 09-05 : relax duplicate-id rejection to within-turn only (a turn that repeats an id within itself is still rejected whole as Failed(MalformedResponse)); cross-turn id reuse is allowed, so the OpenRouter call_0 regeneration must not fail; amend the cross-turn duplicate-id test and its validation accordingly
+  CARRY: 3 -> 09-06 : ExecutedAction must keep held, errored and previewed distinguishable (a status/kind, not just mutating=false); ActionKind already carries HELD, PREVIEW and IS_ERROR, so verify the loop's outcome mapping preserves them and add an additive status/kind only if the shape cannot express held today, decided before the v1.0.0 freeze
+  CARRY: precedence -> 09-04 and 09-06 : when the token ceiling and the iteration cap trip on the same turn, report BudgetExceeded(TOKENS); KDoc the order; add a test where both caps trip on the same turn and TOKENS wins
+  CARRY: 10 -> 09-08 : add edit_text_card to the CLN-02 deny-list
+  SUBSTITUTIONS: none
+O-1: O-1 DISPOSITION: FIXED (evidence/o1-disposition.txt; CommitCoordinator.applyAll checks cancellation before each item; BatchCancellationTest)
+
+CARRY-FORWARDS
+- Phase 10 VER-03: Anthropic agentic Gate-1 on the TESTER (>=2 turns, turn-2+ cache_read_input_tokens > 0) and the P8 Chat/OpenRouter multi-turn device leg (bbf91a4).
+- Phase 10 README: an OpenAI tool set with any strict-eligible tool gets one call per turn (parallel_tool_calls false), which spends iterations; ExecutedAction.mutating is false for a rejected or previewed call (unlike SB's classification flag, which SB looks up by tool name itself), so a held, an errored and a previewed call are told apart by ExecutedAction.kind (HELD, IS_ERROR, PREVIEW) and applied; tool results are data and the app's system prompt must say so; the terminal-turn final-iteration rule; the duplicate tool-call id rule as signed off (rejected within one turn only; an id reused from an earlier turn is allowed, so a route that regenerates call_0 every turn works); when the token ceiling and the iteration cap trip on the same turn the run fails BudgetExceeded(TOKENS).
+- D-12: a stable OpenRouter session_id for sticky routing/caching is deferred (additive, :providers).
+- Gate-1: N/A (JVM-only phase; no device-verifiable behaviour).
+- Live leg: none in Phase 9 (none planned; any future live agentic leg is opt-in, outside check, via with-test-keys -- <cmd>, cheapest models, bounded request count).
+
+PHASE GATE: PASS

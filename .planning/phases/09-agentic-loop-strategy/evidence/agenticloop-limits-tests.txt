@@ -1,0 +1,60 @@
+Phase 9 AgenticLoop limits evidence - plan 09-09, Task 1 (limits precondition for the v1.0.0 cut)
+
+Obligation: the AgenticLoop obeys the contract limits 6 iterations / 60000-token ceiling / 4096 per-turn tokens, read from
+session.policy and session.tokensUsed (TierPolicy), never from a literal inside the loop.
+  - 6 iterations (TierPolicy.maxIterations): the final permitted iteration never dispatches a tool, except a turn whose first call is terminal.
+  - 60000-token ceiling (TierPolicy.tokenCeiling): pre-call refusal at or over the ceiling; a tool turn strictly over the ceiling fails before dispatch.
+  - 4096 per-turn tokens (TierPolicy.maxTokensPerTurn): sent unchanged as request.maxTokens on every request of the run.
+Source of results: core/build/test-results/test/TEST-io.github.ygaray.voiceactionengine.core.<Suite>.xml (JUnit XML, read by script, not typed by hand).
+Run: ./gradlew check --offline --no-build-cache from cleaned test tasks at HEAD dd3c26ee96ca72e3971358856d72cb8b9c9a17c9.
+
+== AgenticLoopLimitsTest
+  PASSED  atTheDefaultCeilingTheTierRefusesBeforeAnyProviderCall
+      pins: pre-call: prior spend at 60000 (>= TierPolicy.DEFAULT.tokenCeiling) fails BudgetExceeded(TOKENS) with zero provider calls, zero executor calls and zero gate calls.
+  PASSED  eachRoutedTurnIsCountedOnce
+      pins: a three-turn run records exactly one TurnRecord per provider call and the trace usage total is 3 x 7 (no double counting).
+  PASSED  theCeilingIsCheckedBeforeEveryIteration
+      pins: a tool turn landing exactly on the ceiling is dispatched and its commit kept, then the next iteration refuses before any second provider call (BudgetExceeded(TOKENS), one call).
+  PASSED  theFinalIterationGuardHoldsAtMinimumIterations
+      pins: maxIterations = 2: the second (final) tool turn is not dispatched; the run fails BudgetExceeded(ITERATIONS) after 2 provider calls and 1 apply.
+  PASSED  customPerTurnLimitIsSentUnchanged
+      pins: TierPolicy { maxTokensPerTurn = 777 } sends request.maxTokens 777 (the per-turn limit is read from the session policy).
+  PASSED  theFinalIterationGuardHoldsAtDefaultIterations
+      pins: maxIterations 6 (default): the sixth (final) tool turn is not dispatched; 6 provider calls, 5 applies, BudgetExceeded(ITERATIONS), and only the first five call ids are answered.
+  PASSED  everyRequestOfAMultiTurnRunCarriesThePerTurnLimit
+      pins: a three-turn run under maxTokensPerTurn = 777 sends request.maxTokens 777 on every one of the three requests.
+  PASSED  defaultsAreTheContractLimits
+      pins: TierPolicy.DEFAULT is maxIterations 6, tokenCeiling 60000, maxTokensPerTurn 4096 (the contract limits).
+  PASSED  defaultPolicySendsTheDefaultPerTurnTokenLimit
+      pins: the single request sent under the default policy carries maxTokens 4096 == TierPolicy.DEFAULT.maxTokensPerTurn.
+  PASSED  anEndOfTurnAnswerOverTheCeilingStillCompletes
+      pins: an end-of-turn answer spending 150 against a ceiling of 100 still completes with its reply (only a tool turn strictly over the ceiling fails).
+  PASSED  aToolTurnLandingExactlyOnTheCeilingIsStillDispatched
+      pins: post-call boundary: a tool turn spending exactly 100 (== ceiling) is still dispatched: one executor call, one apply, one COMMITTED action.
+  PASSED  aCustomCeilingIsReadFromTheSessionPolicy
+      pins: tokenCeiling = 50: prior spend 50 refuses with zero calls, prior spend 49 calls once (the ceiling comes from session.policy, not a literal).
+  PASSED  aToolTurnThatCrossesTheCeilingFailsBeforeTheExecutorOrAnyWrite
+      pins: post-call: tokenCeiling = 100, a tool turn spending 101 fails BudgetExceeded(TOKENS); one provider call, zero executor, zero gate, no sink action.
+  PASSED  oneTokenBelowTheDefaultCeilingTheCallIsMade
+      pins: pre-call: prior spend 59999 (< ceiling) lets exactly one provider call through.
+
+== AgenticLoopGuardsTest (the three limit guards; the suite's other methods are cited in mandate-coverage.txt)
+  PASSED  theTokenCeilingStopsTheLoopBeforeDispatchingATool
+      pins: a tool turn strictly over the ceiling (101 of 100) fails BudgetExceeded(TOKENS) with zero executor calls, zero gate calls and no sink action.
+  PASSED  theFinalIterationGuardNeverDispatchesTheLastPermittedTurn
+      pins: at the default 6 iterations the sixth tool turn is never dispatched: 6 provider calls, 5 executor calls, BudgetExceeded(ITERATIONS).
+  PASSED  whenTheTokenCeilingAndTheIterationCapTripOnTheSameTurnTokensWins
+      pins: turn 2 is the final permitted iteration AND crosses the ceiling: the failure is BudgetExceeded(TOKENS); with the ceiling exactly met it is BudgetExceeded(ITERATIONS); the turn-1 commit is kept in both.
+
+AgenticLoopLimitsTest tests=14 failures=0 skipped=0
+AgenticLoopGuardsTest tests=14 failures=0 skipped=0
+
+NoHardCodedConstantsTest: ./gradlew :core:test --tests '*NoHardCodedConstantsTest' --offline -q  exit=0
+  (JUnit XML of that run: NoHardCodedConstantsTest tests=12 failures=0 skipped=0)
+No literal 60000 or 4096 in core main outside TierPolicy.kt.
+
+Boundary in force: pre-call, a prior spend at or over the ceiling refuses before every iteration (59999 calls, 60000 refuses);
+a tool turn strictly over the ceiling fails before dispatch (101 of 100 fails, exactly 100 is dispatched); an end-of-turn answer
+over the ceiling completes; the final permitted iteration never dispatches a tool except a turn whose first call is terminal;
+and when the token ceiling and the iteration cap trip on the same turn the failure is BudgetExceeded(TOKENS) because the ceiling is
+checked first (the precedence CARRY recorded in seam-signoff.txt, pinned by whenTheTokenCeilingAndTheIterationCapTripOnTheSameTurnTokensWins).
