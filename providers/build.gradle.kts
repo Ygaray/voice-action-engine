@@ -80,6 +80,26 @@ tasks.register<Test>("liveAnthropicCapture") {
     testLogging { showStandardStreams = true }
 }
 
+// Opt-in live capture of the Chat Completions transport: never a dependency of check, never up to date, and skipped
+// unless VAE_LIVE_CHAT is 1. The class name contains Live, so test and both matrix legs keep excluding it.
+tasks.register<Test>("liveChatCompletionsCapture") {
+    group = "verification"
+    description = "Opt-in: bounded real OpenAI and OpenRouter calls (gpt-5.4-mini, haiku route; at most 12 requests); " +
+        "needs VAE_LIVE_CHAT=1 and the two keys"
+    val testSet = liveTestSet
+    testClassesDirs = testSet.output.classesDirs
+    classpath = testSet.runtimeClasspath
+    filter { includeTestsMatching("*ChatCompletionsLiveCaptureTest") }
+    outputs.upToDateWhen { false }
+    val optIn = providers.environmentVariable("VAE_LIVE_CHAT")
+    onlyIf { optIn.orNull == "1" }
+    // Absolute paths: a Test task runs in the project directory, but the capture must not depend on that.
+    val goldenDir = layout.projectDirectory.dir("src/test/resources/golden/chat/responses/captured")
+    systemProperty("vae.golden.dir", goldenDir.asFile.absolutePath)
+    systemProperty("vae.raw.dir", layout.buildDirectory.dir("live-chat/raw").get().asFile.absolutePath)
+    testLogging { showStandardStreams = true }
+}
+
 okhttpLegs.forEach { (legName, legVersion) ->
     val legClasspath = configurations.create("test${legName}RuntimeClasspath") {
         isCanBeConsumed = false
