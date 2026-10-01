@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -207,12 +208,24 @@ class UnreadableMappingTest {
 
     @Test
     fun aDataStoreThatFailsToReadReadsStorageUnreadable() = runTest {
-        listOf(IOException("disk"), CorruptionException("corrupt"), IllegalStateException("odd")).forEach { failure ->
+        listOf(IOException("disk"), CorruptionException("corrupt")).forEach { failure ->
             val store = storeOver(ThrowingDataStore(failure))
 
             assertEquals(unreadable("storage_unreadable"), store.read(ProviderId.ANTHROPIC))
             assertEquals(unreadable("storage_unreadable"), store.readSecret(ProviderId.ANTHROPIC).state)
         }
+        assertEquals(0, keys.getOrCreateCalls.get())
+    }
+
+    @Test
+    fun aMisuseOfTheDataStoreIsThrownByReadAndObserveAlike() = runTest {
+        val store = storeOver(ThrowingDataStore(IllegalStateException("multiple DataStores")))
+
+        val fromRead = failureOf { store.read(ProviderId.ANTHROPIC) }
+        val fromObserve = failureOf { store.observe(ProviderId.ANTHROPIC).toList() }
+
+        assertEquals("multiple DataStores", fromRead.message)
+        assertEquals("multiple DataStores", fromObserve.message)
         assertEquals(0, keys.getOrCreateCalls.get())
     }
 
@@ -250,6 +263,15 @@ class UnreadableMappingTest {
 
         assertEquals(expected, KeystoreCauses.vocabulary)
         assertEquals("key_missing", KeystoreCauses.keyMissingLookup.cause)
+    }
+
+    private suspend fun failureOf(block: suspend () -> Unit): IllegalStateException {
+        try {
+            block()
+        } catch (failure: IllegalStateException) {
+            return failure
+        }
+        throw AssertionError("expected IllegalStateException")
     }
 
     private suspend fun cancellationOf(block: suspend () -> Unit): CancellationException {

@@ -93,7 +93,9 @@ public class ApiKeyStore internal constructor(
 
     /**
      * Reads what is stored for [provider]. A provider without a slot, or without a stored pair, is
-     * [KeyState.NotConfigured]. Reading never creates a key and never changes storage.
+     * [KeyState.NotConfigured]. Reading never creates a key and never changes storage. A failure to read the
+     * preferences (an I/O failure or a corrupt file) is [KeyState.Unreadable]; a misuse of the injected DataStore, such
+     * as a second DataStore on the same file, is thrown rather than reported as a state.
      */
     public suspend fun read(provider: ProviderId): KeyState = readSecret(provider).state
 
@@ -119,14 +121,14 @@ public class ApiKeyStore internal constructor(
         return withContext(ioDispatcher) { reader.open(slot, prefs) }
     }
 
-    // Null means the preferences could not be read; cancellation is never mistaken for that.
+    // Null means the preferences could not be read: an I/O failure, which includes a corrupt file. Cancellation is
+    // never mistaken for that, and neither is a programming error such as a second DataStore on the same file:
+    // those propagate, as they do from observe.
     private suspend fun storedPreferences(): Preferences? = try {
         dataStore.data.first()
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (ignored: IOException) {
-        null
-    } catch (ignored: RuntimeException) {
         null
     }
 

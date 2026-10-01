@@ -14,7 +14,9 @@ import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
  * - unreadable: a key is stored but cannot be read (for example the device key was lost after a backup restore), so
  *   the user should be asked to re-enter the key; the cause is one of the stable codes of the store.
  *
- * It never throws, except for the cancellation of the calling coroutine.
+ * Every failure of the device key store, the stored value or the storage I/O becomes an answer. It throws only for the
+ * cancellation of the calling coroutine, or for a misuse of the app's DataStore (such as a second DataStore on the same
+ * file), which the engine reports as a fault of the credential source.
  */
 public class KeystoreCredentialSource(private val store: ApiKeyStore) : CredentialSource {
     override suspend fun credential(provider: ProviderId): CredentialLookup {
