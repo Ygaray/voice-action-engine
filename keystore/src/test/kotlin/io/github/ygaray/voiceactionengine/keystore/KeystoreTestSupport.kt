@@ -7,9 +7,11 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.security.SecureRandom
@@ -99,6 +101,22 @@ internal class RecordingDataStore(private val delegate: DataStore<Preferences>) 
         updates.incrementAndGet()
         return delegate.updateData(transform)
     }
+}
+
+/** A DataStore whose data always fails with [error], and which must never be written to. */
+internal class ThrowingDataStore(private val error: Throwable) : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow { throw error }
+
+    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+        throw AssertionError("a read must never write")
+}
+
+/** A DataStore whose data never produces a value, so a read stays suspended until it is cancelled. */
+internal object NeverEmittingDataStore : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow { awaitCancellation() }
+
+    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+        throw AssertionError("a read must never write")
 }
 
 /** A real preferences DataStore on a temp file, the way an app would inject its own. */

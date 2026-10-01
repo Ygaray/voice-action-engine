@@ -5,11 +5,13 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.Base64
 
 /**
@@ -76,10 +78,23 @@ public class ApiKeyStore internal constructor(
      */
     public suspend fun read(provider: ProviderId): KeyState = readSecret(provider).state
 
-    internal suspend fun readSecret(provider: ProviderId): SecretRead {
-        val slot = slotsByProvider[provider] ?: return SecretRead(KeyState.NotConfigured(), null)
-        val prefs = dataStore.data.first()
+    internal suspend fun readSecret(provider: ProviderId): SecretRead =
+        slotsByProvider[provider]?.let { openSlot(it) } ?: SecretRead(KeyState.NotConfigured(), null)
+
+    private suspend fun openSlot(slot: KeySlot): SecretRead {
+        val prefs = storedPreferences() ?: return SecretRead(KeystoreCauses.storageUnreadable, null)
         return withContext(ioDispatcher) { reader.open(slot, prefs) }
+    }
+
+    // Null means the preferences could not be read; cancellation is never mistaken for that.
+    private suspend fun storedPreferences(): Preferences? = try {
+        dataStore.data.first()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (ignored: IOException) {
+        null
+    } catch (ignored: RuntimeException) {
+        null
     }
 
     /** Prints the providers only: never a key or a name of storage. */
