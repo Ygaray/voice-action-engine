@@ -46,7 +46,7 @@ internal class SecretReader(private val keyAccess: KeyAccess) {
         throw cancelled
     } catch (ignored: GeneralSecurityException) {
         failed(KeystoreCauses.keystoreUnavailable)
-    } catch (ignored: RuntimeException) {
+    } catch (ignored: ProviderException) {
         failed(KeystoreCauses.keystoreUnavailable)
     }
 
