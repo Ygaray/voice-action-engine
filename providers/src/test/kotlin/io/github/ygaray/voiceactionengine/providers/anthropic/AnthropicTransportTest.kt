@@ -281,6 +281,23 @@ class AnthropicTransportTest {
         assertEquals(1, unstamped.requestCount)
     }
 
+    @Test
+    fun aCallWithNoResultIsRefusedBeforeAnyRequest() {
+        val twoCalls = AssistantMessage(
+            listOf(
+                AssistantPart.ToolCall("toolu_1", "add_item", milkArguments()),
+                AssistantPart.ToolCall("toolu_2", "add_item", milkArguments()),
+            ),
+        )
+
+        val routed = routeMessages(
+            listOf(UserMessage("add milk"), twoCalls, ToolResultsMessage(listOf(ToolResult("toolu_1", "added")))),
+        )
+
+        assertEquals(FailureReason.Other("tool_result_missing"), (routed.result as ModelResult.Failure).reason)
+        assertEquals(0, routed.requestCount)
+    }
+
     private fun runCatchingIllegal(block: () -> Unit): String {
         try {
             block()

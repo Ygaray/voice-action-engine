@@ -634,6 +634,26 @@ class ChatTransportTest {
         }
     }
 
+    @Test
+    fun aTrailingTurnWithAnUnansweredToolCallIsRefusedBeforeAnyRequest() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(toolAnswer())
+            server.start()
+            val provider = ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+            val dangling = listOf(
+                UserMessage(firstTurn),
+                AssistantMessage(listOf(AssistantPart.ToolCall("call_1", "log_food", JsonObject(emptyMap())))),
+            )
+            val request = ModelRequest(FIXED_SYSTEM, dangling, listOf(logFoodTool()), 1024)
+
+            val run = route(server, provider, ChatVendor.OPENAI, "gpt-5.4-mini", request)
+
+            val failure = run.results.single() as ModelResult.Failure
+            assertEquals(FailureReason.Other("tool_call_unanswered"), failure.reason)
+            assertEquals(0, run.requestCount)
+        }
+    }
+
     private fun rejection(block: () -> Unit): String {
         try {
             block()
