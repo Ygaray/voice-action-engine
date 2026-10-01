@@ -47,7 +47,7 @@
 ### Telemetry (step 2)
 
 - [ ] **TEL-01**: Every outcome carries a `CommandTrace`: per-tier attempts, escalation reasons, provider/model, tokens normalized as `{inputUncached, cacheRead, cacheWrite, output}` across providers (Anthropic `input_tokens` excludes cached tokens; OpenAI `prompt_tokens` includes them), and latency. A cross-provider parity test proves the CORE-04 token ceiling (SB's sum semantics) counts the same work identically on every provider.
-- [ ] **TEL-02**: Consumer can register an optional typed event callback that receives pipeline events live (tier started/finished, provider call, commit, hold, run closed, `CacheNotEngaged`).
+- [x] **TEL-02**: Consumer can register an optional typed event callback that receives pipeline events live (tier started/finished, provider call, commit, hold, run closed, `CacheNotEngaged`).
 - [ ] **TEL-03**: A `CacheNotEngaged` event fires when a provider with caching declared returns zero cache read/write on a prefix above the model's minimum cacheable length (and stays silent below the minimum).
 - [ ] **TEL-04**: A canary test proves no API key, transcript, tool argument or tool_result content appears in the trace, events, any `toString()`, or any failure message; failures carry HTTP status and provider `error.type` only, never bodies.
 
@@ -178,7 +178,7 @@
 | GATE-06 | Phase 2 | Complete |
 | GATE-07 | Phase 2 | Complete |
 | TEL-01 | Phase 2 | Pending |
-| TEL-02 | Phase 2 | Pending |
+| TEL-02 | Phase 2 | Complete |
 | TEL-03 | Phase 3 | Pending |
 | TEL-04 | Phase 4 | Pending |
 | PROV-01 | Phase 3 | Pending |
