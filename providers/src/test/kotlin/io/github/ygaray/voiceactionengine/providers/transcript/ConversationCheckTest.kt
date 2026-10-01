@@ -184,6 +184,30 @@ class ConversationCheckTest {
         assertNull(conversationRefusal(request(UserMessage("go")), ProviderId.ANTHROPIC, anything))
     }
 
+    private fun orderedIds(callIds: List<String>, resultIds: List<String>): List<String> =
+        resultsInCallOrder(
+            resultIds.map { ToolResult(it, "r-$it") },
+            callIds.map { AssistantPart.ToolCall(it, "add_item", args) },
+        ).map { it.callId }
+
+    @Test
+    fun resultsFollowTheCallsEmissionOrder() {
+        assertEquals(listOf("a", "b", "c"), orderedIds(listOf("a", "b", "c"), listOf("c", "a", "b")))
+    }
+
+    @Test
+    fun aResultForNoCallKeepsItsRelativeOrderAfterTheMatchedOnes() {
+        assertEquals(
+            listOf("a", "b", "x", "y"),
+            orderedIds(listOf("a", "b"), listOf("x", "b", "y", "a")),
+        )
+    }
+
+    @Test
+    fun anEmptyCallListLeavesTheResultsUnchanged() {
+        assertEquals(listOf("c", "a", "b"), orderedIds(emptyList(), listOf("c", "a", "b")))
+    }
+
     @Test
     fun noIdOrContentReachesTheReasonOrItsToString() {
         val callId = "CANARY_ID_7f3"

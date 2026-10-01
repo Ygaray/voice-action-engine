@@ -4,8 +4,10 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import io.github.ygaray.voiceactionengine.providers.transcript.resultsInCallOrder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -23,16 +25,20 @@ private const val ROLE_ASSISTANT = "assistant"
 private const val REPLAY_REFUSED = "a replay stamped for another provider or model reached the encoder"
 
 internal fun encodeMessages(call: ProviderRequest): JsonArray = buildJsonArray {
-    call.request.messages.forEach { message ->
+    val messages = call.request.messages
+    messages.forEachIndexed { index, message ->
         add(
             when (message) {
                 is UserMessage -> userMessage(message)
                 is AssistantMessage -> assistantMessage(message, call.model)
-                is ToolResultsMessage -> toolResultsMessage(message)
+                is ToolResultsMessage -> toolResultsMessage(message, precedingCalls(messages.getOrNull(index - 1)))
             },
         )
     }
 }
+
+private fun precedingCalls(previous: Message?): List<AssistantPart.ToolCall> =
+    (previous as? AssistantMessage)?.toolCalls.orEmpty()
 
 private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
     put("role", ROLE_USER)
@@ -66,23 +72,25 @@ private fun rebuiltContent(message: AssistantMessage): JsonArray = buildJsonArra
     }
 }
 
-// All results of one assistant turn travel in a single user message, in the order the calls were made.
-private fun toolResultsMessage(message: ToolResultsMessage): JsonObject = buildJsonObject {
-    put("role", ROLE_USER)
-    put(
-        "content",
-        buildJsonArray {
-            message.results.forEach { result ->
-                addJsonObject {
-                    put(TYPE, "tool_result")
-                    put("tool_use_id", result.callId)
-                    put("content", result.content)
-                    if (result.isError) put("is_error", true)
+// All results of one assistant turn travel in a single user message, in the order the calls were made. A result with
+// no text carries no content, because the API makes it optional; an error keeps its flag either way.
+private fun toolResultsMessage(message: ToolResultsMessage, calls: List<AssistantPart.ToolCall>): JsonObject =
+    buildJsonObject {
+        put("role", ROLE_USER)
+        put(
+            "content",
+            buildJsonArray {
+                resultsInCallOrder(message.results, calls).forEach { result ->
+                    addJsonObject {
+                        put(TYPE, "tool_result")
+                        put("tool_use_id", result.callId)
+                        if (result.content.isNotEmpty()) put("content", result.content)
+                        if (result.isError) put("is_error", true)
+                    }
                 }
-            }
-        },
-    )
-}
+            },
+        )
+    }
 
 internal fun JsonObjectBuilder.textBlock(text: String) {
     put(TYPE, TEXT)

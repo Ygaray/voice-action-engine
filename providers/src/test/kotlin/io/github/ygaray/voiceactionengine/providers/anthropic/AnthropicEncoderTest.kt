@@ -264,6 +264,87 @@ class AnthropicEncoderTest {
         assertTrue(blocks[1].getValue("is_error").jsonPrimitive.boolean)
     }
 
+    private fun callsOf(vararg ids: String): AssistantMessage =
+        AssistantMessage(ids.map { AssistantPart.ToolCall(it, "add_item", buildJsonObject { }) })
+
+    private fun resultBlocks(vararg results: ToolResult): List<JsonObject> {
+        val calls = callsOf("toolu_1", "toolu_2", "toolu_3")
+        val request = call(messages = listOf(UserMessage("go"), calls, ToolResultsMessage(results.toList())))
+        val messages = parse(request).getValue("messages").jsonArray
+        return messages.last().jsonObject.getValue("content").jsonArray.map { it.jsonObject }
+    }
+
+    @Test
+    fun resultsGoOutInTheOrderOfTheCallsTheyAnswerInOneUserMessage() {
+        val request = call(
+            messages = listOf(
+                UserMessage("go"),
+                callsOf("toolu_1", "toolu_2", "toolu_3"),
+                ToolResultsMessage(
+                    listOf(ToolResult("toolu_3", "c"), ToolResult("toolu_1", "a"), ToolResult("toolu_2", "b")),
+                ),
+            ),
+        )
+
+        val messages = parse(request).getValue("messages").jsonArray
+        val blocks = messages.last().jsonObject.getValue("content").jsonArray.map { it.jsonObject }
+
+        assertEquals(3, messages.size)
+        assertEquals("user", messages.last().jsonObject.getValue("role").jsonPrimitive.content)
+        assertEquals(
+            listOf("toolu_1", "toolu_2", "toolu_3"),
+            blocks.map { it.getValue("tool_use_id").jsonPrimitive.content },
+        )
+        assertEquals(listOf("a", "b", "c"), blocks.map { it.getValue("content").jsonPrimitive.content })
+    }
+
+    @Test
+    fun isErrorAppearsOnlyOnAnErrorResult() {
+        val blocks = resultBlocks(ToolResult("toolu_1", "ok"), ToolResult("toolu_2", "bad", true))
+
+        assertNull(blocks[0]["is_error"])
+        assertTrue(blocks[1].getValue("is_error").jsonPrimitive.boolean)
+    }
+
+    @Test
+    fun anEmptyResultCarriesNoContentKeyAndAnEmptyErrorKeepsIsError() {
+        val blocks = resultBlocks(
+            ToolResult("toolu_1", ""),
+            ToolResult("toolu_2", "", true),
+            ToolResult("toolu_3", "text"),
+        )
+
+        assertNull(blocks[0]["content"])
+        assertNull(blocks[0]["is_error"])
+        assertNull(blocks[1]["content"])
+        assertTrue(blocks[1].getValue("is_error").jsonPrimitive.boolean)
+        assertEquals("text", blocks[2].getValue("content").jsonPrimitive.content)
+    }
+
+    @Test
+    fun theReshapeInstructionStaysAfterTheOrderedResults() {
+        val request = call(
+            messages = listOf(
+                UserMessage("go"),
+                callsOf("toolu_1", "toolu_2"),
+                ToolResultsMessage(listOf(ToolResult("toolu_2", "b"), ToolResult("toolu_1", "a"))),
+            ),
+            toolChoice = ToolChoice.Required("add_item"),
+        )
+
+        val body = Json.parseToJsonElement(String(encodeAnthropicRequest(request, reshape = true), Charsets.UTF_8))
+        val blocks = body.jsonObject.getValue("messages").jsonArray.last().jsonObject
+            .getValue("content").jsonArray.map { it.jsonObject }
+
+        assertEquals(3, blocks.size)
+        assertEquals(
+            listOf("toolu_1", "toolu_2"),
+            blocks.take(2).map { it.getValue("tool_use_id").jsonPrimitive.content },
+        )
+        assertEquals("text", blocks.last().getValue("type").jsonPrimitive.content)
+        assertEquals("Call the add_item tool with your result.", blocks.last().getValue("text").jsonPrimitive.content)
+    }
+
     @Test
     fun aMatchingNativeReplayIsSentVerbatimANullOneIsRebuiltAndAnyOtherIsRefused() {
         val raw: JsonArray = buildJsonArray {

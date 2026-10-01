@@ -5,7 +5,9 @@ import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.Message
+import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.serialization.json.JsonElement
@@ -95,3 +97,12 @@ internal fun conversationRefusal(
     replayShapeOk: (JsonElement) -> Boolean,
 ): ModelResult.Failure? =
     conversationViolation(call, provider, replayShapeOk)?.let { ModelResult.Failure(FailureReason.Other(it)) }
+
+/**
+ * [results] sorted by the position of their call id among [calls]; a result for no call keeps its relative order after
+ * the matched ones.
+ */
+internal fun resultsInCallOrder(results: List<ToolResult>, calls: List<AssistantPart.ToolCall>): List<ToolResult> {
+    val position = calls.withIndex().associate { (index, call) -> call.id to index }
+    return results.sortedBy { position[it.callId] ?: Int.MAX_VALUE }
+}
