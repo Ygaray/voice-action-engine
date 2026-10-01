@@ -119,9 +119,10 @@ public class SingleShotStrategy internal constructor(
         return decideResult(result, hooks) ?: route(attempt, calls)
     }
 
+    // decideResult returned null only for a successful answer that holds at least one tool call, so calls is not empty.
     // Only the first call is ever acted on; a call to a tool the snapshot never offered is not trusted.
     private suspend fun route(attempt: Attempt, calls: List<AssistantPart.ToolCall>): StrategyOutcome {
-        val call = calls.firstOrNull() ?: return StrategyOutcome.Failed(FailureReason.MalformedResponse())
+        val call = calls.first()
         if (calls.size > 1) attempt.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
         return ceilingCrossed(attempt.session) ?: dispatch(attempt, call)
     }
