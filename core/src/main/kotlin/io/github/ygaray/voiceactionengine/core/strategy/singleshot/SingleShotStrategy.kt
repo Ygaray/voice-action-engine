@@ -39,8 +39,9 @@ private const val TOOL_MISSING_CODE = "single_shot_tool_missing"
  * decides. The tier makes at most one provider call per command and never retries.
  *
  * The tier reads its limits from the session policy. It sends the policy's per-turn token limit with the request,
- * refuses before calling when the run has already reached the token ceiling, and makes exactly one model call, so the
- * iteration limit is never reached.
+ * refuses before calling when the run has already reached the token ceiling, fails before resolving or
+ * writing anything when its one call took the run past the ceiling, and makes exactly one model call, so the iteration
+ * limit is never reached.
  *
  * Build one with `SingleShotStrategy(id) { ... }`; the builder requires [Builder.tooling] and [Builder.resolver].
  */
@@ -98,6 +99,10 @@ public class SingleShotStrategy internal constructor(
     private suspend fun route(attempt: Attempt, calls: List<AssistantPart.ToolCall>): StrategyOutcome {
         val call = calls.firstOrNull() ?: return StrategyOutcome.Failed(FailureReason.MalformedResponse())
         if (calls.size > 1) attempt.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+        return ceilingCrossed(attempt.session) ?: dispatch(attempt, call)
+    }
+
+    private suspend fun dispatch(attempt: Attempt, call: AssistantPart.ToolCall): StrategyOutcome {
         val tool = attempt.snapshot.tools.firstOrNull { it.name == call.name }
         return when {
             tool == null -> StrategyOutcome.Escalate(EscalationReason.MalformedExtraction())

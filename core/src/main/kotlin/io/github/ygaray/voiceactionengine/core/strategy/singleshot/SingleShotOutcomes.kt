@@ -70,5 +70,9 @@ internal suspend fun resolutionOutcome(
 internal fun ceilingReached(session: CommandSession): StrategyOutcome? =
     if (session.tokensUsed >= session.policy.tokenCeiling) tokenBudgetFailure() else null
 
+/** Fails the tier after its call, before any resolution or write, when the turn just counted passed the ceiling. */
+internal fun ceilingCrossed(session: CommandSession): StrategyOutcome? =
+    if (session.tokensUsed > session.policy.tokenCeiling) tokenBudgetFailure() else null
+
 private fun tokenBudgetFailure(): StrategyOutcome =
     StrategyOutcome.Failed(FailureReason.BudgetExceeded(BudgetBound.TOKENS))
