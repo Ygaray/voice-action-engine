@@ -63,3 +63,8 @@ None beyond the decisions above.
 See REQUIREMENTS.md v2 / LATER items.
 
 </deferred>
+
+## Runtime Decisions
+
+- **Precondition (orchestrator yahir-gsd-control-plane-f2, 2026-09-30, confirming Phase 2 assumption 16):** the v1.0.0 cut MUST NOT proceed until tests exist, and pass, proving the 6 / 60000 / 4096 limits (maxIterations / token ceiling / per-turn tokens) for EVERY looping strategy shipped in v1.0 (Phase 7 SingleShot where it loops, Phase 9 AgenticLoop). The pipeline only exposes these on `session.policy`, and the strategies enforce them. If any are missing, block the cut and report.
+- `:keystore` minSdk 35 / compileSdk 36.1 CONFIRMED by the orchestrator (matches SB + CT exactly), so no pre-cut check is needed.

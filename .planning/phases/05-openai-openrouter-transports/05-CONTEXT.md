@@ -100,3 +100,7 @@ None beyond the decisions above.
 See REQUIREMENTS.md v2 / LATER items.
 
 </deferred>
+
+## Runtime Decisions
+
+- **TEL-01 parity test owner (milestone master, 2026-09-30):** Phase 2's verifier found that no Phase 4/5 requirement line owns TEL-01's cross-provider parity test. Phase 5 owns it, because it's the first phase where both Anthropic (`input_tokens` excludes cached) and OpenAI/OpenRouter (`prompt_tokens` includes cached) normalization exist. Ship a JVM test proving that the same work normalizes to identical `{inputUncached, cacheRead, cacheWrite, output}` and counts identically against the CORE-04 token ceiling (SB sum semantics) on every provider.
