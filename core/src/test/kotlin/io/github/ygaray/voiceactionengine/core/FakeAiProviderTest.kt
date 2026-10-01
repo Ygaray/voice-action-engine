@@ -175,6 +175,47 @@ class FakeAiProviderTest {
         assertEquals(StopReason.TOOL_USE, success.response.stopReason)
     }
 
+    @Test
+    fun refusalBuilderYieldsASuccessWithRefusalStopReasonAndNoParts() {
+        val usage = usage()
+
+        val success = FakeAiProvider.refusal(usage) as ModelResult.Success
+
+        assertEquals(StopReason.REFUSAL, success.response.stopReason)
+        assertTrue(success.response.message.parts.isEmpty())
+        assertSame(usage, success.response.usage)
+    }
+
+    @Test
+    fun toolCallsBuilderYieldsAToolUseTurnWithTheCallsInOrder() {
+        val first = AssistantPart.ToolCall("call_1", "log_item", buildJsonObject { put("item", "apple") })
+        val second = AssistantPart.ToolCall("call_2", "log_item", buildJsonObject { put("item", "pear") })
+
+        val success = FakeAiProvider.toolCalls(usage(), first, second) as ModelResult.Success
+
+        assertEquals(StopReason.TOOL_USE, success.response.stopReason)
+        val calls = success.response.message.toolCalls
+        assertEquals(2, calls.size)
+        assertSame(first, calls[0])
+        assertSame(second, calls[1])
+    }
+
+    @Test
+    fun toolCallsBuilderRejectsAnEmptyCallList() {
+        assertThrows(IllegalArgumentException::class.java) { FakeAiProvider.toolCalls(usage()) }
+    }
+
+    @Test
+    fun aFakeScriptedWithToolCallsReturnsThatResult() = runTest {
+        val call = AssistantPart.ToolCall("call_1", "log_item", buildJsonObject { put("item", "apple") })
+        val scripted = FakeAiProvider.toolCalls(usage(), call)
+        val provider = FakeAiProvider(ProviderId.ANTHROPIC, scripted)
+
+        val result = provider.complete(call())
+
+        assertSame(scripted, result)
+    }
+
     private companion object {
         const val CANARY_SYSTEM = "CANARY-SYSTEM-PROMPT-9d41"
         const val CANARY_TEXT = "CANARY-USER-TEXT-77ab"

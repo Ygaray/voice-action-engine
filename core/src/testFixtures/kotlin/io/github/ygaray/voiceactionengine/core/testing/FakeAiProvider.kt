@@ -88,5 +88,17 @@ public class FakeAiProvider(
                     usage,
                 ),
             )
+
+        /** A successful answer that refuses: no parts, stop reason refusal (how a provider reports a refusal). */
+        public fun refusal(usage: Usage): ModelResult =
+            ModelResult.Success(ModelResponse(AssistantMessage(emptyList()), StopReason.REFUSAL, usage))
+
+        /** A successful answer with several tool call parts, in order. */
+        public fun toolCalls(usage: Usage, vararg calls: AssistantPart.ToolCall): ModelResult {
+            require(calls.isNotEmpty()) { "toolCalls needs at least one call" }
+            return ModelResult.Success(
+                ModelResponse(AssistantMessage(calls.toList()), StopReason.TOOL_USE, usage),
+            )
+        }
     }
 }
