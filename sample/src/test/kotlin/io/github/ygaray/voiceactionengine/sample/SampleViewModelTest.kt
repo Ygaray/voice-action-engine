@@ -1,14 +1,20 @@
 package io.github.ygaray.voiceactionengine.sample
 
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.provider.CachingMode
+import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.keystore.KeyState
+import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceSink
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
+import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyImport
+import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
+import io.github.ygaray.voiceactionengine.sample.ui.HeaderText
 import io.github.ygaray.voiceactionengine.sample.ui.Tone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -40,9 +46,10 @@ internal fun sampleViewModel(
     fixture: FixtureState = FixtureState.Absent(listOf("none")),
     keyImport: KeyImport? = null,
     sink: EvidenceSink = rig.sink,
+    vault: KeyVault = rig.vault,
 ) = SampleViewModel(
     runner = rig.runner,
-    vault = rig.vault,
+    vault = vault,
     keyImport = keyImport,
     fixture = fixture,
     budget = rig.budget,
@@ -51,6 +58,48 @@ internal fun sampleViewModel(
     providers = ALL_PROVIDERS,
     nowSeconds = { rig.clock.seconds },
 )
+
+/** An evidence sink that keeps the lines themselves, so a test can ask whether one is loud. */
+private class LineSink : EvidenceSink {
+    val lines = ArrayList<EvidenceLine>()
+
+    override fun emit(line: EvidenceLine) {
+        lines.add(line)
+    }
+
+    override fun toString(): String = "LineSink(${lines.size})"
+}
+
+/** A vault that counts saves and answers Ready with the last four characters of what was saved. */
+private class CountingVault : KeyVault {
+    var saves = 0
+    private val keys = HashMap<ProviderId, String>()
+
+    override suspend fun save(provider: ProviderId, key: String) {
+        saves++
+        keys[provider] = key
+    }
+
+    override suspend fun read(provider: ProviderId): KeyState =
+        keys[provider]?.let { KeyState.Ready(it.takeLast(LAST_CHARS)) } ?: KeyState.NotConfigured()
+
+    override suspend fun delete(provider: ProviderId) {
+        keys.remove(provider)
+    }
+
+    override fun toString(): String = "CountingVault"
+
+    private companion object {
+        const val LAST_CHARS = 4
+    }
+}
+
+/** An importer that reports a fixed list. */
+private class FixedImport(private val reports: List<ImportReport>) : KeyImport {
+    override suspend fun importAll(): List<ImportReport> = reports
+
+    override fun toString(): String = "FixedImport"
+}
 
 /** The screen's logic: one leg at a time, verdict to status word, keys, import and the follow-up, over fake transports. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -146,6 +195,188 @@ class SampleViewModelTest {
             assertEquals("REFUSED reason=key_NotConfigured", viewModel.row(LegId.SMOKE_OPENAI).text)
             assertEquals(Tone.BAD, viewModel.row(LegId.SMOKE_OPENAI).tone)
             assertTrue(rig.fake(ProviderId.OPENAI).calls.isEmpty())
+        }
+    }
+
+    @Test
+    fun startupEmitsEnvAndALoudFixtureLineWhenAbsent() = runTest {
+        NoNetworkGuard.during {
+            val absentSink = LineSink()
+            sampleViewModel(openAiRig(), sink = absentSink)
+            runCurrent()
+
+            assertEquals(1, absentSink.lines.count { it.type == "ENV" })
+            val fixtureLines = absentSink.lines.filter { it.type == "FIXTURE" }
+            assertEquals(1, fixtureLines.size)
+            assertTrue(fixtureLines.single().render(), fixtureLines.single().render().startsWith("VAE_FIXTURE kind=absent"))
+            assertTrue(fixtureLines.single().loud)
+
+            val loadedSink = LineSink()
+            sampleViewModel(openAiRig(), fixture = loadedSyntheticFixture(), sink = loadedSink)
+            runCurrent()
+
+            assertEquals(1, loadedSink.lines.count { it.type == "ENV" })
+            assertFalse(loadedSink.lines.single { it.type == "FIXTURE" }.loud)
+        }
+    }
+
+    @Test
+    fun theFixtureBannerNamesEveryStateLoudly() {
+        assertEquals(
+            "FIXTURE ABSENT - push the LE-1 fixture (GATE1-RUNBOOK)",
+            HeaderText.fixtureBanner(FixtureState.Absent(listOf("files"))).text,
+        )
+        val mismatch = HeaderText.fixtureBanner(FixtureState.ShaMismatch("files", "0badc0de"))
+        assertEquals("FIXTURE SHA MISMATCH 0badc0de - do not use; ask the orchestrator to regenerate", mismatch.text)
+        assertEquals(Tone.BAD, mismatch.tone)
+        assertEquals("FIXTURE MALFORMED bad_tool", HeaderText.fixtureBanner(FixtureState.Malformed("files", "bad_tool")).text)
+        val loaded = HeaderText.fixtureBanner(loadedSyntheticFixture())
+        assertEquals(Tone.GOOD, loaded.tone)
+        assertTrue(loaded.text, loaded.text.startsWith("Fixture OK sha="))
+        assertTrue(loaded.text, "source=files" in loaded.text)
+    }
+
+    @Test
+    fun savingAKeyNeverLogsIt() = runTest {
+        NoNetworkGuard.during {
+            val rig = openAiRig()
+            val vault = CountingVault()
+            val own = LineSink()
+            val viewModel = sampleViewModel(rig, sink = own, vault = vault)
+            runCurrent()
+            viewModel.onKeyFieldChange(ProviderId.OPENAI, "dummy-value-1234")
+
+            viewModel.saveKey(ProviderId.OPENAI, "dummy-value-1234")
+            runCurrent()
+
+            assertEquals(1, vault.saves)
+            val row = viewModel.state.value.keys.first { it.provider == ProviderId.OPENAI }
+            assertTrue(row.text, "Ready" in row.text && "1234" in row.text)
+            assertEquals(Tone.GOOD, row.tone)
+            assertEquals("", viewModel.keyFields.value[ProviderId.OPENAI])
+            val printed = own.lines.map { it.render() } + rig.sink.rendered + viewModel.state.value.toString()
+            for (line in printed) {
+                assertFalse(line, "dummy-value" in line || "1234" in line)
+            }
+        }
+    }
+
+    @Test
+    fun savingTheTypedFieldUsesAndClearsIt() = runTest {
+        NoNetworkGuard.during {
+            val vault = CountingVault()
+            val viewModel = sampleViewModel(openAiRig(), vault = vault)
+            runCurrent()
+            viewModel.onKeyFieldChange(ProviderId.ANTHROPIC, "  placeholder-abcd  ")
+
+            viewModel.saveKey(ProviderId.ANTHROPIC)
+            runCurrent()
+
+            assertEquals(1, vault.saves)
+            assertTrue(viewModel.state.value.keys.first { it.provider == ProviderId.ANTHROPIC }.text.endsWith("abcd"))
+            assertEquals("", viewModel.keyFields.value[ProviderId.ANTHROPIC])
+
+            viewModel.deleteKey(ProviderId.ANTHROPIC)
+            runCurrent()
+
+            assertEquals("Not configured", viewModel.state.value.keys.first { it.provider == ProviderId.ANTHROPIC }.text)
+        }
+    }
+
+    @Test
+    fun importShowsFlagsWithoutLast4() = runTest {
+        NoNetworkGuard.during {
+            val reports = listOf(
+                ImportReport(ProviderId.ANTHROPIC, ImportReport.READY, null, true, false),
+                ImportReport(ProviderId.OPENAI, ImportReport.ABSENT_FILE, null, true, null),
+                ImportReport(ProviderId.OPENROUTER, ImportReport.READY, null, true, false),
+            )
+            val own = LineSink()
+            val viewModel = sampleViewModel(openAiRig(), keyImport = FixedImport(reports), sink = own)
+            runCurrent()
+
+            viewModel.importTestKeys()
+            runCurrent()
+
+            assertEquals(3, own.lines.count { it.type == "KEY" })
+            val status = viewModel.state.value.importStatus
+            assertNotNull(status)
+            assertEquals(
+                "anthropic=Ready deleted=true in_datastore=false; openai=absent_file deleted=true in_datastore=none; " +
+                    "openrouter=Ready deleted=true in_datastore=false",
+                status!!.text,
+            )
+            assertEquals(Tone.GOOD, status.tone)
+            assertTrue(viewModel.state.value.importAvailable)
+            assertFalse(sampleViewModel(openAiRig()).state.value.importAvailable)
+        }
+    }
+
+    @Test
+    fun aLeakedPlaintextMakesTheImportRed() = runTest {
+        NoNetworkGuard.during {
+            val leaked = listOf(ImportReport(ProviderId.ANTHROPIC, ImportReport.READY, null, true, true))
+            val viewModel = sampleViewModel(openAiRig(), keyImport = FixedImport(leaked))
+            runCurrent()
+
+            viewModel.importTestKeys()
+            runCurrent()
+
+            assertEquals(Tone.BAD, viewModel.state.value.importStatus!!.tone)
+        }
+    }
+
+    @Test
+    fun theWarmWindowCountsDown() = runTest {
+        NoNetworkGuard.during {
+            val capabilities = ModelCapabilities {
+                caching = CachingMode.EXPLICIT_BREAKPOINTS
+                minCacheablePrefixTokens = 4096
+            }
+            val lookup = ok(
+                FakeAiProvider.toolCall(
+                    "call_1",
+                    "find_items",
+                    buildJsonObject { put("query", "paper") },
+                    Usage(40, 0, 7016, 20),
+                ),
+            )
+            val answer = ok(FakeAiProvider.reply("You have two items.", Usage(30, 7016, 0, 15)))
+            val fixture = loadedSyntheticFixture()
+            val rig = legRig(folder.newFolder(), { fixture }) { tap ->
+                listOf(AttemptingFake(ProviderId.ANTHROPIC, tap, listOf(lookup, answer), capabilities))
+            }
+            val viewModel = sampleViewModel(rig, fixture = fixture)
+            runCurrent()
+            assertNull(viewModel.state.value.warmWindow)
+
+            viewModel.runLeg(LegId.VER02)
+            runCurrent()
+
+            assertEquals("PASS", viewModel.row(LegId.VER02).text)
+            assertEquals("Anthropic warm window: wait 360 s", viewModel.state.value.warmWindow)
+            rig.clock.seconds += 100
+            viewModel.tick()
+            assertEquals("Anthropic warm window: wait 260 s", viewModel.state.value.warmWindow)
+            rig.clock.seconds += 260
+            viewModel.tick()
+            assertNull(viewModel.state.value.warmWindow)
+            assertTrue(viewModel.state.value.budgetText, viewModel.state.value.budgetText.startsWith("requests 2/33"))
+        }
+    }
+
+    @Test
+    fun anAutorunRerunSaysSoOnTheVerdictLine() = runTest {
+        NoNetworkGuard.during {
+            val rig = openAiRig(editCall())
+            val viewModel = sampleViewModel(rig)
+            runCurrent()
+
+            viewModel.runLeg(LegId.SMOKE_OPENAI, TRIGGER_AUTORUN)
+            runCurrent()
+
+            assertEquals(1, rig.sink.starting("VAE_AUTORUN leg=smoke_openai").size)
+            assertEquals(1, rig.sink.starting("VAE_VERDICT leg=smoke_openai verdict=PASS key_charset=ok trigger=autorun").size)
         }
     }
 }

@@ -129,6 +129,7 @@ internal class AppGraph private constructor(context: Context) {
                 okhttpVersion = OkHttpRuntime.version(),
                 sink = costs,
                 providers = SampleKeys.PROVIDERS,
+                estUsd = costs::total,
                 nowSeconds = { System.currentTimeMillis() / MILLIS_PER_SECOND },
             )
         }

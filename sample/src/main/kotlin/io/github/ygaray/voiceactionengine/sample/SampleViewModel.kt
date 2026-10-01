@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
+import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceSink
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.evidence.RequestBudget
@@ -14,14 +15,19 @@ import io.github.ygaray.voiceactionengine.sample.legs.DEMO_PROVIDER
 import io.github.ygaray.voiceactionengine.sample.legs.LegCatalog
 import io.github.ygaray.voiceactionengine.sample.legs.LegResult
 import io.github.ygaray.voiceactionengine.sample.legs.LegRunner
+import io.github.ygaray.voiceactionengine.sample.ui.HeaderText
 import io.github.ygaray.voiceactionengine.sample.ui.OutcomeText
 import io.github.ygaray.voiceactionengine.sample.ui.OutcomeView
 import io.github.ygaray.voiceactionengine.sample.ui.Tone
+import io.github.ygaray.voiceactionengine.sample.ui.ToneText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
+import java.security.GeneralSecurityException
+import java.security.ProviderException
 
 /** The status word of a leg that has not been pressed. */
 internal const val STATUS_IDLE = "IDLE"
@@ -53,36 +59,59 @@ internal data class LegView(val leg: LegId, val status: String, val reason: Stri
         }
 }
 
+/** One provider's key row: the state wording and its tone. */
+internal data class KeyView(val provider: ProviderId, val text: String, val tone: Tone) {
+    /** Prints no wording: it can include the last four characters of a key. */
+    override fun toString(): String = "KeyView(provider=${provider.value}, tone=$tone)"
+}
+
 /**
  * Everything the screen shows. It holds no key text; the typed keys live in their own flow so no state printout can carry one.
  *
  * @property running the leg in progress, or null; every run button is disabled while it is not null.
  * @property readout the last leg's rendered outcome, or null before the first leg.
+ * @property fixture the fixture banner.
+ * @property budgetText the request counts and cost estimate.
+ * @property warmWindow the warm-window notice, or null when the window is closed.
+ * @property keys one row per provider.
+ * @property importAvailable whether the debug-only import button exists (never in a release build).
+ * @property importStatus what the last import did, or null before the first one.
  */
 internal data class UiState(
     val okhttp: String,
+    val fixture: ToneText,
+    val budgetText: String,
+    val warmWindow: String?,
+    val keys: List<KeyView>,
+    val importAvailable: Boolean,
+    val importStatus: ToneText?,
     val legs: List<LegView>,
     val running: LegId?,
     val readout: OutcomeView?,
 ) {
     /** Whether the run buttons are enabled. */
     val runEnabled: Boolean get() = running == null
+
+    /** Prints no key wording. */
+    override fun toString(): String = "UiState(running=$running, legs=${legs.size}, keys=${keys.size})"
 }
 
 /**
- * The screen's logic. It runs one leg at a time, ignoring a press while one is running, and turns each verdict into a
- * status word and a readout. It holds no key and logs nothing itself.
+ * The screen's logic. It runs one leg at a time, ignoring a press while one is running, turns each verdict into a
+ * status word and a readout, and holds the key actions. It holds no key beyond the text being typed, and it logs only
+ * through the evidence sink, whose lines cannot carry a key.
  */
 internal class SampleViewModel(
     private val runner: LegRunner,
-    @Suppress("unused") private val vault: KeyVault,
-    @Suppress("unused") private val keyImport: KeyImport?,
-    @Suppress("unused") private val fixture: FixtureState,
-    @Suppress("unused") private val budget: RequestBudget,
+    private val vault: KeyVault,
+    private val keyImport: KeyImport?,
+    fixture: FixtureState,
+    private val budget: RequestBudget,
     okhttpVersion: String,
-    @Suppress("unused") private val sink: EvidenceSink,
-    @Suppress("unused") private val providers: List<ProviderId>,
-    @Suppress("unused") private val nowSeconds: () -> Long,
+    private val sink: EvidenceSink,
+    private val providers: List<ProviderId>,
+    private val estUsd: () -> String = { UNKNOWN_ESTIMATE },
+    private val nowSeconds: () -> Long,
 ) : ViewModel() {
     // The last result, kept so a pressed clarification option can name the run it answers.
     private var lastResult: LegResult? = null
@@ -90,14 +119,33 @@ internal class SampleViewModel(
     private val mutableState = MutableStateFlow(
         UiState(
             okhttp = okhttpVersion,
+            fixture = HeaderText.fixtureBanner(fixture),
+            budgetText = HeaderText.budget(budget.snapshot(), estUsd()),
+            warmWindow = HeaderText.warmWindow(budget.warmWindowRemaining(nowSeconds())),
+            keys = providers.map { KeyView(it, CHECKING_KEY, Tone.NEUTRAL) },
+            importAvailable = keyImport != null,
+            importStatus = null,
             legs = LegId.entries.map { LegView(it, STATUS_IDLE, null) },
             running = null,
             readout = null,
         ),
     )
 
+    private val mutableFields = MutableStateFlow<Map<ProviderId, String>>(emptyMap())
+
     /** What the screen shows now. */
     val state: StateFlow<UiState> = mutableState.asStateFlow()
+
+    /** The text typed so far into each provider's key field. Cleared the moment Save is pressed. */
+    val keyFields: StateFlow<Map<ProviderId, String>> = mutableFields.asStateFlow()
+
+    init {
+        // The runtime facts and the fixture state, once, at startup. A fixture that is not usable is a loud line.
+        val loaded = fixture as? FixtureState.Loaded
+        sink.emit(EvidenceLine.env(okhttpVersion, loaded?.sha256, loaded?.tools?.size, null, null, null))
+        sink.emit(EvidenceLine.fixture(fixture))
+        viewModelScope.launch { refreshKeys() }
+    }
 
     /**
      * Starts [leg]. A press while another leg is running is ignored, so a double tap can never start two paid legs.
@@ -105,6 +153,7 @@ internal class SampleViewModel(
      */
     fun runLeg(leg: LegId, trigger: String = TRIGGER_UI) {
         if (mutableState.value.running != null) return
+        if (trigger == TRIGGER_AUTORUN) sink.emit(EvidenceLine.autorun(leg))
         mutableState.update { it.withStatus(leg, STATUS_RUNNING, null).copy(running = leg) }
         viewModelScope.launch { finish(runner.run(leg, trigger)) }
     }
@@ -123,6 +172,64 @@ internal class SampleViewModel(
         viewModelScope.launch { finish(runner.followUp(completed, option)) }
     }
 
+    /** Records what is typed into [provider]'s key field. */
+    fun onKeyFieldChange(provider: ProviderId, text: String) {
+        mutableFields.update { it + (provider to text) }
+    }
+
+    /**
+     * Saves [text] (by default what is typed in the field) as the key of [provider]. The field is cleared at once, whether
+     * or not the save works, and the key is never logged. A failed save is a red row naming only the exception type.
+     */
+    fun saveKey(provider: ProviderId, text: String = mutableFields.value[provider].orEmpty()) {
+        mutableFields.update { it + (provider to "") }
+        val key = text.trim()
+        if (key.isEmpty()) return
+        viewModelScope.launch {
+            val failure = guarded { vault.save(provider, key) }
+            refreshKeys(provider, failure?.let { "Save failed ($it) - re-enter key" })
+        }
+    }
+
+    /** Deletes the stored key of [provider]. */
+    fun deleteKey(provider: ProviderId) {
+        mutableFields.update { it + (provider to "") }
+        viewModelScope.launch {
+            val failure = guarded { vault.delete(provider) }
+            refreshKeys(provider, failure?.let { "Delete failed ($it)" })
+        }
+    }
+
+    /**
+     * Runs the debug-only importer over the pushed test keys, writes one `VAE_KEY` line per provider and shows each
+     * provider's state word and the two plaintext flags. Nothing happens in a build that has no importer.
+     */
+    fun importTestKeys() {
+        val importer = keyImport ?: return
+        viewModelScope.launch {
+            val reports = importer.importAll()
+            val lines = reports.map { EvidenceLine.key(it) }
+            lines.forEach { sink.emit(it) }
+            val text = reports.joinToString("; ") { HeaderText.importLine(it) }
+            val tone = if (lines.any { it.loud }) Tone.BAD else Tone.GOOD
+            mutableState.update { it.copy(importStatus = ToneText(text, tone)) }
+            refreshKeys()
+        }
+    }
+
+    /**
+     * Refreshes the request counts and the warm-window countdown. The screen calls this once a second while a window is
+     * open, and it runs after every leg.
+     */
+    fun tick() {
+        mutableState.update {
+            it.copy(
+                budgetText = HeaderText.budget(budget.snapshot(), estUsd()),
+                warmWindow = HeaderText.warmWindow(budget.warmWindowRemaining(nowSeconds())),
+            )
+        }
+    }
+
     private fun finish(result: LegResult) {
         lastResult = result
         val verdict = result.verdict
@@ -131,10 +238,41 @@ internal class SampleViewModel(
             it.withStatus(result.leg, verdict.kind.name, verdict.reason)
                 .copy(running = null, readout = OutcomeText.render(result, live))
         }
+        tick()
+    }
+
+    // Reads every provider's key state again; [note] replaces the row of [noted] with a red failure line.
+    private suspend fun refreshKeys(noted: ProviderId? = null, note: String? = null) {
+        val rows = providers.map { provider ->
+            if (provider == noted && note != null) {
+                KeyView(provider, note, Tone.BAD)
+            } else {
+                val row = HeaderText.keyRow(vault.read(provider))
+                KeyView(provider, row.text, row.tone)
+            }
+        }
+        mutableState.update { it.copy(keys = rows) }
+    }
+
+    // The exception type when [action] fails the way the keystore can, else null. The message is never kept.
+    private suspend fun guarded(action: suspend () -> Unit): String? = try {
+        action()
+        null
+    } catch (failure: GeneralSecurityException) {
+        failure.javaClass.simpleName
+    } catch (failure: ProviderException) {
+        failure.javaClass.simpleName
+    } catch (failure: IOException) {
+        failure.javaClass.simpleName
     }
 
     private fun UiState.withStatus(leg: LegId, status: String, reason: String?): UiState =
         copy(legs = legs.map { if (it.leg == leg) LegView(leg, status, reason) else it })
 
     override fun toString(): String = "SampleViewModel"
+
+    private companion object {
+        const val CHECKING_KEY = "Checking key..."
+        const val UNKNOWN_ESTIMATE = "unknown"
+    }
 }

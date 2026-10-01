@@ -68,14 +68,14 @@ internal object OutcomeText {
     }
 
     /**
-     * The loud rendering of a failure: a red `FAILED: <code>` banner, plus, for a key that is stored but unreadable, the
-     * action the user should take. [committed] is how many changes were applied before the failure.
+     * The loud rendering of a failure: a red `FAILED: <code>` banner that, for a key that is stored but unreadable, also
+     * names the action the user should take. [committed] is how many changes were applied before the failure.
      */
     fun failure(reason: FailureReason, committed: Int = 0): OutcomeView {
         val action = keystoreAction(reason)
-        val base = if (action == null) "Failed" else "Failed - $action"
-        val headline = if (committed > 0) "$base after $committed committed" else base
-        return OutcomeView(headline, Tone.BAD, "FAILED: ${reason.code}", null, emptyList())
+        val headline = if (committed > 0) "Failed after $committed committed" else "Failed"
+        val banner = "FAILED: ${reason.code}" + if (action == null) "" else " - $action"
+        return OutcomeView(headline, Tone.BAD, banner, null, emptyList())
     }
 
     // The keystore action for a key that cannot be read; every other reason has none.

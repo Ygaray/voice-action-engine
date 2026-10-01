@@ -1,8 +1,10 @@
 package io.github.ygaray.voiceactionengine.sample
 
+import android.content.Intent
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.keystore.KeyState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
+import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.keys.KeyImport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
 import io.github.ygaray.voiceactionengine.sample.keys.PlaintextScan
@@ -19,6 +21,18 @@ internal object DebugTools {
      */
     fun keyImport(filesDir: File, vault: KeyVault, providers: List<ProviderId>): KeyImport? =
         TestKeyImporter(filesDir, vault, providers, scanRoot = File(filesDir, "datastore"))
+
+    /**
+     * The leg a debug intent asks to rerun, from its string extra `vae_autorun` (a leg's wire name), or null when the
+     * extra is absent or names no leg. This is a RERUN convenience only: the first Gate-1 run of every leg is driven
+     * through the screen (D-01), so a leg's first verdict never carries `trigger=autorun`.
+     */
+    fun autorunLeg(intent: Intent?): LegId? {
+        val wire = intent?.getStringExtra(AUTORUN_EXTRA) ?: return null
+        return LegId.entries.firstOrNull { it.wire == wire }
+    }
+
+    private const val AUTORUN_EXTRA = "vae_autorun"
 }
 
 /**

@@ -87,12 +87,11 @@ class OutcomeTextTest {
         val transient = OutcomeText.failure(FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "keystore_unavailable"))
         val other = OutcomeText.failure(FailureReason.Other("something_else"))
 
-        assertTrue(lost.headline, "re-enter key" in lost.headline)
-        assertEquals("FAILED: credential_unreadable", lost.banner)
-        assertTrue(transient.headline, "transient, retry" in transient.headline)
+        assertTrue(lost.banner, lost.banner!!.startsWith("FAILED: credential_unreadable") && "re-enter key" in lost.banner!!)
+        assertTrue(transient.banner, "transient, retry" in transient.banner!!)
         assertEquals(Tone.BAD, transient.tone)
         // A reason that is not a keystore one carries no keystore action.
-        assertFalse(other.headline, "re-enter key" in other.headline || "retry" in other.headline)
+        assertFalse(other.banner, "re-enter key" in other.banner!! || "retry" in other.banner!!)
         assertEquals("FAILED: something_else", other.banner)
     }
 
