@@ -23,10 +23,10 @@
 
 ### Core Contract & Pipeline (step 2)
 
-- [ ] **CORE-01**: Consumer builds a pipeline with a DSL — `commandPipeline { tier(...); selector = Linear; policy = ... }` — and calls it with `CommandInput(transcript, language "en"|"es"|null, context)`.
-- [ ] **CORE-02**: Each strategy returns exactly one of `Completed | Escalate(reason, carry?) | NoMatch | Failed`; the pipeline climbs on `Escalate`/`NoMatch`, stops on `Completed`/`Failed`, and passes `carry` to the next tier.
-- [ ] **CORE-03**: `TierSelector.Linear` (default) and `TierSelector.Fixed(tier)` select the start tier.
-- [ ] **CORE-04**: `TierPolicy` is read per call from an app-supplied source and caps `offlineOnly`, `maxTier` (expressed as a stable public `StrategyId`, not a ladder index — consumers persist it and the ladder grows in v1.1), `allowedProviders`, max iterations (default 6), token ceiling (default 60,000) and max tokens per turn (default 4,096); `maxIterations < 2` is rejected. `offlineOnly` with no on-device provider available returns a loud `Failed` with **zero** HTTP calls; likewise an ON_DEVICE tier with no usable declared fallback returns loud `Failed(ProviderUnavailable)` and never silently climbs to a cloud tier (orchestrator ruling).
+- [x] **CORE-01**: Consumer builds a pipeline with a DSL — `commandPipeline { tier(...); selector = Linear; policy = ... }` — and calls it with `CommandInput(transcript, language "en"|"es"|null, context)`.
+- [x] **CORE-02**: Each strategy returns exactly one of `Completed | Escalate(reason, carry?) | NoMatch | Failed`; the pipeline climbs on `Escalate`/`NoMatch`, stops on `Completed`/`Failed`, and passes `carry` to the next tier.
+- [x] **CORE-03**: `TierSelector.Linear` (default) and `TierSelector.Fixed(tier)` select the start tier.
+- [x] **CORE-04**: `TierPolicy` is read per call from an app-supplied source and caps `offlineOnly`, `maxTier` (expressed as a stable public `StrategyId`, not a ladder index — consumers persist it and the ladder grows in v1.1), `allowedProviders`, max iterations (default 6), token ceiling (default 60,000) and max tokens per turn (default 4,096); `maxIterations < 2` is rejected. `offlineOnly` with no on-device provider available returns a loud `Failed` with **zero** HTTP calls; likewise an ON_DEVICE tier with no usable declared fallback returns loud `Failed(ProviderUnavailable)` and never silently climbs to a cloud tier (orchestrator ruling).
 - [ ] **CORE-05**: Every command outcome is returned, never thrown: any exception collapses to a typed outcome through one collapse helper, and `CancellationException` always propagates (rethrown before any broad catch; engine timeouts are `TIMEOUT`, distinct from `NETWORK`).
 - [x] **CORE-06**: Failures carry a typed, open (`Other` leaf) `FailureReason` at least as fine as SB's: auth, billing, rate-limit, overloaded, timeout, network, malformed-response, malformed-tool-args, refusal, max-tokens, no-tool-call, budget-exceeded, tool-failure, not-configured, provider-unavailable — plus the provider request id when one exists. Never CT-style collapse to one opaque bucket.
 - [x] **CORE-07**: Growing public taxonomies (failure/escalation/hold reasons, events) are open or carry an `Other` leaf, and growing public types are regular classes (not `data class`), so post-tag additions don't break consumers' exhaustive `when` or binary compat. `ProviderId` is a value class with `ANTHROPIC | OPENAI | OPENROUTER | ON_DEVICE` constants.
@@ -161,10 +161,10 @@
 | BLD-07 | Phase 1 | Complete |
 | BLD-08 | Phase 1 | Complete |
 | BLD-09 | Phase 1 | Complete |
-| CORE-01 | Phase 2 | Pending |
-| CORE-02 | Phase 2 | Pending |
-| CORE-03 | Phase 2 | Pending |
-| CORE-04 | Phase 2 | Pending |
+| CORE-01 | Phase 2 | Complete |
+| CORE-02 | Phase 2 | Complete |
+| CORE-03 | Phase 2 | Complete |
+| CORE-04 | Phase 2 | Complete |
 | CORE-05 | Phase 2 | Pending |
 | CORE-06 | Phase 2 | Complete |
 | CORE-07 | Phase 2 | Complete |
