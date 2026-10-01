@@ -8,12 +8,15 @@ import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.providers.http.cleanClient
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 
 private const val PRODUCTION_BASE_URL = "https://api.anthropic.com/"
 private const val DEFAULT_TIMEOUT_MILLIS = 60_000L
+private const val DEFAULT_RETRY_AFTER_CAP_MILLIS = 5_000L
+private const val DEFAULT_TRANSIENT_BACKOFF_MILLIS = 500L
 private val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "::1")
 
 /**
@@ -65,12 +68,28 @@ public class AnthropicProvider internal constructor(
 
         internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
+        // The wait before the one transient retry; a suspend call, so cancelling the command ends it.
+        internal var sleep: suspend (Long) -> Unit = { delay(it) }
+
+        internal var retryAfterCapMillis: Long = DEFAULT_RETRY_AFTER_CAP_MILLIS
+
+        internal var transientBackoffMillis: Long = DEFAULT_TRANSIENT_BACKOFF_MILLIS
+
         internal fun build(): AnthropicProvider {
             require(callTimeoutMillis > 0) { "callTimeoutMillis must be positive" }
             require(readTimeoutMillis > 0) { "readTimeoutMillis must be positive" }
+            require(retryAfterCapMillis >= 0) { "retryAfterCapMillis must not be negative" }
+            require(transientBackoffMillis >= 0) { "transientBackoffMillis must not be negative" }
             require(baseUrl.isHttps || baseUrl.host in LOOPBACK_HOSTS) { "the base URL must use https" }
             val client = cleanClient(httpClient, callTimeoutMillis, readTimeoutMillis)
-            val transport = AnthropicTransport(client, baseUrl, ioDispatcher)
+            val transport = AnthropicTransport(
+                client,
+                baseUrl,
+                ioDispatcher,
+                sleep,
+                retryAfterCapMillis,
+                transientBackoffMillis,
+            )
             return AnthropicProvider(transport, callTimeoutMillis, readTimeoutMillis)
         }
     }

@@ -8,6 +8,9 @@ import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.providers.http.HttpReply
 import io.github.ygaray.voiceactionengine.providers.http.OneShotJsonBody
 import io.github.ygaray.voiceactionengine.providers.http.await
+import io.github.ygaray.voiceactionengine.providers.http.isTransientStatus
+import io.github.ygaray.voiceactionengine.providers.http.retryAfterSeconds
+import io.github.ygaray.voiceactionengine.providers.http.transientWaitMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -24,26 +27,60 @@ private const val HEADER_API_KEY = "x-api-key"
 private const val HEADER_VERSION = "anthropic-version"
 private const val HEADER_CONTENT_TYPE = "content-type"
 private const val HEADER_REQUEST_ID = "request-id"
+private const val HEADER_RETRY_AFTER = "retry-after"
 private const val CONTENT_TYPE_JSON = "application/json"
 
+// The most HTTP requests one logical call may send: the first, one transient retry and one reshaped request.
+private const val MAX_REQUESTS = 3
+
 /**
- * One attempt against the Messages endpoint: encode, POST, await, decode. It holds no per-call state, so concurrent
- * calls are independent.
+ * One logical call against the Messages endpoint: encode, POST, await, decode, and at most one more POST when the first
+ * failed in a way that can clear on its own. It holds no per-call state, so concurrent calls are independent.
+ *
+ * The retry happens here, below the provider seam, and only repeats the HTTP request. The OkHttp body is one-shot, so
+ * this loop is the only place a request is ever sent twice.
  */
 internal class AnthropicTransport(
     val client: OkHttpClient,
     val baseUrl: HttpUrl,
     private val ioDispatcher: CoroutineDispatcher,
+    private val sleep: suspend (Long) -> Unit,
+    private val retryAfterCapMillis: Long,
+    private val transientBackoffMillis: Long,
 ) {
+    /** What one HTTP attempt produced and whether asking again could help. */
+    private class Attempted(val result: ModelResult, val transient: Boolean, val retryAfterSeconds: Long?)
+
     suspend fun send(call: ProviderRequest): ModelResult {
         val credential = call.credential
         if (credential == null || credential.provider != ProviderId.ANTHROPIC) {
             return ModelResult.Failure(FailureReason.NotConfigured(ProviderId.ANTHROPIC))
         }
-        return withContext(ioDispatcher) { attempt(call, credential) }
+        return withContext(ioDispatcher) { sendWithRetry(call, credential, requestsSent = 1, retried = false) }
     }
 
-    private suspend fun attempt(call: ProviderRequest, credential: Credential): ModelResult {
+    // Recursion depth is bounded by MAX_REQUESTS; the wait is a suspend call, so cancelling the command ends it.
+    private suspend fun sendWithRetry(
+        call: ProviderRequest,
+        credential: Credential,
+        requestsSent: Int,
+        retried: Boolean,
+    ): ModelResult {
+        val attempted = attempt(call, credential)
+        val wait = if (retried || requestsSent >= MAX_REQUESTS) null else retryWait(attempted)
+        if (wait == null) return attempted.result
+        sleep(wait)
+        return sendWithRetry(call, credential, requestsSent + 1, retried = true)
+    }
+
+    private fun retryWait(attempted: Attempted): Long? =
+        if (attempted.transient) {
+            transientWaitMillis(attempted.retryAfterSeconds, retryAfterCapMillis, transientBackoffMillis)
+        } else {
+            null
+        }
+
+    private suspend fun attempt(call: ProviderRequest, credential: Credential): Attempted {
         val request = Request.Builder()
             .url(baseUrl.newBuilder().addPathSegments(MESSAGES_PATH).build())
             .header(HEADER_API_KEY, credential.apiKey)
@@ -61,16 +98,23 @@ internal class AnthropicTransport(
         }
     }
 
-    private fun interpret(reply: HttpReply, model: String): ModelResult {
+    private fun interpret(reply: HttpReply, model: String): Attempted {
         val requestId = reply.headers[HEADER_REQUEST_ID]
-        if (reply.isSuccessful) return decodeAnthropicResponse(reply.body, requestId, model)
+        if (reply.isSuccessful) return Attempted(decodeAnthropicResponse(reply.body, requestId, model), false, null)
         val info = parseAnthropicError(reply.code, requestId, reply.body)
-        return ModelResult.Failure(info.reason(), info.details())
+        // A spend cap arrives as a 429 but never clears by waiting, so it is final like any other billing failure.
+        val transient = isTransientStatus(info.status) && !info.spendCapReached && !info.userSpendLimit
+        return Attempted(
+            ModelResult.Failure(info.reason(), info.details()),
+            transient,
+            retryAfterSeconds(reply.headers[HEADER_RETRY_AFTER]),
+        )
     }
 
     // A cancelled command can also surface as an IOException ("Canceled"); cancellation must win over a failure.
-    private suspend fun ioFailure(reason: FailureReason): ModelResult {
+    // A timeout or a dropped connection may clear on its own, so it is worth the one retry.
+    private suspend fun ioFailure(reason: FailureReason): Attempted {
         currentCoroutineContext().ensureActive()
-        return ModelResult.Failure(reason)
+        return Attempted(ModelResult.Failure(reason), transient = true, retryAfterSeconds = null)
     }
 }
