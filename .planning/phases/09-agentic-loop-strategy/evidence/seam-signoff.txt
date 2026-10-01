@@ -29,3 +29,4 @@ CARRY: precedence -> 09-04 and 09-06 : when the token ceiling and the iteration 
 CARRY: 10 -> 09-08 : add edit_text_card to the CLN-02 deny-list
 
 SIGNOFF: APPROVE-WITH-CHANGES
+PLANS-AMENDED: yes
