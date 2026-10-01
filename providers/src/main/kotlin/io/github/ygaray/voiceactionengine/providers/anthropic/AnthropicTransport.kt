@@ -11,6 +11,7 @@ import io.github.ygaray.voiceactionengine.providers.http.OneShotJsonBody
 import io.github.ygaray.voiceactionengine.providers.http.await
 import io.github.ygaray.voiceactionengine.providers.http.isHeaderSafe
 import io.github.ygaray.voiceactionengine.providers.http.isTransientStatus
+import io.github.ygaray.voiceactionengine.providers.http.notifyQuietly
 import io.github.ygaray.voiceactionengine.providers.http.retryAfterSeconds
 import io.github.ygaray.voiceactionengine.providers.http.transientWaitMillis
 import kotlinx.coroutines.CoroutineDispatcher
@@ -117,16 +118,9 @@ internal class AnthropicTransport(
         return sendWithRetry(call, credential, resend.progress)
     }
 
-    // The observer is optional diagnostics supplied by the app: whatever it throws must never change the call's outcome
-    // (a billed, decoded answer would be lost), and its exception, which could carry any text, is dropped unread. The
-    // only function here that catches this broadly, for that one reason; it is not a suspend function, so no
-    // cancellation signal can pass through it.
+    // The observer is optional diagnostics; notifyQuietly keeps whatever it throws from changing the call's outcome.
     private fun notify(attempt: AnthropicAttempt) {
-        try {
-            observer?.onAttempt(attempt)
-        } catch (ignored: Exception) {
-            // Intentionally empty: see above.
-        }
+        notifyQuietly { observer?.onAttempt(attempt) }
     }
 
     // A forced request that got the tool_choice 400 is re-sent at once, reshaped; any other failure that can clear on
