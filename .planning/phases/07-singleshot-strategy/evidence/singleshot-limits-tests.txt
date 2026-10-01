@@ -52,3 +52,8 @@ No literal 60000 or 4096 in core main outside TierPolicy.kt.
 Boundary in force: pre-call, prior spend at or over the ceiling refuses (59999 calls, 60000 refuses); post-call, a response over the
 ceiling fails before the resolver or any write (101 of 100 fails, exactly 100 resolves). The CARRY override recorded in
 evidence/seam-signoff.txt does not alter these limits: it is the Phase 9 carry (AgenticLoopStrategy accepts the same userTurn: UserTurnRenderer).
+
+Addendum (after code-review fixes, HEAD c405245; read from core/build/test-results XML after ./gradlew check exit 0):
+SingleShotLimitsTest tests=10 failures=0 skipped=0
+SingleShotUserTurnTest tests=6 failures=0 skipped=0
+  (new: theDefaultClockReadsTheDeviceZoneAgainForEveryCommand, review fix WR-02). The ten limits method names above are unchanged.
