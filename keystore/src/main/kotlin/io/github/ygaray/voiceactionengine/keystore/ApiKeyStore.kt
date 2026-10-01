@@ -7,7 +7,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -77,6 +82,20 @@ public class ApiKeyStore internal constructor(
      * [KeyState.NotConfigured]. Reading never creates a key and never changes storage.
      */
     public suspend fun read(provider: ProviderId): KeyState = readSecret(provider).state
+
+    /**
+     * Follows the state of [provider] as its stored pair changes: it emits the current state first, then again after
+     * every save and delete, including a replacement that ends in the same last four characters. A corrupt or
+     * unreadable value is emitted as a state and the stream carries on; only a failure to read the preferences at all
+     * ends it, with one final [KeyState.Unreadable]. The flow is cold, read-only and never creates a key.
+     */
+    public fun observe(provider: ProviderId): Flow<KeyState> =
+        slotsByProvider[provider]?.let { observeSlot(it) } ?: flowOf(KeyState.NotConfigured())
+
+    private fun observeSlot(slot: KeySlot): Flow<KeyState> = dataStore.data
+        .map { prefs -> reader.open(slot, prefs).state }
+        .catch { failure -> if (failure is IOException) emit(KeystoreCauses.storageUnreadable) else throw failure }
+        .flowOn(ioDispatcher)
 
     internal suspend fun readSecret(provider: ProviderId): SecretRead =
         slotsByProvider[provider]?.let { openSlot(it) } ?: SecretRead(KeyState.NotConfigured(), null)
