@@ -41,7 +41,9 @@ public class CommandTrace internal constructor(
  * One tier's turn in a run.
  *
  * @property strategy the tier.
- * @property outcome how it ended: `completed`, `escalated`, `no_match`, `failed` or `escalation_suppressed`.
+ * @property outcome how it ended: `completed`, `escalated`, `no_match`, `failed` or `escalation_suppressed`; or,
+ * when the tier never returned, `timeout` (the engine deadline) or `cancelled` (the caller). An open set: keep an
+ * `else` branch.
  * @property escalationReason why it handed up, when it did.
  * @property suppressedEscalation the escalation that was blocked because earlier work had been done, when one was.
  * @property failure why it failed, when it did.

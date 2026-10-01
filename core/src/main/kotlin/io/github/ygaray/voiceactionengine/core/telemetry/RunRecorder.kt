@@ -28,10 +28,8 @@ internal class RunRecorder(
 ) {
     private val lock = Any()
     private val startedAt = clock()
-    private val attempts = mutableListOf<TierAttempt>()
     private val codes = mutableListOf<TraceCode>()
-    private val currentTurns = mutableListOf<TurnRecord>()
-    private var tierStartedAt = startedAt
+    private val book = TierBook(startedAt)
     private var tokenTotal = 0L
     private val dispatch = EventDispatch(listener) { synchronized(lock) { codes.add(TraceCode.LISTENER_ERROR) } }
     private val skipped = mutableListOf<StrategyId>()
@@ -49,8 +47,7 @@ internal class RunRecorder(
     suspend fun tierStarted(strategy: StrategyId) {
         synchronized(lock) {
             check(strategy !in skipped) { "tier $strategy was skipped and cannot start" }
-            tierStartedAt = clock()
-            currentTurns.clear()
+            book.start(strategy, clock())
         }
         dispatch.send(PipelineEvent.TierStarted(runId, strategy))
     }
@@ -67,7 +64,7 @@ internal class RunRecorder(
     /** Attaches [turn], reported by [strategy], to the tier now running, and adds its tokens to the run total. */
     suspend fun turnRecorded(strategy: StrategyId, turn: TurnRecord) {
         synchronized(lock) {
-            currentTurns.add(turn)
+            book.turns.add(turn)
             tokenTotal += turn.usage.total
         }
         dispatch.send(PipelineEvent.ProviderCall(runId, strategy, turn))
@@ -82,20 +79,27 @@ internal class RunRecorder(
         suppressed: EscalationReason?,
     ) {
         val attempt = synchronized(lock) {
-            val made = TierAttempt(
-                strategy,
-                outcome,
-                escalation,
-                suppressed,
-                failure,
-                clock() - tierStartedAt,
-                currentTurns.toList(),
-            )
-            currentTurns.clear()
-            attempts.add(made)
-            made
+            book.close(clock()) { latency, turns ->
+                TierAttempt(strategy, outcome, escalation, suppressed, failure, latency, turns)
+            }
         }
         dispatch.send(PipelineEvent.TierFinished(runId, attempt))
+    }
+
+    /**
+     * Records the tier that started and never finished, because the engine deadline cut it off, the caller cancelled,
+     * or an error ended it. Without this its turns, and the tokens they cost, would be missing from the trace. It does
+     * nothing when no tier is in flight, so it is safe to call on every exit path.
+     */
+    suspend fun flushInFlight(outcome: String, failure: FailureReason?) {
+        val attempt = synchronized(lock) {
+            book.inFlight?.let { tier ->
+                book.close(clock()) { latency, turns ->
+                    TierAttempt(tier, outcome, null, null, failure, latency, turns)
+                }
+            }
+        }
+        if (attempt != null) dispatch.send(PipelineEvent.TierFinished(runId, attempt))
     }
 
     /** Records an engine code. */
@@ -135,8 +139,32 @@ internal class RunRecorder(
             transcriptLength = transcriptLength,
             startedAtMillis = startedAt,
             durationMillis = clock() - startedAt,
-            attempts = attempts.toList(),
+            attempts = book.attempts.toList(),
             codes = codes.toList(),
         )
+    }
+}
+
+/** The attempts a run has made and the tier now running. Callers hold the recorder's lock. */
+private class TierBook(startedAt: Long) {
+    val attempts = mutableListOf<TierAttempt>()
+    val turns = mutableListOf<TurnRecord>()
+    var inFlight: StrategyId? = null
+    private var tierStartedAt = startedAt
+
+    /** Begins [strategy] at [now], with no turns yet. */
+    fun start(strategy: StrategyId, now: Long) {
+        tierStartedAt = now
+        turns.clear()
+        inFlight = strategy
+    }
+
+    /** Ends the tier running now at [now]; [build] makes its attempt from the latency and turns, which is then kept. */
+    fun close(now: Long, build: (latency: Long, turns: List<TurnRecord>) -> TierAttempt): TierAttempt {
+        val made = build(now - tierStartedAt, turns.toList())
+        turns.clear()
+        attempts.add(made)
+        inFlight = null
+        return made
     }
 }

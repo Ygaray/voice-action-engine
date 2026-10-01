@@ -20,6 +20,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.cancellation.CancellationException
 
+private const val ATTEMPT_TIMEOUT = "timeout"
+private const val ATTEMPT_CANCELLED = "cancelled"
+private const val ATTEMPT_FAILED = "failed"
+
 /**
  * An app's composed ladder. Build one with [commandPipeline] and call [execute] once per spoken command.
  */
@@ -59,6 +63,9 @@ public class CommandPipeline internal constructor(
             throw e
         } finally {
             coordinator.close()
+            // A tier still in flight (cancelled, or ended by an error nothing collapsed) must reach the trace.
+            val unfinished = if (cancelled) ATTEMPT_CANCELLED else ATTEMPT_FAILED
+            withContext(NonCancellable) { recorder.flushInFlight(unfinished, null) }
             val effects = snapshotEffects(runId, input.parentRunId, coordinator, recorder)
             closeRun(sink, runId, recorder, terminationOf(outcome, cancelled, effects))
         }
@@ -136,6 +143,7 @@ public class CommandPipeline internal constructor(
         recorder: RunRecorder,
     ): CommandOutcome {
         recorder.recordCode(TraceCode.ENGINE_TIMEOUT)
+        recorder.flushInFlight(ATTEMPT_TIMEOUT, FailureReason.Timeout())
         val effects = snapshotEffects(runId, parentRunId, coordinator, recorder)
         return CommandOutcome.Failed(effects, FailureReason.Timeout(), null)
     }
@@ -149,6 +157,7 @@ public class CommandPipeline internal constructor(
         recorder: RunRecorder,
     ): CommandOutcome {
         val reason = if (fault.timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(fault.errorClass)
+        recorder.flushInFlight(ATTEMPT_FAILED, reason)
         return CommandOutcome.Failed(snapshotEffects(runId, parentRunId, coordinator, recorder), reason, null)
     }
 

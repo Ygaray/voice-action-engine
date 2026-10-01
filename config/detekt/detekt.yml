@@ -5,6 +5,9 @@ build:
   maxIssues: 0
 
 complexity:
+  TooManyFunctions:
+    # RunRecorder is the run's one trace and event sink: one method per kind of happening, none of them long.
+    thresholdInClasses: 12
   LongParameterList:
     # Request and policy value classes carry many defaulted parameters; defaults are not call-site burden.
     constructorThreshold: 8
