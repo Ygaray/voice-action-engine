@@ -69,9 +69,12 @@ case "${1:-}" in
       "run-as "*"sha256sum files/fixture/"*)
         [ -f "$STATE_DIR/appfixture" ] || exit 1
         echo "$(sha256sum "$STATE_DIR/appfixture" | cut -d' ' -f1)  files/fixture/sb-a10-fixture.json"; exit 0 ;;
-      "run-as "*" ls files/test-keys")
-        if [ "${KEYS_PRESENT:-0}" -gt 0 ]; then echo zz-secret-name-marker.dat; exit 0; fi
-        echo "ls: files/test-keys: No such file or directory"; exit 1 ;;
+      "run-as "*"if [ -d files/test-keys ]; then ls files/test-keys; fi; echo __rc=\$?"*)
+        # KEYS_ADB_TIMEOUT: adb printed nothing and was killed (rc 124); KEYS_LS_FAILS: the listing itself failed.
+        [ "${KEYS_ADB_TIMEOUT:-0}" = 1 ] && exit 124
+        if [ "${KEYS_LS_FAILS:-0}" = 1 ]; then echo "ls: files/test-keys: Permission denied"; echo "__rc=1"; exit 0; fi
+        if [ "${KEYS_PRESENT:-0}" -gt 0 ]; then echo zz-secret-name-marker.dat; fi
+        echo "__rc=0"; exit 0 ;;
       "run-as "*" rm -rf "*) rm -f "$STATE_DIR/appfixture"; exit 0 ;;
     esac
     exit 1 ;;
@@ -250,6 +253,13 @@ assert_no_calls verify_keys_gone_present " install "
 assert_no_calls verify_keys_gone_present " uninstall "
 assert_no_calls verify_keys_gone_present " push "
 assert_no_calls verify_keys_gone_present "rm "
+
+MUTATES=1 run_scenario verify_keys_gone_absent 0 "test-keys dir empty" "OK sub=verify-keys-gone keys_gone=yes" verify-keys-gone
+# A timeout (adb prints nothing and exits 124) must NOT read as "keys gone": it is an unproven check, an ERROR.
+KEYS_ADB_TIMEOUT=1 MUTATES=1 run_scenario keys_gone_adb_timeout 2 "could not prove" "ERROR sub=verify-keys-gone reason=check_unproven" verify-keys-gone
+# A failed listing (permission denied, rc 1 sentinel) is unproven too.
+KEYS_LS_FAILS=1 MUTATES=1 run_scenario keys_gone_ls_failed 2 "could not prove" "ERROR sub=verify-keys-gone reason=check_unproven" verify-keys-gone
+! printf '%s\n' "$LAST_OUT" | grep -qF "Permission denied" || die "keys_gone_ls_failed: the raw adb text was printed"
 
 PRE_INSTALLED=1 MUTATES=1 run_scenario cleanup_happy 0 "sample package removed" "OK sub=cleanup" cleanup
 assert_calls cleanup_happy "-s R5CT10XNKQN uninstall $PKG"

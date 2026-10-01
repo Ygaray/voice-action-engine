@@ -353,19 +353,28 @@ do_capture_save() {
   finish 0 OK "kept=$n dropped=${d:-0} file=$out"
 }
 
+# The proof must be POSITIVE: the device shell prints a sentinel (__rc=0) after listing the directory, so an adb failure, a
+# timeout, an offline device or a refused run-as (all of which print nothing, or an error) can never read as "keys gone".
 do_verify_keys_gone() {
-  local out count
-  out="$(adbt shell "run-as $PKG ls files/test-keys" 2>&1 | strip_cr)"
+  local out rc body count
+  out="$(adbt shell "run-as $PKG sh -c 'if [ -d files/test-keys ]; then ls files/test-keys; fi; echo __rc=\$?'" 2>&1 | strip_cr; exit "${PIPESTATUS[0]}")"
+  rc=$?
   case "$out" in
-    '' | *"No such file"*)
-      echo "test-keys dir empty"
-      finish 0 OK "keys_gone=yes"
-      ;;
     "run-as:"* | *"not debuggable"* | *"Unknown package"*)
       finish 2 ERROR "reason=run_as_failed target=$TARGET"
       ;;
   esac
-  count="$(printf '%s\n' "$out" | grep -c .)"
+  # Success needs adb to have exited 0 AND the last output line to be exactly the sentinel.
+  if [ "$rc" -ne 0 ] || [ "$(printf '%s\n' "$out" | tail -n 1)" != "__rc=0" ]; then
+    echo "could not prove the plaintext key directory is empty (adb failed, timed out or the listing failed)"
+    finish 2 ERROR "reason=check_unproven target=$TARGET"
+  fi
+  body="$(printf '%s\n' "$out" | sed '$d')"
+  if [ -z "$body" ]; then
+    echo "test-keys dir empty"
+    finish 0 OK "keys_gone=yes"
+  fi
+  count="$(printf '%s\n' "$body" | grep -c .)"
   echo "plaintext key files are still present on the device (count only; names and contents are never printed)"
   finish 1 FAIL "reason=plaintext_keys_present count=$count"
 }
