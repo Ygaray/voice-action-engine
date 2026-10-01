@@ -1,0 +1,104 @@
+== Phase 3 phase gate  plan=03-10  base=5fb61697b50f18bb4981715e4579c749448b33ef  run=2026-10-01 (UTC)
+
+Run on the merged tree after the RedactionCanaryTest routed-path commit. Pre-existing unrelated changes under .planning/graphs/, .planning/config.json, .planning/v1.0-MILESTONE-RUN.md and untracked bookkeeping were left unstaged.
+
+[1] $ ./gradlew check   (03:50:19Z)
+exit=0
+> Task :sample:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :sample:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :sample:lintReportDebug UP-TO-DATE
+> Task :sample:lintDebug
+> Task :sample:lint
+> Task :sample:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :sample:compileDebugUnitTestKotlin NO-SOURCE
+> Task :sample:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :sample:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :sample:processDebugJavaRes UP-TO-DATE
+> Task :sample:processDebugUnitTestJavaRes NO-SOURCE
+> Task :sample:testDebugUnitTest NO-SOURCE
+> Task :sample:test UP-TO-DATE
+> Task :sample:check
+
+[Incubating] Problems report is available at: file:///home/yahir/Projects/Reusable/android/voice-action-engine/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.4.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 14s
+137 actionable tasks: 29 executed, 108 up-to-date
+
+[1b] $ ./gradlew :core:cleanTest :core:test --no-build-cache   (real execution, not cache/up-to-date)  (03:50:42Z)
+exit=0
+> Task :core:testFixturesClasses UP-TO-DATE
+> Task :core:testFixturesJar UP-TO-DATE
+> Task :core:testClasses UP-TO-DATE
+> Task :core:test
+BUILD SUCCESSFUL in 26s
+
+[2] per-class JUnit results under core/build/test-results/test/ (classes named in the plan's second truth)
+TranscriptTypesTest        tests=12 skipped=0 failures=0 errors=0
+NativeReplayTest           tests=5 skipped=0 failures=0 errors=0
+ModelCapabilityTableTest   tests=10 skipped=0 failures=0 errors=0
+NoHardCodedConstantsTest   tests=12 skipped=0 failures=0 errors=0
+SeamTypesTest              tests=15 skipped=0 failures=0 errors=0
+TraceTest                  tests=12 skipped=0 failures=0 errors=0
+FakeAiProviderTest         tests=11 skipped=0 failures=0 errors=0
+ModelRouterTest            tests=27 skipped=0 failures=0 errors=0
+ProviderRouterTest         tests=18 skipped=0 failures=0 errors=0
+OnDeviceGateTest           tests=13 skipped=0 failures=0 errors=0
+KeyIsolationTest           tests=5 skipped=0 failures=0 errors=0
+CacheNotEngagedTest        tests=31 skipped=0 failures=0 errors=0
+ApiShapeTest               tests=9 skipped=0 failures=0 errors=0
+FailureTaxonomyTest        tests=14 skipped=0 failures=0 errors=0
+ToolSpecClarificationTest  tests=13 skipped=0 failures=0 errors=0
+RedactionCanaryTest        tests=3 skipped=0 failures=0 errors=0
+TierPolicyTest             tests=24 skipped=0 failures=0 errors=0
+EventsTest                 tests=7 skipped=0 failures=0 errors=0
+ALL :core classes (44 files): tests=406 failures=0 errors=0
+
+[3] $ scripts/verify-negative-controls.sh   (03:51:15Z)
+exit=0
+ok    [core gains an HTTP dependency] went red (non-allow-listed)
+ok    [forbidden project edge providers -> keystore] went red (forbidden project dependencies)
+ok    [DI artifact on the providers classpath] went red (resolves DI artifacts)
+ok    [explicitApi switched off] went red (expected Strict)
+ok    [OkHttp compile floor raised] went red (must be 4.12.0)
+ok    [core compiled at JVM 17] went red (Non-JVM-11 class files)
+ok    [testFixtures leak into the published component] went red (testFixtures leaked)
+== Part 3: matrix guard rejects a wrong expected OkHttp version (the marker also proves which version each leg really ran)
+ok    [guard, 4.12.0 leg] went red (OKHTTP_RUNTIME=4.12.0 expected=9.9.9)
+ok    [guard, 5.2.1 leg] went red (OKHTTP_RUNTIME=5.2.1 expected=9.9.9)
+ok    [guard, 5.5.0 leg] went red (OKHTTP_RUNTIME=5.5.0 expected=9.9.9)
+negative-control failures: 0
+
+[4] $ scripts/verify-repo-hygiene.sh   (03:54:06Z)
+exit=0
+HYGIENE OK
+
+[5] $ scripts/verify-api-dump.sh   (03:54:06Z)
+exit=0
+== a. empty-surface dump
+   core/api.txt: 1517 lines
+   providers/api.txt: 1 lines
+   keystore/api.txt: 1 lines
+== b. planted public class -> dump -> check
+== c. additive change stays green
+== d. removal goes red
+API DUMP PROOF OK (real tree untouched; copy removed on exit)
+
+[6] $ scripts/review-api-surface.sh --expect-sealed-complete --out .planning/phases/03-transcript-types-providerrouter-on-device-gate/evidence/api-surface-review.txt   (03:56:19Z)
+exit=0
+API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=161
+
+[7] suppression count, planning-id scan, module api.txt check   (03:56:27Z)
+suppressions in core/src/main: 1 (expect 1)
+core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/internal/Guarded.kt:43:@Suppress("TooGenericExceptionCaught")
+planning ids in main/testFixtures: [] (expect empty)
+ls: ls: cannot access 'core/api.txt': No such file or directory
+ls: ls: cannot access 'providers/api.txt': No such file or directory
+ls: ls: cannot access 'keystore/api.txt': No such file or directory
+git status of module api.txt: [] (expect empty)
+exit=0
