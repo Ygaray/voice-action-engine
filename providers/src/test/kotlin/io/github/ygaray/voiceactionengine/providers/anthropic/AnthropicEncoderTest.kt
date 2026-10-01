@@ -57,9 +57,10 @@ class AnthropicEncoderTest {
         toolChoice: ToolChoice = ToolChoice.Auto(),
         cache: CacheDirective = CacheDirective(true),
         capabilities: ModelCapabilities = caching,
+        singleToolCall: Boolean = false,
     ): ProviderRequest = ProviderRequest(
         model,
-        ModelRequest(system, messages, tools, toolChoice, 256, cache),
+        ModelRequest(system, messages, tools, toolChoice, 256, cache, singleToolCall),
         Credential(ProviderId.ANTHROPIC, "sk-test-key"),
         capabilities,
     )
@@ -186,6 +187,61 @@ class AnthropicEncoderTest {
         assertTrue(tools[0].getValue("strict").jsonPrimitive.boolean)
         assertNull(tools[1]["strict"])
         assertNull(tools[2]["strict"])
+    }
+
+    @Test
+    fun aSingleToolCallPutsTheParallelOffSwitchInsideToolChoiceInEveryShape() {
+        val forced = parse(call(toolChoice = ToolChoice.Required("add_item"), singleToolCall = true))
+        assertEquals(
+            buildJsonObject { put("type", "tool"); put("name", "add_item"); put("disable_parallel_tool_use", true) },
+            forced.getValue("tool_choice"),
+        )
+
+        val noForcing = ModelCapabilities { supportsForcedToolChoice = false }
+        val reshaped = parse(
+            call(toolChoice = ToolChoice.Required("add_item"), capabilities = noForcing, singleToolCall = true),
+        )
+        assertEquals(
+            buildJsonObject { put("type", "auto"); put("disable_parallel_tool_use", true) },
+            reshaped.getValue("tool_choice"),
+        )
+
+        val auto = parse(call(singleToolCall = true))
+        assertEquals(
+            buildJsonObject { put("type", "auto"); put("disable_parallel_tool_use", true) },
+            auto.getValue("tool_choice"),
+        )
+    }
+
+    @Test
+    fun withoutTheFlagNoToolChoiceByteChanges() {
+        val text = encode(call(toolChoice = ToolChoice.Required("add_item")))
+
+        assertTrue(text.contains("\"tool_choice\":{\"type\":\"tool\",\"name\":\"add_item\"}"))
+        assertFalse(text.contains("disable_parallel_tool_use"))
+        assertTrue(encode(call()).contains("\"tool_choice\":{\"type\":\"auto\"}"))
+    }
+
+    @Test
+    fun aSingleToolCallRequestWithoutToolsSendsNoToolChoiceAndNoSwitch() {
+        val text = encode(call(tools = emptyList(), singleToolCall = true))
+
+        assertNull(parse(call(tools = emptyList(), singleToolCall = true))["tool_choice"])
+        assertFalse(text.contains("disable_parallel_tool_use"))
+    }
+
+    @Test
+    fun theSingleToolCallFlagKeepsTheKeyOrderAndTheCachedPrefixUntouched() {
+        val flagged = parse(call(toolChoice = ToolChoice.Required("add_item"), singleToolCall = true))
+        val plain = parse(call(toolChoice = ToolChoice.Required("add_item")))
+
+        assertEquals(
+            listOf("model", "max_tokens", "tools", "tool_choice", "system", "messages"),
+            flagged.keys.toList(),
+        )
+        assertEquals(plain.getValue("tools"), flagged.getValue("tools"))
+        assertEquals(plain.getValue("system"), flagged.getValue("system"))
+        assertEquals(plain.getValue("messages"), flagged.getValue("messages"))
     }
 
     @Test

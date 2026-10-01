@@ -23,6 +23,7 @@ private const val ROLE_USER = "user"
 private const val CONTENT = "content"
 private const val TYPE = "type"
 private const val TEXT = "text"
+private const val DISABLE_PARALLEL_TOOL_USE = "disable_parallel_tool_use"
 
 // The most tools one request may mark strict; Anthropic rejects a request with more.
 private const val MAX_STRICT_TOOLS = 20
@@ -41,6 +42,9 @@ private const val MAX_STRICT_TOOLS = 20
  * With [reshape] the request asks for a tool the model may not be forced to call: the tool choice is `auto`, the tools
  * that can take strict mode get it, and one line naming the required tool closes the last user message. The system text
  * and the tool definitions are otherwise untouched.
+ *
+ * A single-tool-call request adds the parallel-off switch inside `tool_choice` in both shapes, so it never touches the
+ * cached tools and system prefix.
  */
 internal fun encodeAnthropicRequest(call: ProviderRequest, reshape: Boolean = false): ByteArray {
     val request = call.request
@@ -96,6 +100,7 @@ private fun encodeToolChoice(call: ProviderRequest, reshape: Boolean): JsonObjec
         } else {
             put(TYPE, "auto")
         }
+        if (call.request.singleToolCall) put(DISABLE_PARALLEL_TOOL_USE, true)
     }
 }
 

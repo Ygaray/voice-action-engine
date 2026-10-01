@@ -54,13 +54,14 @@ class AnthropicForcedToolTest {
 
     private val addItem = ToolSpec("add_item", "Adds one item.", eligibleSchema())
 
-    private fun requiredRequest(): ModelRequest = ModelRequest(
+    private fun requiredRequest(singleToolCall: Boolean = false): ModelRequest = ModelRequest(
         system,
         listOf(UserMessage("add milk")),
         listOf(addItem),
         ToolChoice.Required("add_item"),
         256,
         CacheDirective(true),
+        singleToolCall,
     )
 
     private fun toolAnswer(): MockResponse = MockResponse().setResponseCode(200).setBody(
@@ -75,13 +76,13 @@ class AnthropicForcedToolTest {
     }
 
     /** Runs the request through a real pipeline against one tool answer; [override] patches the capabilities. */
-    private fun throughPipeline(model: String, override: Boolean): Sent = runBlocking {
+    private fun throughPipeline(model: String, override: Boolean, singleToolCall: Boolean = false): Sent = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(toolAnswer())
             server.start()
             val results = RecordingSink<ModelResult>()
             val step: StrategyStep = { _, session ->
-                results.record(session.model().complete(requiredRequest()))
+                results.record(session.model().complete(requiredRequest(singleToolCall)))
                 StrategyOutcome.Completed(null)
             }
             val pipeline = commandPipeline {
@@ -156,6 +157,40 @@ class AnthropicForcedToolTest {
         assertFalse(sent.bodyText.contains("Call the add_item tool"))
         assertFalse(sent.bodyText.contains("\"strict\""))
         assertTrue(sent.result is ModelResult.Success)
+    }
+
+    @Test(timeout = 30_000)
+    fun aSingleToolCallForcedRequestCarriesTheParallelOffSwitchInsideToolChoice() {
+        val sent = throughPipeline("claude-opus-5-5", override = true, singleToolCall = true)
+
+        assertEquals(1, sent.requestCount)
+        assertEquals(
+            buildJsonObject {
+                put("type", "tool")
+                put("name", "add_item")
+                put("disable_parallel_tool_use", true)
+            },
+            sent.body["tool_choice"],
+        )
+        assertEquals(1, Regex("disable_parallel_tool_use").findAll(sent.bodyText).count())
+        assertToolCallReturned(sent.result)
+    }
+
+    @Test(timeout = 30_000)
+    fun aSingleToolCallReshapedRequestKeepsTheSwitchAndTheInstructionLine() {
+        val sent = throughPipeline("claude-opus-5-5", override = false, singleToolCall = true)
+
+        assertEquals(1, sent.requestCount)
+        assertEquals(
+            buildJsonObject {
+                put("type", "auto")
+                put("disable_parallel_tool_use", true)
+            },
+            sent.body["tool_choice"],
+        )
+        val last = sent.lastContentBlock()
+        assertEquals("Call the add_item tool with your result.", last["text"]!!.jsonPrimitive.content)
+        assertToolCallReturned(sent.result)
     }
 
     private val unknownModel = "claude-new-model"
