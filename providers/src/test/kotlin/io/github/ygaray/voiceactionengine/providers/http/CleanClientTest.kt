@@ -1,6 +1,7 @@
 package io.github.ygaray.voiceactionengine.providers.http
 
 import kotlinx.coroutines.runBlocking
+import okhttp3.Authenticator
 import okhttp3.Call
 import okhttp3.EventListener
 import okhttp3.OkHttpClient
@@ -8,6 +9,7 @@ import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -68,5 +70,71 @@ class CleanClientTest {
         assertEquals(60_000L, derived.callTimeoutMillis.toLong())
         assertEquals(60_000L, derived.readTimeoutMillis.toLong())
         assertEquals(10_000L, derived.connectTimeoutMillis.toLong())
+    }
+
+    @Test
+    fun redirectsAreReturnedUnfollowedAndTheOtherHostSeesNothing() = runBlocking {
+        val app = OkHttpClient.Builder().followRedirects(true).followSslRedirects(true).build()
+        val derived = cleanClient(app, 60_000, 60_000)
+        listOf(301, 302, 303, 307, 308).forEach { status ->
+            MockWebServer().use { a ->
+                MockWebServer().use { b ->
+                    b.start()
+                    a.enqueue(MockResponse().setResponseCode(status).setHeader("Location", b.url("/stolen").toString()))
+                    a.start()
+                    val request = Request.Builder()
+                        .url(a.url("/v1/messages"))
+                        .header("x-api-key", "sk-test")
+                        .post(OneShotJsonBody("{}".toByteArray()))
+                        .build()
+
+                    val reply = derived.newCall(request).await()
+
+                    assertEquals(status, reply.code)
+                    assertEquals("redirect $status reached the other host", 0, b.requestCount)
+                    assertEquals(1, a.requestCount)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun timeoutsComeFromTheArguments() {
+        val withApp = cleanClient(OkHttpClient(), 1_234, 5_678)
+        assertEquals(1_234L, withApp.callTimeoutMillis.toLong())
+        assertEquals(5_678L, withApp.readTimeoutMillis.toLong())
+        assertEquals(10_000L, withApp.connectTimeoutMillis.toLong())
+
+        val withoutApp = cleanClient(null, 1_234, 5_678)
+        assertEquals(1_234L, withoutApp.callTimeoutMillis.toLong())
+        assertEquals(5_678L, withoutApp.readTimeoutMillis.toLong())
+        assertFalse(withoutApp.followRedirects)
+        assertFalse(withoutApp.followSslRedirects)
+    }
+
+    @Test
+    fun appAuthenticatorNeverRunsForA401() = runBlocking {
+        val authenticatorCalls = AtomicInteger()
+        val app = OkHttpClient.Builder()
+            .authenticator(
+                Authenticator { _, _ ->
+                    authenticatorCalls.incrementAndGet()
+                    null
+                },
+            )
+            .build()
+        val derived = cleanClient(app, 60_000, 60_000)
+
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(401).setBody("no"))
+            server.start()
+
+            val reply = derived.newCall(Request.Builder().url(server.url("/")).build()).await()
+
+            assertEquals(401, reply.code)
+            assertFalse(reply.isSuccessful)
+            assertEquals(0, authenticatorCalls.get())
+            assertEquals(1, server.requestCount)
+        }
     }
 }
