@@ -1,0 +1,31 @@
+Phase 9 plan 09-02 seam sign-off (task 3)
+Date: 2026-10-01
+Relay: relayed by the milestone master from yahir-gsd-control-plane-f2 -> executor (reply recorded verbatim below)
+
+--- reply (verbatim) ---
+Orchestrator reply, relayed verbatim by the milestone master from yahir-gsd-control-plane-f2 on 2026-10-01:
+
+AgenticLoop seam verdict: APPROVE-WITH-CHANGES. SB signed off; this is FROZEN for v1.0.0. Proceed with 09-02 Task 3.
+- 5: relax duplicate-id rejection to within-turn only (SB parity, AnthropicAgentLoop.kt:212-224 per-turn seenIds). Cross-turn reuse is allowed, so the OpenRouter call_0 regeneration must not fail.
+- 3: keep held, errored and previewed distinguishable in ExecutedAction (a status/kind, not just mutating=false). If the shape can't express held today, add it now, because it freezes at v1.0.0. SB looks up the tool's classification by name itself.
+- Precedence: when the token ceiling and the iteration cap trip on the same turn, report BudgetExceeded(TOKENS) (SB reports TOKEN_CEILING), and KDoc the order.
+- 10: add `edit_text_card` to the CLN-02 deny-list (SB Phase 178 adapter).
+- 1, 2, 4, 6, 7, 8, 9: approved as written. SB confirmed byte-exact userTurn parity and the 6/60000/4096 limits.
+
+Verdict: SIGNOFF: APPROVE-WITH-CHANGES. Per the plan's resume-signal, apply the changes and amend the later plans (PLANS-AMENDED: yes) where they are affected:
+- item 5 changes the cross-turn duplicate-id test and its validation;
+- item 3 may add an additive ExecutedAction status/kind member, decided now before the freeze;
+- the precedence rule needs a test where both caps trip on the same turn and TOKENS wins;
+- item 10 updates the CLN-02 deny-list in 09-08.
+Any change that contradicts a locked decision is returned to the master, not applied.
+--- end reply ---
+
+SUBSTITUTIONS:
+none (no identifier is renamed: ToolExecutor, prepare, UNKNOWN_TOOL, TOOL_PREPARE_ERROR and READ_TOOL_MUTATION_REJECTED stand as built in 09-02 Tasks 1-2)
+
+CARRY: 5 -> 09-05 : relax duplicate-id rejection to within-turn only (a turn that repeats an id within itself is still rejected whole as Failed(MalformedResponse)); cross-turn id reuse is allowed, so the OpenRouter call_0 regeneration must not fail; amend the cross-turn duplicate-id test and its validation accordingly
+CARRY: 3 -> 09-06 : ExecutedAction must keep held, errored and previewed distinguishable (a status/kind, not just mutating=false); ActionKind already carries HELD, PREVIEW and IS_ERROR, so verify the loop's outcome mapping preserves them and add an additive status/kind only if the shape cannot express held today, decided before the v1.0.0 freeze
+CARRY: precedence -> 09-04 and 09-06 : when the token ceiling and the iteration cap trip on the same turn, report BudgetExceeded(TOKENS); KDoc the order; add a test where both caps trip on the same turn and TOKENS wins
+CARRY: 10 -> 09-08 : add edit_text_card to the CLN-02 deny-list
+
+SIGNOFF: APPROVE-WITH-CHANGES
