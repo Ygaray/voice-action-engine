@@ -26,11 +26,15 @@ import io.github.ygaray.voiceactionengine.providers.anthropic.successBody
 import io.github.ygaray.voiceactionengine.providers.anthropic.textBlock
 import io.github.ygaray.voiceactionengine.providers.anthropic.toolUseBlock
 import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsProvider
+import io.github.ygaray.voiceactionengine.providers.chat.chatBody
+import io.github.ygaray.voiceactionengine.providers.chat.chatMessage
+import io.github.ygaray.voiceactionengine.providers.chat.chatToolCall
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -187,6 +191,15 @@ private fun toolUseAnswer(vararg calls: Pair<String, String>): String = successB
     "tool_use",
 )
 
+private fun chatCallAnswer(finishReason: String, vararg calls: Pair<String, String>): String = chatBody(
+    chatMessage(null, calls.map { (id, value) -> chatToolCall(id, SAVE_TOOL, entry(value).toString()) }),
+    finishReason,
+)
+
+private fun chatFinalAnswer(): String = chatBody(chatMessage(FINAL_TEXT), "stop")
+
+private val chatDialects = listOf(LoopDialect.OPENAI, LoopDialect.OPENROUTER)
+
 private fun finalAnswer(): String = successBody(listOf(textBlock(FINAL_TEXT)), "end_turn")
 
 /** The agentic loop over the real Anthropic transport, exactly as a consumer app wires it. */
@@ -265,5 +278,126 @@ class AgenticLoopWireTest {
         val ids = exchange.bodies[1].toolResults().map { it.jsonObject.getValue("tool_use_id").jsonPrimitive.content }
         assertEquals(listOf("toolu_a", "toolu_b"), ids)
         assertEquals(listOf(ActionKind.COMMITTED, ActionKind.COMMITTED), exchange.committed)
+    }
+
+    private fun throughChat(
+        dialect: LoopDialect,
+        answers: List<String>,
+        gate: ScriptedGate = ScriptedGate.admitAll(),
+        tools: List<ToolSpec> = listOf(saveTool()),
+    ): LoopExchange = driveLoop(LoopScenario(dialect, answers, gate, tools))
+
+    private fun twoCalls(): List<String> =
+        listOf(chatCallAnswer("tool_calls", "call_a" to "milk", "call_b" to "eggs"), chatFinalAnswer())
+
+    @Test(timeout = 30_000)
+    fun openAiTwoTurnRunAnswersEveryCallWithAToolMessage() {
+        val exchange = throughChat(LoopDialect.OPENAI, twoCalls())
+
+        assertEquals(2, exchange.bodies.size)
+        val second = exchange.bodies[1].messages().map { it.jsonObject }
+        assertEquals(listOf("system", "user", "assistant", "tool", "tool"), second.map { it.role() })
+        val calls = second[2].getValue("tool_calls").jsonArray
+        assertEquals(listOf("call_a", "call_b"), calls.map { it.jsonObject.getValue("id").jsonPrimitive.content })
+        val answered = second.drop(3).map { it.getValue("tool_call_id").jsonPrimitive.content }
+        assertEquals(listOf("call_a", "call_b"), answered)
+        second.drop(3).forEach { assertEquals(RESULT_CONTENT, it.getValue(CONTENT).jsonPrimitive.content) }
+        val outcome = exchange.outcome
+        assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+        assertEquals(FINAL_TEXT, (outcome as CommandOutcome.Completed).reply)
+        assertEquals(listOf(ActionKind.COMMITTED, ActionKind.COMMITTED), exchange.committed)
+    }
+
+    @Test(timeout = 30_000)
+    fun openAiFirstUserMessageIsTheSbShapedTextExactly() {
+        val exchange = throughChat(LoopDialect.OPENAI, twoCalls())
+
+        assertEquals(2, exchange.bodies.size)
+        exchange.bodies.forEach { assertEquals(SB_FIRST_TURN, it.firstUserText()) }
+    }
+
+    @Test(timeout = 30_000)
+    fun openRouterFirstUserMessageIsTheSbShapedTextExactly() {
+        val exchange = throughChat(LoopDialect.OPENROUTER, twoCalls())
+
+        assertEquals(2, exchange.bodies.size)
+        exchange.bodies.forEach { assertEquals(SB_FIRST_TURN, it.firstUserText()) }
+    }
+
+    @Test(timeout = 30_000)
+    fun chatSystemAndToolsAreIdenticalOnEveryTurn() {
+        chatDialects.forEach { dialect ->
+            val exchange = throughChat(dialect, twoCalls())
+
+            assertEquals(dialect.toString(), 2, exchange.bodies.size)
+            val (first, second) = exchange.bodies.map { it.cachedPrefix(dialect) }
+            assertEquals(dialect.toString(), first, second)
+        }
+    }
+
+    @Test(timeout = 30_000)
+    fun chatHeldCallSendsTheFixedNoticeBytes() {
+        chatDialects.forEach { dialect ->
+            val exchange = throughChat(dialect, twoCalls(), ScriptedGate.holdAll())
+
+            assertEquals(dialect.toString(), 2, exchange.bodies.size)
+            val tools = exchange.bodies[1].messages().map { it.jsonObject }.filter { it.role() == "tool" }
+            assertEquals(dialect.toString(), 2, tools.size)
+            tools.forEach { assertEquals(HELD_BYTES, it.getValue(CONTENT).jsonPrimitive.content) }
+            assertEquals(dialect.toString(), 2, exchange.outcome.held.size)
+        }
+    }
+
+    @Test(timeout = 30_000)
+    fun chatToolChoiceIsAutoOnEveryTurn() {
+        chatDialects.forEach { dialect ->
+            val exchange = throughChat(dialect, twoCalls())
+
+            assertEquals(dialect.toString(), 2, exchange.bodies.size)
+            exchange.bodies.forEach { assertEquals(dialect.toString(), JsonPrimitive("auto"), it[TOOL_CHOICE]) }
+        }
+    }
+
+    @Test(timeout = 30_000)
+    fun openAiNonStrictToolsLeaveParallelCallsOn() {
+        val exchange = throughChat(LoopDialect.OPENAI, twoCalls(), tools = listOf(saveTool(withOptional = true)))
+
+        assertEquals(2, exchange.bodies.size)
+        exchange.bodyTexts.forEach { assertFalse(it.contains("parallel_tool_calls")) }
+        assertEquals(listOf(ActionKind.COMMITTED, ActionKind.COMMITTED), exchange.committed)
+    }
+
+    @Test(timeout = 30_000)
+    fun openAiStrictEligibleToolTurnsParallelCallsOff() {
+        val answers = listOf(chatCallAnswer("tool_calls", "call_a" to "milk"), chatFinalAnswer())
+
+        val exchange = throughChat(LoopDialect.OPENAI, answers)
+
+        assertEquals(2, exchange.bodies.size)
+        exchange.bodies.forEach { assertEquals(JsonPrimitive(false), it["parallel_tool_calls"]) }
+    }
+
+    @Test(timeout = 30_000)
+    fun openRouterNeverSendsParallelToolCalls() {
+        listOf(listOf(saveTool()), listOf(saveTool(withOptional = true))).forEach { tools ->
+            val exchange = throughChat(LoopDialect.OPENROUTER, twoCalls(), tools = tools)
+
+            assertEquals(2, exchange.bodies.size)
+            exchange.bodyTexts.forEach { assertFalse(it.contains("parallel_tool_calls")) }
+        }
+    }
+
+    @Test(timeout = 30_000)
+    fun aStopFinishReasonWithToolCallsDispatchesOnTheWire() {
+        val answers = listOf(chatCallAnswer("stop", "call_a" to "milk"), chatFinalAnswer())
+
+        val exchange = throughChat(LoopDialect.OPENROUTER, answers)
+
+        assertEquals(2, exchange.bodies.size)
+        assertEquals(listOf(ActionKind.COMMITTED), exchange.committed)
+        val tool = exchange.bodies[1].messages().map { it.jsonObject }.last()
+        assertEquals("tool", tool.role())
+        assertEquals("call_a", tool.getValue("tool_call_id").jsonPrimitive.content)
+        assertEquals(FINAL_TEXT, (exchange.outcome as CommandOutcome.Completed).reply)
     }
 }
