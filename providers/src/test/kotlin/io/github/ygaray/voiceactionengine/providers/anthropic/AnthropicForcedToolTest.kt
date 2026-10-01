@@ -17,6 +17,7 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.testing.StrategyStep
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.runBlocking
@@ -34,6 +35,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
@@ -325,5 +327,53 @@ class AnthropicForcedToolTest {
 
             assertEquals(4, server.requestCount)
         }
+    }
+
+    private fun textAnswer(stopReason: String): MockResponse =
+        MockResponse().setResponseCode(200).setBody(successBody(listOf(textBlock("Sure.")), stopReason))
+
+    private fun autoRequest(): ModelRequest =
+        ModelRequest(system, listOf(UserMessage("add milk")), listOf(addItem), 256)
+
+    @Test(timeout = 30_000)
+    fun aReshapedRequiredRequestAnsweredWithTextOnlyIsNoToolCallAndNeverRetried() {
+        val run = run("claude-opus-5-5", requiredRequest(), textAnswer("end_turn"), toolAnswer())
+
+        assertEquals("no_tool_call", run.code())
+        assertNull((run.result as ModelResult.Failure).details)
+        assertEquals(1, run.requestCount)
+        assertTrue(run.waits.isEmpty())
+    }
+
+    @Test(timeout = 30_000)
+    fun aNativelyForcedRequestAnsweredWithTextOnlyIsNoToolCall() {
+        val run = run("claude-haiku-4-5", requiredRequest(), textAnswer("end_turn"), toolAnswer())
+
+        assertEquals("no_tool_call", run.code())
+        assertEquals(1, run.requestCount)
+    }
+
+    @Test(timeout = 30_000)
+    fun anAutoRequestAnsweredWithTextIsASuccess() {
+        val run = run("claude-haiku-4-5", autoRequest(), textAnswer("end_turn"))
+
+        assertEquals(StopReason.END_TURN, (run.result as ModelResult.Success).response.stopReason)
+    }
+
+    @Test(timeout = 30_000)
+    fun aRefusalOrATruncationOfARequiredRequestStaysASuccessWithItsStopReason() {
+        val refused = run("claude-opus-5-5", requiredRequest(), textAnswer("refusal"))
+        val truncated = run("claude-haiku-4-5", requiredRequest(), textAnswer("max_tokens"))
+
+        assertEquals(StopReason.REFUSAL, (refused.result as ModelResult.Success).response.stopReason)
+        assertEquals(StopReason.MAX_TOKENS, (truncated.result as ModelResult.Success).response.stopReason)
+    }
+
+    @Test(timeout = 30_000)
+    fun aReshapeFollowedByATextOnlyAnswerIsNoToolCallAfterTwoRequests() {
+        val run = run(unknownModel, requiredRequest(), toolChoiceRejection(), textAnswer("end_turn"))
+
+        assertEquals("no_tool_call", run.code())
+        assertEquals(2, run.requestCount)
     }
 }
