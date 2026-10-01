@@ -5,9 +5,11 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 /**
  * Supplies the system text and the tools for one command. A strategy calls it once per command.
  *
- * The system text and the tool list must not depend on the command: together they form the prefix a provider caches,
- * so anything that varies per command would break the cache. Per-command text (the date, the transcript) belongs in
- * the user turn, which the user-turn renderer produces.
+ * The system text and the tool list should not depend on the command's content: together they form the prefix a
+ * provider caches, so anything that varies per command breaks the cache. [tooling] receives the command only so that a
+ * stable fact about it, such as its language, can select between a small fixed set of snapshots; each variant costs
+ * its own cache write. Per-command text (the date, the transcript) belongs in the user turn, which the user-turn
+ * renderer produces.
  */
 public fun interface ToolSpecProvider {
     /** Returns the tooling for the command described by [input]. */
