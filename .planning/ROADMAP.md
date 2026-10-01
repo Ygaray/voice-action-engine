@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Transcript Types, ProviderRouter & On-Device Gate** - §6.2 step 3a-i: neutral multi-turn transcript, per-command provider/model/key seam, `ON_DEVICE` slot with clean fallback (pure JVM) (completed 2026-09-30)
 - [x] **Phase 4: Anthropic Transport & OkHttp Matrix** - §6.2 step 3a-ii (A1 must-pass): cache-correct Anthropic transport green on OkHttp 4.12.0 / 5.2.1 / 5.5.0 (completed 2026-10-01)
 - [x] **Phase 5: OpenAI & OpenRouter Transports** - §6.2 step 3b: one Chat Completions transport for both, real wire shapes and quirks mapped to typed outcomes (completed 2026-10-01)
-- [ ] **Phase 6: Keystore** - §6.2 step 4: BYO keys encrypted per provider in the app's own DataStore, existing aliases preserved
+- [x] **Phase 6: Keystore** - §6.2 step 4: BYO keys encrypted per provider in the app's own DataStore, existing aliases preserved (completed 2026-10-01)
 - [ ] **Phase 7: SingleShot Strategy** - §6.2 step 5: one forced-tool extraction resolved locally and committed through the gate (CT port)
 - [ ] **Phase 8: Multi-turn Mappers** - §6.2 step 6a: lossless neutral ↔ Anthropic / Chat Completions tool conversations with verbatim replay
 - [ ] **Phase 9: Agentic Loop Strategy** - §6.2 step 6b: SB's bounded agentic loop on any cloud provider, gated and honest on every exit
@@ -392,7 +392,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Transcript Types, ProviderRouter & On-Device Gate | 10/10 | Complete    | 2026-09-30 |
 | 4. Anthropic Transport & OkHttp Matrix | 8/8 | Complete    | 2026-10-01 |
 | 5. OpenAI & OpenRouter Transports | 12/12 | Complete    | 2026-10-01 |
-| 6. Keystore | 7/7 | In Progress|  |
+| 6. Keystore | 7/7 | Complete    | 2026-10-01 |
 | 7. SingleShot Strategy | 0/TBD | Not started | - |
 | 8. Multi-turn Mappers | 0/TBD | Not started | - |
 | 9. Agentic Loop Strategy | 0/TBD | Not started | - |

@@ -69,10 +69,10 @@
 
 ### Keystore (step 4)
 
-- [ ] **KEY-01**: Consumer can store, read and delete a BYO API key per provider, encrypted with AndroidKeyStore AES/GCM and persisted in the app's own `DataStore<Preferences>`.
-- [ ] **KEY-02**: Keys map to storage through an **app-supplied explicit `KeySlot` table** (alias + DataStore key per provider), so SB and CT keep their existing aliases/keys and no existing user's key is stranded on migration; the engine never derives names by formula and never opens a second DataStore on the app's file.
-- [ ] **KEY-03**: Reads return typed states `NotConfigured | Ready | KeyMissing | Unreadable`; the decrypt path never creates a key (a restored backup without its Keystore key reports `KeyMissing`); encryption uses a synchronized get-or-create path and `java.util.Base64` NO_WRAP-compatible encoding.
-- [ ] **KEY-04**: A `KeystoreCredentialSource` adapter plugs `:keystore` into the provider seam (PROV-02); the round trip is verified by JVM tests via the crypto seam plus one instrumented test on the TESTER.
+- [x] **KEY-01**: Consumer can store, read and delete a BYO API key per provider, encrypted with AndroidKeyStore AES/GCM and persisted in the app's own `DataStore<Preferences>`.
+- [x] **KEY-02**: Keys map to storage through an **app-supplied explicit `KeySlot` table** (alias + DataStore key per provider), so SB and CT keep their existing aliases/keys and no existing user's key is stranded on migration; the engine never derives names by formula and never opens a second DataStore on the app's file.
+- [x] **KEY-03**: Reads return typed states `NotConfigured | Ready | KeyMissing | Unreadable`; the decrypt path never creates a key (a restored backup without its Keystore key reports `KeyMissing`); encryption uses a synchronized get-or-create path and `java.util.Base64` NO_WRAP-compatible encoding.
+- [x] **KEY-04**: A `KeystoreCredentialSource` adapter plugs `:keystore` into the provider seam (PROV-02); the round trip is verified by JVM tests via the crypto seam plus one instrumented test on the TESTER.
 
 ### SingleShot Strategy (step 5)
 
@@ -194,10 +194,10 @@
 | PROV-11 | Phase 4 | Complete |
 | PROV-12 | Phase 5 | Complete |
 | PROV-13 | Phase 4 | Complete |
-| KEY-01 | Phase 6 | Pending |
-| KEY-02 | Phase 6 | Pending |
-| KEY-03 | Phase 6 | Pending |
-| KEY-04 | Phase 6 | Pending |
+| KEY-01 | Phase 6 | Complete |
+| KEY-02 | Phase 6 | Complete |
+| KEY-03 | Phase 6 | Complete |
+| KEY-04 | Phase 6 | Complete |
 | SHOT-01 | Phase 7 | Pending |
 | SHOT-02 | Phase 7 | Pending |
 | SHOT-03 | Phase 7 | Pending |
