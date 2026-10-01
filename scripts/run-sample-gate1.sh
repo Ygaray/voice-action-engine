@@ -75,13 +75,17 @@ rm_staging() {
   [ -n "$TARGET" ] && adb_t 15 -s "$TARGET" shell rm -f "$path" >/dev/null 2>&1
   return 0
 }
-trap 'rm_staging; exit 130' INT TERM HUP
-trap 'rm_staging' EXIT
+# capture-save works in a private temp dir (raw logcat never leaves it); it is removed on every exit path.
+TMP_DIR=""
+rm_tmp() { [ -n "$TMP_DIR" ] && rm -rf "$TMP_DIR"; TMP_DIR=""; return 0; }
+trap 'rm_staging; rm_tmp; exit 130' INT TERM HUP
+trap 'rm_staging; rm_tmp' EXIT
 
-# finish <code> <OK|FAIL|INFRA|ERROR> <details>: remove any staging file, print the one final line and exit.
+# finish <code> <OK|FAIL|INFRA|ERROR> <details>: remove any staging or temp file, print the one final line and exit.
 finish() {
   local code="$1" outcome="$2" details="$3"
   rm_staging
+  rm_tmp
   echo "SAMPLE_GATE1: $outcome sub=$SUB $details"
   exit "$code"
 }
@@ -315,6 +319,39 @@ do_push_keys() {
   finish 0 OK "providers=anthropic,openai,openrouter target=$TARGET"
 }
 
+do_capture_start() {
+  adbt logcat -c >/dev/null 2>&1 || finish 2 ERROR "reason=logcat_clear_failed target=$TARGET"
+  finish 0 OK "target=$TARGET"
+}
+
+# D-02: the raw logcat stays in a private temp dir; only lines of the closed evidence grammar, with no key shape, are kept,
+# and a rejected capture writes nothing.
+do_capture_save() {
+  TMP_DIR="$(mktemp -d)"
+  local raw="$TMP_DIR/raw" kept="$TMP_DIR/kept" err="$TMP_DIR/err" n d out head
+  if ! adbt logcat -d -v raw -s VaeSample:I >"$raw" 2>/dev/null; then
+    finish 2 ERROR "reason=logcat_failed target=$TARGET"
+  fi
+  if ! "$ROOT/scripts/sample-evidence-filter.sh" <"$raw" >"$kept" 2>"$err"; then
+    echo "LEAK SCAN FAIL - the capture is rejected and nothing was written"
+    finish 1 FAIL "reason=leak_scan_failed leg=$ARG"
+  fi
+  if ! grep -q "^VAE_VERDICT leg=$ARG " "$kept"; then
+    echo "no VAE_VERDICT line for leg $ARG in the capture - nothing was written"
+    finish 1 FAIL "reason=no_verdict_line leg=$ARG"
+  fi
+  n="$(grep -c '' "$kept")"
+  d="$(sed -nE 's/.*dropped=([0-9]+).*/\1/p' "$err" | tail -1)"
+  out="$EVIDENCE_DIR/gate1-$ARG.txt"
+  head="$(git -C "$ROOT" rev-parse --short=10 HEAD 2>/dev/null || echo unknown)"
+  mkdir -p "$EVIDENCE_DIR"
+  {
+    echo "# gate1 leg=$ARG captured_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ) target=$TARGET head=$head"
+    cat "$kept"
+  } >>"$out"
+  finish 0 OK "kept=$n dropped=${d:-0} file=$out"
+}
+
 do_verify_keys_gone() {
   local out count
   out="$(adbt shell "run-as $PKG ls files/test-keys" 2>&1 | strip_cr)"
@@ -363,6 +400,8 @@ case "$SUB" in
   build-install) do_build_install ;;
   push-fixture) do_push_fixture ;;
   push-keys) do_push_keys ;;
+  capture-start) do_capture_start ;;
+  capture-save) do_capture_save ;;
   verify-keys-gone) do_verify_keys_gone ;;
   cleanup) do_cleanup ;;
   *) not_implemented ;;

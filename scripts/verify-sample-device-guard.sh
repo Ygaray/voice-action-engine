@@ -75,6 +75,9 @@ case "${1:-}" in
       "run-as "*" rm -rf "*) rm -f "$STATE_DIR/appfixture"; exit 0 ;;
     esac
     exit 1 ;;
+  logcat)
+    [ "${2:-}" = -c ] && exit 0
+    cat "${FAKE_LOGCAT_FILE:-/dev/null}"; exit 0 ;;
   install) touch "$STATE_DIR/installed"; echo Success; exit 0 ;;
   uninstall) rm -f "$STATE_DIR/installed"; echo Success; exit 0 ;;
   push)
@@ -92,12 +95,14 @@ FAKE
 #   CALLS_EMPTY=1 (adb must not have been called), ANDROID_SERIAL_VALUE (a foreign ANDROID_SERIAL for the run).
 run_scenario() {
   local name="$1" want_code="$2" want_msg="$3" want_final="$4"; shift 4
-  SCENARIOS=$((SCENARIOS + 1))
+  [ "${UNCOUNTED:-0}" = 1 ] || SCENARIOS=$((SCENARIOS + 1))
   local dir="$WORK/$name"
   LAST_DIR="$dir"
   mkdir -p "$dir/repo/scripts" "$dir/state"
   cp "$RUNNER_SRC" "$dir/repo/scripts/run-sample-gate1.sh"
   chmod +x "$dir/repo/scripts/run-sample-gate1.sh"
+  cp "$HERE/sample-evidence-filter.sh" "$dir/repo/scripts/sample-evidence-filter.sh"
+  chmod +x "$dir/repo/scripts/sample-evidence-filter.sh"
   # A gradlew that proves the build was reached (or not). With FAKE_GRADLE_APK=1 it also leaves one fake APK, like a build.
   printf '#!/usr/bin/env bash\necho reached >"%s/gradle-reached"\nif [ "${FAKE_GRADLE_APK:-0}" = 1 ]; then\n  mkdir -p sample/build/outputs/apk/debug\n  echo fake-apk >sample/build/outputs/apk/debug/sample-debug.apk\n  exit 0\nfi\nexit 1\n' "$dir" >"$dir/repo/gradlew"
   chmod +x "$dir/repo/gradlew"
@@ -246,5 +251,79 @@ assert_no_calls verify_keys_gone_present "rm "
 PRE_INSTALLED=1 MUTATES=1 run_scenario cleanup_happy 0 "sample package removed" "OK sub=cleanup" cleanup
 assert_calls cleanup_happy "-s R5CT10XNKQN uninstall $PKG"
 [ ! -e "$LAST_DIR/state/installed" ] || die "cleanup_happy: the package is still installed in the fake"
+
+# ---- Task 3: evidence capture, allow-list filter, key-shape scan, grammar parity ----------------------------------------------
+FILTER_SRC="$HERE/sample-evidence-filter.sh"
+GOLDEN="$HERE/../sample/src/test/resources/evidence-lines.golden.txt"
+EVIDENCE_KT="$HERE/../sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/evidence/EvidenceLine.kt"
+[ -x "$FILTER_SRC" ] || die "setup: $FILTER_SRC is missing or not executable"
+[ -f "$GOLDEN" ] || die "setup: $GOLDEN is missing"
+EVID_REL=".planning/phases/10-sample-harness-gate-1-docs/evidence"
+
+# Planted key-shaped tokens, assembled at run time from fragments (never written as a literal).
+PLANT_A="s""k-ant-api03-abcdefghijklmnopqrstuvwxyz0123"
+PLANT_B="s""k-or-v1-abcdefghijklmnopqrstuvwxyz0123456789"
+PLANT_C="s""k-abcdefghijklmnopqrstuvwxyz0123456789"
+
+# filter_keeps_golden: grammar parity with EvidenceLine - every golden line is kept unchanged and nothing is dropped.
+SCENARIOS=$((SCENARIOS + 1))
+"$FILTER_SRC" <"$GOLDEN" >"$WORK/golden.out" 2>"$WORK/golden.err" || die "filter_keeps_golden: the filter exited non-zero"
+cmp -s "$WORK/golden.out" "$GOLDEN" || die "filter_keeps_golden: the filter changed or dropped a golden line"
+grep -qx "FILTER OK kept=$(grep -c '' "$GOLDEN") dropped=0" "$WORK/golden.err" || die "filter_keeps_golden: wrong FILTER OK line ($(cat "$WORK/golden.err"))"
+
+# filter_drops_free_text: a sentence and a VAE line with a space inside a value are dropped; the one valid line survives.
+SCENARIOS=$((SCENARIOS + 1))
+printf '%s\n' "the user said please delete my notes" "VAE_TURN leg=ver02 model=two words" "VAE_AUTORUN leg=ver02" "VAE_TURN leg=ver02 tail=" >"$WORK/free.in"
+"$FILTER_SRC" <"$WORK/free.in" >"$WORK/free.out" 2>"$WORK/free.err" || die "filter_drops_free_text: the filter exited non-zero"
+grep -qx "VAE_AUTORUN leg=ver02" "$WORK/free.out" || die "filter_drops_free_text: the valid line was lost"
+! grep -qE 'user said|two words' "$WORK/free.out" || die "filter_drops_free_text: free text was kept"
+grep -qx "FILTER OK kept=2 dropped=2" "$WORK/free.err" || die "filter_drops_free_text: wrong counts ($(cat "$WORK/free.err"))"
+
+# filter_rejects_key_shape: a grammar-valid line carrying a key-shaped value is a leak: exit 1, nothing on stdout.
+SCENARIOS=$((SCENARIOS + 1))
+for plant in "$PLANT_A" "$PLANT_B" "$PLANT_C"; do
+  printf '%s\n' "VAE_AUTORUN leg=ver02" "VAE_TURN leg=ver02 iteration=1 model=$plant" >"$WORK/leak.in"
+  "$FILTER_SRC" <"$WORK/leak.in" >"$WORK/leak.out" 2>"$WORK/leak.err"; rc=$?
+  [ "$rc" = 1 ] || die "filter_rejects_key_shape: exit $rc, expected 1"
+  [ ! -s "$WORK/leak.out" ] || die "filter_rejects_key_shape: something reached stdout"
+  grep -qx "LEAK SCAN FAIL" "$WORK/leak.err" || die "filter_rejects_key_shape: no LEAK SCAN FAIL"
+done
+
+# capture_save_leak: the planted line comes out of the (fake) logcat: leak_scan_failed and no evidence file.
+{ printf '%s\n' "VAE_TURN leg=smoke_openai iteration=1 model=$PLANT_A"; cat "$GOLDEN"; } >"$WORK/leak.logcat"
+FAKE_LOGCAT_FILE="$WORK/leak.logcat" run_scenario capture_save_leak 1 "LEAK SCAN FAIL" "FAIL sub=capture-save reason=leak_scan_failed" \
+  capture-save smoke_openai
+[ ! -e "$LAST_DIR/repo/$EVID_REL/gate1-smoke_openai.txt" ] || die "capture_save_leak: an evidence file was written"
+
+CALLS_EMPTY=1 run_scenario capture_save_bad_leg 2 "-" "ERROR sub=capture-save reason=usage" capture-save ../x
+[ ! -e "$LAST_DIR/repo/$EVID_REL" ] || die "capture_save_bad_leg: an evidence path was created"
+
+# capture_save_no_verdict: the golden lines hold a verdict for ver02 only, so a smoke_openai capture has none.
+FAKE_LOGCAT_FILE="$GOLDEN" run_scenario capture_save_no_verdict 1 "nothing was written" "FAIL sub=capture-save reason=no_verdict_line" \
+  capture-save smoke_openai
+[ ! -e "$LAST_DIR/repo/$EVID_REL/gate1-smoke_openai.txt" ] || die "capture_save_no_verdict: an evidence file was written"
+
+# capture_save_happy: golden lines + a verdict for the leg + noise: the file holds the header and the kept lines only.
+{ cat "$GOLDEN"; echo "some free text from another tag"; echo "VAE_VERDICT leg=smoke_openai verdict=PASS trigger=ui"; } >"$WORK/happy.logcat"
+FAKE_LOGCAT_FILE="$WORK/happy.logcat" run_scenario capture_save_happy 0 "-" "OK sub=capture-save kept=12 dropped=1 file=$EVID_REL/gate1-smoke_openai.txt" \
+  capture-save smoke_openai
+ev="$LAST_DIR/repo/$EVID_REL/gate1-smoke_openai.txt"
+[ -f "$ev" ] || die "capture_save_happy: no evidence file"
+head -1 "$ev" | grep -qE '^# gate1 leg=smoke_openai captured_utc=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z target=R5CT10XNKQN head=' \
+  || die "capture_save_happy: bad header ($(head -1 "$ev"))"
+[ "$(grep -c '^VAE_' "$ev")" = 12 ] || die "capture_save_happy: expected 12 evidence lines"
+! grep -q 'free text' "$ev" || die "capture_save_happy: free text was written"
+assert_calls capture_save_happy "-s R5CT10XNKQN logcat -d -v raw -s VaeSample:I"
+
+# capture-start is not a counted scenario: it only clears the log buffer on the TESTER.
+UNCOUNTED=1 run_scenario capture_start_clears 0 "-" "OK sub=capture-start" capture-start
+assert_calls capture_start_clears "-s R5CT10XNKQN logcat -c"
+
+# leg_list_parity: the runner's leg list equals the LegId wire strings in EvidenceLine.kt.
+SCENARIOS=$((SCENARIOS + 1))
+runner_legs="$(sed -nE 's/^LEGS="([^"]*)"$/\1/p' "$RUNNER_SRC" | tr ' ' '\n' | sort | tr '\n' ' ')"
+app_legs="$(sed -n '/enum class LegId/,/^}/p' "$EVIDENCE_KT" | grep -oE '\("[a-z0-9_]+"\)' | tr -d '()"' | sort | tr '\n' ' ')"
+[ -n "$app_legs" ] || die "leg_list_parity: could not read the LegId wires"
+[ "$runner_legs" = "$app_legs" ] || die "leg_list_parity: runner '$runner_legs' differs from app '$app_legs'"
 
 echo "SAMPLE DEVICE GUARD OK scenarios=$SCENARIOS"
