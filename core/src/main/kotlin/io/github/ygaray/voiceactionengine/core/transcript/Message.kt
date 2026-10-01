@@ -46,3 +46,49 @@ public class AssistantMessage(
         "AssistantMessage(parts=${parts.size}, toolCalls=${toolCalls.map { it.name }}, " +
             "nativeReplay=${nativeReplay?.let { "${it.provider}/${it.model}" } ?: "none"})"
 }
+
+/**
+ * The results of the tool calls from one assistant turn, sent back together in one message.
+ *
+ * @property results one result per call, in the order the app produced them; a copy, never empty, with distinct call
+ * ids.
+ * @throws IllegalArgumentException when [results] is empty or two results share a call id.
+ */
+public class ToolResultsMessage(results: List<ToolResult>) : Message() {
+    /** A copy of the results. */
+    public val results: List<ToolResult> = results.toList()
+
+    init {
+        require(this.results.isNotEmpty()) { "a tool result batch must not be empty" }
+        val ids = this.results.map { it.callId }
+        require(ids.toSet().size == ids.size) { "a tool result batch must not repeat a call id" }
+    }
+
+    /** Prints the number of results and of errors only, never the result content. */
+    override fun toString(): String =
+        "ToolResultsMessage(results=${results.size}, errors=${results.count { it.isError }})"
+}
+
+/**
+ * What the app answered to one tool call.
+ *
+ * @property callId the id of the [AssistantPart.ToolCall] this answers.
+ * @property content the result text. It is never printed by [toString].
+ * @property isError true when the tool failed and [content] describes the failure.
+ * @throws IllegalArgumentException when [callId] is blank.
+ */
+public class ToolResult(
+    public val callId: String,
+    public val content: String,
+    public val isError: Boolean,
+) {
+    /** A successful result. */
+    public constructor(callId: String, content: String) : this(callId, content, false)
+
+    init {
+        require(callId.isNotBlank()) { "a tool result call id must not be blank" }
+    }
+
+    /** Prints the call id, the content length and the error flag only, never the content. */
+    override fun toString(): String = "ToolResult(callId=$callId, contentLength=${content.length}, isError=$isError)"
+}
