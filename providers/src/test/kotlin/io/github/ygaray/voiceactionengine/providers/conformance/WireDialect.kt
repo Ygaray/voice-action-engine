@@ -36,6 +36,7 @@ import okhttp3.HttpUrl
 internal const val FAKE_KEY = "sk-test-key"
 
 private const val KEY_MESSAGES = "messages"
+private const val CACHE_CONTROL = "cache_control"
 private const val KEY_ROLE = "role"
 private const val KEY_CONTENT = "content"
 private const val ROLE_ASSISTANT = "assistant"
@@ -107,6 +108,12 @@ internal interface WireDialect {
 
     /** A minimal successful end-of-turn answer body. */
     fun okAnswer(): String
+
+    /**
+     * What is wrong with the cache directive of a request [body], as a fixed phrase naming the kind, or null when the
+     * body carries exactly the directive this dialect owns.
+     */
+    fun cacheDirectiveViolation(body: String): String?
 }
 
 /** What replaying one conversation produced: every request body in order, and the rule names that failed. */
@@ -353,6 +360,18 @@ internal object AnthropicWire : WireDialect {
 
     override fun okAnswer(): String = successBody(listOf(textBlock("Done.")), "end_turn")
 
+    // One ephemeral breakpoint, on the last system block; being the only one, none is inside the messages or the tools.
+    override fun cacheDirectiveViolation(body: String): String? {
+        val system = (Json.parseToJsonElement(body) as JsonObject)["system"] as? JsonArray
+        val marked = (system?.lastOrNull() as? JsonObject)?.get(CACHE_CONTROL)
+        val ephemeral = JsonObject(mapOf("type" to JsonPrimitive("ephemeral")))
+        return when {
+            CACHE_CONTROL.toRegex().findAll(body).count() != 1 -> "not exactly one cache directive"
+            marked != ephemeral -> "the cache directive is not the ephemeral breakpoint on the last system block"
+            else -> null
+        }
+    }
+
     private fun roleOf(message: JsonElement): String? = text((message as? JsonObject)?.get(KEY_ROLE))
 
     private fun text(element: JsonElement?): String? = (element as? JsonPrimitive)?.takeIf { it.isString }?.content
@@ -426,6 +445,10 @@ internal class ChatWire(private val vendor: ChatVendor, override val name: Strin
 
     override fun okAnswer(): String =
         chatBody(chatMessage("Done."), "stop", chatUsage(OK_PROMPT_TOKENS, OK_COMPLETION_TOKENS))
+
+    // Chat vendors cache by themselves, so a request never carries a directive.
+    override fun cacheDirectiveViolation(body: String): String? =
+        if (CACHE_CONTROL in body) "a cache directive on a dialect that has none" else null
 
     /** The replayed keys of [message], in the order the stored message has them. */
     fun projection(message: JsonObject): JsonObject = JsonObject(message.filterKeys { it in CHAT_REPLAY_KEYS })

@@ -127,6 +127,20 @@ internal abstract class MultiTurnConformanceSuite {
     }
 
     @Test
+    fun theCacheDirectiveIsTheDialectsOwnOnEveryIteration() {
+        for (row in rows()) {
+            val bodies = replayConversation(dialect, row, turnsOf(row)).bodies
+            bodies.forEachIndexed { request, body ->
+                assertEquals("${row.case}: request ${request + 1}", null, dialect.cacheDirectiveViolation(body))
+                // The control: one more directive, at the top of the body, is a violation on every dialect.
+                val stray = body.replaceFirst("\"model\":", "\"cache_control\":{\"type\":\"ephemeral\"},\"model\":")
+                val label = "${row.case}: request ${request + 1} with a stray directive"
+                assertNotNull(label, dialect.cacheDirectiveViolation(stray))
+            }
+        }
+    }
+
+    @Test
     fun aStampForAnotherProviderOrModelFailsBeforeAnyRequest() {
         val (row, turn) = firstToolTurn()
         val stamp = checkNotNull(turn.nativeReplay)

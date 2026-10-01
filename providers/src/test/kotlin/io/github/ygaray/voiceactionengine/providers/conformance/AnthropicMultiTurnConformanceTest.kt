@@ -1,5 +1,15 @@
 package io.github.ygaray.voiceactionengine.providers.conformance
 
+import io.github.ygaray.voiceactionengine.core.Credential
+import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.provider.CachingMode
+import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
+import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
+import io.github.ygaray.voiceactionengine.core.transcript.Message
+import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
+import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import io.github.ygaray.voiceactionengine.providers.anthropic.encodeAnthropicRequest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -13,6 +23,39 @@ internal class AnthropicMultiTurnConformanceTest : MultiTurnConformanceSuite() {
     override val dialect: WireDialect = AnthropicWire
 
     private fun row(case: String): ConversationRow = rows().single { it.case == case }
+
+    @Test
+    fun reshapeIsSingleTurnOnly() {
+        val row = row("derived_parallel_tools")
+        val first = assistantTurns(row, turnsOf(row)).first()
+        val prompt = UserMessage(ConversationScript.USER_PROMPT)
+        val history = listOf<Message>(prompt, first, ConversationScript.results(first))
+        val cannotForce = ModelCapabilities {
+            caching = CachingMode.EXPLICIT_BREAKPOINTS
+            supportsForcedToolChoice = false
+        }
+        fun body(messages: List<Message>, choice: ToolChoice): String {
+            val base = rowRequest(row, messages)
+            val request = ModelRequest(
+                base.system,
+                messages,
+                base.tools,
+                choice,
+                base.maxTokens,
+                base.cache,
+                base.singleToolCall,
+            )
+            val call = ProviderRequest(row.model, request, Credential(ProviderId.ANTHROPIC, FAKE_KEY), cannotForce)
+            return encodeAnthropicRequest(call, true).toString(Charsets.UTF_8)
+        }
+        val required = ToolChoice.Required("record_item")
+        // The instruction line moves from the first user message to the last one, so the cached prefix is rewritten.
+        val rewritten = appendOnlyViolation(body(history.take(1), required), body(history, required))
+        assertEquals("a forced tool on a model that cannot be forced", "prefix changed", rewritten)
+        val auto = ToolChoice.Auto()
+        val appended = appendOnlyViolation(body(history.take(1), auto), body(history, auto))
+        assertEquals("the same pair with automatic choice", null, appended)
+    }
 
     @Test
     fun theParallelFixtureAnswersFourCallsInOneTurn() {

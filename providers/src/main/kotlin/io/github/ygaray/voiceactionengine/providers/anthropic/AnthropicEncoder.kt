@@ -43,6 +43,10 @@ private const val MAX_STRICT_TOOLS = 20
  * that can take strict mode get it, and one line naming the required tool closes the last user message. The system text
  * and the tool definitions are otherwise untouched.
  *
+ * Reshape is for a single request. It puts the instruction line on whichever user message is last, so across a
+ * multi-turn conversation each new turn moves the line and edits an earlier turn, which breaks the cached prefix and
+ * the binding of thinking blocks to the turns that follow them. A multi-turn loop uses `ToolChoice.Auto`.
+ *
  * A single-tool-call request adds the parallel-off switch inside `tool_choice` in both shapes, so it never touches the
  * cached tools and system prefix.
  */
