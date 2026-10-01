@@ -40,6 +40,12 @@ private fun isDecodedCall(entry: JsonElement, decodedIds: Set<String>): Boolean 
     return (type == null || type == "function") && chatStringField(call, "id") in decodedIds
 }
 
+/**
+ * The message object of a stored Chat turn, or null when [raw] is not one. The one definition of "this replay is
+ * usable": the transport's pre-flight and the encoder's backstop both read it, so they cannot disagree.
+ */
+internal fun chatReplayMessage(raw: JsonElement): JsonObject? = raw as? JsonObject
+
 // A replay goes back as stored, minus response-only fields. Only a missing role, an empty arguments value or an
 // arguments object is fixed, because the endpoint rejects those as input; ids and every other value are never touched,
 // and a valid replay is returned unchanged. The result depends only on the stored turn, so a later request repeats the

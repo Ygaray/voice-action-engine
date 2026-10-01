@@ -17,7 +17,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonObject
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -100,7 +99,7 @@ internal class ChatTransport(
     // Checked once per logical call, before the first request is built: never per retry.
     private fun preflightRefusal(call: ProviderRequest): ModelResult.Failure? =
         refusalFor(vendor, call.credential)?.let { ModelResult.Failure(it) }
-            ?: conversationRefusal(call, vendor.providerId) { it is JsonObject }
+            ?: conversationRefusal(call, vendor.providerId) { chatReplayMessage(it) != null }
 
     // Recursion depth is bounded by MAX_REQUESTS; the wait is a suspend call, so cancelling the command ends it.
     private suspend fun sendWithRetry(call: ProviderRequest, credential: Credential, number: Int): ModelResult {

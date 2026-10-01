@@ -19,7 +19,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonArray
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -110,7 +109,7 @@ internal class AnthropicTransport(
     // Checked once per logical call, before the first request is built: never per retry or reshape.
     private fun preflightRefusal(call: ProviderRequest): ModelResult.Failure? =
         refusalFor(call.credential)?.let { ModelResult.Failure(it) }
-            ?: conversationRefusal(call, ProviderId.ANTHROPIC) { it is JsonArray }
+            ?: conversationRefusal(call, ProviderId.ANTHROPIC) { anthropicReplayContent(it) != null }
 
     // The capabilities already say whether this model takes a forced tool choice (the table, then any app override).
     private fun needsReshape(call: ProviderRequest): Boolean =

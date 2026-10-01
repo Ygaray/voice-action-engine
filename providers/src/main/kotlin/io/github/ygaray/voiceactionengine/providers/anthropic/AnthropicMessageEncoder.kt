@@ -59,13 +59,19 @@ private fun assistantMessage(message: AssistantMessage, model: String): JsonObje
     val content = if (message.nativeReplay == null) {
         rebuiltContent(message)
     } else {
-        repairedContent(checkNotNull(message.nativeFor(ProviderId.ANTHROPIC, model)) { REPLAY_REFUSED })
+        val replay = message.nativeFor(ProviderId.ANTHROPIC, model)?.let { anthropicReplayContent(it) }
+        repairedContent(checkNotNull(replay) { REPLAY_REFUSED })
     }
     put("content", content)
 }
 
-private fun repairedContent(replay: JsonElement): JsonElement =
-    if (replay is JsonArray) JsonArray(replay.map { repairedBlock(it) }) else replay
+/**
+ * The content array of a stored Anthropic turn, or null when [raw] is not one. The one definition of "this replay is
+ * usable": the transport's pre-flight and the encoder's backstop both read it, so they cannot disagree.
+ */
+internal fun anthropicReplayContent(raw: JsonElement): JsonArray? = raw as? JsonArray
+
+private fun repairedContent(replay: JsonArray): JsonArray = JsonArray(replay.map { repairedBlock(it) })
 
 // The decoder reads an absent or null input as no arguments, but the Messages API requires an object, so the replay
 // writes `{}` there. Nothing else in a block is touched, and a valid block is returned unchanged. The result depends

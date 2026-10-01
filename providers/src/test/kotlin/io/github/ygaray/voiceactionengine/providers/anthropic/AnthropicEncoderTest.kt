@@ -414,4 +414,16 @@ class AnthropicEncoderTest {
         )
         assertEquals(encode(request), encode(request))
     }
+
+    @Test
+    fun theReplayShapeThePreflightAcceptsIsExactlyTheOneTheEncoderAccepts() {
+        val shapes = listOf(JsonArray(emptyList()), JsonObject(emptyMap()), JsonNull, JsonPrimitive("x"))
+        for (raw in shapes) {
+            val message = AssistantMessage(emptyList(), NativeReplay(ProviderId.ANTHROPIC, model, raw))
+            val request = call(messages = listOf(UserMessage("go"), message))
+            val accepted = anthropicReplayContent(raw) != null
+            val encodes = runCatching { encode(request) }.isSuccess
+            assertEquals(raw.toString(), accepted, encodes)
+        }
+    }
 }

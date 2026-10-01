@@ -12,7 +12,9 @@ import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -278,5 +280,15 @@ class ChatMessageEncoderTest {
             .map { (it as JsonObject).getValue("role").toString() }
 
         assertEquals(listOf("\"user\"", "\"assistant\"", "\"tool\"", "\"tool\"", "\"user\""), roles)
+    }
+
+    @Test
+    fun theReplayShapeThePreflightAcceptsIsExactlyTheOneTheEncoderAccepts() {
+        val shapes = listOf(JsonObject(emptyMap()), JsonArray(emptyList()), JsonNull, JsonPrimitive("x"))
+        for (raw in shapes) {
+            val accepted = chatReplayMessage(raw) != null
+            val encodes = runCatching { encode(assistant(NativeReplay(ProviderId.OPENAI, model, raw))) }.isSuccess
+            assertEquals(raw.toString(), accepted, encodes)
+        }
     }
 }

@@ -56,7 +56,7 @@ private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
 // encoding, so the check here is a backstop: a stamped turn is never rebuilt.
 private fun assistantMessage(message: AssistantMessage, call: ProviderRequest, vendor: ChatVendor): JsonObject {
     if (message.nativeReplay == null) return rebuiltAssistantMessage(message)
-    val replay = message.nativeFor(vendor.providerId, call.model) as? JsonObject
+    val replay = message.nativeFor(vendor.providerId, call.model)?.let { chatReplayMessage(it) }
     return repairedReplay(checkNotNull(replay) { REPLAY_REFUSED })
 }
 
