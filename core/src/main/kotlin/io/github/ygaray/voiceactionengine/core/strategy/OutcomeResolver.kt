@@ -48,7 +48,10 @@ public abstract class Resolution internal constructor() {
     /**
      * Steps the strategy submits to the engine, in order. Nothing is applied until the gate admits the mutations.
      *
-     * @property reply text to show the user, or null.
+     * @property reply text to show the user, or null. It is prepared before the gate decides, so it cannot describe
+     * the result. The tier drops it when applying the mutations reported an error, and the command's outcome (its
+     * executed list) says what happened instead. It is kept when the gate holds the mutations, so word it so that it
+     * also reads correctly for a change that is waiting for confirmation.
      * @throws IllegalArgumentException when the list of steps is empty.
      */
     public class Steps(steps: List<ToolStep>, public val reply: String?) : Resolution() {

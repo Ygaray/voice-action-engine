@@ -139,6 +139,46 @@ class SingleShotResolveTest {
     }
 
     @Test
+    fun aHeldProposalKeepsTheReplyBecauseTheOutcomeCarriesTheHold() = runTest {
+        NoNetworkGuard.during {
+            val run = run(ScriptedGate.holdAll("confirm")) {
+                Resolution.Steps(listOf(ToolStep.Mutation(write())), "done")
+            }
+
+            val completed = run.outcome as CommandOutcome.Completed
+            assertEquals("done", completed.reply)
+            assertEquals(1, completed.held.size)
+        }
+    }
+
+    @Test
+    fun aFailedApplyWithholdsTheReply() = runTest {
+        NoNetworkGuard.during {
+            val failing = FakeMutation(ENTRIES_TOOL, StepResult("could not save", true))
+            val run = run(ScriptedGate.admitAll()) {
+                Resolution.Steps(listOf(ToolStep.Mutation(failing)), "done")
+            }
+
+            val completed = run.outcome as CommandOutcome.Completed
+            assertNull(completed.reply)
+            assertEquals(listOf(ActionKind.IS_ERROR), completed.executed.map { it.kind })
+        }
+    }
+
+    @Test
+    fun aRejectionStepAlongsideAnAppliedMutationKeepsTheReply() = runTest {
+        NoNetworkGuard.during {
+            val rejected = ToolStep.Finished("record_missing", FinishedKind.ERROR, StepResult("no such item", true))
+            val run = run(ScriptedGate.admitAll()) {
+                Resolution.Steps(listOf(rejected, ToolStep.Mutation(write())), "saved one, one not found")
+            }
+
+            val completed = run.outcome as CommandOutcome.Completed
+            assertEquals("saved one, one not found", completed.reply)
+        }
+    }
+
+    @Test
     fun anAdmittingGateCommitsEveryMutationAndTheSinkSeesOneActionEach() = runTest {
         NoNetworkGuard.during {
             val mutations = listOf(write("first"), write("second"), write("third"))

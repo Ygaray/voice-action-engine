@@ -138,11 +138,14 @@ public class SingleShotStrategy internal constructor(
     }
 
     // Finished steps first, in list order; then every mutation, in order, as one step so the gate decides once.
+    // The resolver prepared the reply before the gate ran, so it cannot know whether the apply succeeded: when an
+    // apply reported an error the reply is withheld and the caller reads the outcome's executed list instead. A held
+    // proposal is a normal pending state that the outcome carries, so the reply is kept for it.
     private suspend fun submitAll(session: CommandSession, steps: Resolution.Steps): StrategyOutcome {
         steps.steps.filterIsInstance<ToolStep.Finished>().forEach { session.submit(it) }
         val mutations = steps.steps.filterIsInstance<ToolStep.Mutation>().flatMap { it.mutations }
-        if (mutations.isNotEmpty()) session.submit(ToolStep.Mutation(mutations))
-        return StrategyOutcome.Completed(steps.reply)
+        val applied = if (mutations.isEmpty()) null else session.submit(ToolStep.Mutation(mutations))
+        return StrategyOutcome.Completed(if (applied?.isError == true) null else steps.reply)
     }
 
     /** Prints the id and the force-tool flag only. */
