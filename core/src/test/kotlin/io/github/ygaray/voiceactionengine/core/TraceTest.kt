@@ -240,9 +240,22 @@ class TraceTest {
         agenticLoopCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
         val existing = phaseTwoCodes + routerCodes.keys + TraceCode.EXTRA_TOOL_CALLS_DROPPED
         val all = existing + agenticLoopCodes.keys
-        assertEquals(THIRTY_TWO, all.size)
-        assertEquals(THIRTY_TWO, all.map { it.value }.toSet().size)
+        val wireValues = all.map { it.value }
+        assertEquals(wireValues.size, wireValues.toSet().size)
+        assertEquals(declaredWireValues(), wireValues.toSet())
     }
+
+    // Every code the companion declares, read from the type itself, so a code added without a row here fails this test
+    // instead of slipping past a hand-kept total. A value class getter returns the wire string under a mangled name.
+    private fun declaredWireValues(): Set<String> =
+        TraceCode.Companion::class.java.declaredMethods
+            .filter { method ->
+                val name = method.name.removePrefix("get").substringBefore('-')
+                method.parameterCount == 0 && method.name.startsWith("get") && name.isNotEmpty() &&
+                    name.all { it.isUpperCase() || it.isDigit() || it == '_' }
+            }
+            .map { it.invoke(TraceCode.Companion) as String }
+            .toSet()
 
     @Test
     fun everyTraceCodeIsDistinctAndLowerSnakeCase() {
@@ -365,6 +378,5 @@ class TraceTest {
         const val THIRTEEN = 13
         const val TWENTY_EIGHT = 28
         const val THREE = 3
-        const val THIRTY_TWO = 32
     }
 }

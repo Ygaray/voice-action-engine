@@ -22,6 +22,7 @@ private const val NEUTRAL_LOG_TOOL = "log_entry"
 private const val NEUTRAL_REPLY = "done"
 private const val NEUTRAL_REQUESTS = 3
 private const val AGENTIC_SOURCES = "src/main/kotlin/io/github/ygaray/voiceactionengine/core/strategy/agentic"
+private const val CORE_MODULE = "core"
 private const val MIN_AGENTIC_SOURCES = 4
 
 /** The loop behaves the same on every cloud provider id and its sources cannot branch on a provider. */
@@ -99,12 +100,22 @@ class AgenticLoopProviderNeutralityTest {
             .filter { name -> name.isNotEmpty() && name.all { it.isUpperCase() || it == '_' } }
             .toSet()
 
+    // Found from wherever the tests run: the module directory, the repository root, or any directory below either.
+    private fun agenticSourceRoot(): File {
+        var dir: File? = File("").absoluteFile
+        while (dir != null) {
+            listOf(File(dir, AGENTIC_SOURCES), File(dir, "$CORE_MODULE/$AGENTIC_SOURCES"))
+                .firstOrNull { it.isDirectory }?.let { return it }
+            dir = dir.parentFile
+        }
+        throw AssertionError("the agentic sources were not found from ${File("").absolutePath}")
+    }
+
     @Test
     fun theAgenticSourcesNeverNameAProvider() {
         val names = providerConstantNames()
         assertTrue(names.toString(), names.containsAll(setOf("ANTHROPIC", "OPENAI", "OPENROUTER")))
-        val root = File(AGENTIC_SOURCES)
-        assertTrue("${root.absolutePath} must exist", root.isDirectory)
+        val root = agenticSourceRoot()
         val files = root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
         assertTrue("scanned only ${files.size} agentic sources", files.size >= MIN_AGENTIC_SOURCES)
         val forbidden = (names + ProviderId::class.java.simpleName).map { Regex("\\b${Regex.escape(it)}\\b") }

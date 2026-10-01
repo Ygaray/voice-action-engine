@@ -18,14 +18,11 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private const val FINAL_REPLY = "done"
 private const val LOG_TOOL = "log_entry"
-private const val LEAF_MAX_TOKENS = 4
-private const val LEAF_REFUSAL = 5
 private const val UNAVAILABLE_STATUS = 503
 private const val RATE_LIMIT_STATUS = 429
 
@@ -254,8 +251,10 @@ class AgenticLoopStopLeavesTest {
 
             assertEquals(leaves().map { it.expected }, reasons)
             assertEquals(reasons.size, reasons.map { it::class }.toSet().size)
-            assertNotEquals(FailureReason.UnknownStop(), reasons[LEAF_MAX_TOKENS])
-            assertNotEquals(FailureReason.UnknownStop(), reasons[LEAF_REFUSAL])
+            // Only the unmapped stop may become unknown-stop; a max-tokens or refusal answer never does.
+            assertEquals(1, reasons.count { it is FailureReason.UnknownStop })
+            assertTrue(reasons.any { it is FailureReason.MaxTokens })
+            assertTrue(reasons.any { it is FailureReason.Refusal })
         }
     }
 }
