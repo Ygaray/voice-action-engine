@@ -39,6 +39,7 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedSelectionSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
+import io.github.ygaray.voiceactionengine.core.testing.ScriptedToolExecutor
 import io.github.ygaray.voiceactionengine.core.testing.StrategyStep
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
@@ -65,6 +66,7 @@ import org.junit.Test
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * An app object whose own text is a canary: if the engine ever prints the object itself instead of its class name,
@@ -416,6 +418,7 @@ class RedactionCanaryTest {
         see(required)
         see(required.toolChoice)
         sweepSingleShotSeams()
+        see(agenticLoop(ScriptedToolExecutor.sequence(null), agenticSnapshot()))
     }
 
     /** The app seams a single-shot tier is built on, built from canary-carrying values. */
@@ -535,10 +538,119 @@ class RedactionCanaryTest {
         }
     }
 
+    // ---- an agentic run: the canary rides the transcript, system text, tool slots, results, reply and carry ----
+
+    private fun agenticSnapshot(): ToolingSnapshot {
+        val schema = buildJsonObject { put("note", "$CANARY-SCHEMA") }
+        val tools = listOf(
+            ToolSpec(AGENTIC_SAVE, "$CANARY-TOOL-DESCRIPTION", schema, true),
+            ToolSpec(AGENTIC_LOG, "$CANARY-TOOL-DESCRIPTION", schema, true),
+            ToolSpec(AGENTIC_FIND, "$CANARY-TOOL-DESCRIPTION", schema, false),
+        )
+        return ToolingSnapshot("$CANARY-SYSTEM", tools, null)
+    }
+
+    private fun agenticCall(id: String, name: String): AssistantPart.ToolCall =
+        AssistantPart.ToolCall(id, name, buildJsonObject { put("text", "$CANARY-ARGUMENT") })
+
+    private fun agenticTurn(vararg calls: AssistantPart.ToolCall): ModelResult =
+        FakeAiProvider.toolCalls(Usage(1, 2, 3, 4), *calls)
+
+    private fun carryingTier() = ScriptedStrategy(
+        StrategyId("carrier"),
+        { _, _ -> StrategyOutcome.Escalate(EscalationReason.ModelDeclined(), Canary("CARRY")) },
+    )
+
+    private fun rejectedWithCanary(): ToolStep =
+        ToolStep.Finished(
+            AGENTIC_SAVE,
+            FinishedKind.ERROR,
+            StepResult("$CANARY-REJECTED", true, "$CANARY-TOKEN", emptyMap()),
+        )
+
+    /** A run that completes: a commit, a read, a held change, then a reply carrying a canary. */
+    private suspend fun completingAgenticRun(): CommandOutcome {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            agenticTurn(agenticCall("c1", AGENTIC_SAVE), agenticCall("c2", AGENTIC_FIND)),
+            agenticTurn(agenticCall("c3", AGENTIC_LOG)),
+            FakeAiProvider.reply("$CANARY-REPLY", Usage(5, 6, 7, 8)),
+        )
+        val read = ToolStep.Finished(AGENTIC_FIND, FinishedKind.READ, StepResult("$CANARY-READ"))
+        val executor = ScriptedToolExecutor.sequence(
+            null,
+            ToolStep.Mutation(mutation(AGENTIC_SAVE)),
+            read,
+            ToolStep.Mutation(mutation(AGENTIC_LOG)),
+        )
+        val gate = ScriptedGate.sequence(null, GateDecision.Admit(), GateDecision.Hold(Canary("HOLD"), "$CANARY-HOLD"))
+        return sweepAgenticRun(fake, executor, gate)
+    }
+
+    /** A run that fails: a prepare that throws the canary, a rejection carrying it, and a commit beside it. */
+    private suspend fun strikeAbortAgenticRun(): CommandOutcome {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            agenticTurn(agenticCall("c1", AGENTIC_SAVE)),
+            agenticTurn(agenticCall("c2", AGENTIC_SAVE), agenticCall("c3", AGENTIC_LOG)),
+        )
+        val prepares = AtomicInteger()
+        val executor = ScriptedToolExecutor(null) { call, _ ->
+            when (prepares.incrementAndGet()) {
+                1 -> error("$CANARY-PREPARE-MESSAGE $KEY ${call.toolName}")
+                2 -> rejectedWithCanary()
+                else -> ToolStep.Mutation(mutation(AGENTIC_LOG))
+            }
+        }
+        return sweepAgenticRun(fake, executor, ScriptedGate.admitAll())
+    }
+
+    private suspend fun sweepAgenticRun(
+        fake: FakeAiProvider,
+        executor: ScriptedToolExecutor,
+        gate: ScriptedGate,
+    ): CommandOutcome {
+        val tier = agenticLoop(executor, agenticSnapshot())
+        val sink = RecordingCommitSink()
+        val listener = RecordingEventListener()
+        val pipeline = loopPipeline(listOf(carryingTier(), tier), fake, gate, sink, listener)
+        val input = CommandInput("$CANARY-TRANSCRIPT", "en", Canary("CONTEXT"))
+        see(tier)
+        see(pipeline)
+        val outcome = pipeline.execute(input)
+        sweepOutcome(outcome)
+        fake.calls.forEach { sweepCall(it) }
+        sweepDelivered(gate, sink, listener.events)
+        return outcome
+    }
+
+    /** An agentic run, completing and failing, leaks none of the planted canaries into what it returns or prints. */
+    @Test
+    fun noCanaryLeaksFromAnAgenticRun() = runTest {
+        NoNetworkGuard.during {
+            val completed = completingAgenticRun()
+            val aborted = strikeAbortAgenticRun()
+
+            val leaks = printed.filter { CANARY in it || KEY in it }
+            assertTrue("leaked: $leaks", leaks.isEmpty())
+            assertTrue("swept only ${printed.toSet().size} distinct values", printed.toSet().size >= MIN_AGENTIC)
+            assertTrue(completed.toString(), completed is CommandOutcome.Completed)
+            assertEquals("$CANARY-REPLY", (completed as CommandOutcome.Completed).reply)
+            assertEquals(1, completed.held.size)
+            assertTrue(aborted.toString(), aborted is CommandOutcome.Failed)
+            assertEquals(FailureReason.ToolFailure(), (aborted as CommandOutcome.Failed).reason)
+            assertEquals(3, aborted.executed.size)
+        }
+    }
+
     private companion object {
         const val MIN_DISTINCT = 25
         const val MIN_ROUTED_DISTINCT = 30
         const val MIN_SINGLE_SHOT = 20
+        const val MIN_AGENTIC = 30
+        const val AGENTIC_SAVE = "save_entry"
+        const val AGENTIC_LOG = "log_entry"
+        const val AGENTIC_FIND = "find_entries"
         const val ROUTED_MAX_TOKENS = 100
     }
 }
