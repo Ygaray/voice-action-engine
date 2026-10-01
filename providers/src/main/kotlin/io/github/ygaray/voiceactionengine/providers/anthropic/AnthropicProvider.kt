@@ -64,6 +64,13 @@ public class AnthropicProvider internal constructor(
         /** Upper bound for waiting on the server between reads in milliseconds; must be positive. Default 60 000. */
         public var readTimeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS
 
+        /**
+         * Hears about every HTTP attempt of every call, or null for none. It is called on the provider's I/O dispatcher
+         * after the status is known, with a null status when the attempt had no HTTP answer, and receives ids only: no
+         * text, headers or body. It must return quickly and must not throw, because a throwing observer fails the call.
+         */
+        public var attemptObserver: AnthropicAttemptObserver? = null
+
         internal var baseUrl: HttpUrl = PRODUCTION_BASE_URL.toHttpUrl()
 
         internal var ioDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -89,6 +96,7 @@ public class AnthropicProvider internal constructor(
                 sleep,
                 retryAfterCapMillis,
                 transientBackoffMillis,
+                attemptObserver,
             )
             return AnthropicProvider(transport, callTimeoutMillis, readTimeoutMillis)
         }

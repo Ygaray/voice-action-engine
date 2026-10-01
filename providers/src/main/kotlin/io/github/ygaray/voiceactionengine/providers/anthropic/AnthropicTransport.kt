@@ -47,9 +47,15 @@ internal class AnthropicTransport(
     private val sleep: suspend (Long) -> Unit,
     private val retryAfterCapMillis: Long,
     private val transientBackoffMillis: Long,
+    private val observer: AnthropicAttemptObserver?,
 ) {
-    /** What one HTTP attempt produced and whether asking again could help. */
-    private class Attempted(val result: ModelResult, val transient: Boolean, val retryAfterSeconds: Long?)
+    /** What one HTTP attempt produced (and its status, when it got one) and whether asking again could help. */
+    private class Attempted(
+        val result: ModelResult,
+        val status: Int?,
+        val transient: Boolean,
+        val retryAfterSeconds: Long?,
+    )
 
     suspend fun send(call: ProviderRequest): ModelResult {
         val credential = call.credential
@@ -67,6 +73,8 @@ internal class AnthropicTransport(
         retried: Boolean,
     ): ModelResult {
         val attempted = attempt(call, credential)
+        val kind = if (retried) AnthropicAttemptKind.TRANSIENT_RETRY else AnthropicAttemptKind.INITIAL
+        observer?.onAttempt(AnthropicAttempt(requestsSent, kind, attempted.status))
         val wait = if (retried || requestsSent >= MAX_REQUESTS) null else retryWait(attempted)
         if (wait == null) return attempted.result
         sleep(wait)
@@ -100,12 +108,15 @@ internal class AnthropicTransport(
 
     private fun interpret(reply: HttpReply, model: String): Attempted {
         val requestId = reply.headers[HEADER_REQUEST_ID]
-        if (reply.isSuccessful) return Attempted(decodeAnthropicResponse(reply.body, requestId, model), false, null)
+        if (reply.isSuccessful) {
+            return Attempted(decodeAnthropicResponse(reply.body, requestId, model), reply.code, false, null)
+        }
         val info = parseAnthropicError(reply.code, requestId, reply.body)
         // A spend cap arrives as a 429 but never clears by waiting, so it is final like any other billing failure.
         val transient = isTransientStatus(info.status) && !info.spendCapReached && !info.userSpendLimit
         return Attempted(
             ModelResult.Failure(info.reason(), info.details()),
+            reply.code,
             transient,
             retryAfterSeconds(reply.headers[HEADER_RETRY_AFTER]),
         )
@@ -115,6 +126,6 @@ internal class AnthropicTransport(
     // A timeout or a dropped connection may clear on its own, so it is worth the one retry.
     private suspend fun ioFailure(reason: FailureReason): Attempted {
         currentCoroutineContext().ensureActive()
-        return Attempted(ModelResult.Failure(reason), transient = true, retryAfterSeconds = null)
+        return Attempted(ModelResult.Failure(reason), status = null, transient = true, retryAfterSeconds = null)
     }
 }

@@ -1,5 +1,8 @@
 package io.github.ygaray.voiceactionengine.providers.anthropic
 
+import io.github.ygaray.voiceactionengine.core.Credential
+import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
@@ -16,6 +19,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
@@ -230,5 +234,110 @@ class AnthropicRetryTest {
             // This is the replay the one-shot body exists to prevent: two executes, three requests on the wire.
             assertEquals(3, server.requestCount)
         }
+    }
+
+    private fun observed(vararg responses: MockResponse, request: ProviderRequest = call()): List<AnthropicAttempt> =
+        runBlocking {
+            MockWebServer().use { server ->
+                responses.forEach { server.enqueue(it) }
+                server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+                server.start()
+                val seen = CopyOnWriteArrayList<AnthropicAttempt>()
+                val provider = AnthropicProvider {
+                    baseUrl = server.url("/")
+                    callTimeoutMillis = 2_000
+                    sleep = { }
+                    attemptObserver = AnthropicAttemptObserver { seen.add(it) }
+                }
+                provider.complete(request)
+                seen.toList()
+            }
+        }
+
+    private fun attempt(number: Int, kind: AnthropicAttemptKind, status: Int?): AnthropicAttempt =
+        AnthropicAttempt(number, kind, status)
+
+    @Test(timeout = 30_000)
+    fun theObserverSeesTheFailedFirstAttemptAndTheRetryThatFollowedIt() {
+        val seen = observed(failure(529), toolAnswer())
+
+        assertEquals(
+            listOf(
+                attempt(1, AnthropicAttemptKind.INITIAL, 529),
+                attempt(2, AnthropicAttemptKind.TRANSIENT_RETRY, 200),
+            ),
+            seen,
+        )
+    }
+
+    @Test(timeout = 30_000)
+    fun anAttemptWithNoHttpAnswerIsReportedWithANullStatus() {
+        val dropped = MockResponse().setResponseCode(200).setSocketPolicy(SocketPolicy.DISCONNECT_AFTER_REQUEST)
+
+        val seen = observed(dropped, toolAnswer())
+
+        assertEquals(
+            listOf(
+                attempt(1, AnthropicAttemptKind.INITIAL, null),
+                attempt(2, AnthropicAttemptKind.TRANSIENT_RETRY, 200),
+            ),
+            seen,
+        )
+    }
+
+    @Test(timeout = 30_000)
+    fun aFinalFailureAndAFirstTrySuccessAreEachOneAttempt() {
+        assertEquals(listOf(attempt(1, AnthropicAttemptKind.INITIAL, 401)), observed(failure(401), toolAnswer()))
+        assertEquals(listOf(attempt(1, AnthropicAttemptKind.INITIAL, 200)), observed(toolAnswer()))
+    }
+
+    @Test(timeout = 30_000)
+    fun aRequestRefusedBeforeTheNetworkIsNotAnAttempt() {
+        val otherProvider = ProviderRequest(
+            model,
+            call().request,
+            Credential(ProviderId.OPENAI, "sk-other"),
+            ModelCapabilities.UNKNOWN,
+        )
+
+        assertTrue(observed(toolAnswer(), request = otherProvider).isEmpty())
+    }
+
+    @Test
+    fun anAttemptIsComparedByValueAndPrintsOnlyItsThreeFacts() {
+        val first = attempt(1, AnthropicAttemptKind.INITIAL, 529)
+
+        assertEquals(first, attempt(1, AnthropicAttemptKind.INITIAL, 529))
+        assertEquals(first.hashCode(), attempt(1, AnthropicAttemptKind.INITIAL, 529).hashCode())
+        assertNotEquals(first, attempt(2, AnthropicAttemptKind.INITIAL, 529))
+        assertNotEquals(first, attempt(1, AnthropicAttemptKind.TRANSIENT_RETRY, 529))
+        assertNotEquals(first, attempt(1, AnthropicAttemptKind.INITIAL, null))
+        assertEquals("AnthropicAttempt(number=1, kind=initial, httpStatus=529)", first.toString())
+        assertEquals("AnthropicAttempt(number=2, kind=transient_retry, httpStatus=null)",
+            attempt(2, AnthropicAttemptKind.TRANSIENT_RETRY, null).toString())
+    }
+
+    @Test
+    fun theAttemptKindsHaveTheirWireValuesAndAreDistinct() {
+        val kinds = listOf(
+            AnthropicAttemptKind.INITIAL,
+            AnthropicAttemptKind.TRANSIENT_RETRY,
+            AnthropicAttemptKind.FORCED_TOOL_RESHAPE,
+        )
+
+        assertEquals(listOf("initial", "transient_retry", "forced_tool_reshape"), kinds.map { it.value })
+        assertEquals(listOf("initial", "transient_retry", "forced_tool_reshape"), kinds.map { it.toString() })
+        assertEquals(3, kinds.toSet().size)
+    }
+
+    @Test
+    fun aProviderBuiltWithAnObserverStillPrintsOnlyItsTimeouts() {
+        val provider = AnthropicProvider {
+            callTimeoutMillis = 1_000
+            readTimeoutMillis = 2_000
+            attemptObserver = AnthropicAttemptObserver { }
+        }
+
+        assertEquals("AnthropicProvider(callTimeoutMillis=1000, readTimeoutMillis=2000)", provider.toString())
     }
 }
