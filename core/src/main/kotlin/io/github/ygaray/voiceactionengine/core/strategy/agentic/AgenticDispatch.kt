@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
+import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
 import io.github.ygaray.voiceactionengine.core.strategy.ToolExecutor
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
@@ -36,29 +37,47 @@ internal class DispatchContext(
 
     /** True once some tool has returned errors often enough to end the run. */
     fun struckOut(): Boolean = strikes.values.any { it >= STRIKES_TO_ABORT }
+
+    /** The offered tool called [name], or null when the tier never offered it. */
+    fun specOf(name: String): ToolSpec? = snapshot.tools.firstOrNull { it.name == name }
 }
 
-/** What a turn's dispatch produced: one result per call in call order, and whether the run must end after the turn. */
+/**
+ * What a turn's dispatch produced.
+ *
+ * @property results one result per dispatched call, in call order; the terminal call and the calls after it get none.
+ * @property struckOut true when some tool has returned errors often enough to end the run.
+ * @property terminal the terminal call that ends the run, or null.
+ * @property dropped true when calls after the terminal call were never prepared.
+ */
 internal class TurnDispatch(
     val results: List<ToolResult>,
     val struckOut: Boolean,
+    val terminal: TerminalCall?,
+    val dropped: Boolean,
 )
 
 /**
  * Runs a turn's [calls] one at a time, in the order the model emitted them, never concurrently, and returns one result
  * per call in the same order. Every change goes through the session, so the gate decides. A tool that has returned
- * errors twice in the command ends the run, but only after the rest of the turn ran.
+ * errors twice in the command ends the run, but only after the rest of the turn ran. The first call to a terminal tool
+ * stops the walk: the app is not asked about it, and the calls after it are dropped, never prepared.
  */
 internal suspend fun dispatchCalls(
     context: DispatchContext,
     calls: List<AssistantPart.ToolCall>,
 ): TurnDispatch {
-    val results = calls.map { dispatchCall(context, it) }
-    return TurnDispatch(results, context.struckOut())
+    val endAt = calls.indexOfFirst { context.specOf(it.name)?.terminal == true }
+    val active = if (endAt < 0) calls else calls.subList(0, endAt)
+    val results = active.map { dispatchCall(context, it) }
+    val ender = calls.getOrNull(endAt)
+    val dropped = endAt in 0 until calls.lastIndex
+    if (dropped) context.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+    return TurnDispatch(results, context.struckOut(), ender?.let { TerminalCall(it.name, it.arguments) }, dropped)
 }
 
 private suspend fun dispatchCall(context: DispatchContext, call: AssistantPart.ToolCall): ToolResult {
-    val spec = context.snapshot.tools.firstOrNull { it.name == call.name }
+    val spec = context.specOf(call.name)
     val result = if (spec == null) unknownTool(context, call) else settle(context, spec, call)
     if (result.isError) context.strike(call.name)
     return result

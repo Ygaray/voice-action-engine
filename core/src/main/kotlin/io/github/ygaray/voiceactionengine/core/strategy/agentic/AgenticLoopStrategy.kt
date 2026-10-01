@@ -42,8 +42,13 @@ private const val EXHAUSTED_CODE = "agentic_loop_exhausted"
  *
  * The tier reads its limits from the session policy. Before every model call it refuses when the run has already
  * reached the token ceiling. After a tool turn it fails, before running any call, when the run is past the ceiling,
- * and it fails the same way before running the calls of the last permitted turn. When a turn trips both the token
- * ceiling and the iteration limit, the token ceiling is the one reported.
+ * and it fails the same way before running the calls of the last permitted turn. When the token ceiling and the
+ * iteration limit trip on the same turn, the failure is the token ceiling's; the ceiling is checked first.
+ *
+ * A tool that returns an error twice in one command ends the run as a tool failure, after the rest of that turn ran.
+ * The first call to a terminal tool ends the run: the calls before it in the turn ran, the calls after it are dropped
+ * and make the completion partial, and the call is delivered as the outcome's terminal call. A turn whose first call
+ * is terminal is not stopped by the iteration limit.
  *
  * The tier returns only completed or failed outcomes, never an escalation, and never retries. It reports no turn
  * itself: the engine records every turn made through the session's model.
@@ -170,17 +175,30 @@ internal class AgenticRun(
 
     // The token ceiling is checked first, so a turn that trips both limits reports the ceiling.
     private suspend fun toolTurn(iteration: Int, response: ModelResponse): StrategyOutcome? =
-        ceilingCrossed(context.session) ?: lastTurnGuard(iteration) ?: dispatchTurn(response)
+        ceilingCrossed(context.session) ?: lastTurnGuard(iteration, response) ?: dispatchTurn(response)
 
-    private fun lastTurnGuard(iteration: Int): StrategyOutcome? =
-        if (iteration >= context.session.policy.maxIterations) iterationBudgetFailure() else null
+    // The last permitted turn runs no tool, except that a turn whose first call is terminal dispatches nothing at all
+    // and simply ends the run.
+    private fun lastTurnGuard(iteration: Int, response: ModelResponse): StrategyOutcome? {
+        val last = iteration >= context.session.policy.maxIterations
+        val endsAtOnce = context.specOf(response.message.toolCalls.first().name)?.terminal == true
+        return if (last && !endsAtOnce) iterationBudgetFailure() else null
+    }
 
-    // A tool that struck out ends the run after the whole turn ran; the pipeline attaches every executed action to the
-    // failure, so nothing committed in the turn is hidden.
+    // A tool that struck out ends the run after the whole turn ran, and beats a terminal call of the same turn. A
+    // terminal call ends the run with no results sent and no further request. The pipeline attaches every executed
+    // action to either outcome, so nothing committed or held in the turn is hidden.
     private suspend fun dispatchTurn(response: ModelResponse): StrategyOutcome? {
         val turn = dispatchCalls(context, response.message.toolCalls)
-        history.add(response.message)
-        history.add(ToolResultsMessage(turn.results))
-        return if (turn.struckOut) StrategyOutcome.Failed(FailureReason.ToolFailure()) else null
+        val terminal = turn.terminal
+        if (terminal == null) {
+            history.add(response.message)
+            history.add(ToolResultsMessage(turn.results))
+        }
+        return when {
+            turn.struckOut -> StrategyOutcome.Failed(FailureReason.ToolFailure())
+            terminal != null -> StrategyOutcome.Completed(null, terminal, turn.dropped)
+            else -> null
+        }
     }
 }
