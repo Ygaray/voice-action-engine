@@ -133,7 +133,7 @@ Result rules for every criterion: `result: passed` only when every Expected item
 ### G1-11 device-hw: VER-03 extended multi-turn on OpenRouter (L6)
 - **Requirement:** VER-03 (P8 OpenRouter mapper on device).
 - **Did:** `capture-start`; tap `run_multi_openrouter`; `capture-save multi_openrouter`.
-- **Expected:** PASS; record `turn2_cache_read` (observed, not asserted). Cache-write accounting through OpenRouter is not exercised (carry C4).
+- **Expected:** PASS; record `turn2_cache_read` (observed, not asserted). Cache-write accounting through OpenRouter is not exercised (carry C4): not exercisable in v1.0 (LATER-02); needs Yahir waiver; P11 waiver packet. It is not closed.
 - **Evidence:** `evidence/gate1-multi_openrouter.txt`.
 
 ### G1-12 device-hw: VER-04 clarification and partial on device (offline, no key)
