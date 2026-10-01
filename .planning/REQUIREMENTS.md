@@ -82,9 +82,9 @@
 
 ### Multi-turn Mappers (step 6a)
 
-- [ ] **XCR-01**: Anthropic ↔ neutral and Chat Completions ↔ neutral mappers round-trip multi-turn tool conversations; one conformance suite runs against both.
-- [ ] **XCR-02**: Assistant turns are replayed **verbatim** from `NativeReplay` to the same provider/model (golden fixture includes thinking blocks); transcripts never cross providers (`carry` is semantic only).
-- [ ] **XCR-03**: Tool results are encoded per dialect — Anthropic batches all results for a turn in one user message with `is_error`; Chat Completions sends one `role:tool` message per call id — with coverage for parallel calls and empty arguments, and golden tests built from recorded, sanitized real response bodies.
+- [x] **XCR-01**: Anthropic ↔ neutral and Chat Completions ↔ neutral mappers round-trip multi-turn tool conversations; one conformance suite runs against both.
+- [x] **XCR-02**: Assistant turns are replayed **verbatim** from `NativeReplay` to the same provider/model (golden fixture includes thinking blocks); transcripts never cross providers (`carry` is semantic only).
+- [x] **XCR-03**: Tool results are encoded per dialect — Anthropic batches all results for a turn in one user message with `is_error`; Chat Completions sends one `role:tool` message per call id — with coverage for parallel calls and empty arguments, and golden tests built from recorded, sanitized real response bodies.
 
 ### Agentic Loop Strategy (step 6b)
 
@@ -201,9 +201,9 @@
 | SHOT-01 | Phase 7 | Complete |
 | SHOT-02 | Phase 7 | Complete |
 | SHOT-03 | Phase 7 | Complete |
-| XCR-01 | Phase 8 | Pending |
-| XCR-02 | Phase 8 | Pending |
-| XCR-03 | Phase 8 | Pending |
+| XCR-01 | Phase 8 | Complete |
+| XCR-02 | Phase 8 | Complete |
+| XCR-03 | Phase 8 | Complete |
 | LOOP-01 | Phase 9 | Pending |
 | LOOP-02 | Phase 9 | Pending |
 | LOOP-03 | Phase 9 | Pending |

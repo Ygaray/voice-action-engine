@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: OpenAI & OpenRouter Transports** - §6.2 step 3b: one Chat Completions transport for both, real wire shapes and quirks mapped to typed outcomes (completed 2026-10-01)
 - [x] **Phase 6: Keystore** - §6.2 step 4: BYO keys encrypted per provider in the app's own DataStore, existing aliases preserved (completed 2026-10-01)
 - [x] **Phase 7: SingleShot Strategy** - §6.2 step 5: one forced-tool extraction resolved locally and committed through the gate (CT port) (completed 2026-10-01)
-- [ ] **Phase 8: Multi-turn Mappers** - §6.2 step 6a: lossless neutral ↔ Anthropic / Chat Completions tool conversations with verbatim replay
+- [x] **Phase 8: Multi-turn Mappers** - §6.2 step 6a: lossless neutral ↔ Anthropic / Chat Completions tool conversations with verbatim replay (completed 2026-10-01)
 - [ ] **Phase 9: Agentic Loop Strategy** - §6.2 step 6b: SB's bounded agentic loop on any cloud provider, gated and honest on every exit
 - [ ] **Phase 10: Sample Harness, Gate-1 & Docs** - §6.2 step 7: `:sample` A10 proof on the TESTER, live smokes on 3 clouds, agent-ready README
 - [ ] **Phase 11: Cut v1.0.0** - §6.2 step 7 / §11: gated release after Phase 10's green Gate-1; tag row messaged to the orchestrator
@@ -461,7 +461,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. OpenAI & OpenRouter Transports | 12/12 | Complete    | 2026-10-01 |
 | 6. Keystore | 7/7 | Complete    | 2026-10-01 |
 | 7. SingleShot Strategy | 8/8 | Complete    | 2026-10-01 |
-| 8. Multi-turn Mappers | 9/9 | In Progress|  |
+| 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
 | 9. Agentic Loop Strategy | 0/TBD | Not started | - |
 | 10. Sample Harness, Gate-1 & Docs | 0/TBD | Not started | - |
 | 11. Cut v1.0.0 | 0/TBD | Not started | - |
