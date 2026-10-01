@@ -4,6 +4,10 @@ import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicAttempt
 import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicAttemptKind
 import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicAttemptObserver
 import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicProvider
+import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsAttempt
+import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsAttemptKind
+import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsAttemptObserver
+import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -86,6 +90,10 @@ class ProvidersApiShapeTest {
             AnthropicAttemptObserver::class.java,
             AnthropicAttempt::class.java,
             AnthropicAttemptKind::class.java,
+            ChatCompletionsProvider::class.java,
+            ChatCompletionsAttemptObserver::class.java,
+            ChatCompletionsAttempt::class.java,
+            ChatCompletionsAttemptKind::class.java,
         ).forEach { assertTrue("${it.name} must be among the swept classes", it.name in names) }
     }
 
@@ -129,6 +137,11 @@ class ProvidersApiShapeTest {
         assertTrue(!hasPublicDefaultArgumentStub(AnthropicProvider::class.java))
         assertTrue(!hasPublicDefaultArgumentStub(AnthropicAttemptKind::class.java))
         assertTrue(!AnthropicAttemptKind::class.java.isEnum)
+        assertTrue(!isDataShaped(ChatCompletionsAttempt::class.java))
+        assertTrue(leakedStaticFields(ChatCompletionsProvider::class.java).isEmpty())
+        assertTrue(!hasPublicDefaultArgumentStub(ChatCompletionsProvider::class.java))
+        assertTrue(!hasPublicDefaultArgumentStub(ChatCompletionsAttemptKind::class.java))
+        assertTrue(!ChatCompletionsAttemptKind::class.java.isEnum)
     }
 
     private companion object {

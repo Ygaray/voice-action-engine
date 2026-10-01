@@ -28,6 +28,8 @@ import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
@@ -35,8 +37,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 /** The Chat Completions provider end to end against a local server, for both vendors. */
 class ChatTransportTest {
@@ -446,5 +450,109 @@ class ChatTransportTest {
         assertAuthWithoutTheKey("\n")
         assertAuthWithoutTheKey("\rmore")
         assertAuthWithoutTheKey("\u00eb")
+    }
+
+    // ---- configuration
+
+    @Test
+    fun theDefaultProvidersTargetTheFixedHttpsHostsWithSixtySecondTimeouts() {
+        val openAi = ChatCompletionsProvider.openAi { }
+        val openRouter = ChatCompletionsProvider.openRouter { }
+
+        assertEquals("https://api.openai.com/v1/", openAi.transport.baseUrl.toString())
+        assertEquals("https://openrouter.ai/api/v1/", openRouter.transport.baseUrl.toString())
+        for (provider in listOf(openAi, openRouter)) {
+            assertTrue(provider.transport.baseUrl.isHttps)
+            assertEquals(60_000L, provider.transport.client.callTimeoutMillis.toLong())
+            assertEquals(60_000L, provider.transport.client.readTimeoutMillis.toLong())
+        }
+    }
+
+    @Test
+    fun configuredTimeoutsAreHonoredAndNonPositiveOnesAreRejectedByName() {
+        val provider = ChatCompletionsProvider.openAi {
+            callTimeoutMillis = 90_000
+            readTimeoutMillis = 75_000
+        }
+        assertEquals(90_000L, provider.transport.client.callTimeoutMillis.toLong())
+        assertEquals(75_000L, provider.transport.client.readTimeoutMillis.toLong())
+
+        val call = rejection { ChatCompletionsProvider.openAi { callTimeoutMillis = 0 } }
+        assertTrue(call.contains("callTimeoutMillis"))
+        val read = rejection { ChatCompletionsProvider.openRouter { readTimeoutMillis = -1 } }
+        assertTrue(read.contains("readTimeoutMillis"))
+    }
+
+    @Test
+    fun aCleartextBaseUrlIsRejectedUnlessItIsLoopback() {
+        rejection { ChatCompletionsProvider.openAi { baseUrl = "http://example.com/".toHttpUrl() } }
+        ChatCompletionsProvider.openAi { baseUrl = "http://localhost:8080/".toHttpUrl() }
+        ChatCompletionsProvider.openRouter { baseUrl = "http://127.0.0.1:8080/".toHttpUrl() }
+        ChatCompletionsProvider.openRouter { baseUrl = "http://[::1]:8080/".toHttpUrl() }
+        MockWebServer().use { server ->
+            server.start()
+            ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+        }
+    }
+
+    @Test
+    fun theDerivedClientDropsTheAppsInterceptorsSoTheyNeverSeeTheRequest() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(toolAnswer())
+            server.start()
+            val applicationCalls = AtomicInteger()
+            val networkCalls = AtomicInteger()
+            val shared = OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    applicationCalls.incrementAndGet()
+                    chain.proceed(chain.request())
+                }
+                .addNetworkInterceptor { chain ->
+                    networkCalls.incrementAndGet()
+                    chain.proceed(chain.request())
+                }
+                .build()
+            val provider = ChatCompletionsProvider.openAi {
+                httpClient = shared
+                baseUrl = server.url("/")
+            }
+
+            val result = provider.complete(directCall())
+
+            assertTrue(result is ModelResult.Success)
+            assertEquals(1, server.requestCount)
+            assertEquals(0, applicationCalls.get())
+            assertEquals(0, networkCalls.get())
+            assertTrue(provider.transport.client.interceptors.isEmpty())
+            assertTrue(provider.transport.client.networkInterceptors.isEmpty())
+        }
+    }
+
+    @Test
+    fun toStringShowsTheProviderIdAndBothTimeoutsAndNothingElse() {
+        val openAi = ChatCompletionsProvider.openAi {
+            callTimeoutMillis = 90_000
+            readTimeoutMillis = 75_000
+        }
+        val openRouter = ChatCompletionsProvider.openRouter { }
+
+        assertEquals(
+            "ChatCompletionsProvider(provider=openai, callTimeoutMillis=90000, readTimeoutMillis=75000)",
+            openAi.toString(),
+        )
+        assertEquals(
+            "ChatCompletionsProvider(provider=openrouter, callTimeoutMillis=60000, readTimeoutMillis=60000)",
+            openRouter.toString(),
+        )
+    }
+
+    private fun rejection(block: () -> Unit): String {
+        try {
+            block()
+        } catch (e: IllegalArgumentException) {
+            return e.message.orEmpty()
+        }
+        fail("expected IllegalArgumentException")
+        return ""
     }
 }
