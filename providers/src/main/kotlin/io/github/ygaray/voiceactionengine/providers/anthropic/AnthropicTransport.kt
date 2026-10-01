@@ -9,10 +9,14 @@ import io.github.ygaray.voiceactionengine.providers.http.HttpReply
 import io.github.ygaray.voiceactionengine.providers.http.OneShotJsonBody
 import io.github.ygaray.voiceactionengine.providers.http.await
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
+import java.io.InterruptedIOException
 
 private const val MESSAGES_PATH = "v1/messages"
 private const val API_VERSION = "2023-06-01"
@@ -47,7 +51,14 @@ internal class AnthropicTransport(
             .header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
             .post(OneShotJsonBody(encodeAnthropicRequest(call)))
             .build()
-        return interpret(client.newCall(request).await(), call.model)
+        return try {
+            interpret(client.newCall(request).await(), call.model)
+        } catch (ignored: InterruptedIOException) {
+            // Call and read timeouts surface as this type (SocketTimeoutException is a subclass); no text is read.
+            ioFailure(FailureReason.Timeout())
+        } catch (ignored: IOException) {
+            ioFailure(FailureReason.Network())
+        }
     }
 
     private fun interpret(reply: HttpReply, model: String): ModelResult {
@@ -55,5 +66,11 @@ internal class AnthropicTransport(
         if (reply.isSuccessful) return decodeAnthropicResponse(reply.body, requestId, model)
         val info = parseAnthropicError(reply.code, requestId, reply.body)
         return ModelResult.Failure(info.reason(), info.details())
+    }
+
+    // A cancelled command can also surface as an IOException ("Canceled"); cancellation must win over a failure.
+    private suspend fun ioFailure(reason: FailureReason): ModelResult {
+        currentCoroutineContext().ensureActive()
+        return ModelResult.Failure(reason)
     }
 }
