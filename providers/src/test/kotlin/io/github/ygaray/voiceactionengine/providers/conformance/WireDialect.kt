@@ -147,6 +147,46 @@ private class Replayer(private val dialect: WireDialect, private val row: Conver
 internal fun sentMessages(body: String): JsonArray =
     (Json.parseToJsonElement(body) as JsonObject)[KEY_MESSAGES] as JsonArray
 
+/**
+ * The whole-history replay rule: the raw turn of every response that is followed by a later request must appear, as the
+ * compact text the golden file stores, in that golden file and in every later request body, and must be the assistant
+ * element at its own position in each of them. Violations name the turn and request only.
+ */
+internal fun verbatimViolations(
+    dialect: WireDialect,
+    turns: List<ConversationTurn>,
+    bodies: List<String>,
+    goldenText: String,
+): List<String> {
+    val found = mutableListOf<String>()
+    for ((index, turn) in turns.withIndex()) {
+        val expected = dialect.expectedReplayWire(turn.response)
+        if (expected == null || index + 1 >= bodies.size) continue
+        val number = index + 1
+        if (canonicalJson(expected.toString()) !in goldenText) found += "turn $number: not verbatim in the golden file"
+        for (request in index + 1 until bodies.size) {
+            found += requestViolations(dialect, number, expected, request + 1, bodies[request])
+        }
+    }
+    return found
+}
+
+private fun requestViolations(
+    dialect: WireDialect,
+    number: Int,
+    expected: JsonElement,
+    request: Int,
+    body: String,
+): List<String> {
+    val found = mutableListOf<String>()
+    if (canonicalJson(expected.toString()) !in body) found += "turn $number: not verbatim in request $request"
+    val messages = sentMessages(body)
+    val at = dialect.assistantWireIndices(messages).getOrNull(number - 1)
+    val wire = at?.let { dialect.assistantWire(messages[it] as JsonObject) }
+    if (wire != expected) found += "turn $number: request $request holds a different assistant turn"
+    return found
+}
+
 private fun sameMessages(sent: JsonArray, golden: JsonArray): Boolean =
     sent == golden && compact(sent) == compact(golden)
 

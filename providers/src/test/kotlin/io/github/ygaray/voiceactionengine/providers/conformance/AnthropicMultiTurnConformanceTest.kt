@@ -1,5 +1,8 @@
 package io.github.ygaray.voiceactionengine.providers.conformance
 
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,6 +22,36 @@ internal class AnthropicMultiTurnConformanceTest : MultiTurnConformanceSuite() {
         val names = assistants[0].toolCalls.map { it.name }
         assertEquals(listOf("record_item", "record_item", "count_items", "lookup_item"), names)
         assertTrue("the zero-argument call has no arguments", assistants[0].toolCalls[2].arguments.isEmpty())
+    }
+
+    @Test
+    fun theThinkingFixtureKeepsItsBlocksInOrderAndEveryLaterRequestRepeatsThem() {
+        val row = row("derived_thinking")
+        val turns = turnsOf(row)
+        val bodies = replayConversation(dialect, row, turns).bodies
+        val first = dialect.expectedReplayWire(turns[0].response) as JsonArray
+        val types = first.map { ((it as JsonObject)["type"] as JsonPrimitive).content }
+        assertEquals(
+            listOf("thinking", "redacted_thinking", "text", "tool_use", "thinking", "tool_use"),
+            types,
+        )
+        val firstText = canonicalJson(first.toString())
+        val secondText = canonicalJson(checkNotNull(dialect.expectedReplayWire(turns[1].response)).toString())
+        assertTrue("turn 1 is missing from request 2", firstText in bodies[1])
+        assertTrue("turn 1 is missing from request 3", firstText in bodies[2])
+        assertTrue("turn 2 is missing from request 3", secondText in bodies[2])
+        assertTrue("the fixture holds no signature", firstText.contains("\"signature\""))
+    }
+
+    @Test
+    fun aChangedSignatureFailsTheByteForByteCheckForThatTurn() {
+        val row = row("derived_thinking")
+        val text = conversationText(row)
+        val bodies = replayConversation(dialect, row, parseConversation(text)).bodies
+        val tampered = text.replace("derived-placeholder-signature-1", "derived-placeholder-signature-X")
+        assertTrue("the edit did not change the golden", tampered != text)
+        val found = verbatimViolations(dialect, parseConversation(tampered), bodies, text)
+        assertTrue("the changed signature went unnoticed", found.any { it.startsWith("turn 1") })
     }
 
     @Test

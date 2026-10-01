@@ -4,3 +4,4 @@
 # Prompts, tools and results come only from ConversationScript and name no app domain.
 case	dialect	provenance	model	file	tags	note
 derived_parallel_tools	anthropic	derived	claude-haiku-4-5	anthropic/derived_parallel_tools.json	parallel,zero_arg,error_result,interleaved_text	derived: documented content-array shape; four parallel calls with a zero-argument call and an error result
+derived_thinking	anthropic	derived	claude-sonnet-5-5	anthropic/derived_thinking.json	thinking,redacted_thinking,interleaved_text,zero_arg,error_result	derived: placeholder signatures; proves the engine byte-for-byte replay; API acceptance comes from a captured row

@@ -67,6 +67,17 @@ internal abstract class MultiTurnConformanceSuite {
         }
     }
 
+    @Test
+    fun everyAssistantTurnIsReplayedByteForByte() {
+        for (row in rows()) {
+            val turns = turnsOf(row)
+            val replay = replayConversation(dialect, row, turns)
+            assertTrue("${row.case}: the replay failed", replay.violations.isEmpty())
+            val found = verbatimViolations(dialect, turns, replay.bodies, conversationText(row))
+            assertEquals("${row.case}: $found", emptyList<String>(), found)
+        }
+    }
+
     private fun checkResults(label: String, assistant: AssistantMessage, messages: JsonArray, at: Int, next: Int) {
         val calls = assistant.toolCalls
         assertEquals("$label: result message count", dialect.resultMessageCount(calls.size), next - at - 1)
