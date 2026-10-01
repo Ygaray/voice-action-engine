@@ -1,5 +1,8 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.commit.StepResult
+import io.github.ygaray.voiceactionengine.core.commit.ToolStep
+import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
@@ -7,6 +10,7 @@ import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeClock
+import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.RecordingEventListener
@@ -135,6 +139,100 @@ class TraceTest {
             assertEquals("done", closed.terminationCode)
             assertEquals(0, closed.executedCount)
             assertEquals(0, closed.committedCount)
+        }
+    }
+
+    /** Maps an Anthropic response (its input excludes cached tokens) to the normalized usage. */
+    private fun anthropicUsage(input: Long, cacheRead: Long, cacheWrite: Long, output: Long) =
+        Usage(input, cacheRead, cacheWrite, output)
+
+    /** Maps an OpenAI-style response (its prompt tokens include cached tokens) to the normalized usage. */
+    private fun openAiUsage(prompt: Long, cached: Long, completion: Long) =
+        Usage(prompt - cached, cached, 0, completion)
+
+    private suspend fun usageOf(usage: Usage, provider: ProviderId): Usage {
+        val strategy = tier("a") { _, session ->
+            session.recordTurn(TurnRecord(provider, "model", "stop", emptyList(), usage, TURN_LATENCY))
+            StrategyOutcome.Completed("ok")
+        }
+        val outcome = commandPipeline {
+            tier(strategy)
+            gate = ScriptedGate.admitAll()
+            commitSink = RecordingCommitSink()
+        }.execute(CommandInput("add milk"))
+        return outcome.trace.attempts.single().usage
+    }
+
+    @Test
+    fun anAnthropicTurnAndAnOpenAiTurnForTheSameWorkHaveEqualAttemptUsage() = runTest {
+        NoNetworkGuard.during {
+            val anthropic = usageOf(anthropicUsage(INPUT, CACHE_READ, 0, OUTPUT), ProviderId.ANTHROPIC)
+            val openAi = usageOf(openAiUsage(INPUT + CACHE_READ, CACHE_READ, OUTPUT), ProviderId.OPENAI)
+
+            assertEquals(TOTAL, anthropic.total)
+            assertEquals(TOTAL, openAi.total)
+            assertEquals(anthropic, openAi)
+        }
+    }
+
+    @Test
+    fun anEscalatedTierRecordsItsReasonAndItsClockLatency() = runTest {
+        NoNetworkGuard.during {
+            val fakeClock = FakeClock(START)
+            val reason = EscalationReason.ModelDeclined()
+            val tierA = tier("a") { _, _ ->
+                fakeClock.advanceBy(ADVANCE)
+                StrategyOutcome.Escalate(reason, null)
+            }
+            val tierB = tier("b") { _, _ ->
+                fakeClock.advanceBy(ADVANCE * 2)
+                StrategyOutcome.Completed("ok")
+            }
+
+            val outcome = commandPipeline {
+                tier(tierA)
+                tier(tierB)
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+                clock = fakeClock
+            }.execute(CommandInput("add milk"))
+
+            val (escalated, completed) = outcome.trace.attempts
+            assertEquals("escalated", escalated.outcome)
+            assertSame(reason, escalated.escalationReason)
+            assertNull(escalated.suppressedEscalation)
+            assertEquals(ADVANCE, escalated.latencyMillis)
+            assertEquals("completed", completed.outcome)
+            assertEquals(ADVANCE * 2, completed.latencyMillis)
+            assertEquals(ADVANCE * 3, outcome.trace.durationMillis)
+        }
+    }
+
+    @Test
+    fun aSuppressedEscalationRecordsItsReasonAndItsClockLatency() = runTest {
+        NoNetworkGuard.during {
+            val fakeClock = FakeClock(START)
+            val reason = EscalationReason.ModelDeclined()
+            val write = FakeMutation("write", StepResult("done", false, "ok", emptyMap()))
+            val tierA = tier("a") { _, session ->
+                session.submit(ToolStep.Mutation(write))
+                fakeClock.advanceBy(ADVANCE)
+                StrategyOutcome.Escalate(reason, null)
+            }
+
+            val outcome = commandPipeline {
+                tier(tierA)
+                tier(tier("b") { _, _ -> StrategyOutcome.Completed("never") })
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+                clock = fakeClock
+            }.execute(CommandInput("add milk"))
+
+            val attempt = outcome.trace.attempts.single()
+            assertEquals("escalation_suppressed", attempt.outcome)
+            assertNull(attempt.escalationReason)
+            assertSame(reason, attempt.suppressedEscalation)
+            assertEquals(ADVANCE, attempt.latencyMillis)
         }
     }
 
