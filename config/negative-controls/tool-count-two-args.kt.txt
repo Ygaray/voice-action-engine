@@ -1,0 +1,4 @@
+// EXPECT: hard-coded tool count
+package x
+internal fun same(tools: List<Any>) = check(18, tools.size)
+internal fun flipped(tools: List<Any>) = check(tools.size, 17)

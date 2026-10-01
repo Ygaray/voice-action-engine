@@ -1,0 +1,4 @@
+// EXPECT: hard-coded tool count
+package x
+internal fun notAll(tools: List<Any>) = tools.size != 18
+internal fun atLeast(offeredTools: List<Any>) = offeredTools.count() >= 17

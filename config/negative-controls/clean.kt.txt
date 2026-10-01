@@ -20,3 +20,10 @@ val edit_text_card_x = 5
 // a comment saying 118 tools
 val tools = listOf(1)
 val sizeOk = tools.size == 3
+// tool-count near-misses: other numbers, other operators, other names
+val sizeNe = tools.size != 3
+val numberFirstOk = 3 == tools.size
+val twoArgsOk = listOf(tools.size, 3)
+val longer = 118 == tools.size
+val padded = tools.size >= 180
+val other = items.size == 18

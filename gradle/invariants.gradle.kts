@@ -34,6 +34,12 @@ val bannedRules = listOf(
 // CLN-02: matched against the UNMODIFIED file text. The rules above run on text with literals and comments blanked,
 // but an app-domain name or a tool count hides exactly there (a tool-name string, a KDoc sentence), so these must see it all.
 // Deny-list: only names already tracked in planning docs. The list lives here, in a .kts that is never scanned.
+// The tool-count rule catches the size of a tools-ish collection set against 17 or 18 with any comparison operator, in
+// either order, and as two arguments (`assertEquals(18, tools.size)`). It does not try to be a type checker: a count
+// held in another name still gets through. Tests (src/test) are deliberately outside these raw rules; only main and
+// testFixtures sources are scanned.
+val toolsSizeExpr = """\w*[Tt]ools?\w*\s*\.\s*(?:size|count\s*\(\s*\))"""
+val countSeparator = """(?:[=!]=|[<>]=?|,)"""
 val rawRules = listOf(
     Rule(
         "app-domain name in source",
@@ -46,7 +52,8 @@ val rawRules = listOf(
         "hard-coded tool count",
         Regex(
             """\b(TOOL_COUNT|EXPECTED_TOOL_COUNT|NUM_TOOLS|toolCount)\b|\b1[78]\s+tools?\b""" +
-                """|\b\w*[Tt]ools?\w*\s*\.\s*(size|count\s*\(\s*\))\s*==\s*1[78]\b""",
+                """|\b$toolsSizeExpr\s*$countSeparator\s*1[78]\b""" +
+                """|\b1[78]\s*$countSeparator\s*$toolsSizeExpr""",
         ),
     ),
 )

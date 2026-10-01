@@ -1,0 +1,4 @@
+// EXPECT: hard-coded tool count
+package x
+internal fun numberFirst(tools: List<Any>) = 18 == tools.size
+internal fun bound(tools: List<Any>) = 17 <= tools.size
