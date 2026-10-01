@@ -33,6 +33,24 @@ internal fun snapshotEffects(
     recorder: RunRecorder,
 ): RunEffects = RunEffects(runId, parentRunId, coordinator.executed(), coordinator.held(), recorder.snapshot())
 
+// The run id of an outcome for a run that never began, so nothing the app made (ids, clock readings) is involved.
+private const val UNSTARTED_RUN_ID = "unstarted"
+
+/**
+ * The failed outcome for a run that could not begin because an app hook (the run id maker or the clock) threw. Nothing
+ * ran, so nothing was reported to the sink; the effects are empty and the failure names only the exception class.
+ */
+internal fun unstartedFailure(
+    parentRunId: String?,
+    language: String?,
+    transcriptLength: Int,
+    errorClass: String,
+): CommandOutcome.Failed {
+    val trace = RunRecorder(UNSTARTED_RUN_ID, parentRunId, language, transcriptLength, { 0L }).snapshot()
+    val effects = RunEffects(UNSTARTED_RUN_ID, parentRunId, emptyList(), emptyList(), trace)
+    return CommandOutcome.Failed(effects, FailureReason.Unexpected(errorClass), null)
+}
+
 /**
  * The typed result of one command. The set is closed: completed, failed or unhandled.
  *

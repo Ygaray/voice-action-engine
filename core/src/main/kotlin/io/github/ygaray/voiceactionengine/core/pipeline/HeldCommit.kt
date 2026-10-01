@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
 private const val CANCELLED_CODE = "commit_held_cancelled"
+private const val ERROR_CLASS = "Error"
 
 /**
  * Commits held changes later, as a new run linked to the run that held them. The gate is never asked: the user already
@@ -30,13 +31,31 @@ internal class HeldCommit(
     private val listener: PipelineEventListener?,
 ) {
     /** Commits [mutations] for [held] if nobody has yet, otherwise returns what the first caller got. */
-    suspend fun resolve(held: HeldProposal, mutations: List<PendingMutation>): CommandOutcome =
-        if (held.claimed.compareAndSet(false, true)) runChild(held, mutations) else held.result.await()
+    suspend fun resolve(held: HeldProposal, mutations: List<PendingMutation>): CommandOutcome {
+        if (!held.claimed.compareAndSet(false, true)) return held.result.await()
+        // The claim is taken, so whatever happens next the proposal's result must be completed or every other caller
+        // would wait for ever.
+        return try {
+            var failure: EngineFault? = null
+            val child = guarded<ChildRun?>(onFault = { failure = it; null }) { open(held) }
+            if (child != null) run(child, mutations) else unstarted(held, failure?.errorClass)
+        } finally {
+            if (!held.result.isCompleted) held.result.complete(unstartedFailure(held.runId, null, 0, ERROR_CLASS))
+        }
+    }
 
-    private suspend fun runChild(held: HeldProposal, mutations: List<PendingMutation>): CommandOutcome {
+    /** The outcome when the child run could not begin (a throwing id maker or clock); the sink is not told. */
+    private fun unstarted(held: HeldProposal, errorClass: String?): CommandOutcome =
+        unstartedFailure(held.runId, null, 0, errorClass ?: ERROR_CLASS).also { held.result.complete(it) }
+
+    private fun open(held: HeldProposal): ChildRun {
         val runId = runIds()
         val recorder = RunRecorder(runId, held.runId, null, 0, clock, listener)
-        val child = ChildRun(runId, held, CommitCoordinator(runId, held.runId, gate, sink, recorder), recorder)
+        return ChildRun(runId, held, CommitCoordinator(runId, held.runId, gate, sink, recorder), recorder)
+    }
+
+    private suspend fun run(child: ChildRun, mutations: List<PendingMutation>): CommandOutcome {
+        val recorder = child.recorder
         var outcome: CommandOutcome? = null
         var cancelled = false
         try {
@@ -70,7 +89,7 @@ internal class HeldCommit(
 
     /** What later callers see when the first caller produced no outcome: it was cancelled, or an error escaped. */
     private fun fallback(effects: RunEffects, cancelled: Boolean): CommandOutcome {
-        val reason = if (cancelled) FailureReason.Other(CANCELLED_CODE) else FailureReason.Unexpected("Error")
+        val reason = if (cancelled) FailureReason.Other(CANCELLED_CODE) else FailureReason.Unexpected(ERROR_CLASS)
         return CommandOutcome.Failed(effects, reason, null)
     }
 }
