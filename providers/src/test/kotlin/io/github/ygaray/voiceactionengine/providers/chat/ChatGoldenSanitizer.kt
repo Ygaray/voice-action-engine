@@ -54,7 +54,8 @@ private class Pass {
  * calls and reasoning details are kept.
  *
  * The output is pretty-printed with a two-space indent and is checked against [goldenHygieneViolations] before it is
- * returned; a body that still breaks a rule is refused. No message ever contains the body.
+ * returned; a body that still breaks a rule is refused with an IllegalArgumentException, as is a body that is not a
+ * JSON object. No message ever contains the body.
  */
 internal object ChatGoldenSanitizer {
 
@@ -62,7 +63,7 @@ internal object ChatGoldenSanitizer {
         val cleaned = clean(redactError(parseObject(body)), Pass())
         val output = PRINTER.encodeToString(JsonElement.serializer(), cleaned)
         val violations = goldenHygieneViolations(output)
-        check(violations.isEmpty()) { "sanitized body still breaks hygiene rules: $violations" }
+        require(violations.isEmpty()) { "sanitized body still breaks hygiene rules: $violations" }
         return output
     }
 

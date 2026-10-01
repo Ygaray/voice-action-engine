@@ -45,7 +45,7 @@ private val OPENROUTER_ERROR = """
 """.trimIndent()
 
 // Built at run time so no key-shaped literal sits in the source.
-private val KEY_LIKE = "sk-" + "abcdefghijklmnopqrstuvwxyz"
+private const val KEY_LIKE ="sk-" + "abcdefghijklmnopqrstuvwxyz"
 
 private val OPENAI_ERROR = """
     {"error":{"message":"Incorrect API key provided: $KEY_LIKE",
@@ -140,7 +140,8 @@ class ChatGoldenSanitizerTest {
         val nested = """{"a":{"b":[{"user_id":"u1","keep":1}]},"user_id":"u2"}"""
         val result = ChatGoldenSanitizer.sanitize(nested)
         assertFalse(result.contains("user_id"))
-        assertEquals(1, parse(result)["a"]!!.jsonObject["b"]!!.jsonArray.single().jsonObject["keep"]!!.jsonPrimitive.int)
+        val kept = parse(result)["a"]!!.jsonObject["b"]!!.jsonArray.single().jsonObject
+        assertEquals(1, kept["keep"]!!.jsonPrimitive.int)
         assertFalse(sanitized(OPENROUTER_ERROR).containsKey("user_id"))
     }
 
