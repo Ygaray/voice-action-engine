@@ -4,6 +4,8 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.commit.CommitCoordinator
 import io.github.ygaray.voiceactionengine.core.commit.CommitSink
+import io.github.ygaray.voiceactionengine.core.commit.HeldProposal
+import io.github.ygaray.voiceactionengine.core.commit.PendingMutation
 import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.commit.RunTermination
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
@@ -30,6 +32,8 @@ public class CommandPipeline internal constructor(
     /** The ladder's tier ids, lowest tier first. */
     public val tiers: List<StrategyId> = preCheck.strategies.map { it.id }
 
+    private val heldCommit = HeldCommit(gate, sink, clock, runIds)
+
     /**
      * Runs [input] up the ladder and returns what happened. It never throws: a failing strategy, policy source or
      * engine fault becomes a failed outcome. Only cancellation of the calling coroutine propagates, and the sink's
@@ -52,9 +56,24 @@ public class CommandPipeline internal constructor(
         } finally {
             coordinator.close()
             val effects = snapshotEffects(runId, input.parentRunId, coordinator, recorder)
-            close(runId, recorder, terminationOf(outcome, cancelled, effects))
+            closeRun(sink, runId, recorder, terminationOf(outcome, cancelled, effects))
         }
     }
+
+    /**
+     * Commits the changes the gate [held] earlier, without asking the gate again.
+     *
+     * It opens a new run whose `parentRunId` is the held run's id and which closes once on its own, so the original
+     * run's close stays final. The first call applies; any later or concurrent call for the same [held] returns that
+     * call's outcome with nothing applied. Like [execute] it never throws, except for the caller's own cancellation;
+     * if that cancels the first call mid-apply, the proposal stays used up and later calls get a failed outcome with
+     * reason `Other("commit_held_cancelled")` carrying what was journaled.
+     */
+    public suspend fun commitHeld(held: HeldProposal): CommandOutcome = heldCommit.resolve(held, held.mutations)
+
+    /** Like [commitHeld], but applies [amended] instead of the held changes; the held changes are never applied. */
+    public suspend fun commitHeld(held: HeldProposal, amended: List<PendingMutation>): CommandOutcome =
+        heldCommit.resolve(held, amended)
 
     private suspend fun runCommand(
         input: CommandInput,
@@ -120,22 +139,23 @@ public class CommandPipeline internal constructor(
         return CommandOutcome.Failed(snapshotEffects(runId, parentRunId, coordinator, recorder), reason, null)
     }
 
-    private suspend fun close(runId: String, recorder: RunRecorder, termination: RunTermination) {
-        withContext(NonCancellable) {
-            guarded(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
-                sink.onRunClosed(runId, termination)
-            }
+    override fun toString(): String = "CommandPipeline(tiers=$tiers)"
+}
+
+/** Tells the sink the run ended. It runs to completion even when the run is cancelled; a sink fault is only a code. */
+internal suspend fun closeRun(sink: CommitSink, runId: String, recorder: RunRecorder, termination: RunTermination) {
+    withContext(NonCancellable) {
+        guarded(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
+            sink.onRunClosed(runId, termination)
         }
     }
-
-    override fun toString(): String = "CommandPipeline(tiers=$tiers)"
 }
 
 /**
  * How the run ends for the sink. A produced outcome maps directly; no outcome after a cancellation is `Cancelled`; no
  * outcome otherwise means an error the engine does not collapse (such as an assertion failure) is escaping.
  */
-private fun terminationOf(outcome: CommandOutcome?, cancelled: Boolean, effects: RunEffects): RunTermination =
+internal fun terminationOf(outcome: CommandOutcome?, cancelled: Boolean, effects: RunEffects): RunTermination =
     when {
         outcome is CommandOutcome.Completed -> RunTermination.Done(outcome.effects, outcome.partial)
         outcome is CommandOutcome.Failed -> RunTermination.Failed(outcome.effects, outcome.reason, outcome.details)

@@ -45,6 +45,15 @@ internal class CommitCoordinator(
         }
     }
 
+    /**
+     * Applies [mutations] one at a time without asking the gate, with the same recording and delivery as an admitted
+     * change. Used to commit held changes later; throws [IllegalStateException] once the run is closed.
+     */
+    suspend fun applyWithoutGate(mutations: List<PendingMutation>): DispatchResult = mutex.withLock {
+        check(!closed) { "run $runId is closed" }
+        applyAll(mutations)
+    }
+
     /** Ends the run's write path. Called once by the pipeline before the sink hears the run closed. */
     fun close() {
         closed = true
