@@ -25,6 +25,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.lang.reflect.Modifier
 
 /** The neutral transcript types: a single-shot request and its response, built from public constructors only. */
 class TranscriptTypesTest {
@@ -258,6 +259,76 @@ class TranscriptTypesTest {
         assertTrue(assistant.toString().contains("anthropic/model-a"))
         assertTrue(request.toString().contains("tools=[log_item]"))
         assertTrue(response.toString().contains("requestId=req_9"))
+    }
+
+    @Test
+    fun sevenArgumentFormReadsSingleToolCallBackAsTrue() {
+        val tool = logItemTool()
+        val request = ModelRequest(
+            "be brief",
+            listOf(UserMessage("log a coffee")),
+            listOf(tool),
+            ToolChoice.Required("log_item"),
+            512,
+            CacheDirective(true),
+            true,
+        )
+
+        assertTrue(request.singleToolCall)
+        assertEquals(512, request.maxTokens)
+    }
+
+    @Test
+    fun sixFourAndThreeArgumentFormsReadSingleToolCallAsFalse() {
+        val user = UserMessage("hi")
+        val tool = logItemTool()
+
+        val six = ModelRequest("sys", listOf(user), listOf(tool), ToolChoice.Auto(), 64, CacheDirective(true))
+        val four = ModelRequest("sys", listOf(user), listOf(tool), 64)
+        val three = ModelRequest("sys", listOf(user), 64)
+
+        assertFalse(six.singleToolCall)
+        assertFalse(four.singleToolCall)
+        assertFalse(three.singleToolCall)
+    }
+
+    @Test
+    fun toStringShowsTheFlagAndStillHidesTheSystemText() {
+        val request = ModelRequest(
+            CANARY,
+            listOf(UserMessage(CANARY)),
+            listOf(logItemTool()),
+            ToolChoice.Auto(),
+            8,
+            CacheDirective(true),
+            true,
+        )
+
+        val printed = request.toString()
+
+        assertTrue(printed, printed.endsWith("singleToolCall=true)"))
+        assertFalse(printed, printed.contains(CANARY))
+    }
+
+    @Test
+    fun modelRequestKeepsItsPublicConstructorShapes() {
+        val cls = ModelRequest::class.java
+        val string = String::class.java
+        val list = List::class.java
+        val choice = ToolChoice::class.java
+        val cache = CacheDirective::class.java
+        val int = Int::class.javaPrimitiveType
+        val bool = Boolean::class.javaPrimitiveType
+        val shapes = listOf(
+            cls.getConstructor(string, list, int),
+            cls.getConstructor(string, list, list, int),
+            cls.getConstructor(string, list, list, choice, int, cache),
+            cls.getConstructor(string, list, list, choice, int, cache, bool),
+        )
+        for (constructor in shapes) {
+            assertTrue(constructor.toString(), Modifier.isPublic(constructor.modifiers))
+            assertEquals(cls, constructor.declaringClass)
+        }
     }
 
     private companion object {

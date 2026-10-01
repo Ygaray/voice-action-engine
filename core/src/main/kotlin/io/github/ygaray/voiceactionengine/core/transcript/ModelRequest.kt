@@ -14,6 +14,9 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
  * @property toolChoice whether the model decides to call a tool or must call a named one.
  * @property maxTokens the most tokens the model may generate, at least 1.
  * @property cache which parts of the request the provider is asked to cache.
+ * @property singleToolCall true to ask the model for at most one tool call in its answer (exactly one when
+ * [toolChoice] requires a tool). A provider whose wire format cannot express this sends the request without it, and
+ * the strategy still uses only the first call. It has no effect when [tools] is empty.
  * @throws IllegalArgumentException when [messages] is empty, [maxTokens] is below 1, two tools share a name, or
  * [toolChoice] requires a tool that is not in [tools].
  */
@@ -24,14 +27,25 @@ public class ModelRequest(
     public val toolChoice: ToolChoice,
     public val maxTokens: Int,
     public val cache: CacheDirective,
+    public val singleToolCall: Boolean,
 ) {
+    /** A request that leaves the number of tool calls to the model. */
+    public constructor(
+        system: String,
+        messages: List<Message>,
+        tools: List<ToolSpec>,
+        toolChoice: ToolChoice,
+        maxTokens: Int,
+        cache: CacheDirective,
+    ) : this(system, messages, tools, toolChoice, maxTokens, cache, false)
+
     /** A request with no tools, automatic tool choice and the static prefix cached. */
     public constructor(system: String, messages: List<Message>, maxTokens: Int) :
-        this(system, messages, emptyList(), ToolChoice.Auto(), maxTokens, CacheDirective(true))
+        this(system, messages, emptyList(), ToolChoice.Auto(), maxTokens, CacheDirective(true), false)
 
     /** A request with [tools], automatic tool choice and the static prefix cached. */
     public constructor(system: String, messages: List<Message>, tools: List<ToolSpec>, maxTokens: Int) :
-        this(system, messages, tools, ToolChoice.Auto(), maxTokens, CacheDirective(true))
+        this(system, messages, tools, ToolChoice.Auto(), maxTokens, CacheDirective(true), false)
 
     /** A copy of the messages. */
     public val messages: List<Message> = messages.toList()
@@ -53,7 +67,7 @@ public class ModelRequest(
     /** Prints the system prompt length, counts and tool names only, never prompt or message content. */
     override fun toString(): String =
         "ModelRequest(systemLength=${system.length}, messages=${messages.size}, tools=${tools.map { it.name }}, " +
-            "toolChoice=$toolChoice, maxTokens=$maxTokens, cache=$cache)"
+            "toolChoice=$toolChoice, maxTokens=$maxTokens, cache=$cache, singleToolCall=$singleToolCall)"
 }
 
 /**
