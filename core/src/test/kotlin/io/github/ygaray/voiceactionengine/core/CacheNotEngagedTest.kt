@@ -36,6 +36,9 @@ import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -373,6 +376,37 @@ class CacheNotEngagedTest {
                 .execute(CommandInput("hi"))
 
             assertEquals(listOf(first, second), cacheEvents().map { it.strategy })
+        }
+    }
+
+    @Test
+    fun twoOverlappingFirstRequestsOnOneHandleAreBothTurnOneAndRaiseNothing() = runTest {
+        NoNetworkGuard.during {
+            val release = CompletableDeferred<Unit>()
+            var inFlight = 0
+            val bothInFlight: ProviderStep = { _ ->
+                inFlight += 1
+                if (inFlight == 2) release.complete(Unit)
+                release.await()
+                FakeAiProvider.reply("ok", Usage(UNCACHED_PROMPT, 0, 0, 10))
+            }
+            val fake = fakeOf(ProviderId.ANTHROPIC, automaticCaps, listOf(bothInFlight, bothInFlight))
+            val overlapping: StrategyStep = { input, session ->
+                val handle = session.model()
+                val request = ModelRequest(textOf(LARGE_SYSTEM), listOf(UserMessage(input.transcript)), 100)
+                coroutineScope {
+                    val first = async { handle.complete(request) }
+                    val second = async { handle.complete(request) }
+                    first.await()
+                    second.await()
+                }
+                StrategyOutcome.Completed("ok")
+            }
+
+            pipelineOf(fake, overlapping).execute(CommandInput("hi"))
+
+            assertEquals(2, inFlight)
+            assertTrue("no earlier request had completed when either was sent", cacheEvents().isEmpty())
         }
     }
 

@@ -74,7 +74,8 @@ internal class RefusedModel(override val refusal: FailureReason) : BoundModel() 
 /**
  * A usable handle. Concurrent [complete] calls are independent; each records its own turn through [recorder] on
  * [clock] (the same path a strategy's own `recordTurn` takes). The only state is a count of successful responses, which
- * the cache diagnostic needs to tell a first request from a later one.
+ * the cache diagnostic needs to tell a first request from a later one. A request's turn is the number of responses
+ * that had already completed when it was sent, plus one, so two overlapping first requests are both turn 1.
  */
 internal class RoutedModel(
     private val binding: Binding,
@@ -96,6 +97,8 @@ internal class RoutedModel(
             return ModelResult.Failure(FailureReason.ModelUnsupported())
         }
         val call = ProviderCall(binding.model, request, binding.credential, binding.capabilities)
+        // Taken before sending: only responses that had completed when this request left can have written the cache.
+        val priorSuccesses = successfulResponses.get()
         val started = clock()
         val result = guarded(onFault = { fault ->
             recorder.recordCode(TraceCode.PROVIDER_ERROR)
@@ -107,13 +110,15 @@ internal class RoutedModel(
             ModelResult.Failure(reason)
         }) { binding.provider.complete(call) }
         recorder.turnRecorded(strategy, turnOf(result, clock() - started))
-        if (result is ModelResult.Success) reportMissedCache(request, result.response.usage)
+        if (result is ModelResult.Success) {
+            successfulResponses.incrementAndGet()
+            reportMissedCache(request, result.response.usage, priorSuccesses + 1)
+        }
         return result
     }
 
     /** Raises one `CacheNotEngaged` event, ids only, when the cache should have engaged on this successful response. */
-    private suspend fun reportMissedCache(request: ModelRequest, usage: Usage) {
-        val turn = successfulResponses.incrementAndGet()
+    private suspend fun reportMissedCache(request: ModelRequest, usage: Usage, turn: Int) {
         if (shouldFlagCacheMiss(request.cache, binding.capabilities, usage, turn, prefixChars(request))) {
             recorder.cacheNotEngaged(strategy, binding.provider.id, binding.model)
         }
