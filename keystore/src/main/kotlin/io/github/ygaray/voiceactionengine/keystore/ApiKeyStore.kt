@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -101,14 +102,20 @@ public class ApiKeyStore internal constructor(
 
     /**
      * Follows the state of [provider] as its stored pair changes: it emits the current state first, then again after
-     * every save and delete, including a replacement that ends in the same last four characters. A corrupt or
+     * every save and delete, including a replacement that ends in the same last four characters, but not for a write to
+     * other preferences of the app. A corrupt or
      * unreadable value is emitted as a state and the stream carries on; only a failure to read the preferences at all
      * ends it, with one final [KeyState.Unreadable]. The flow is cold, read-only and never creates a key.
      */
     public fun observe(provider: ProviderId): Flow<KeyState> =
         slotsByProvider[provider]?.let { observeSlot(it) } ?: flowOf(KeyState.NotConfigured())
 
+    // The DataStore is the app's whole preferences file, so it also emits for unrelated writes. Only a change of this
+    // slot's stored pair matters; every save writes a fresh initialisation vector, so a replacement always changes it.
     private fun observeSlot(slot: KeySlot): Flow<KeyState> = dataStore.data
+        .distinctUntilChangedBy { prefs ->
+            prefs[stringPreferencesKey(slot.ciphertextKey)] to prefs[stringPreferencesKey(slot.ivKey)]
+        }
         .map { prefs -> reader.open(slot, prefs).state }
         .catch { failure -> if (failure is IOException) emit(KeystoreCauses.storageUnreadable) else throw failure }
         .flowOn(ioDispatcher)

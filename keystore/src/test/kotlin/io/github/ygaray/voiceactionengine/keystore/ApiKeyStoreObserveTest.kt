@@ -82,6 +82,22 @@ class ApiKeyStoreObserveTest {
     }
 
     @Test
+    fun anUnrelatedWriteToTheSharedDataStoreEmitsNothingAndDecryptsNothing() = runTest {
+        val store = store()
+        store.save(ProviderId.ANTHROPIC, FIRST_KEY)
+        val seen = emissionsOf(store.observe(ProviderId.ANTHROPIC))
+        assertEquals(KeyState.Ready("wxyz"), seen.receive())
+        val lookupsBefore = keys.lookups.get()
+
+        prefs!!.dataStore.edit { it[stringPreferencesKey("theme")] = "dark" }
+        store.save(ProviderId.ANTHROPIC, SECOND_KEY)
+
+        assertEquals(KeyState.Ready("abcd"), seen.receive())
+        // The save looks the key up once and the collector once; an emission for the theme write would add a third.
+        assertEquals(2, keys.lookups.get() - lookupsBefore)
+    }
+
+    @Test
     fun aCorruptValueIsReportedAndTheStreamKeepsGoing() = runTest {
         val store = store()
         store.save(ProviderId.ANTHROPIC, FIRST_KEY)
