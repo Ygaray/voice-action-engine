@@ -10,6 +10,11 @@ complexity:
     constructorThreshold: 8
     ignoreDefaultParameters: true
 
+naming:
+  MatchingDeclarationName:
+    # Guarded.kt holds the guarded helper function plus its one small EngineFault carrier; the file is named for the function.
+    excludes: ['**/internal/Guarded.kt']
+
 style:
   ForbiddenImport:
     active: true
