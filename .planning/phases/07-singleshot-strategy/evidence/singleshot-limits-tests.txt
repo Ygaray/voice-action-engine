@@ -1,0 +1,54 @@
+Phase 7 SingleShot limits evidence - plan 07-08, Task 2 (Runtime Decision limits precondition for Phase 11)
+
+Obligation: SingleShot obeys the contract limits 6 iterations / 60000-token ceiling / 4096 per-turn tokens, read from
+session.policy and session.tokensUsed (TierPolicy), never from a literal inside SingleShot.
+  - 6 iterations (TierPolicy.maxIterations): SingleShot makes exactly one provider call per command at any maxIterations (2 and 6 pinned).
+  - 60000-token ceiling (TierPolicy.tokenCeiling): pre-call refusal at or over the ceiling; post-call failure strictly over the ceiling.
+  - 4096 per-turn tokens (TierPolicy.maxTokensPerTurn): sent unchanged as request.maxTokens.
+Source of results: core/build/test-results/test/TEST-io.github.ygaray.voiceactionengine.core.<Suite>.xml (JUnit XML, read by script, not typed by hand).
+Run: ./gradlew check --offline --no-build-cache from clean test tasks at HEAD 35e8e920681dfe96b08d9a0ea3b682171a4fe7db.
+
+== SingleShotLimitsTest
+  PASSED  atTheDefaultCeilingTheTierRefusesBeforeAnyProviderCall
+      pins: pre-call: prior spend at 60000 (>= ceiling) fails BudgetExceeded(TOKENS) with zero provider calls, zero resolver calls, zero gate calls.
+  PASSED  customPerTurnLimitIsSentUnchanged
+      pins: TierPolicy { maxTokensPerTurn = 777 } sends request.maxTokens 777 (the per-turn limit is read from the session policy).
+  PASSED  exactlyOneProviderCallAtMinimumIterations
+      pins: maxIterations = 2: a NoToolCall failure, a prose reply and a resolved call each cost exactly one provider call and one turn (SingleShot never loops).
+  PASSED  exactlyOneProviderCallAtDefaultIterations
+      pins: maxIterations 6 (default): the same three answers plus a refusal and a terminal clarification call each cost exactly one call and one turn.
+  PASSED  defaultsAreTheContractLimits
+      pins: TierPolicy.DEFAULT is maxIterations 6, tokenCeiling 60000, maxTokensPerTurn 4096 (the contract limits).
+  PASSED  defaultPolicySendsTheDefaultPerTurnTokenLimit
+      pins: the single request sent under the default policy carries maxTokens 4096 == TierPolicy.DEFAULT.maxTokensPerTurn.
+  PASSED  aResponseLandingExactlyOnTheCeilingIsStillResolved
+      pins: post-call boundary: response usage exactly 100 (== ceiling) is still resolved and Completed (only strictly over the ceiling fails).
+  PASSED  aCustomCeilingIsReadFromTheSessionPolicy
+      pins: tokenCeiling = 50: prior spend 50 refuses with zero calls, prior spend 49 calls once (ceiling comes from session.policy, not a literal).
+  PASSED  aResponseThatCrossesTheCeilingFailsBeforeTheResolverOrAnyWrite
+      pins: post-call: tokenCeiling = 100, response usage 101 fails BudgetExceeded(TOKENS); one call, zero resolver, zero gate, no sink action.
+  PASSED  oneTokenBelowTheDefaultCeilingTheCallIsMade
+      pins: pre-call: prior spend 59999 (< ceiling) lets exactly one provider call through.
+
+== SingleShotUserTurnTest
+  PASSED  theUserMessageIsExactlyTheRenderersOutput
+      pins: the single user message is exactly the UserTurnRenderer output.
+  PASSED  theRendererSeesTheEscalatingTiersCarryAndTheInput
+      pins: UserTurnContext carries the escalating tier's carry (same instance), the CommandInput (same instance) and the clock's date-time.
+  PASSED  perCommandTextNeverReachesTheSystemPrompt
+      pins: three commands (en, es, null language) all send the identical SINGLE_SHOT_SYSTEM prompt; per-command text stays in the user message.
+  PASSED  twoCommandsShareTheSameSystemAndToolsBytes
+      pins: two commands at different clock instants share the same system and the same tool instances (cached prefix); only the user text differs.
+  PASSED  theDefaultRendererFramesDateZoneAndTranscript
+      pins: default renderer output is 'Current local date-time: <ISO offset> (<zone>)' then a blank line then the transcript.
+
+SingleShotLimitsTest tests=10 failures=0 skipped=0
+SingleShotUserTurnTest tests=5 failures=0 skipped=0
+
+NoHardCodedConstantsTest: ./gradlew :core:test --tests '*NoHardCodedConstantsTest' --offline -q  exit=0
+  JUnit XML: NoHardCodedConstantsTest tests=12 failures=0 skipped=0
+No literal 60000 or 4096 in core main outside TierPolicy.kt.
+
+Boundary in force: pre-call, prior spend at or over the ceiling refuses (59999 calls, 60000 refuses); post-call, a response over the
+ceiling fails before the resolver or any write (101 of 100 fails, exactly 100 resolves). The CARRY override recorded in
+evidence/seam-signoff.txt does not alter these limits: it is the Phase 9 carry (AgenticLoopStrategy accepts the same userTurn: UserTurnRenderer).
