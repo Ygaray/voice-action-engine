@@ -12,10 +12,12 @@ import io.github.ygaray.voiceactionengine.providers.http.isHeaderSafe
 import io.github.ygaray.voiceactionengine.providers.http.notifyQuietly
 import io.github.ygaray.voiceactionengine.providers.http.retryAfterSeconds
 import io.github.ygaray.voiceactionengine.providers.http.transientWaitMillis
+import io.github.ygaray.voiceactionengine.providers.transcript.conversationRefusal
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -88,12 +90,17 @@ internal class ChatTransport(
 
     suspend fun send(call: ProviderRequest): ModelResult {
         val credential = call.credential
-        val refusal = refusalFor(vendor, credential)
+        val refusal = preflightRefusal(call)
         if (refusal != null || credential == null) {
-            return ModelResult.Failure(refusal ?: FailureReason.NotConfigured(vendor.providerId))
+            return refusal ?: ModelResult.Failure(FailureReason.NotConfigured(vendor.providerId))
         }
         return withContext(ioDispatcher) { sendWithRetry(call, credential, 1) }
     }
+
+    // Checked once per logical call, before the first request is built: never per retry.
+    private fun preflightRefusal(call: ProviderRequest): ModelResult.Failure? =
+        refusalFor(vendor, call.credential)?.let { ModelResult.Failure(it) }
+            ?: conversationRefusal(call, vendor.providerId) { it is JsonObject }
 
     // Recursion depth is bounded by MAX_REQUESTS; the wait is a suspend call, so cancelling the command ends it.
     private suspend fun sendWithRetry(call: ProviderRequest, credential: Credential, number: Int): ModelResult {

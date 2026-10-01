@@ -19,12 +19,22 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedSelectionSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.testing.StrategyStep
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import io.github.ygaray.voiceactionengine.core.transcript.NativeReplay
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
+import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
+import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
@@ -199,6 +209,76 @@ class AnthropicTransportTest {
         assertEquals(ProviderId.ANTHROPIC, provider.id)
         assertTrue(provider.requiresCredential)
         assertEquals(AnthropicModels.capabilities("claude-opus-5-5"), provider.capabilities("claude-opus-5-5"))
+    }
+
+    /** What one routed command saw: its result, how many requests reached the server, and the assistant turn sent. */
+    private class Routed(val result: ModelResult, val requestCount: Int, val assistantContent: JsonElement?)
+
+    private fun replayContent(): JsonArray = buildJsonArray {
+        add(thinkingBlock("pondering"))
+        add(toolUseBlock("toolu_1", "add_item", milkArguments()))
+    }
+
+    private fun history(replay: NativeReplay?): List<Message> = listOf(
+        UserMessage("add milk"),
+        AssistantMessage(listOf(AssistantPart.ToolCall("toolu_1", "add_item", milkArguments())), replay),
+        ToolResultsMessage(listOf(ToolResult("toolu_1", "added"))),
+    )
+
+    /** Routes one command carrying [messages] through the pipeline to a fresh local server with one answer ready. */
+    private fun routeMessages(messages: List<Message>): Routed = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(answer())
+            server.start()
+            val results = RecordingSink<ModelResult>()
+            val request = ModelRequest("You are a test system.", messages, listOf(addItem), 256)
+            val step: StrategyStep = { _, session ->
+                results.record(session.model().complete(request))
+                StrategyOutcome.Completed(null)
+            }
+            val pipeline = commandPipeline {
+                tier(ScriptedStrategy(StrategyId("probe"), step))
+                provider(AnthropicProvider { baseUrl = server.url("/") })
+                providerSelection = ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ANTHROPIC, model))
+                credentials = ScriptedCredentialSource.keys(ProviderId.ANTHROPIC to "sk-test-key")
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+            }
+            pipeline.execute(CommandInput("add milk", "en", null))
+            val count = server.requestCount
+            val sent = if (count == 0) {
+                null
+            } else {
+                val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+                body.getValue("messages").jsonArray[1].jsonObject["content"]
+            }
+            Routed(results.events.single(), count, sent)
+        }
+    }
+
+    @Test
+    fun aTurnStampedForAnotherModelOrProviderIsRefusedBeforeAnyRequest() {
+        val mismatched = listOf(
+            NativeReplay(ProviderId.ANTHROPIC, "claude-opus-5-5", replayContent()),
+            NativeReplay(ProviderId.OPENAI, model, replayContent()),
+            NativeReplay(ProviderId.ANTHROPIC, model, milkArguments()),
+        )
+
+        mismatched.forEach { stamp ->
+            val routed = routeMessages(history(stamp))
+
+            assertEquals(FailureReason.Other("replay_mismatch"), (routed.result as ModelResult.Failure).reason)
+            assertEquals(0, routed.requestCount)
+        }
+
+        val matching = routeMessages(history(NativeReplay(ProviderId.ANTHROPIC, model, replayContent())))
+        assertTrue(matching.result is ModelResult.Success)
+        assertEquals(1, matching.requestCount)
+        assertEquals(replayContent(), matching.assistantContent)
+
+        val unstamped = routeMessages(history(null))
+        assertTrue(unstamped.result is ModelResult.Success)
+        assertEquals(1, unstamped.requestCount)
     }
 
     private fun runCatchingIllegal(block: () -> Unit): String {

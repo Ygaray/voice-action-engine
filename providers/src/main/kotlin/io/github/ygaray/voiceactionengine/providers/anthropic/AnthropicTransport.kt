@@ -14,10 +14,12 @@ import io.github.ygaray.voiceactionengine.providers.http.isTransientStatus
 import io.github.ygaray.voiceactionengine.providers.http.notifyQuietly
 import io.github.ygaray.voiceactionengine.providers.http.retryAfterSeconds
 import io.github.ygaray.voiceactionengine.providers.http.transientWaitMillis
+import io.github.ygaray.voiceactionengine.providers.transcript.conversationRefusal
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -97,13 +99,18 @@ internal class AnthropicTransport(
 
     suspend fun send(call: ProviderRequest): ModelResult {
         val credential = call.credential
-        val refusal = refusalFor(credential)
+        val refusal = preflightRefusal(call)
         if (refusal != null || credential == null) {
-            return ModelResult.Failure(refusal ?: FailureReason.NotConfigured(ProviderId.ANTHROPIC))
+            return refusal ?: ModelResult.Failure(FailureReason.NotConfigured(ProviderId.ANTHROPIC))
         }
         val first = Progress(1, retried = false, reshape = needsReshape(call), kind = AnthropicAttemptKind.INITIAL)
         return withContext(ioDispatcher) { sendWithRetry(call, credential, first) }
     }
+
+    // Checked once per logical call, before the first request is built: never per retry or reshape.
+    private fun preflightRefusal(call: ProviderRequest): ModelResult.Failure? =
+        refusalFor(call.credential)?.let { ModelResult.Failure(it) }
+            ?: conversationRefusal(call, ProviderId.ANTHROPIC) { it is JsonArray }
 
     // The capabilities already say whether this model takes a forced tool choice (the table, then any app override).
     private fun needsReshape(call: ProviderRequest): Boolean =

@@ -20,14 +20,25 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedSelectionSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.testing.StrategyStep
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
+import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import io.github.ygaray.voiceactionengine.core.transcript.NativeReplay
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
+import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
+import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -544,6 +555,83 @@ class ChatTransportTest {
             "ChatCompletionsProvider(provider=openrouter, callTimeoutMillis=60000, readTimeoutMillis=60000)",
             openRouter.toString(),
         )
+    }
+
+    private fun replayTurn(): JsonObject = Json.parseToJsonElement(
+        """{"role":"assistant","content":null,"tool_calls":[{"id":"call_1","type":"function",""" +
+            """"function":{"name":"log_food","arguments":"{}"}}]}""",
+    ).jsonObject
+
+    private fun history(replay: NativeReplay?): List<Message> = listOf(
+        UserMessage(firstTurn),
+        AssistantMessage(listOf(AssistantPart.ToolCall("call_1", "log_food", JsonObject(emptyMap()))), replay),
+        ToolResultsMessage(listOf(ToolResult("call_1", "logged"))),
+    )
+
+    private fun historyRequest(replay: NativeReplay?): ModelRequest =
+        ModelRequest(FIXED_SYSTEM, history(replay), listOf(logFoodTool()), 1024)
+
+    @Test
+    fun aTurnStampedForAnotherVendorOrModelIsRefusedBeforeAnyRequest() = runBlocking {
+        val mismatched = listOf(
+            NativeReplay(ProviderId.OPENROUTER, "gpt-5.4-mini", replayTurn()),
+            NativeReplay(ProviderId.OPENAI, "gpt-4o-mini", replayTurn()),
+            NativeReplay(ProviderId.OPENAI, "gpt-5.4-mini", JsonArray(emptyList())),
+        )
+
+        mismatched.forEach { stamp ->
+            MockWebServer().use { server ->
+                server.enqueue(toolAnswer())
+                server.start()
+                val provider = ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+
+                val run = route(server, provider, ChatVendor.OPENAI, "gpt-5.4-mini", historyRequest(stamp))
+
+                val failure = run.results.single() as ModelResult.Failure
+                assertEquals(FailureReason.Other("replay_mismatch"), failure.reason)
+                assertEquals(0, run.requestCount)
+            }
+        }
+
+        MockWebServer().use { server ->
+            server.enqueue(toolAnswer())
+            server.start()
+            val provider = ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+            val stamp = NativeReplay(ProviderId.OPENAI, "gpt-5.4-mini", replayTurn())
+
+            val run = route(server, provider, ChatVendor.OPENAI, "gpt-5.4-mini", historyRequest(stamp))
+
+            assertTrue(run.results.single() is ModelResult.Success)
+            assertEquals(1, run.requestCount)
+            val sent = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+            val assistant = sent.getValue("messages").jsonArray.map { it.jsonObject }
+                .single { it.getValue("role").jsonPrimitive.content == "assistant" }
+            assertEquals(replayTurn(), assistant)
+        }
+
+        MockWebServer().use { server ->
+            server.enqueue(toolAnswer())
+            server.start()
+            val provider = ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+
+            val run = route(server, provider, ChatVendor.OPENAI, "gpt-5.4-mini", historyRequest(null))
+
+            assertTrue(run.results.single() is ModelResult.Success)
+            assertEquals(1, run.requestCount)
+        }
+
+        MockWebServer().use { server ->
+            server.enqueue(routerAnswer())
+            server.start()
+            val provider = ChatCompletionsProvider.openRouter { baseUrl = server.url("/") }
+            val stamp = NativeReplay(ProviderId.OPENAI, "openai/gpt-5.4-mini", replayTurn())
+
+            val run = route(server, provider, ChatVendor.OPENROUTER, "openai/gpt-5.4-mini", historyRequest(stamp))
+
+            val failure = run.results.single() as ModelResult.Failure
+            assertEquals(FailureReason.Other("replay_mismatch"), failure.reason)
+            assertEquals(0, run.requestCount)
+        }
     }
 
     private fun rejection(block: () -> Unit): String {
