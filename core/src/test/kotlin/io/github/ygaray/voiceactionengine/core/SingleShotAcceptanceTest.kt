@@ -1,10 +1,14 @@
 package io.github.ygaray.voiceactionengine.core
 
 import io.github.ygaray.voiceactionengine.core.commit.ActionKind
+import io.github.ygaray.voiceactionengine.core.commit.GateDecision
 import io.github.ygaray.voiceactionengine.core.commit.RunTermination
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
+import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
@@ -14,8 +18,14 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -214,6 +224,133 @@ class SingleShotAcceptanceTest {
             val escalated = twoTiers.execute(CommandInput("record nothing", "en", null))
             assertEquals(1, second.executions)
             assertEquals("next tier", (escalated as CommandOutcome.Completed).reply)
+        }
+    }
+
+    private fun clarificationArguments() = buildJsonObject {
+        put("question", "Which one?")
+        put(
+            "options",
+            buildJsonArray {
+                add(
+                    buildJsonObject {
+                        put("id", "item-a")
+                        put("label", "alpha")
+                    },
+                )
+            },
+        )
+    }
+
+    private fun laddered(answer: ModelResult, second: ScriptedStrategy, gate: ScriptedGate): CommandPipeline =
+        acceptancePipeline(
+            listOf(fixtureTier(FixtureResolver(fixtureCatalog(), RecordingSink())), second),
+            FakeAiProvider(ProviderId.ANTHROPIC, answer),
+            gate,
+            RecordingCommitSink(),
+        )
+
+    @Test
+    fun s7RefusalFailsAndProseEscalates() = runTest {
+        NoNetworkGuard.during {
+            val refused = Rig(FakeAiProvider.refusal(Usage(1, 0, 0, 1)))
+
+            val failed = refused.say()
+
+            assertTrue(failed.toString(), (failed as CommandOutcome.Failed).reason is FailureReason.Refusal)
+            assertEquals(0, refused.gate.calls)
+            assertEquals(0, refused.resolver.invocations)
+
+            val second = ScriptedStrategy(StrategyId("second"), { _, _ -> StrategyOutcome.Completed("next tier") })
+            val prose = FakeAiProvider.reply("I could not tell what you meant", Usage(1, 0, 0, 1))
+
+            val escalated = laddered(prose, second, deferModeGate()).execute(CommandInput("mumble", "en", null))
+
+            assertEquals("next tier", (escalated as CommandOutcome.Completed).reply)
+            assertEquals(1, second.executions)
+            assertEquals(listOf<Any?>(null), second.receivedCarries)
+        }
+    }
+
+    @Test
+    fun s8GateAdmitWithAnAmendedListAppliesItInTheOriginalRun() = runTest {
+        NoNetworkGuard.during {
+            val log = RecordingSink<String>()
+            val amended = listOf(EntryMutation("gamma", 2.0, "unit", TARGET_DATE, "item-c", strongVerdict(), log))
+            val rig = Rig(answerWith(entry("alpha", 0.95)), ScriptedGate { GateDecision.Admit(amended) }, log = log)
+
+            val outcome = rig.say()
+
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+            assertEquals(1, amended.single().applyCount)
+            assertEquals(0, rig.resolver.mutations.single().applyCount)
+            assertEquals(listOf("applied:gamma:2.0:item-c:$TARGET_DATE"), rig.appliedLines)
+            assertEquals(listOf("item-c"), outcome.commits.map { it.targetIds.getValue("item") })
+            assertTrue(rig.sink.actions.all { it.runId == outcome.runId })
+            assertTrue(outcome.held.isEmpty())
+        }
+    }
+
+    @Test
+    fun s9ClarificationEndsTheTierWithoutTheResolver() = runTest {
+        NoNetworkGuard.during {
+            val rig = Rig(answerOf(StopReason.TOOL_USE, callOf("call-1", ASK_TOOL, clarificationArguments())))
+
+            val outcome = rig.say()
+
+            val completed = outcome as CommandOutcome.Completed
+            assertNull(completed.reply)
+            assertNotNull(completed.terminalCall?.asClarification())
+            assertEquals(0, rig.resolver.invocations)
+            assertEquals(0, rig.gate.calls)
+        }
+    }
+
+    @Test
+    fun s10OnlyTheFirstOfSeveralToolCallsIsResolved() = runTest {
+        NoNetworkGuard.during {
+            val first = entriesArgs(TARGET_DATE, entry("alpha", 0.95))
+            val other = entriesArgs(TARGET_DATE, entry("beta", 0.95))
+            val rig = Rig(
+                FakeAiProvider.toolCalls(
+                    Usage(1, 0, 0, 1),
+                    callOf("call-1", ENTRIES_TOOL, first),
+                    callOf("call-2", ENTRIES_TOOL, other),
+                ),
+            )
+
+            val outcome = rig.say()
+
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+            assertEquals(1, rig.resolver.invocations)
+            assertEquals(first, rig.resolver.extractions.single().arguments)
+            assertEquals(1, outcome.trace.codes.count { it == TraceCode.EXTRA_TOOL_CALLS_DROPPED })
+            assertEquals(listOf(ENTRIES_TOOL, ENTRIES_TOOL), outcome.trace.attempts.single().turns.single().toolNames)
+            assertEquals(listOf("applied:alpha:1.0:item-a:$TARGET_DATE"), rig.appliedLines)
+        }
+    }
+
+    @Test
+    fun aHeldProposalNeverReachesTheNextTier() = runTest {
+        NoNetworkGuard.during {
+            val second = ScriptedStrategy(StrategyId("second"), { _, _ -> StrategyOutcome.Completed("next tier") })
+            val sink = RecordingCommitSink()
+            val weak = answerWith(entry("alpha", 0.5))
+            val pipeline = acceptancePipeline(
+                listOf(fixtureTier(FixtureResolver(fixtureCatalog(), RecordingSink())), second),
+                FakeAiProvider(ProviderId.ANTHROPIC, weak),
+                deferModeGate(),
+                sink,
+            )
+
+            val outcome = pipeline.execute(CommandInput("record it", "en", null))
+
+            val completed = outcome as CommandOutcome.Completed
+            assertFalse(completed.partial)
+            assertEquals(1, outcome.held.size)
+            assertEquals(0, second.executions)
+            assertTrue(outcome.commits.isEmpty())
+            assertEquals(1, sink.closes.size)
         }
     }
 }

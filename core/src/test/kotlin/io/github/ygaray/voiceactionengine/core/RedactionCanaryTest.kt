@@ -55,6 +55,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -485,9 +486,59 @@ class RedactionCanaryTest {
         assertTrue(mismatch.outcome.trace.codes.any { it.value == "credential_mismatch" })
     }
 
+    /** A SingleShot-routed run: the canary rides every user-content slot of the tier, the resolver and the gate. */
+    @Test
+    fun noCanaryLeaksFromASingleShotRun() = runTest {
+        NoNetworkGuard.during {
+            val schema = buildJsonObject { put("note", "$CANARY-SCHEMA") }
+            val tool = ToolSpec(ENTRIES_TOOL, "$CANARY-TOOL-DESCRIPTION", schema, true)
+            val snapshot = ToolingSnapshot("$CANARY-SYSTEM", listOf(tool, askTool()), ENTRIES_TOOL)
+            val resolver = RecordingResolver { _, _ ->
+                val writes = listOf(mutation(ENTRIES_TOOL), mutation(ENTRIES_TOOL))
+                Resolution.Steps(listOf(ToolStep.Mutation(writes)), "$CANARY-REPLY")
+            }
+            val arguments = buildJsonObject {
+                put("entries", buildJsonArray { add(buildJsonObject { put("label", "$CANARY-LABEL") }) })
+                put("target_date", "$CANARY-DATE")
+            }
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                answerOf(StopReason.TOOL_USE, callOf(CALL_ID, ENTRIES_TOOL, arguments)),
+            )
+            val tier = singleShot(resolver, snapshot)
+            val gate = ScriptedGate.holdAll(Canary("HOLD"), "$CANARY-HOLD-TOKEN")
+            val sink = RecordingCommitSink()
+            val listener = RecordingEventListener()
+            val pipeline = pipelineOf(listOf(tier), fake, gate, sink, listener)
+            val input = CommandInput("$CANARY-TRANSCRIPT", "en", Canary("CONTEXT"))
+            see(tier)
+            see(snapshot)
+            see(tool)
+            see(pipeline)
+            see(input)
+
+            val outcome = pipeline.execute(input)
+            val child = pipeline.commitHeld(outcome.held.single())
+
+            sweepOutcome(outcome)
+            sweepOutcome(child)
+            resolver.extractions.forEach { see(it) }
+            resolver.inputs.forEach { see(it) }
+            fake.calls.forEach { sweepCall(it) }
+            sweepDelivered(gate, sink, listener.events)
+            val leaks = printed.filter { CANARY in it }
+            assertTrue("leaked: $leaks", leaks.isEmpty())
+            assertTrue("swept only ${printed.toSet().size} distinct values", printed.toSet().size >= MIN_SINGLE_SHOT)
+            assertEquals("$CANARY-REPLY", (outcome as CommandOutcome.Completed).reply)
+            assertEquals(1, outcome.held.size)
+            assertTrue(child is CommandOutcome.Completed)
+        }
+    }
+
     private companion object {
         const val MIN_DISTINCT = 25
         const val MIN_ROUTED_DISTINCT = 30
+        const val MIN_SINGLE_SHOT = 20
         const val ROUTED_MAX_TOKENS = 100
     }
 }
