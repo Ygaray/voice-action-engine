@@ -80,12 +80,26 @@ internal class AnthropicTransport(
 
     suspend fun send(call: ProviderRequest): ModelResult {
         val credential = call.credential
-        if (credential == null || credential.provider != ProviderId.ANTHROPIC) {
-            return ModelResult.Failure(FailureReason.NotConfigured(ProviderId.ANTHROPIC))
+        val refusal = refusalFor(credential)
+        if (refusal != null || credential == null) {
+            return ModelResult.Failure(refusal ?: FailureReason.NotConfigured(ProviderId.ANTHROPIC))
         }
         val first = Progress(1, retried = false, reshape = needsReshape(call), kind = AnthropicAttemptKind.INITIAL)
         return withContext(ioDispatcher) { sendWithRetry(call, credential, first) }
     }
+
+    // No usable credential means no request. A key OkHttp would refuse as a header value (a pasted trailing newline, a
+    // non-ASCII character) is a wrong key: it is answered as Auth here, because OkHttp's own refusal quotes the whole
+    // value of the header in its message.
+    private fun refusalFor(credential: Credential?): FailureReason? = when {
+        credential == null || credential.provider != ProviderId.ANTHROPIC ->
+            FailureReason.NotConfigured(ProviderId.ANTHROPIC)
+        !isHeaderSafe(credential.apiKey) -> FailureReason.Auth()
+        else -> null
+    }
+
+    // Visible ASCII, space and tab: what a header value may carry without OkHttp rejecting it.
+    private fun isHeaderSafe(value: String): Boolean = value.all { it == '\t' || it in ' '..'~' }
 
     // The capabilities already say whether this model takes a forced tool choice (the table, then any app override).
     private fun needsReshape(call: ProviderRequest): Boolean =
