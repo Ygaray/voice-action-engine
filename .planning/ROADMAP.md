@@ -196,7 +196,37 @@ Plans:
   4. Cancelling a command mid-call cancels the HTTP call and closes any late response. The client has no logging interceptors, targets the fixed HTTPS base URL (overridable in tests only) with `anthropic-version 2023-06-01`, and reads bodies with `body?.string()`.
   5. A canary runs through the pipeline and the Anthropic transport with a known key, transcript, tool arguments and tool_result, plus a provider error body. None of them appears in the trace, the events, any `toString()` or any failure message; failures carry only the HTTP status and the provider `error.type`.
 
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Tracer: ModelCapabilities.supportsForcedToolChoice (one additive core field) + verified AnthropicModels table (four rejecting ids, Haiku 4.5, unknown default); app override reaches the bound model
+- [ ] 04-02-PLAN.md — Tracer: shared http plumbing: cleanClient (no app hooks, no redirects, timeouts), OneShotJsonBody, callback-confined Call.await (cancel + late-response close), SafeFields
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-03-PLAN.md — Tracer: AnthropicProvider { } end to end through commandPipeline; cache-correct byte-stable encoder (one breakpoint, en/es prefix identity, tool_result/is_error, native replay); full decoder (usage, stop reasons, malformed)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-04-PLAN.md — Tracer: typed failures: status-first error table with spend limits, parse-and-discard bodies; Timeout/Network mapping; app cancel and engine deadline cancel the HTTP call
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-05-PLAN.md — Tracer: one transient retry below the seam (three-request budget, retry-after cap, no OkHttp replay); pipeline proof of one apply and one commit; ids-only AnthropicAttemptObserver
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 04-06-PLAN.md — Tracer: forced-tool reshape (table and reactive 400, shared budget, no memo); NoToolCall; strict only without optional properties; omitted optional arrives absent
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 04-07-PLAN.md — Tracer: opt-in liveAnthropicCapture outside check (*Live* excluded from test and legs), Haiku 4.5 only, at most 6 requests; run once if the key is installed
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 04-08-PLAN.md — Tracer: TEL-04 canary through pipeline + transport on all legs (positive controls, echo legs); guard proves mockwebserver per leg; providers API shape; phase gate
 
 ### Phase 5: OpenAI & OpenRouter Transports
 
