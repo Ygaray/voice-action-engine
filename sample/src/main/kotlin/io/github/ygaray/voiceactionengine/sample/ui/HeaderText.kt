@@ -9,8 +9,6 @@ import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyUx
 
 private const val SHA_HEAD = 8
-private const val SHA_TAIL = 7
-private const val ELLIPSIS = "…"
 private const val MIDDLE_DOT = "·"
 
 /** A line of text with the tone it is shown in. */
@@ -21,12 +19,12 @@ internal class ToneText(val text: String, val tone: Tone) {
 /** The header, keys and import texts of the screen as pure functions, so the wording is testable and in one place. */
 internal object HeaderText {
     /**
-     * The fixture banner: green with the digest ends, tool count and source when it loaded; red and specific for every
-     * other state. A fixture that is not usable must be impossible to miss.
+     * The fixture banner: green with the 8-hex digest prefix (never the suffix: LE-7), tool count and source when it
+     * loaded; red and specific for every other state. A fixture that is not usable must be impossible to miss.
      */
     fun fixtureBanner(state: FixtureState): ToneText = when (state) {
         is FixtureState.Loaded -> {
-            val sha = state.sha256.take(SHA_HEAD) + ELLIPSIS + state.sha256.takeLast(SHA_TAIL)
+            val sha = state.sha256.take(SHA_HEAD)
             val source = state.source.substringBefore('/')
             ToneText("Fixture OK sha=$sha tools=${state.tools.size} source=$source", Tone.GOOD)
         }

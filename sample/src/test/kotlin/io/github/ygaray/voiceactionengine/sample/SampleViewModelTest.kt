@@ -230,9 +230,12 @@ class SampleViewModelTest {
         assertEquals("FIXTURE SHA MISMATCH 0badc0de - do not use; ask the orchestrator to regenerate", mismatch.text)
         assertEquals(Tone.BAD, mismatch.tone)
         assertEquals("FIXTURE MALFORMED bad_tool", HeaderText.fixtureBanner(FixtureState.Malformed("files", "bad_tool")).text)
-        val loaded = HeaderText.fixtureBanner(loadedSyntheticFixture())
+        val fixture = loadedSyntheticFixture()
+        val loaded = HeaderText.fixtureBanner(fixture)
         assertEquals(Tone.GOOD, loaded.tone)
-        assertTrue(loaded.text, loaded.text.startsWith("Fixture OK sha="))
+        val digest = fixture.sha256
+        assertEquals("Fixture OK sha=${digest.take(8)} tools=${fixture.tools.size} source=files", loaded.text)
+        assertTrue(loaded.text, digest.takeLast(7) !in loaded.text)
         assertTrue(loaded.text, "source=files" in loaded.text)
     }
 

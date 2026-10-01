@@ -222,6 +222,9 @@ FIXTURE=bad CALLS_EMPTY=1 run_scenario push_fixture_mismatch 1 "do not use; ask 
 assert_no_calls push_fixture_mismatch "push "
 
 FIXTURE=good MUTATES=1 run_scenario push_fixture_happy 0 "foreground:" "OK sub=push-fixture fixture_sha=" push-fixture
+# LE-7: the runner line is pasted as evidence, so it carries the 8-hex digest prefix only (no ellipsis, no suffix).
+printf '%s\n' "$LAST_OUT" | tail -1 | grep -qE 'OK sub=push-fixture fixture_sha=[0-9a-f]{8} target=' \
+  || die "push_fixture_happy: the fixture digest is not printed as an 8-hex prefix only"
 assert_calls push_fixture_happy "-s R5CT10XNKQN push sample/src/debug/assets/sb-a10-fixture.json /data/local/tmp/vae-fx-"
 assert_calls push_fixture_happy "-s R5CT10XNKQN shell rm -f /data/local/tmp/vae-fx-"
 [ -z "$(ls -A "$LAST_DIR/state/dev")" ] || die "push_fixture_happy: the staging file was left on the device"

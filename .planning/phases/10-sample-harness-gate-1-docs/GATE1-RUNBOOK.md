@@ -32,7 +32,7 @@ App: `:sample` (debug build, never published), driven through its real UI.
 |-----|------|
 | `title` | screen title |
 | `okhttp_version` | `okhttp <runtime version>` |
-| `fixture_state` | green `Fixture OK sha=ebd3ef4a... tools=<n> source=<files\|asset>`; red `FIXTURE ABSENT`, `FIXTURE SHA MISMATCH <8hex>`, `FIXTURE MALFORMED <code>` |
+| `fixture_state` | green `Fixture OK sha=ebd3ef4a tools=<n> source=<files\|asset>`; red `FIXTURE ABSENT`, `FIXTURE SHA MISMATCH <8hex>`, `FIXTURE MALFORMED <code>` |
 | `budget_used` | `requests <core>/33 . optional <o>/1 . est USD <x>` |
 | `warm_window` | `Anthropic warm window: wait <s> s` (present only while open) |
 | `run_<leg>` | one button per leg: `run_ver02`, `run_smoke_anthropic`, `run_smoke_openai`, `run_smoke_openrouter`, `run_multi_openai`, `run_multi_openrouter`, `run_responses_probe`, `run_demo_clarify`, `run_demo_partial` |
@@ -77,7 +77,7 @@ Result rules for every criterion: `result: passed` only when every Expected item
 - **Arranged:** A5 done (sha prefix matches).
 - **Did:** `push-fixture`; force-stop (`adb -s R5CT10XNKQN shell am force-stop io.github.ygaray.voiceactionengine.sample`) and relaunch; read `fixture_state`. Count the tools array of the host file with a one-line JSON count (for example `python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["tools"]))' <file>`; the count only is printed or recorded, never a name).
 - **Expected:** `fixture_state` is green `Fixture OK`, sha prefix `ebd3ef4a`, and `tools=<n>` equals the host count.
-- **Evidence:** the `SAMPLE_GATE1:` line of `push-fixture` and the screen text of `fixture_state` (prefix only).
+- **Evidence:** the `SAMPLE_GATE1:` line of `push-fixture` (it prints `fixture_sha=<8-hex prefix>` only) and the screen text of `fixture_state` (prefix only). If any line or screen text ever shows more than the 8-hex prefix, do not paste it: report it instead.
 
 ### G1-03 device-hw: OkHttp pin runs on the device
 - **Requirement:** VER-01.

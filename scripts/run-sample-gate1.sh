@@ -305,7 +305,8 @@ do_push_fixture() {
   if [ "$remote" != "$EXPECTED_SHA" ]; then
     finish 1 FAIL "reason=fixture_readback_mismatch device=${remote:0:8} expected=${EXPECTED_SHA:0:8}"
   fi
-  finish 0 OK "fixture_sha=${EXPECTED_SHA:0:8}...${EXPECTED_SHA: -7} target=$TARGET"
+  # LE-7: the 8-hex prefix only; the line is pasted into evidence, so no suffix is ever printed.
+  finish 0 OK "fixture_sha=${EXPECTED_SHA:0:8} target=$TARGET"
 }
 
 do_push_keys() {
