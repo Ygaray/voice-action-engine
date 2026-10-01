@@ -1,0 +1,96 @@
+package io.github.ygaray.voiceactionengine.core.commit
+
+import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
+
+// What a strategy receives when an apply threw: a fixed notice, never the exception's text.
+private const val APPLY_ERROR_CONTENT = """{"status":"error"}"""
+
+/** The bytes a strategy receives when applying a change threw. */
+internal fun applyErrorContent(): String = APPLY_ERROR_CONTENT
+
+/** One applied change: the action that was recorded and what the model is told about it. */
+internal class AppliedChange(
+    val action: ExecutedAction,
+    val content: String,
+)
+
+/**
+ * Hands recorded actions to the app's sink. Delivery runs to completion even when the run is being cancelled, so the
+ * undo journal hears about every write. A sink that throws is recorded as a trace code; nothing is retried.
+ */
+internal class ActionDelivery(
+    private val runId: String,
+    private val parentRunId: String?,
+    private val sink: CommitSink,
+    private val recorder: RunRecorder,
+) {
+    /** Tells the sink about [action] and waits for it to finish. */
+    suspend fun deliver(action: ExecutedAction) {
+        withContext(NonCancellable) {
+            guarded(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
+                sink.onAction(ActionEvent(runId, parentRunId, action))
+            }
+        }
+    }
+}
+
+/**
+ * Applies one admitted change and reports exactly one action for it.
+ *
+ * - Success: a committed action, or an is_error action when the app's result says it failed; both with `applied` true.
+ * - A throw from apply: an is_error action with `applied` true (it may have written), no token, and the fixed error
+ *   notice for the model, plus the `apply_error` code.
+ * - Cancellation while applying: the same is_error action is recorded and delivered before the cancellation
+ *   continues, with the `apply_cancelled` code.
+ *
+ * A failing sink never causes a second apply.
+ */
+internal class ApplyStep(
+    private val ledger: ActionLedger,
+    private val delivery: ActionDelivery,
+    private val recorder: RunRecorder,
+) {
+    /** Applies [mutation], records and delivers its action, and returns both. */
+    suspend fun run(mutation: PendingMutation): AppliedChange {
+        val result = try {
+            attempt(mutation)
+        } catch (e: CancellationException) {
+            journalCancelled(mutation)
+            throw e
+        }
+        val change = recordOutcome(mutation, result)
+        delivery.deliver(change.action)
+        return change
+    }
+
+    private suspend fun attempt(mutation: PendingMutation): StepResult? = guarded(onFault = {
+        recorder.recordCode(TraceCode.APPLY_ERROR)
+        null
+    }) { mutation.apply() }
+
+    private fun recordOutcome(mutation: PendingMutation, result: StepResult?): AppliedChange {
+        val failed = result == null || result.isError
+        val details = ActionDetails(
+            toolName = mutation.toolName,
+            appOutcomeToken = result?.appOutcomeToken,
+            targetIds = mutation.targetIds + (result?.targetIds ?: emptyMap()),
+            context = mutation.context,
+        )
+        val kind = if (failed) ActionKind.IS_ERROR else ActionKind.COMMITTED
+        val action = ledger.record(kind, applied = true, details = details)
+        return AppliedChange(action, result?.contentForModel ?: APPLY_ERROR_CONTENT)
+    }
+
+    private suspend fun journalCancelled(mutation: PendingMutation) {
+        withContext(NonCancellable) {
+            recorder.recordCode(TraceCode.APPLY_CANCELLED)
+            val details = ActionDetails(mutation.toolName, null, mutation.targetIds, mutation.context)
+            delivery.deliver(ledger.record(ActionKind.IS_ERROR, applied = true, details = details))
+        }
+    }
+}
