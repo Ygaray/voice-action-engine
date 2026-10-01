@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.core.commit.DispatchResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.provider.BoundModel
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 
 /**
@@ -48,6 +49,9 @@ public abstract class CommandSession internal constructor() {
      * handle.
      */
     public abstract suspend fun recordTurn(turn: TurnRecord)
+
+    /** Records an engine code in this run's trace and tells the event listener. Used by the engine's own strategies. */
+    internal abstract suspend fun recordCode(code: TraceCode)
 
     /**
      * The model this tier uses for this command. The engine asks the app's provider selection once, the first time

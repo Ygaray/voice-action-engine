@@ -6,6 +6,8 @@ import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
+import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
@@ -103,6 +105,59 @@ class SingleShotPlumbingTest {
 
             assertTrue(run.outcome.toString(), run.outcome is CommandOutcome.Completed)
             assertFalse(run.fake.calls.single().request.singleToolCall)
+        }
+    }
+
+    @Test
+    fun theDroppedCallsCodeHasItsStableWireValue() {
+        assertEquals("extra_tool_calls_dropped", TraceCode.EXTRA_TOOL_CALLS_DROPPED.value)
+        assertEquals("extra_tool_calls_dropped", TraceCode.EXTRA_TOOL_CALLS_DROPPED.toString())
+    }
+
+    @Test
+    fun aRecordedCodeLandsInTheTraceExactlyOnce() = runTest {
+        NoNetworkGuard.during {
+            val step: StrategyStep = { _, session ->
+                session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+                StrategyOutcome.Completed(null)
+            }
+
+            val run = runRouted(FakeAiProvider(ProviderId.ANTHROPIC), step)
+
+            assertEquals(listOf(TraceCode.EXTRA_TOOL_CALLS_DROPPED), run.outcome.trace.codes)
+        }
+    }
+
+    @Test
+    fun aRecordedCodeReachesTheListenerOnceWithTheRunId() = runTest {
+        NoNetworkGuard.during {
+            val step: StrategyStep = { _, session ->
+                session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+                StrategyOutcome.Completed(null)
+            }
+
+            val run = runRouted(FakeAiProvider(ProviderId.ANTHROPIC), step)
+
+            val events = run.listener.events.filterIsInstance<PipelineEvent.EngineCode>()
+            val event = events.single()
+            assertEquals(TraceCode.EXTRA_TOOL_CALLS_DROPPED, event.code)
+            assertEquals(run.outcome.runId, event.runId)
+        }
+    }
+
+    @Test
+    fun twoRecordedCodesAppearTwiceInCallOrder() = runTest {
+        NoNetworkGuard.during {
+            val step: StrategyStep = { _, session ->
+                session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+                session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+                StrategyOutcome.Completed(null)
+            }
+
+            val run = runRouted(FakeAiProvider(ProviderId.ANTHROPIC), step)
+
+            val expected = listOf(TraceCode.EXTRA_TOOL_CALLS_DROPPED, TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+            assertEquals(expected, run.outcome.trace.codes)
         }
     }
 }

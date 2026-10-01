@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.core.provider.BoundModel
 import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -59,6 +60,10 @@ internal class RunSession(
 
     override suspend fun recordTurn(turn: TurnRecord) {
         scope.recorder.turnRecorded(strategy, turn)
+    }
+
+    override suspend fun recordCode(code: TraceCode) {
+        scope.recorder.recordCode(code)
     }
 
     /**
