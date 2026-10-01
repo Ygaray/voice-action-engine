@@ -1,0 +1,5 @@
+# Golden conversations: one file per row at <dialect>/<case>.json, a single canonical compact object {"turns":[{"messages":[...],"response":{...}}, ...]}.
+# messages is the request's messages array exactly as sent for that turn; response is that turn's response body.
+# provenance is derived (hand-built from documented shapes) or captured (recorded, then sanitized); the case name starts with it.
+# Prompts, tools and results come only from ConversationScript and name no app domain.
+case	dialect	provenance	model	file	tags	note
