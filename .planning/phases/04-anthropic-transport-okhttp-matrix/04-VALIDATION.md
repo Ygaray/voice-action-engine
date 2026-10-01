@@ -2,9 +2,9 @@
 phase: "4"
 slug: anthropic-transport-okhttp-matrix
 # status lifecycle: draft (seeded by plan-phase) -> validated (set by validate-phase)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-09-30"
 ---
 
@@ -42,32 +42,32 @@ Requirement-level map (task IDs are bound by the PLAN.md files; each task's `<au
 
 | Requirement | Secure Behavior | Test Type | Automated Command | File Exists |
 |-------------|-----------------|-----------|-------------------|-------------|
-| BLD-06 | compile floor stays 4.12.0; each leg proves its okhttp AND mockwebserver version | gradle + unit (all legs) | `./gradlew :providers:verifyOkHttpCompileFloor :providers:test :providers:testOkhttp521 :providers:testOkhttp550 --tests '*OkHttpVersionGuardTest' --offline` | extend |
-| PROV-04 | exactly one `cache_control` on last system block, none on messages/tools; version header, fixed URL | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline` | W0 |
-| PROV-04 | cancel cancels the HTTP call and closes a late response | unit | `./gradlew :providers:test --tests '*CallAwaitTest' --tests '*AnthropicCancellationTest' --offline` | W0 |
-| PROV-05 | encode twice gives identical tools+system bytes | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline` | W0 |
-| PROV-06 | en/es, date, transcript change leaves prefix bytes unchanged | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline` | W0 |
-| PROV-07 | capability table + forced vs auto; reactive 400 reshape (three conditions); NoToolCall | unit + MockWebServer | `./gradlew :providers:test --tests '*AnthropicForcedToolTest' --tests '*AnthropicModelsTest' --offline` and `./gradlew :core:test --tests '*ModelCapabilityTableTest' --offline` | W0 |
-| PROV-09 | retry matrix, retry-after cap, spend-cap not retried, <=3 HTTP requests | MockWebServer | `./gradlew :providers:test --tests '*AnthropicRetryTest' --offline` | W0 |
-| PROV-09 | retried call: one tool execution, one CommitSink action | pipeline integration | `./gradlew :providers:test --tests '*AnthropicPipelineRetryTest' --offline` | W0 |
-| PROV-11 | derived client has no interceptors, no redirects; 307 does not leak the key | unit + MockWebServer | `./gradlew :providers:test --tests '*CleanClientTest' --offline` | W0 |
-| PROV-13 | default 60 s, override honored; timeouts map to Timeout / Network | MockWebServer | `./gradlew :providers:test --tests '*AnthropicTimeoutTest' --offline` | W0 |
-| PROV-12 (Anthropic leg) | omitted optional stays absent; strict only for eligible schemas | unit | `./gradlew :providers:test --tests '*AnthropicStrictTest' --offline` | W0 |
-| TEL-04 | canary never appears in trace/events/toString/failure messages | integration (all legs) | `./gradlew :providers:test :providers:testOkhttp521 :providers:testOkhttp550 --tests '*AnthropicCanaryTest' --offline` | W0 |
-| usage | usage maps to {inputUncached, cacheRead, cacheWrite, output} | unit | `./gradlew :providers:test --tests '*AnthropicDecoderTest' --offline` | W0 |
+| BLD-06 | compile floor stays 4.12.0; each leg proves its okhttp AND mockwebserver version | gradle + unit (all legs) | `./gradlew :providers:verifyOkHttpCompileFloor :providers:test :providers:testOkhttp521 :providers:testOkhttp550 --tests '*OkHttpVersionGuardTest' --offline` | ✅ |
+| PROV-04 | exactly one `cache_control` on last system block, none on messages/tools; version header, fixed URL | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline` | ✅ |
+| PROV-04 | cancel cancels the HTTP call and closes a late response | unit | `./gradlew :providers:test --tests '*CallAwaitTest' --tests '*AnthropicCancellationTest' --offline` | ✅ |
+| PROV-05 | encode twice gives identical tools+system bytes | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline` | ✅ |
+| PROV-06 | en/es, date, transcript change leaves prefix bytes unchanged | unit | `./gradlew :providers:test --tests '*AnthropicEncoderTest' --offline` | ✅ |
+| PROV-07 | capability table + forced vs auto; reactive 400 reshape (three conditions); NoToolCall | unit + MockWebServer | `./gradlew :providers:test --tests '*AnthropicForcedToolTest' --tests '*AnthropicModelsTest' --offline` and `./gradlew :core:test --tests '*ModelCapabilityTableTest' --offline` | ✅ |
+| PROV-09 | retry matrix, retry-after cap, spend-cap not retried, <=3 HTTP requests | MockWebServer | `./gradlew :providers:test --tests '*AnthropicRetryTest' --offline` | ✅ |
+| PROV-09 | retried call: one tool execution, one CommitSink action | pipeline integration | `./gradlew :providers:test --tests '*AnthropicPipelineRetryTest' --offline` | ✅ |
+| PROV-11 | derived client has no interceptors, no redirects; 307 does not leak the key | unit + MockWebServer | `./gradlew :providers:test --tests '*CleanClientTest' --offline` | ✅ |
+| PROV-13 | default 60 s, override honored; timeouts map to Timeout / Network | MockWebServer | `./gradlew :providers:test --tests '*AnthropicTimeoutTest' --offline` | ✅ |
+| PROV-12 (Anthropic leg) | omitted optional stays absent; strict only for eligible schemas | unit | `./gradlew :providers:test --tests '*AnthropicStrictTest' --offline` | ✅ |
+| TEL-04 | canary never appears in trace/events/toString/failure messages | integration (all legs) | `./gradlew :providers:test :providers:testOkhttp521 :providers:testOkhttp550 --tests '*AnthropicCanaryTest' --offline` | ✅ |
+| usage | usage maps to {inputUncached, cacheRead, cacheWrite, output} | unit | `./gradlew :providers:test --tests '*AnthropicDecoderTest' --offline` | ✅ |
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `providers/src/test/.../anthropic/AnthropicEncoderTest.kt` - PROV-04/05/06
-- [ ] `AnthropicTransportTest`, `AnthropicRetryTest`, `AnthropicForcedToolTest`, `AnthropicTimeoutTest`, `AnthropicDecoderTest`, `AnthropicStrictTest`
-- [ ] `.../http/CallAwaitTest`, `CleanClientTest`
-- [ ] `.../anthropic/AnthropicPipelineRetryTest` (SC3 no-duplicate commit through the command pipeline)
-- [ ] `.../anthropic/AnthropicCanaryTest` (TEL-04)
-- [ ] extend `OkHttpVersionGuardTest` (mockwebserver jar version per leg)
-- [ ] `ModelCapabilities` additive field + `ModelCapabilityTableTest` cases (core)
-- [ ] test helper: JSON fixture builders for Anthropic success/error bodies (private to the test source set)
+- [x] `providers/src/test/.../anthropic/AnthropicEncoderTest.kt` - PROV-04/05/06
+- [x] `AnthropicTransportTest`, `AnthropicRetryTest`, `AnthropicForcedToolTest`, `AnthropicTimeoutTest`, `AnthropicDecoderTest`, `AnthropicStrictTest`
+- [x] `.../http/CallAwaitTest`, `CleanClientTest`
+- [x] `.../anthropic/AnthropicPipelineRetryTest` (SC3 no-duplicate commit through the command pipeline)
+- [x] `.../anthropic/AnthropicCanaryTest` (TEL-04)
+- [x] extend `OkHttpVersionGuardTest` (mockwebserver jar version per leg)
+- [x] `ModelCapabilities` additive field + `ModelCapabilityTableTest` cases (core)
+- [x] test helper: JSON fixture builders for Anthropic success/error bodies (private to the test source set)
 
 No new framework install.
 
@@ -83,14 +83,26 @@ No new framework install.
 
 ## Validation Sign-Off
 
-> **Plan-time state is a DRAFT.** Frontmatter stays `status: draft` and `nyquist_compliant: false`;
+> Finalized post-execution (2026-10-01) by the Nyquist finalizer.
 > they are finalized only post-execution by the Nyquist finalizer.
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 240s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` - leave `false` at plan time
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 240s
+- [x] _(finalizer-only, post-execution)_ `nyquist_compliant: true` - zero automatable gaps
 
-**Approval:** pending (finalizer-owned, not set at plan time)
+**Approval:** validated 2026-10-01 (finalizer)
+
+---
+
+## Validation Audit 2026-10-01
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Every requirement row maps to an existing test class that runs green on the 4.12.0, 5.2.1 and 5.5.0 legs (144 tests per leg, 0 failures, rerun by Gate-1). The live capture stays Manual-Only by design (ran once at plan 04-07; evidence/live-capture.txt).
