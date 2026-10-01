@@ -24,7 +24,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Scaffold & Publishing Proof** - §6.2 step 1: four modules, per-module JitPack coordinates proven by SHA, zero-baseline detekt invariants, fake-provider and OkHttp-matrix harnesses (completed 2026-09-30)
 - [x] **Phase 2: Core Contract, Pipeline & Commit Seam** - §6.2 step 2 (keystone): pipeline DSL, typed never-thrown outcomes, one gate → commit path in both modes, telemetry (completed 2026-09-30)
-- [ ] **Phase 3: Transcript Types, ProviderRouter & On-Device Gate** - §6.2 step 3a-i: neutral multi-turn transcript, per-command provider/model/key seam, `ON_DEVICE` slot with clean fallback (pure JVM)
+- [x] **Phase 3: Transcript Types, ProviderRouter & On-Device Gate** - §6.2 step 3a-i: neutral multi-turn transcript, per-command provider/model/key seam, `ON_DEVICE` slot with clean fallback (pure JVM) (completed 2026-09-30)
 - [ ] **Phase 4: Anthropic Transport & OkHttp Matrix** - §6.2 step 3a-ii (A1 must-pass): cache-correct Anthropic transport green on OkHttp 4.12.0 / 5.2.1 / 5.5.0
 - [ ] **Phase 5: OpenAI & OpenRouter Transports** - §6.2 step 3b: one Chat Completions transport for both, real wire shapes and quirks mapped to typed outcomes
 - [ ] **Phase 6: Keystore** - §6.2 step 4: BYO keys encrypted per provider in the app's own DataStore, existing aliases preserved
@@ -317,7 +317,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Scaffold & Publishing Proof | 6/6 | Complete    | 2026-09-30 |
 | 2. Core Contract, Pipeline & Commit Seam | 9/9 | Complete    | 2026-09-30 |
-| 3. Transcript Types, ProviderRouter & On-Device Gate | 10/10 | In Progress|  |
+| 3. Transcript Types, ProviderRouter & On-Device Gate | 10/10 | Complete    | 2026-09-30 |
 | 4. Anthropic Transport & OkHttp Matrix | 0/TBD | Not started | - |
 | 5. OpenAI & OpenRouter Transports | 0/TBD | Not started | - |
 | 6. Keystore | 0/TBD | Not started | - |
