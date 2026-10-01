@@ -1,11 +1,15 @@
 package io.github.ygaray.voiceactionengine.keystore
 
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -34,9 +38,10 @@ class ApiKeyStoreTest {
         prefs?.close()
     }
 
-    private fun store(): ApiKeyStore {
+    private fun store(): ApiKeyStore = storeOver(listOf(KeySlot(ProviderId.ANTHROPIC, ALIAS, CT_KEY, IV_KEY)))
+
+    private fun storeOver(slots: List<KeySlot>): ApiKeyStore {
         val temp = TempPreferences(folder).also { prefs = it }
-        val slots = listOf(KeySlot(ProviderId.ANTHROPIC, ALIAS, CT_KEY, IV_KEY))
         return ApiKeyStore(temp.dataStore, slots, Dispatchers.Unconfined, keys)
     }
 
@@ -86,5 +91,49 @@ class ApiKeyStoreTest {
         store.save(ProviderId.ANTHROPIC, "abcd")
 
         assertEquals(KeyState.Ready(""), store.read(ProviderId.ANTHROPIC))
+    }
+
+    @Test
+    fun aThreeProviderStoreKeepsEachKeySeparateAcrossSaveReplaceAndDelete() = runTest {
+        val store = storeOver(ctSlots())
+        val temp = prefs!!
+        temp.dataStore.edit {
+            it[stringPreferencesKey("theme_mode")] = "dark"
+            it[intPreferencesKey("launch_count")] = 7
+        }
+        val unrelated = mapOf("theme_mode" to "dark", "launch_count" to 7)
+        val names = mapOf(
+            ProviderId.ANTHROPIC to setOf("anthropic_api_key_ct", "anthropic_api_key_iv"),
+            ProviderId.OPENAI to setOf("openai_api_key_ct", "openai_api_key_iv"),
+            ProviderId.OPENROUTER to setOf("openrouter_api_key_ct", "openrouter_api_key_iv"),
+        )
+
+        suspend fun assertStored(saved: List<ProviderId>) {
+            val snapshot = temp.snapshot()
+            assertEquals(unrelated.keys + saved.flatMap { names.getValue(it) }, snapshot.keys)
+            unrelated.forEach { (name, value) -> assertEquals(value, snapshot[name]) }
+        }
+
+        assertStored(emptyList())
+        store.save(ProviderId.ANTHROPIC, "anthropic-secret-aaaa") // secret-scan: allow (fake canary)
+        store.save(ProviderId.OPENAI, "openai-secret-bbbb") // secret-scan: allow (fake canary)
+        store.save(ProviderId.OPENROUTER, "openrouter-secret-cccc") // secret-scan: allow (fake canary)
+        assertEquals(KeyState.Ready("aaaa"), store.read(ProviderId.ANTHROPIC))
+        assertEquals(KeyState.Ready("bbbb"), store.read(ProviderId.OPENAI))
+        assertEquals(KeyState.Ready("cccc"), store.read(ProviderId.OPENROUTER))
+        assertStored(listOf(ProviderId.ANTHROPIC, ProviderId.OPENAI, ProviderId.OPENROUTER))
+
+        store.save(ProviderId.OPENAI, "openai-secret-dddd") // secret-scan: allow (fake canary)
+        assertEquals(KeyState.Ready("aaaa"), store.read(ProviderId.ANTHROPIC))
+        assertEquals(KeyState.Ready("dddd"), store.read(ProviderId.OPENAI))
+        assertEquals(KeyState.Ready("cccc"), store.read(ProviderId.OPENROUTER))
+        assertStored(listOf(ProviderId.ANTHROPIC, ProviderId.OPENAI, ProviderId.OPENROUTER))
+
+        store.delete(ProviderId.OPENAI)
+        assertEquals(KeyState.NotConfigured(), store.read(ProviderId.OPENAI))
+        assertEquals(KeyState.Ready("aaaa"), store.read(ProviderId.ANTHROPIC))
+        assertEquals(KeyState.Ready("cccc"), store.read(ProviderId.OPENROUTER))
+        assertNotNull(keys.keyFor("caltracker_openai_api_key_v1"))
+        assertStored(listOf(ProviderId.ANTHROPIC, ProviderId.OPENROUTER))
     }
 }

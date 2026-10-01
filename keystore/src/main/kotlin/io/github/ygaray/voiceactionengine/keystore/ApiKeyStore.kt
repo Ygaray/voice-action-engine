@@ -54,6 +54,23 @@ public class ApiKeyStore internal constructor(
     }
 
     /**
+     * Removes the stored key of [provider]: its ciphertext and initialisation vector go in one update. Deleting when
+     * nothing is stored is a no-op. The device key under the slot's alias is left in place and a later save reuses it,
+     * because a store must never destroy a key over an error that might be transient.
+     *
+     * @throws IllegalArgumentException when [provider] has no slot. The message names the provider only.
+     */
+    public suspend fun delete(provider: ProviderId) {
+        val slot = requireNotNull(slotsByProvider[provider]) { "No key slot for provider $provider" }
+        writeMutex.withLock {
+            dataStore.edit { prefs ->
+                prefs.remove(stringPreferencesKey(slot.ciphertextKey))
+                prefs.remove(stringPreferencesKey(slot.ivKey))
+            }
+        }
+    }
+
+    /**
      * Reads what is stored for [provider]. A provider without a slot, or without a stored pair, is
      * [KeyState.NotConfigured]. Reading never creates a key and never changes storage.
      */

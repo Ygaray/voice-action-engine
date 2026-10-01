@@ -3,6 +3,7 @@ package io.github.ygaray.voiceactionengine.keystore
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import io.github.ygaray.voiceactionengine.core.ProviderId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -69,6 +70,23 @@ internal class SoftwareKeyAccess : KeyAccess {
     /** The key under [alias]; fails the test when there is none. */
     fun keyFor(alias: String): SecretKey = checkNotNull(keys[alias]) { "no key under $alias" }
 }
+
+/** SecondBrain's table: one provider, its legacy alias and pref names. */
+internal fun sbSlots(): List<KeySlot> = listOf(
+    KeySlot(ProviderId.ANTHROPIC, "secondbrain_anthropic_api_key_v1", "anthropic_api_key_ct", "anthropic_api_key_iv"),
+)
+
+/** CalTracker's table: three providers, each with its legacy alias and pref names. */
+internal fun ctSlots(): List<KeySlot> = listOf(
+    KeySlot(ProviderId.ANTHROPIC, "caltracker_api_key_v1", "anthropic_api_key_ct", "anthropic_api_key_iv"),
+    KeySlot(ProviderId.OPENAI, "caltracker_openai_api_key_v1", "openai_api_key_ct", "openai_api_key_iv"),
+    KeySlot(
+        ProviderId.OPENROUTER,
+        "caltracker_openrouter_api_key_v1",
+        "openrouter_api_key_ct",
+        "openrouter_api_key_iv",
+    ),
+)
 
 /** A real preferences DataStore on a temp file, the way an app would inject its own. */
 internal class TempPreferences(folder: TemporaryFolder) {
