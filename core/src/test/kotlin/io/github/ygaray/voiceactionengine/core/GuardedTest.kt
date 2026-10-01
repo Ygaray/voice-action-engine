@@ -7,6 +7,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -76,14 +78,23 @@ class GuardedTest {
     }
 
     @Test
-    fun plainCancellationExceptionWhileActivePropagates() = runTest {
-        try {
-            guarded<String>(::onFault) { throw CancellationException("x") }
-            fail("expected CancellationException")
-        } catch (e: CancellationException) {
-            assertEquals("x", e.message)
-            assertFalse(e is TimeoutCancellationException)
+    fun plainCancellationExceptionWhileActiveIsAFault() = runTest {
+        val result = guarded<String>(::onFault) { throw CancellationException("foreign") }
+        assertEquals(FAULT, result)
+        assertEquals("CancellationException", faults.single().errorClass)
+        assertFalse(faults.single().timeoutLeak)
+    }
+
+    @Test
+    fun plainCancellationExceptionWhileTheCallerIsCancelledPropagates() = runTest {
+        val job = launch(start = CoroutineStart.UNDISPATCHED) {
+            guarded<String>(::onFault) {
+                currentCoroutineContext().cancel()
+                throw CancellationException("x")
+            }
         }
+        job.join()
+        assertTrue(job.isCancelled)
         assertTrue(faults.isEmpty())
     }
 

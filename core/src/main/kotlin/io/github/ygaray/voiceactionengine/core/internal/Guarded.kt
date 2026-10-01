@@ -21,7 +21,9 @@ internal class EngineFault(
  *
  * Catch order matters and each clause is separate so no type check is needed inside a general catch:
  * a timeout is rethrown when the caller is cancelled and is a fault when the caller is still active (an inner
- * `withTimeout` in app code leaked out); any other cancellation is rethrown; linkage errors and exceptions are faults.
+ * `withTimeout` in app code leaked out); any other cancellation is rethrown only when the caller is cancelled and is
+ * a fault when the caller is still active (a foreign cancelled call or deferred); linkage errors and exceptions are
+ * faults.
  * Other errors (out of memory, assertion failures) are not caught.
  *
  * Use [guardedUncancellable] instead for app code that runs under `NonCancellable`.
@@ -51,7 +53,7 @@ internal suspend inline fun <T> guardedCore(
     if (!cancellationIsFault && !currentCoroutineContext().isActive) throw e
     onFault(EngineFault(errorClassOf(e), timeoutLeak = true))
 } catch (e: CancellationException) {
-    if (!cancellationIsFault) throw e
+    if (!cancellationIsFault && !currentCoroutineContext().isActive) throw e
     onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
 } catch (e: LinkageError) {
     onFault(EngineFault(errorClassOf(e), timeoutLeak = false))

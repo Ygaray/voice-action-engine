@@ -145,18 +145,15 @@ class NeverThrowTest {
     }
 
     @Test
-    fun aStrategyThrowingCancellationWhileActivePropagatesAndClosesOnceAsCancelled() = runTest {
+    fun aStrategyThrowingAForeignCancellationWhileActiveBecomesFailedAndClosesOnceAsFailed() = runTest {
         NoNetworkGuard.during {
             val sink = RecordingCommitSink()
-            val thrown = CancellationException("stop")
-            try {
-                pipeline({ _, _ -> throw thrown }, sink).execute(CommandInput("hi"))
-                fail("cancellation must propagate out of execute")
-            } catch (expected: CancellationException) {
-                assertSame(thrown, expected)
-            }
+            val outcome = pipeline({ _, _ -> throw CancellationException("stop") }, sink)
+                .execute(CommandInput("hi"))
+            val failed = outcome as CommandOutcome.Failed
+            assertEquals(FailureReason.Unexpected("CancellationException"), failed.reason)
             assertEquals(1, sink.closes.size)
-            assertTrue(sink.closes.single() is RunTermination.Cancelled)
+            assertTrue(sink.closes.single() is RunTermination.Failed)
         }
     }
 
