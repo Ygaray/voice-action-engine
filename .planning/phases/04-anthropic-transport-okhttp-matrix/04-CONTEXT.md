@@ -90,3 +90,10 @@ None beyond the decisions above.
 See REQUIREMENTS.md v2 / LATER items.
 
 </deferred>
+
+## Runtime Decisions
+
+- **floor-guard (refreshed vs Phase 1, ai-auto):** ALREADY SATISFIED by Phase 1: the `verifyOkHttpCompileFloor` task (gradle/invariants.gradle.kts:391) checks compileClasspath/testCompileClasspath, plus providers OkHttpVersionGuardTest and the libs.versions.toml A1 comment. Phase 4 adds NO new floor task. It must keep verifyOkHttpCompileFloor under check while it adds the 5.x matrix Test tasks, and the matrix legs must use their own resolvable configurations, never the compile classpath.
+- **error-map (refreshed vs Phase 2, ai-auto):** CONFIRMED vs Phase 2: every leaf already exists in core/failure/FailureReason.kt (Auth, Billing, RateLimited, Overloaded, Timeout, Network, MalformedResponse, MalformedToolArgs, ModelNotFound, HttpError, Other, etc.). Phase 4 builds only the Anthropic status→leaf mapping table (401/403→Auth, 402→Billing, 429→RateLimited, 529/503→Overloaded, 408/504/InterruptedIOException→Timeout, IOException→Network, bad 2xx→MalformedResponse, non-object input→MalformedToolArgs, 404→ModelNotFound, rest→HttpError/Other). It always carries httpStatus + error.type + request-id via FailureDetails, never the body. Add no new FailureReason leaves unless one is truly missing.
+- **test-fakes (refreshed vs Phase 3, ai-auto):** ALREADY SATISFIED by Phase 3: :core applies `java-test-fixtures`, and FakeAiProvider lives in core/src/testFixtures. Both testFixtures variants are skipped from the published component, and `verifyNoTestFixturesPublished` runs under check. :providers already uses testImplementation(testFixtures(project(":core"))). Phase 4 reuses these fixtures and needs no copies. Re-check the published .module/POM in the next JitPack probe.
+- **encoder-scope (refreshed vs Phase 3, ai-auto):** CONFIRMED vs Phase 3: core/transcript/Message.kt has ToolResultsMessage(List<ToolResult>) with ToolResult.isError. Phase 4 encodes tool_result + is_error into the Anthropic wire format (needed for TEL-04 SC5). Phase 8 owns round-trip conformance, batching semantics, verbatim replay and goldens.
