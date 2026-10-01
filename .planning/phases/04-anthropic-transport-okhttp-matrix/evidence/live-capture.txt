@@ -1,0 +1,7 @@
+LIVE_CAPTURE run 2026-10-01, model claude-haiku-4-5, via with-test-keys --only anthropic -- env VAE_LIVE_ANTHROPIC=1 ./gradlew :providers:liveAnthropicCapture --offline --no-daemon --console=plain
+LIVE_CAPTURE call=1 label=forced result=success http=2xx error_type=- request_id=present stop=tool_use tools=[record_item] usage=in:422,cache_read:0,cache_write:6330,out:33
+LIVE_CAPTURE call=2 label=forced_repeat result=success http=2xx error_type=- request_id=present stop=tool_use tools=[record_item] usage=in:422,cache_read:6330,cache_write:0,out:33
+LIVE_CAPTURE call=3 label=reshaped result=success http=2xx error_type=- request_id=present stop=tool_use tools=[record_item] usage=in:336,cache_read:6330,cache_write:0,out:66
+LIVE_CAPTURE call=4 label=invalid_credential result=failure reason=auth http=401 error_type=authentication_error request_id=present stop=- tools=[] usage=-
+LIVE_CAPTURE attempts=4 ceiling=6
+All four expectations met: forced call returned a record_item call with a request id; the repeat read the cache (6330 tokens); the reshape path (auto + strict + instruction) was accepted and returned a record_item call; the invalid credential mapped to auth / 401 / authentication_error with a request id.
