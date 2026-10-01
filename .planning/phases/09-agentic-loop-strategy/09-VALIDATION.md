@@ -1,9 +1,9 @@
 ---
 phase: "09"
 slug: "agentic-loop-strategy"
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-01"
 ---
 
@@ -38,21 +38,21 @@ created: "2026-10-01"
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
-| LOOP-01 | `ToolExecutor` composes with the write path; holding gate leaves applyCount 0; seam types redact toString | unit | `./gradlew :core:test --tests '*ToolExecutorSeamTest' --offline -q` | W0 | pending |
-| LOOP-01 | tool turn then prose; sequential dispatch; reply = first text block; reads absent from executed list | unit | `... --tests '*AgenticLoopDispatchTest'` | W0 | pending |
-| LOOP-01 | gate path: held notice bytes, rejected/preview, unknown tool, read-returns-Mutation, prepare fault | unit | `... --tests '*AgenticLoopGateTest'` | W0 | pending |
-| LOOP-01 | same scripted conversation on three ProviderIds gives identical outcomes | unit | `... --tests '*AgenticLoopProviderNeutralityTest'` | W0 | pending |
-| LOOP-01 | real mappers: Anthropic/OpenAI/OpenRouter bodies, Auto choice, SB-shaped user-turn bytes, held bytes | integration | `./gradlew :providers:test --tests '*AgenticLoopWireTest' :providers:testOkhttp521 --tests '*AgenticLoopWireTest' :providers:testOkhttp550 --tests '*AgenticLoopWireTest' --offline` | W0 | pending |
-| LOOP-02 | whole-turn validation (duplicate ids rejected within a turn only; an id reused from an earlier turn is accepted, per seam sign-off item 5); ceiling before dispatch; final-iteration guard; token ceiling beats the iteration cap on the same turn (BudgetExceeded(TOKENS)); 2-strike per tool; stop-leaf matrix; stop+tool_calls guard | unit | `... --tests '*AgenticLoopGuardsTest'` | W0 | pending |
-| LOOP-02 | 6 / 60000 / 4096 from session.policy / session.tokensUsed | unit | `... --tests '*AgenticLoopLimitsTest'` | W0 | pending |
-| D-13 | terminal-only; terminal after commit; terminal alongside held; calls after terminal dropped | unit | `... --tests '*AgenticLoopTerminalTest'` | W0 | pending |
-| LOOP-03 | every exit path lists executed/commits/held; held, errored and previewed calls keep distinct ActionKind (HELD, IS_ERROR, PREVIEW; no new member, seam sign-off item 3); sink precedes onRunClosed; one close | unit | `... --tests '*AgenticLoopExitPathsTest'` | W0 | pending |
-| LOOP-03 / O-1 | cancel between batch items stops the rest | unit | `... --tests '*BatchIsolationTest' --tests '*BatchCancellationTest'` | partial | pending |
-| carries | Auto choice every request; replay stamped same provider/model; loop never escalates | unit | `... --tests '*AgenticLoopCarryTest'` | W0 | pending |
-| D-02 | SB-shaped renderer exact text, core and wire | unit+integration | `AgenticLoopUserTurnTest`, `AgenticLoopWireTest` | W0 | pending |
-| TEL-04 | canary never in outcome/trace/events/toString/exceptions of an agentic run | unit | `... --tests '*RedactionCanaryTest'` | extend | pending |
-| CLN-02 | banned app-domain words fail `scanBannedConstructs` in all three modules; negative control; no tool-count literal | build gate | `./gradlew :core:scanBannedConstructs :providers:scanBannedConstructs :keystore:scanBannedConstructs :core:verifyInvariantScannerControls --offline -q` | gate exists, rules W0 | pending |
-| surface | no new sealed/enum/data/public static; no default-arg ctor stubs | unit | `... --tests '*ApiShapeTest' --tests '*NoHardCodedConstantsTest'` | exists | pending |
+| LOOP-01 | `ToolExecutor` composes with the write path; holding gate leaves applyCount 0; seam types redact toString | unit | `./gradlew :core:test --tests '*ToolExecutorSeamTest' --offline -q` | yes | green |
+| LOOP-01 | tool turn then prose; sequential dispatch; reply = first text block; reads absent from executed list | unit | `... --tests '*AgenticLoopDispatchTest'` | yes | green |
+| LOOP-01 | gate path: held notice bytes, rejected/preview, unknown tool, read-returns-Mutation, prepare fault | unit | `... --tests '*AgenticLoopGateTest'` | yes | green |
+| LOOP-01 | same scripted conversation on three ProviderIds gives identical outcomes | unit | `... --tests '*AgenticLoopProviderNeutralityTest'` | yes | green |
+| LOOP-01 | real mappers: Anthropic/OpenAI/OpenRouter bodies, Auto choice, SB-shaped user-turn bytes, held bytes | integration | `./gradlew :providers:test --tests '*AgenticLoopWireTest' :providers:testOkhttp521 --tests '*AgenticLoopWireTest' :providers:testOkhttp550 --tests '*AgenticLoopWireTest' --offline` | yes | green |
+| LOOP-02 | whole-turn validation (duplicate ids rejected within a turn only; an id reused from an earlier turn is accepted, per seam sign-off item 5); ceiling before dispatch; final-iteration guard; token ceiling beats the iteration cap on the same turn (BudgetExceeded(TOKENS)); 2-strike per tool; stop-leaf matrix; stop+tool_calls guard | unit | `... --tests '*AgenticLoopGuardsTest'` | yes | green |
+| LOOP-02 | 6 / 60000 / 4096 from session.policy / session.tokensUsed | unit | `... --tests '*AgenticLoopLimitsTest'` | yes | green |
+| D-13 | terminal-only; terminal after commit; terminal alongside held; calls after terminal dropped | unit | `... --tests '*AgenticLoopTerminalTest'` | yes | green |
+| LOOP-03 | every exit path lists executed/commits/held; held, errored and previewed calls keep distinct ActionKind (HELD, IS_ERROR, PREVIEW; no new member, seam sign-off item 3); sink precedes onRunClosed; one close | unit | `... --tests '*AgenticLoopExitPathsTest'` | yes | green |
+| LOOP-03 / O-1 | cancel between batch items stops the rest | unit | `... --tests '*BatchIsolationTest' --tests '*BatchCancellationTest'` | yes | green |
+| carries | Auto choice every request; replay stamped same provider/model; loop never escalates | unit | `... --tests '*AgenticLoopCarryTest'` | yes | green |
+| D-02 | SB-shaped renderer exact text, core and wire | unit+integration | `AgenticLoopUserTurnTest`, `AgenticLoopWireTest` | yes | green |
+| TEL-04 | canary never in outcome/trace/events/toString/exceptions of an agentic run | unit | `... --tests '*RedactionCanaryTest'` | yes | green |
+| CLN-02 | banned app-domain words fail `scanBannedConstructs` in all three modules; negative control; no tool-count literal | build gate | `./gradlew :core:scanBannedConstructs :providers:scanBannedConstructs :keystore:scanBannedConstructs :core:verifyInvariantScannerControls --offline -q` | yes | green |
+| surface | no new sealed/enum/data/public static; no default-arg ctor stubs | unit | `... --tests '*ApiShapeTest' --tests '*NoHardCodedConstantsTest'` | yes | green |
 
 *Status: pending / green / red / flaky*
 
@@ -60,10 +60,10 @@ created: "2026-10-01"
 
 ## Wave 0 Requirements
 
-- [ ] `core/src/testFixtures/.../testing/ScriptedToolExecutor.kt`
-- [ ] `core/src/test/.../AgenticLoopTestSupport.kt`
-- [ ] test classes listed in the map above
-- [ ] `providers/src/test/.../AgenticLoopWireTest.kt`
+- [x] `core/src/testFixtures/.../testing/ScriptedToolExecutor.kt`
+- [x] `core/src/test/.../AgenticLoopTestSupport.kt`
+- [x] test classes listed in the map above
+- [x] `providers/src/test/.../AgenticLoopWireTest.kt`
 
 ---
 
@@ -75,11 +75,20 @@ All phase behaviors have automated verification (JVM-only phase; Gate-1 device U
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 90s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` - leave `false` at plan time
+> Finalized post-execution by the Nyquist finalizer (2026-10-01): every requirement row has an existing, green automated test. Fresh JUnit XML: core 646 tests (all 15 mapped classes present, 0 failures), providers AgenticLoopWireTest 15/15 on all three OkHttp legs (4.12.0, 5.2.1, 5.5.0), keystore 96; `./gradlew check --offline` exit 0.
 
-**Approval:** pending
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 90s per task
+- [x] `nyquist_compliant: true` set in frontmatter (post-execution only)
+
+**Approval:** validated 2026-10-01
+
+## Validation Audit 2026-10-01
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
