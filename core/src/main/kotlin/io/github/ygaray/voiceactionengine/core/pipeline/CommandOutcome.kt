@@ -80,7 +80,10 @@ public sealed class CommandOutcome {
     public val held: List<HeldProposal>
         get() = effects.held
 
-    /** What the run did. */
+    /**
+     * What the run did, as of the moment the run ended and before it was closed. A code recorded while closing (the
+     * sink or the listener failing on the close itself) is not in this trace; it reaches the event listener only.
+     */
     public val trace: CommandTrace
         get() = effects.trace
 
