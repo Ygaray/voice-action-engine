@@ -12,14 +12,24 @@ private const val MIN_ITERATIONS = 2
  * The limits one command runs under. Build one with `TierPolicy { maxIterations = 8 }`; unset fields keep their
  * defaults, and new limits can be added later without breaking callers.
  *
+ * The engine itself enforces only [offlineOnly], [maxTier], the static part of [allowedProviders] and
+ * [commandTimeoutMillis]. [maxIterations], [tokenCeiling] and [maxTokensPerTurn] are advisory: the engine counts
+ * tokens (`CommandSession.tokensUsed`) but never stops a tier for exceeding them, so a strategy that ignores
+ * `session.policy` is unbounded. Set [commandTimeoutMillis] as the engine-enforced backstop.
+ *
  * @property offlineOnly when true, no tier that needs the network may run.
  * @property maxTier the last tier allowed to run, by its stable [StrategyId] (never a ladder index), or null for
  * no cap.
- * @property allowedProviders the providers a tier may use. Null means every provider; an empty set means no
- * provider-backed tier may run.
- * @property maxIterations the most model turns a looping strategy may take (at least 2).
- * @property tokenCeiling the most tokens one run may use across all turns.
- * @property maxTokensPerTurn the most output tokens one model turn may produce.
+ * @property allowedProviders the providers a tier may use, checked against each tier's declared providers only: a tier
+ * passes when it declares at least one allowed provider, so a tier that declares every provider passes any non-empty
+ * filter. Null means every provider; an empty set
+ * means no provider-backed tier may run.
+ * @property maxIterations the most model turns a looping strategy may take (at least 2). Advisory: the strategy
+ * enforces it.
+ * @property tokenCeiling the most tokens one run should use across all turns. Advisory: the strategy compares it with
+ * `CommandSession.tokensUsed` and stops itself.
+ * @property maxTokensPerTurn the most output tokens one model turn may produce. Advisory: the strategy passes it to
+ * its provider.
  * @property commandTimeoutMillis the engine-imposed deadline for a whole command, or null for none. An app that sets
  * one accepts that it also bounds a gate that is suspended waiting for a person.
  */
