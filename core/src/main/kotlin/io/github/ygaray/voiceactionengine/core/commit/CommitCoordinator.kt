@@ -30,7 +30,7 @@ internal class CommitCoordinator(
     private val parentRunId: String?,
     gate: PreApplyGate,
     sink: CommitSink,
-    recorder: RunRecorder,
+    private val recorder: RunRecorder,
 ) {
     private val mutex = Mutex()
 
@@ -123,14 +123,11 @@ internal class CommitCoordinator(
      * not done and the model must not retry it.
      */
     private suspend fun hold(step: ToolStep.Mutation, decision: GateDecision.Hold): DispatchResult {
+        // Read every descriptor before anything is recorded, so a throwing getter cannot leave a half-reported hold.
+        val facts = step.mutations.map { factsOf(it, recorder) }
         ledger.addHeld(HeldProposal(runId, parentRunId, step.mutations, decision.reason, decision.appOutcomeToken))
-        val actions = step.mutations.map { mutation ->
-            val details = ActionDetails(
-                mutation.toolName,
-                decision.appOutcomeToken,
-                mutation.targetIds,
-                mutation.context,
-            )
+        val actions = facts.map { fact ->
+            val details = ActionDetails(fact.toolName, decision.appOutcomeToken, fact.targetIds, fact.context)
             ledger.record(ActionKind.HELD, applied = false, details = details).also { delivery.deliver(it) }
         }
         return DispatchResult(heldForConfirmationContent(), false, true, actions)
