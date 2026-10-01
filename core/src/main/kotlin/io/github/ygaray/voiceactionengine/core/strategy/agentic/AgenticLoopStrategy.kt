@@ -173,9 +173,19 @@ internal class AgenticRun(
             false,
         )
 
-    // The token ceiling is checked first, so a turn that trips both limits reports the ceiling.
+    // The order is fixed: the token ceiling, then the last-turn guard, then whole-turn validation, then dispatch. The
+    // ceiling is checked first, so a turn that trips both limits reports the ceiling.
     private suspend fun toolTurn(iteration: Int, response: ModelResponse): StrategyOutcome? =
-        ceilingCrossed(context.session) ?: lastTurnGuard(iteration, response) ?: dispatchTurn(response)
+        ceilingCrossed(context.session)
+            ?: lastTurnGuard(iteration, response)
+            ?: validated(response)
+            ?: dispatchTurn(response)
+
+    // A turn that cannot be answered is rejected whole before any of its calls runs.
+    private fun validated(response: ModelResponse): StrategyOutcome? =
+        StrategyOutcome.Failed(FailureReason.MalformedResponse()).takeUnless {
+            isAnswerable(response.message.toolCalls)
+        }
 
     // The last permitted turn runs no tool, except that a turn whose first call is terminal dispatches nothing at all
     // and simply ends the run.
