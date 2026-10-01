@@ -413,7 +413,7 @@ Plans:
   3. On every exit path (done, budget, cancel, error), the outcome lists the executed actions and commits made so far, and `CommitSink` has already been told about each commit.
   4. With both ports now landed, library code in `:core`, `:providers` and `:keystore` contains no app-domain types or prompts (`LogFood*`, `log_food`, SB `SYSTEM_PROMPT`, SB tool names, `MutationTier`) and hard-codes no tool count.
 
-**Plans**: 1/9 plans executed (one per wave, strictly sequential: 09-01 → 09-09; 09-02 ends at the blocking seam sign-off checkpoint relayed through the master)
+**Plans**: 2/9 plans executed (one per wave, strictly sequential: 09-01 → 09-09; 09-02 ends at the blocking seam sign-off checkpoint relayed through the master)
 
 **Wave 1**
 
@@ -421,7 +421,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 09-02-PLAN.md — `ToolExecutor` seam + `ScriptedToolExecutor` + three trace codes; blocking `checkpoint:decision` seam/behavior sign-off (Q1-Q10)
+- [x] 09-02-PLAN.md — `ToolExecutor` seam + `ScriptedToolExecutor` + three trace codes; blocking `checkpoint:decision` seam/behavior sign-off (Q1-Q10)
 
 **Wave 3** *(blocked on Wave 2 completion and a SIGNOFF: APPROVE)*
 
@@ -498,6 +498,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Keystore | 7/7 | Complete    | 2026-10-01 |
 | 7. SingleShot Strategy | 8/8 | Complete    | 2026-10-01 |
 | 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
-| 9. Agentic Loop Strategy | 1/9 | In Progress|  |
+| 9. Agentic Loop Strategy | 2/9 | In Progress|  |
 | 10. Sample Harness, Gate-1 & Docs | 0/TBD | Not started | - |
 | 11. Cut v1.0.0 | 0/TBD | Not started | - |
