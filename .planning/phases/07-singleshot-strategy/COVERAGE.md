@@ -1,0 +1,1 @@
+No external API integration: one request flag added to the Anthropic and Chat Completions transports integrated in Phases 4-5; no new endpoint, service, SDK or credential (wire shapes tested offline).

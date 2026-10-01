@@ -315,7 +315,38 @@ Plans:
   2. By default, a reply with no tool call (or prose only) escalates with `NoToolCall`, and a refusal fails with `REFUSAL`. Both mappings can be overridden per tier, and Chat Completions requests carry `parallel_tool_calls: false`.
   3. CT's confirm scenarios pass as acceptance tests: weak match held for confirmation, batch proposal, amended confirm, and deferred `commitHeld`.
 
-**Plans**: TBD
+**Plans**: 8 plans (one per wave, strictly sequential: 07-01 → 07-08; 07-03 ends at the seam sign-off checkpoint)
+**Wave 1**
+
+- [ ] 07-01-PLAN.md — tracer: neutral `ModelRequest.singleToolCall` flag end to end, `EXTRA_TOOL_CALLS_DROPPED` + internal `recordCode`, FakeAiProvider refusal/multi-call helpers
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 07-02-PLAN.md — wire encoding: Anthropic `disable_parallel_tool_use` (forced + reshape), OpenAI `parallel_tool_calls:false`, OpenRouter never, o-series gate (Phase 5 follow-up)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 07-03-PLAN.md — seams: `ToolSpecProvider`/`ToolingSnapshot`, `OutcomeResolver`/`Extraction`/`Resolution`, `UserTurnRenderer`/`UserTurnContext`; blocking seam sign-off checkpoint (orchestrator relays CT + SB)
+
+**Wave 4** *(blocked on Wave 3 completion and an APPROVE sign-off)*
+
+- [ ] 07-04-PLAN.md — `SingleShotStrategy` + builder: one forced single-call request, local resolution, one gated proposal, full outcome mapping, overrides, first-call-only, terminal routing
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 07-05-PLAN.md — limits (6 / 60000 / 4096) enforced and named in `SingleShotLimitsTest`; cache-prefix safety in `SingleShotUserTurnTest`
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 07-06-PLAN.md — CT-shaped acceptance S1-S10 (weak hold, batch, amended confirm, deferred `commitHeld`), GATE-07 interplay, SingleShot canary run
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 07-07-PLAN.md — `SingleShotWireTest` over the real Anthropic / OpenAI / OpenRouter transports on all three OkHttp legs
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 07-08-PLAN.md — phase gate, limits evidence for Phase 11, `:core` surface review, carry-forwards (Phase 10 VER-03, Gate-1 N/A)
 
 ### Phase 8: Multi-turn Mappers
 
