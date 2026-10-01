@@ -60,11 +60,11 @@
 - [x] **PROV-05**: The tools + system prefix is byte-identical across calls and iterations for the same command inputs (tools sorted by name, no timestamps); a unit test encodes the same request twice and compares bytes.
 - [x] **PROV-06**: The detected language (`CommandInput.language`), date/time and transcript are placed only in the user/messages portion — never interpolated into the cached tools + system prefix; a test proves switching `en`↔`es` leaves the prefix bytes unchanged.
 - [x] **PROV-07**: Forced tool choice uses a per-model capability table the app can override, shipping **verified** values: `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, `claude-mythos-5-1` marked forced-tool-unsupported up front (Anthropic docs: 400 on every forced request; thinking can't be disabled), so they go straight to `auto` + instruction; SingleShot never enables manual extended thinking. For unknown ids, on the specific forced-tool 400 the provider retries once with `auto` + (strict only per PROV-12) + an instruction, and "no tool call" maps to `NoToolCall` (never a crash, never a fabricated parse).
-- [ ] **PROV-08**: `ChatCompletionsProvider` serves both OpenAI and OpenRouter over Chat Completions with the **nested** `{"type":"function","function":{...}}` tool shape, strict-mode keyword stripping, `reasoning_effort:"none"` when tools are present on models that require it, `max_completion_tokens` for reasoning models, `arguments` JSON-string decode → `MalformedToolArguments`, `finish_reason`/refusal mapping, OpenRouter HTTP-200 error bodies, and `provider.require_parameters: true` when forcing a tool. `reasoning_effort: "none"` is sent explicitly whenever tools are present (gpt-5.6-* default to medium). Models whose tools are Responses-API-only on OpenAI (GPT-6 Astra, GPT-6.1 Sol) are marked tools-unsupported in the capability table and fail loudly with a typed reason before any network call (orchestrator ruling: Option A, Responses as additive v1.x, LATER-03). The model capability table is **public API** so consumer model pickers can mark or filter tool-incapable models.
+- [x] **PROV-08**: `ChatCompletionsProvider` serves both OpenAI and OpenRouter over Chat Completions with the **nested** `{"type":"function","function":{...}}` tool shape, strict-mode keyword stripping, `reasoning_effort:"none"` when tools are present on models that require it, `max_completion_tokens` for reasoning models, `arguments` JSON-string decode → `MalformedToolArguments`, `finish_reason`/refusal mapping, OpenRouter HTTP-200 error bodies, and `provider.require_parameters: true` when forcing a tool. `reasoning_effort: "none"` is sent explicitly whenever tools are present (gpt-5.6-* default to medium). Models whose tools are Responses-API-only on OpenAI (GPT-6 Astra, GPT-6.1 Sol) are marked tools-unsupported in the capability table and fail loudly with a typed reason before any network call (orchestrator ruling: Option A, Responses as additive v1.x, LATER-03). The model capability table is **public API** so consumer model pickers can mark or filter tool-incapable models.
 - [x] **PROV-09**: Transient HTTP failures (429, 5xx, timeouts) are retried at most once (`maxRetries = 1`) at the transport-call level only (A16): a retry never re-executes tools or re-commits actions — a test proves a retried call produces no duplicate tool execution or `CommitSink` commit.
 - [x] **PROV-10**: `ON_DEVICE` exists as a provider slot with a runtime capability gate; on devices without on-device support (the S22s) it reports unavailable and the router uses only the app's declared fallback — no Nano/AICore implementation (L10, A5).
 - [x] **PROV-11**: Provider HTTP clients carry no logging interceptors (derived via `newBuilder()` with interceptors stripped) and bodies are read with the 4.12-compatible API (`body?.string()`).
-- [ ] **PROV-12**: Strict tool schemas never wipe data: the engine sends `strict: true` only when a tool schema has **no optional properties**; otherwise the call is non-strict (optional params stay genuinely optional) with local schema validation. A per-provider contract test proves an omitted optional parameter arrives **absent** — never as `""`, `[]` or a filled default — since consumers (SB) treat `""`/`[]` as "clear".
+- [x] **PROV-12**: Strict tool schemas never wipe data: the engine sends `strict: true` only when a tool schema has **no optional properties**; otherwise the call is non-strict (optional params stay genuinely optional) with local schema validation. A per-provider contract test proves an omitted optional parameter arrives **absent** — never as `""`, `[]` or a filled default — since consumers (SB) treat `""`/`[]` as "clear".
 - [x] **PROV-13**: The provider HTTP timeout is configurable per provider/strategy with a default of at least 60 s (SB's agentic calls need it); engine timeouts map to `TIMEOUT`.
 
 ### Keystore (step 4)
@@ -188,11 +188,11 @@
 | PROV-05 | Phase 4 | Complete |
 | PROV-06 | Phase 4 | Complete |
 | PROV-07 | Phase 4 | Complete |
-| PROV-08 | Phase 5 | Pending |
+| PROV-08 | Phase 5 | Complete |
 | PROV-09 | Phase 4 | Complete |
 | PROV-10 | Phase 3 | Complete |
 | PROV-11 | Phase 4 | Complete |
-| PROV-12 | Phase 5 | Pending |
+| PROV-12 | Phase 5 | Complete |
 | PROV-13 | Phase 4 | Complete |
 | KEY-01 | Phase 6 | Pending |
 | KEY-02 | Phase 6 | Pending |
