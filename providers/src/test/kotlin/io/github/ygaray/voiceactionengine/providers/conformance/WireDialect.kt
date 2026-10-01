@@ -411,12 +411,13 @@ internal class ChatWire(private val vendor: ChatVendor, override val name: Strin
     override fun storedReplay(response: JsonObject): JsonElement = storedMessage(response)
 
     override fun expectedReplayWire(response: JsonObject): JsonElement? =
-        storedMessage(response).let { if (hasEmptyArguments(it)) null else projection(it) }
+        storedMessage(response).let { if (needsArgumentRepair(it)) null else projection(it) }
 
-    // Each empty-form arguments value becomes "{}": in place when the key is there, else last in the function.
+    // Each empty-form arguments value becomes "{}" and each object becomes its compact text: in place when the key is
+    // there, else last in the function.
     override fun repairedReplayWire(response: JsonObject): JsonElement? {
         val message = storedMessage(response)
-        if (!hasEmptyArguments(message)) return null
+        if (!needsArgumentRepair(message)) return null
         val calls = JsonArray((message[KEY_TOOL_CALLS] as JsonArray).map { repairedCall(it as JsonObject) })
         return JsonObject(projection(message).mapValues { (key, value) -> if (key == KEY_TOOL_CALLS) calls else value })
     }
@@ -458,17 +459,18 @@ internal class ChatWire(private val vendor: ChatVendor, override val name: Strin
         return choice[KEY_MESSAGE] as JsonObject
     }
 
-    private fun hasEmptyArguments(message: JsonObject): Boolean =
+    private fun needsArgumentRepair(message: JsonObject): Boolean =
         (message[KEY_TOOL_CALLS] as? JsonArray).orEmpty().any { entry ->
-            val function = (entry as JsonObject)[KEY_FUNCTION] as JsonObject
-            isEmptyArgumentsForm(function[KEY_ARGUMENTS])
+            val arguments = ((entry as JsonObject)[KEY_FUNCTION] as JsonObject)[KEY_ARGUMENTS]
+            isEmptyArgumentsForm(arguments) || arguments is JsonObject
         }
 
     private fun repairedCall(call: JsonObject): JsonObject {
         val function = call[KEY_FUNCTION] as JsonObject
-        if (!isEmptyArgumentsForm(function[KEY_ARGUMENTS])) return call
+        val arguments = function[KEY_ARGUMENTS]
+        if (!isEmptyArgumentsForm(arguments) && arguments !is JsonObject) return call
         val fixed = function.toMutableMap()
-        fixed[KEY_ARGUMENTS] = JsonPrimitive("{}")
+        fixed[KEY_ARGUMENTS] = JsonPrimitive(if (arguments is JsonObject) arguments.toString() else "{}")
         return JsonObject(call.toMutableMap().also { it[KEY_FUNCTION] = JsonObject(fixed) })
     }
 

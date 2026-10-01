@@ -117,6 +117,24 @@ class ChatMessageEncoderTest {
     }
 
     @Test
+    fun anObjectFormArgumentsValueGoesBackAsItsCompactTextInKeyOrder() {
+        val objectCall =
+            """{"id":"c","type":"function","function":{"name":"n","arguments":{"b": 1, "a": {"z":[1, 2]}}}}"""
+        val stringCall =
+            """{"id":"c","type":"function","function":{"name":"n","arguments":"{\"b\":1,\"a\":{\"z\":[1,2]}}"}}"""
+        val out = replayOf("""{"role":"assistant","content":null,"tool_calls":[$objectCall]}""")
+        assertEquals("""[{"role":"assistant","content":null,"tool_calls":[$stringCall]}]""", out)
+
+        val emptyObject = """{"id":"c","type":"function","function":{"name":"n","arguments":{}}}"""
+        val emptyOut = """{"id":"c","type":"function","function":{"name":"n","arguments":"{}"}}"""
+        assertEquals(
+            """[{"role":"assistant","content":null,"tool_calls":[$emptyOut]}]""",
+            replayOf("""{"role":"assistant","content":null,"tool_calls":[$emptyObject]}"""),
+        )
+        assertEquals(out, replayOf("""{"role":"assistant","content":null,"tool_calls":[$objectCall]}"""))
+    }
+
+    @Test
     fun theRepairIsDeterministic() {
         val call = """{"id":"c","type":"function","function":{"name":"n","arguments":""}}"""
         val raw = """{"content":null,"tool_calls":[$call]}"""
