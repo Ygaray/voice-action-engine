@@ -37,6 +37,30 @@ class ModelCapabilityTableTest {
     }
 
     @Test
+    fun aForcedToolOverridePatchesOnlyThatFieldOfTheProviderDefault() {
+        val table = table((ProviderId.ANTHROPIC to "model-known") to { supportsForcedToolChoice = false })
+
+        val patched = table.lookup(ProviderId.ANTHROPIC, "model-known")
+
+        assertFalse(patched.supportsForcedToolChoice)
+        assertTrue(patched.supportsTools)
+        assertEquals(CachingMode.EXPLICIT_BREAKPOINTS, patched.caching)
+        assertEquals(1024, patched.minCacheablePrefixTokens)
+        assertEquals(4.0, patched.charsPerToken, 0.0)
+        assertTrue(table.lookup(ProviderId.ANTHROPIC, "model-other").supportsForcedToolChoice)
+    }
+
+    @Test
+    fun capabilitiesDifferingOnlyInTheForcedToolFieldAreUnequalAndShowItInToString() {
+        val allowed = ModelCapabilities { supportsForcedToolChoice = true }
+        val rejected = ModelCapabilities { supportsForcedToolChoice = false }
+
+        assertNotEquals(allowed, rejected)
+        assertTrue(rejected.toString(), rejected.toString().contains("supportsForcedToolChoice=false"))
+        assertTrue(allowed.toString(), allowed.toString().contains("supportsForcedToolChoice=true"))
+    }
+
+    @Test
     fun anIdWithNoOverrideOrDefaultFallsBackToUnknown() {
         val table = table((ProviderId.ANTHROPIC to "model-known") to { supportsTools = false })
 
@@ -56,6 +80,7 @@ class ModelCapabilityTableTest {
 
         for (caps in listOf(ModelCapabilities.UNKNOWN, built)) {
             assertTrue(caps.supportsTools)
+            assertTrue(caps.supportsForcedToolChoice)
             assertEquals(CachingMode.NONE, caps.caching)
             assertNull(caps.minCacheablePrefixTokens)
             assertEquals(4.0, caps.charsPerToken, 0.0)
@@ -63,6 +88,7 @@ class ModelCapabilityTableTest {
         assertEquals(ModelCapabilities.UNKNOWN, built)
         assertEquals(ModelCapabilities.UNKNOWN.hashCode(), built.hashCode())
         assertNotEquals(ModelCapabilities.UNKNOWN, ModelCapabilities { supportsTools = false })
+        assertNotEquals(ModelCapabilities.UNKNOWN, ModelCapabilities { supportsForcedToolChoice = false })
     }
 
     @Test
@@ -114,7 +140,13 @@ class ModelCapabilityTableTest {
     @Test
     fun toStringNamesAllFieldsAndTheTableCountsOverridesOnly() {
         val text = knownDefault.toString()
-        for (field in listOf("supportsTools", "caching", "minCacheablePrefixTokens", "charsPerToken")) {
+        for (field in listOf(
+            "supportsTools",
+            "supportsForcedToolChoice",
+            "caching",
+            "minCacheablePrefixTokens",
+            "charsPerToken",
+        )) {
             assertTrue("$field in $text", text.contains(field))
         }
         val table = table((ProviderId.ANTHROPIC to "model-known") to { supportsTools = false })

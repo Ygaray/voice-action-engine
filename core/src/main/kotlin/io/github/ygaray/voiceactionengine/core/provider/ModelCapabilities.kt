@@ -10,6 +10,9 @@ private const val DEFAULT_CHARS_PER_TOKEN = 4.0
  * without breaking callers. [UNKNOWN] is the answer for a model nobody has described.
  *
  * @property supportsTools false means a request that carries tools is refused before any call is made.
+ * @property supportsForcedToolChoice false means the model rejects a request that forces a named tool, so a request
+ * that requires one is sent with automatic tool choice plus an instruction to call that tool; true, the default,
+ * sends the forced choice.
  * @property caching how the model's provider caches prompt prefixes.
  * @property minCacheablePrefixTokens the shortest prefix, in tokens, the provider will cache, or null when that is
  * unknown. Null keeps the cache diagnostic silent, because without a minimum the engine cannot tell a missed cache
@@ -25,6 +28,7 @@ public class ModelCapabilities internal constructor(
     public val caching: CachingMode,
     public val minCacheablePrefixTokens: Int?,
     public val charsPerToken: Double,
+    public val supportsForcedToolChoice: Boolean,
 ) {
     init {
         require(minCacheablePrefixTokens == null || minCacheablePrefixTokens > 0) {
@@ -37,6 +41,7 @@ public class ModelCapabilities internal constructor(
 
     internal fun toBuilder(): Builder = Builder().also {
         it.supportsTools = supportsTools
+        it.supportsForcedToolChoice = supportsForcedToolChoice
         it.caching = caching
         it.minCacheablePrefixTokens = minCacheablePrefixTokens
         it.charsPerToken = charsPerToken
@@ -46,21 +51,27 @@ public class ModelCapabilities internal constructor(
         if (this === other) return true
         if (other !is ModelCapabilities) return false
         return supportsTools == other.supportsTools &&
+            supportsForcedToolChoice == other.supportsForcedToolChoice &&
             caching == other.caching &&
             minCacheablePrefixTokens == other.minCacheablePrefixTokens &&
             charsPerToken == other.charsPerToken
     }
 
-    override fun hashCode(): Int = Objects.hash(supportsTools, caching, minCacheablePrefixTokens, charsPerToken)
+    override fun hashCode(): Int =
+        Objects.hash(supportsTools, supportsForcedToolChoice, caching, minCacheablePrefixTokens, charsPerToken)
 
     override fun toString(): String =
-        "ModelCapabilities(supportsTools=$supportsTools, caching=$caching, " +
+        "ModelCapabilities(supportsTools=$supportsTools, supportsForcedToolChoice=$supportsForcedToolChoice, " +
+            "caching=$caching, " +
             "minCacheablePrefixTokens=$minCacheablePrefixTokens, charsPerToken=$charsPerToken)"
 
     /** Mutable collector for a [ModelCapabilities]; every field starts at its default. */
     public class Builder internal constructor() {
         /** See [ModelCapabilities.supportsTools]. */
         public var supportsTools: Boolean = true
+
+        /** See [ModelCapabilities.supportsForcedToolChoice]. */
+        public var supportsForcedToolChoice: Boolean = true
 
         /** See [ModelCapabilities.caching]. */
         public var caching: CachingMode = CachingMode.NONE
@@ -73,6 +84,7 @@ public class ModelCapabilities internal constructor(
 
         internal fun build(): ModelCapabilities = ModelCapabilities(
             supportsTools = supportsTools,
+            supportsForcedToolChoice = supportsForcedToolChoice,
             caching = caching,
             minCacheablePrefixTokens = minCacheablePrefixTokens,
             charsPerToken = charsPerToken,
@@ -81,7 +93,10 @@ public class ModelCapabilities internal constructor(
 
     /** Entry points for creating capabilities. */
     public companion object {
-        /** A model nobody has described: tools allowed, no caching, unknown minimum prefix, 4.0 chars per token. */
+        /**
+         * A model nobody has described: tools allowed, forced tool choice allowed, no caching, unknown minimum prefix,
+         * 4.0 chars per token.
+         */
         public val UNKNOWN: ModelCapabilities = Builder().build()
 
         /**
