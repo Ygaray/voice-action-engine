@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import org.junit.rules.TemporaryFolder
 import java.io.File
@@ -87,6 +88,18 @@ internal fun ctSlots(): List<KeySlot> = listOf(
         "openrouter_api_key_iv",
     ),
 )
+
+/** Forwards to [delegate] and counts every write, so a test can prove a save or delete is exactly one update. */
+internal class RecordingDataStore(private val delegate: DataStore<Preferences>) : DataStore<Preferences> {
+    val updates = AtomicInteger()
+
+    override val data: Flow<Preferences> = delegate.data
+
+    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+        updates.incrementAndGet()
+        return delegate.updateData(transform)
+    }
+}
 
 /** A real preferences DataStore on a temp file, the way an app would inject its own. */
 internal class TempPreferences(folder: TemporaryFolder) {
