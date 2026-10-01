@@ -268,6 +268,16 @@ class ChatModelsTest {
     }
 
     @Test
+    fun routedOpenWeightGptOssIsUnknownNotAnOpenAiHostedModel() {
+        for (id in listOf("openai/gpt-oss-120b", "openai/gpt-oss-20b:free")) {
+            assertEquals(ModelCapabilities.UNKNOWN, ChatModels.capabilities(ChatVendor.OPENROUTER, id))
+            assertFalse(ChatModels.routesToOpenAi(ChatVendor.OPENROUTER, id))
+            assertEquals("max_tokens", ChatModels.wireRules(ChatVendor.OPENROUTER, id).tokenParam)
+        }
+        assertTrue(ChatModels.routesToOpenAi(ChatVendor.OPENROUTER, "openai/gpt-5.4-mini"))
+    }
+
+    @Test
     fun theRoutedPublicTableKeepsTheAstraFactAndAnOverrideKeysOnTheExactId() {
         val table = run(ChatVendor.OPENROUTER, "openai/gpt-5.4-mini", withTools = false).pipeline.capabilityTable
         assertTrue(table.lookup(ProviderId.OPENROUTER, "openai/gpt-6-astra").supportsTools)

@@ -11,6 +11,10 @@ private const val FAMILY_OTHER = "other"
 private const val VARIANT_SEPARATOR = ':'
 private const val VENDOR_SEPARATOR = '/'
 
+// OpenAI's open-weight models carry the openai/ prefix on a router but are hosted by third parties, not by OpenAI, so
+// the OpenAI-hosted rules (strict tool schemas, automatic caching) do not apply to them.
+private const val OPEN_WEIGHT_ID_PREFIX = "gpt-oss"
+
 /**
  * Which model family an id belongs to, and the id with the vendor prefix and routing variant removed.
  *
@@ -25,10 +29,11 @@ internal class ChatModelKey(val family: String, val id: String) {
  * The capability facts and wire rules for a model on a Chat Completions vendor.
  *
  * A vendor that routes ids (`vendor/model`) is resolved by normalizing the id for lookup only: a `:variant` suffix is
- * dropped, then the id is split at the first slash. `openai/<id>` takes the OpenAI rules for `<id>`; `anthropic/<id>`
- * takes the forced-tool fact of the Anthropic table for `<id>` with every dot replaced by a dash, and never caches,
- * because no cache markers are sent through a router; any other vendor, or an id with no slash, is unknown. The id the
- * app passed stays the wire id and the key an app override is declared on; the normalized form is never sent anywhere.
+ * dropped, then the id is split at the first slash. `openai/<id>` takes the OpenAI rules for `<id>`, except the
+ * open-weight `gpt-oss` models, which are unknown; `anthropic/<id>` takes the forced-tool fact of the Anthropic table
+ * for `<id>` with every dot replaced by a dash, and never caches, because no cache markers are sent through a router;
+ * any other vendor, or an id with no slash, is unknown. The id the app passed stays the wire id and the key an app
+ * override is declared on; the normalized form is never sent anywhere.
  *
  * The caching mode stays keyed by provider, so a routed Anthropic model is uncached even though its own provider
  * would cache it.
@@ -39,12 +44,13 @@ internal object ChatModels {
         if (!vendor.routedModelIds) return ChatModelKey(FAMILY_OPENAI, model)
         val withoutVariant = model.substringBefore(VARIANT_SEPARATOR)
         val vendorPrefix = withoutVariant.substringBefore(VENDOR_SEPARATOR, missingDelimiterValue = "")
+        val id = withoutVariant.substringAfter(VENDOR_SEPARATOR)
         val family = when (vendorPrefix.lowercase()) {
-            FAMILY_OPENAI -> FAMILY_OPENAI
+            FAMILY_OPENAI -> if (id.lowercase().startsWith(OPEN_WEIGHT_ID_PREFIX)) FAMILY_OTHER else FAMILY_OPENAI
             FAMILY_ANTHROPIC -> FAMILY_ANTHROPIC
             else -> FAMILY_OTHER
         }
-        return ChatModelKey(family, withoutVariant.substringAfter(VENDOR_SEPARATOR))
+        return ChatModelKey(family, id)
     }
 
     /** The capabilities for [model] on [vendor]. */
