@@ -88,3 +88,10 @@ None beyond the decisions above.
 See REQUIREMENTS.md v2 / LATER items.
 
 </deferred>
+
+## Runtime Decisions
+
+- **replay-content (refreshed vs Phase 5):** CONFIRMED vs Phase 5, still pending research on one point. Anthropic replays the raw content array (SB precedent). Chat replays an allowlist projection copied as raw sub-elements: role, content, tool_calls, refusal, reasoning_details. Phase 8 research must settle whether OpenAI rejects response-only fields when they are echoed, ideally using the Phase 5 recorded bodies under providers/src/test/resources.
+- **byte-for-byte (refreshed vs Phase 3):** CONFIRMED vs Phase 3. `NativeReplay.raw: JsonElement` exists (core/transcript/NativeReplay.kt:21), so identity means canonical re-encoding. Goldens are stored compact.
+- **goldens (refreshed):** REFINED. Use live synthetic captures as listed, never SB fixtures and never SB/CT names. Key approval is NO LONGER pending: Yahir standing test-key policy (HANDOFF "Keys: UNBLOCKED 2026-09-30") covers it, and the orchestrator applied that same policy to the Phase 5 D-16 capture. Conditions are the same as D-16: opt-in and outside check, `with-test-keys` only (lands in usage.log), cheapest models (Haiku 4.5, gpt-5.4-mini, a cheap OpenRouter route), a bounded call count stated in the plan, recorded bodies redacted of keys/auth headers/org and request ids, fixtures under test resources and never in logs, and the actual request count plus estimated cost reported in the SUMMARY. A plan checkpoint for this capture should still route through the master, which relays to the orchestrator.
+- **recorder (refreshed vs Phase 5):** CONFIRMED vs Phase 5. Reuse the existing opt-in Test tasks `liveAnthropicCapture` and `liveChatCompletionsCapture` (providers/build.gradle.kts:70,85). Extend them for multi-turn recording; do not fork them. Rename ids consistently across turns, and leave thinking text and signatures untouched.
