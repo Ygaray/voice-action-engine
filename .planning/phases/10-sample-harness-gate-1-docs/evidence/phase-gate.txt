@@ -1,0 +1,23 @@
+# Phase 10 phase gate on the merged tree (plan 10-10, Task 3)
+# date_utc=2026-10-01 head=bee6f36 (HEAD 18996be at plan start; 79e666a and bee6f36 are docs-only)
+# every command run in the foreground, one at a time; nothing fixed in this plan
+
+CMD ./gradlew check --offline  -> BUILD SUCCESSFUL in 4s (182 actionable tasks: 34 executed, 6 from cache, 142 up-to-date)
+CMD scripts/verify-repo-hygiene.sh  -> HYGIENE OK
+CMD scripts/jitpack-dry-run.sh  -> DRY RUN OK version=dryrun-bee6f367d5 group=com.github.Ygaray.voice-action-engine workdir removed on exit
+CMD scripts/verify-keystore-device-guard.sh  -> DEVICE GUARD OK
+CMD scripts/verify-sample-device-guard.sh  -> SAMPLE DEVICE GUARD OK scenarios=27
+CMD scripts/verify-docs-coverage.sh  -> DOC COVERAGE OK checks=23 types=96
+CMD scripts/agent-wiring-test.sh selftest  -> WIRING SELFTEST OK
+CMD scripts/review-api-surface.sh --expect-sealed-complete  -> API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=181
+CMD ./gradlew :providers:test --tests '*SingleShotWireTest' --tests '*AnthropicEncoderTest' --offline -q  -> exit 0; SingleShotWireTest tests=6 failures=0 errors=0 skipped=0 (includes anthropicForcedBodyAsksForOneToolAndCommits); AnthropicEncoderTest tests=22 failures=0 errors=0 skipped=0 (includes aSingleToolCallPutsTheParallelOffSwitchInsideToolChoiceInEveryShape); XML timestamps 2026-10-01T22:09Z
+
+STATIC a: git diff --stat 6b97f99 -- core/src/main providers/src/main keystore/src/main core/build.gradle.kts providers/build.gradle.kts keystore/build.gradle.kts  -> empty (no engine main-source or engine build change since the phase base)
+STATIC b: only OkHttp 5.x dependency coordinate in build files is sample/build.gradle.kts:39 (okhttp 5.2.1); gradle/libs.versions.toml keeps okhttp = "4.12.0". Note: providers/build.gradle.kts holds the pre-existing Phase 4 matrix-leg version overrides 5.2.1 and 5.5.0 (test runtime swap only, "never main dependencies"), not a dependency coordinate.
+STATIC c: fixture scan of sample/src with grep -rwF: names_checked=18 hits=0
+STATIC d: no configuration-time read in sample/build.gradle.kts: pattern getenv|environmentVariable|fileTree(|readText|File(|exec -> no match
+STATIC e: git tag --list -> empty (0 tags); .planning/config.json contains "create_tag": false (read only)
+STATIC f: git ls-files -co --exclude-standard -- '*api.txt' '*sb-a10-fixture*' -> empty
+STATIC g: git diff --quiet 18996be -- 10-VALIDATION.md -> unchanged (stays draft)
+
+RESULT: all nine command lines and all static lines pass; no gap.
