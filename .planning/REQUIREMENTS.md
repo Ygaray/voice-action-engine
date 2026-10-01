@@ -102,10 +102,10 @@
 
 ### Verification, Docs & Tag (step 7; A8, A10, A16, §11)
 
-- [ ] **VER-01**: `:sample` loads the LE-1 fixture (`sb-a10-fixture.json`, sha256 `ebd3ef4a…af4ed3e`) from a **gitignored** path (LE-7), failing loudly at runtime/debug-task time — never at Gradle configuration time — if absent; it provides a fake `ToolExecutor` with canned results, a BYO-key field stored via `:keystore`, and pins OkHttp 5.2.1 so 4.12-compiled engine bytecode runs on 5.x.
-- [ ] **VER-02 (A8/A10 Gate-1)**: On the TESTER (`…-s22-ultra-2`), the agentic loop on Anthropic runs ≥2 turns with turn-1 `cache_creation_input_tokens > 0` and turn-2+ `cache_read_input_tokens > 0` in SB's ballpark (~7,016), confirm gate in canned-admit mode; prefix size and the model's minimum cacheable length are logged.
-- [ ] **VER-03 (A16)**: From `:sample`, one live single-shot smoke call each to Anthropic, OpenAI and OpenRouter (Yahir's real keys) returns a parsed tool call — catching wire-shape errors fakes can't (cf. CT's flat-shape bug). The OpenAI smoke deliberately uses a Chat-Completions-compatible model (`gpt-5.4-mini`, `reasoning_effort: "none"`), and each provider's smoke includes an EDIT-shaped call proving an omitted optional arrives absent (PROV-12).
-- [ ] **VER-04**: README (plus integration doc) is good enough that an AI agent can wire the engine into a new app from it alone: per-module coordinates, a minimal pipeline, each seam, both gate modes, `else` branches on open taxonomies; renders `terminalCall`/`Clarification` as pressable options (A19); states explicitly that `Completed(partial = true)` must render as "did X, couldn't finish", never as full success; states which provider/model combos are **uncached in v1.0** (OpenRouter `anthropic/*` ids need explicit `cache_control`, deferred to LATER-02) and which OpenAI models can't use tools on Chat Completions; `:sample` is referenced as the working example.
+- [x] **VER-01**: `:sample` loads the LE-1 fixture (`sb-a10-fixture.json`, sha256 `ebd3ef4a…af4ed3e`) from a **gitignored** path (LE-7), failing loudly at runtime/debug-task time — never at Gradle configuration time — if absent; it provides a fake `ToolExecutor` with canned results, a BYO-key field stored via `:keystore`, and pins OkHttp 5.2.1 so 4.12-compiled engine bytecode runs on 5.x.
+- [x] **VER-02 (A8/A10 Gate-1)**: On the TESTER (`…-s22-ultra-2`), the agentic loop on Anthropic runs ≥2 turns with turn-1 `cache_creation_input_tokens > 0` and turn-2+ `cache_read_input_tokens > 0` in SB's ballpark (~7,016), confirm gate in canned-admit mode; prefix size and the model's minimum cacheable length are logged.
+- [x] **VER-03 (A16)**: From `:sample`, one live single-shot smoke call each to Anthropic, OpenAI and OpenRouter (Yahir's real keys) returns a parsed tool call — catching wire-shape errors fakes can't (cf. CT's flat-shape bug). The OpenAI smoke deliberately uses a Chat-Completions-compatible model (`gpt-5.4-mini`, `reasoning_effort: "none"`), and each provider's smoke includes an EDIT-shaped call proving an omitted optional arrives absent (PROV-12).
+- [x] **VER-04**: README (plus integration doc) is good enough that an AI agent can wire the engine into a new app from it alone: per-module coordinates, a minimal pipeline, each seam, both gate modes, `else` branches on open taxonomies; renders `terminalCall`/`Clarification` as pressable options (A19); states explicitly that `Completed(partial = true)` must render as "did X, couldn't finish", never as full success; states which provider/model combos are **uncached in v1.0** (OpenRouter `anthropic/*` ids need explicit `cache_control`, deferred to LATER-02) and which OpenAI models can't use tools on Chat Completions; `:sample` is referenced as the working example.
 - [ ] **VER-05 (§11)**: `v1.0.0` is cut only when verification is green, the API is additive (Metalava baseline committed), seams honor the contract, the tag is pushed and JitPack builds every module; the full ledger row is **messaged to the orchestrator** (A14), never committed to §11 here.
 
 ## v2 Requirements (deferred)
@@ -212,10 +212,10 @@
 | CLN-03 | Phase 3 | Complete |
 | CLN-04 | Phase 3 | Complete |
 | CLN-05 | Phase 1 | Complete |
-| VER-01 | Phase 10 | Pending |
-| VER-02 | Phase 10 | Pending |
-| VER-03 | Phase 10 | Pending |
-| VER-04 | Phase 10 | Pending |
+| VER-01 | Phase 10 | Complete |
+| VER-02 | Phase 10 | Complete |
+| VER-03 | Phase 10 | Complete |
+| VER-04 | Phase 10 | Complete |
 | VER-05 | Phase 11 | Pending |
 
 **Coverage:**

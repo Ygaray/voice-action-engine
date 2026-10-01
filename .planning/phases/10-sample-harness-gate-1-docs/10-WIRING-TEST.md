@@ -1,15 +1,47 @@
 ---
-status: pending-rerun
+status: pass
 mechanical_verdict: PASS
 tested_sha: 338d85ffa3
-rerun_sha: TBD
+rerun_sha: 36c578f464
+rerun_verdict: "WIRING TEST: PASS checks=9"
 date: 2026-10-01
-dispatched_by: milestone master (relayed answer p10-dispatch-answer.txt; fresh general-purpose Sonnet subagent)
+dispatched_by: milestone master (relayed answer p10-dispatch-answer.txt; fresh general-purpose Sonnet subagent); rerun by the milestone master as an isolated headless process
 ---
 
 # 10-WIRING-TEST: D-07 agent wiring test (VER-04)
 
-## Result on 338d85ffa3
+## Rerun result on 36c578f464 (status: pass)
+
+Recorded from the milestone master's rerun report (2026-10-01).
+
+- **SHA:** `36c578f464` (origin/main HEAD; README, INTEGRATION, API and ECOSYSTEM are unchanged since the doc-fix commit
+  `18996be`, and no public signature changed). `scripts/jitpack-live-probe.sh 36c578f464` printed `LIVE PROBE PASS`.
+  `scripts/agent-wiring-test.sh prepare 36c578f464` printed
+  `WIRING PREPARED dir=/home/yahir/.cache/vae-wiring-rerun/36c578f464 version=36c578f464`.
+- **Isolation (closes the first run's caveat):** the agent ran as a separate headless
+  `claude -p --model sonnet --no-session-persistence` process with cwd = the prepared workspace and
+  `CLAUDE_CONFIG_DIR` = a throwaway directory holding only `.credentials.json` (deleted afterwards, removal confirmed).
+  So no global or project CLAUDE.md, auto-memory, hooks or plugins could load, and no ancestor of the workspace contains a
+  CLAUDE.md except `~/.claude`, which was not the config dir. The prompt was `TASK.md` verbatim plus one leading
+  working-directory line. `CONSULTED.md` lists only workspace files: `docs/README.md`, `docs/INTEGRATION.md`,
+  `docs/API.md`, `docs/ECOSYSTEM.md` and the Gradle and manifest files.
+- **Agent result:** `./gradlew :jvmconsumer:test :app:compileDebugKotlin` was green on the first run.
+- **Judge:** `scripts/agent-wiring-test.sh verify /home/yahir/.cache/vae-wiring-rerun/36c578f464 36c578f464` printed
+  `WIRING TEST: PASS checks=9` (empty Gradle cache, JitPack).
+- **Stumbles: 3 (was 12), all minor, none blocked the build:**
+  1. No snippet shows constructing a `Credential` / `CredentialLookup.Present`, nor the exact `CredentialSource`
+     signature (the agent used `CredentialSource { CredentialLookup.Missing() }`).
+  2. The `keystore-wiring` snippet does not list its Android and DataStore imports (`Context`, `DataStore`,
+     `Preferences`, `preferencesDataStore`); the agent supplied them from general knowledge and it compiled.
+  3. The docs do not say which module a JVM-only consumer needs (whether `providers` is required alongside `core`).
+- **Evidence copies:** `evidence/wiring-rerun-stumbles.txt` (STUMBLES.md) and `evidence/wiring-rerun-consulted.txt`
+  (CONSULTED.md).
+- **Doc follow-up (Phase 11, OPTIONAL pre-cut doc touch):** the three stumbles are not fixed in Phase 10, because any
+  edit to README, INTEGRATION or API would void this pass. Phase 11 may fix them as a documentation-only touch; if it does,
+  it MUST rerun the isolated wiring test on the new SHA (same isolation method) and get `WIRING TEST: PASS` before the tag.
+  If Phase 11 touches no doc, `36c578f464` stands as the passing SHA (ancestor of the tag commit and API-identical to it).
+
+## Result on 338d85ffa3 (first run, superseded by the rerun above)
 
 `scripts/agent-wiring-test.sh verify /home/yahir/.cache/vae-wiring-test/338d85ffa3 338d85ffa3` (empty Gradle cache,
 JitPack, `--no-daemon`):
@@ -20,7 +52,7 @@ WIRING TEST: PASS checks=9
 
 The fresh agent reported `./gradlew :jvmconsumer:test :app:compileDebugKotlin` green with both `WireTest` tests passing.
 The mechanical judge agrees. It also recorded 12 stumbles (below), so the docs were not good enough to call this a
-clean pass: they were fixed in Phase 10 and the test must be rerun against the fixed docs (status `pending-rerun`).
+clean pass: they were fixed in Phase 10 and the test was rerun against the fixed docs (see the rerun result above).
 
 Tested SHA 338d85ffa3 adds only a `.planning` commit on top of 42a12ae and is doc/API-identical to it. Phase 10 creates
 no tag.
@@ -55,6 +87,8 @@ files, `TASK.md`): no outside path. The rerun cannot fully remove the CLAUDE.md 
 `DocSnippetsTest` (the compiled snippets) is unchanged.
 
 ## Rerun rule and carry
+
+Status update: the rerun on `36c578f464` PASSED (top of this file). The rule below still applies to any later doc change.
 
 Any change to `README.md`, `INTEGRATION.md`, `API.md` or `ECOSYSTEM.md` or to a public engine signature after the tested
 SHA means a rerun before Phase 11 cuts the tag. The tested SHA must precede the v1.0.0 tag and be API-identical to it.

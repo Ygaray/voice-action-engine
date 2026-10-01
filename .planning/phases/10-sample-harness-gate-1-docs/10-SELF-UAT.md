@@ -1,6 +1,8 @@
 ---
 status: partial
 result: has_partial
+g1_09_disposition: "INCONCLUSIVE(model_filled_optional), ACCEPTED BY EVIDENCE by the orchestrator (2026-10-01); not a PASS"
+gate1_tally: "13/14 pass + 1 accepted-inconclusive (G1-09)"
 gate: 1
 phase: 10-sample-harness-gate-1-docs
 source: [ROADMAP Phase 10 SC1-SC4]
@@ -15,7 +17,8 @@ run: 2026-10-01T22:35Z-22:43Z @ 4a586ed7b8
 **Build:** `:sample` debug, built from HEAD `4a586ed7b8` (`dirty=0`, `asset_fixture=absent` at build time), apk md5 `4c6fc98c64485ce878e11e60fdf92559`.
 **Decision file:** `10-LIVE-LEG-DECISION.md` says `decision: approved` (relayed 2026-10-01). Runbook section 4 followed in full, plus optional L7.
 **Driver:** `scripts/run-sample-gate1.sh` (runner) for every non-UI device step; UI driving only via `adb -s R5CT10XNKQN` (`uiautomator dump`, `input tap`, `input text`). Dumps and the two screenshots stayed in the session scratch directory (not committed).
-**Wiring test (D-07):** `10-WIRING-TEST.md` status is `pending-rerun` (mechanical verdict PASS on tested SHA 338d85ffa3; the rerun on the final SHA is a Phase 11 precondition).
+**Wiring test (D-07):** `10-WIRING-TEST.md` status is `pass` (isolated rerun on 36c578f464, `WIRING TEST: PASS checks=9`, 3 minor stumbles carried as an optional Phase 11 doc touch; first run on 338d85ffa3 also passed mechanically).
+**Gate-1 tally (finalized 2026-10-01):** 13 of 14 criteria PASS + 1 ACCEPTED BY EVIDENCE (G1-09, INCONCLUSIVE `model_filled_optional`, not a PASS). C4 stays open for the Phase 11 waiver packet.
 **Fixture integrity:** the LE-1 fixture was copied by hand from the path named in 10-CONTEXT.md Runtime Decisions to the gitignored `sample/src/debug/assets/sb-a10-fixture.json`. Host sha256 prefix `ebd3ef4a` equals the `FIXTURE_SHA256` constant prefix. Host tools count 18. The asset was removed again after cleanup; nothing from the fixture is in a committed file.
 **Spend (G1-13):** `GATE1 LIVE SPEND: requests=11 (anthropic=3 openai=4 openrouter=4) est_cost_usd=0.014 ceiling=33+1` (10 core + 1 optional probe; the probe returned 400 and billed nothing; the cost is the sum of the per-leg `est_usd` in the `VAE_BUDGET` lines, the app's own total reads "unknown" because the probe has no price).
 
@@ -115,7 +118,8 @@ result: partial
 - **Expected:** PASS (C5 closes) or INCONCLUSIVE `model_filled_optional` with one rerun; still INCONCLUSIVE means partial and C5 stays carried.
 - **Arranged (seeded):** keys from G1-05.
 - **Did (drove):** `capture-start`; tapped `run_smoke_openrouter`; `capture-save`; reran once (the second run used `prompt_variant=1`, the stronger prompt); `capture-save` again.
-- **Observed:** both runs: `http=200`, model openai/gpt-5.4-mini, `arg_keys=[body,id,tags,title]`, `optional_absent=inconclusive`, `verdict=INCONCLUSIVE reason=model_filled_optional key_charset=ok`. The transport, the key and the tool call all worked; the model filled the optional fields on both prompts, so the "optionals omitted" claim cannot be shown. This is the INCONCLUSIVE outcome the runbook maps to `partial`. Carry C5 stays open and goes to the Gate-2 fragment.
+- **Observed:** both runs: `http=200`, model openai/gpt-5.4-mini, `arg_keys=[body,id,tags,title]`, `optional_absent=inconclusive`, `verdict=INCONCLUSIVE reason=model_filled_optional key_charset=ok`. The transport, the key and the tool call all worked; the model filled the optional fields on both prompts, so the "optionals omitted" claim cannot be shown. This is the INCONCLUSIVE outcome the runbook maps to `partial`.
+- **Disposition (orchestrator yahir-gsd-control-plane-f2, relayed by the milestone master, 2026-10-01): accept-C5.** Recorded as INCONCLUSIVE(model_filled_optional), ACCEPTED BY EVIDENCE, NOT a PASS. Evidence for acceptance: the shared `ChatCompletionsProvider`/`ChatVendor` decoder path passed the live OpenAI omitted-optional check (G1-08), and host tests prove no default-filling. The criterion `result` stays `partial` (it was not demonstrated live on OpenRouter); the acceptance is an orchestrator disposition, listed in the Phase 11 waiver packet next to C4.
 - **Evidence:** `evidence/gate1-smoke_openrouter.txt` (two blocks).
 
 ### 10. G1-10 VER-03 extended multi-turn on OpenAI Chat, L5 (VER-03)
@@ -184,6 +188,6 @@ result: passed
 - C2 key charset: proven per provider by `key_charset=ok` after a 200: Anthropic (G1-06, G1-07), OpenAI (G1-08, G1-10), OpenRouter (G1-11).
 - C3 Responses-only 400: L7 ran, CAPTURED http=400 reason=http_error recorded (wording not visible under LE-7).
 - C4 OpenRouter cache-write: not exercisable in v1.0 (LATER-02); needs Yahir waiver; P11 waiver packet. Not closed. `turn2_cache_read=0` observed in G1-11.
-- C5 OpenRouter EDIT-shaped call omitting optionals: NOT closed; INCONCLUSIVE `model_filled_optional` after one rerun (G1-09).
+- C5 OpenRouter EDIT-shaped call omitting optionals: INCONCLUSIVE `model_filled_optional` after one rerun (G1-09), ACCEPTED BY EVIDENCE by the orchestrator (2026-10-01), not a PASS. Listed in the Phase 11 waiver packet next to C4.
 - C6 `disable_parallel_tool_use`: host golden plus live 200 on first attempt (G1-07), accepted by the orchestrator.
 - C7: not applicable (decision approved).

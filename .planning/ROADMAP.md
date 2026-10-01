@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: SingleShot Strategy** - §6.2 step 5: one forced-tool extraction resolved locally and committed through the gate (CT port) (completed 2026-10-01)
 - [x] **Phase 8: Multi-turn Mappers** - §6.2 step 6a: lossless neutral ↔ Anthropic / Chat Completions tool conversations with verbatim replay (completed 2026-10-01)
 - [x] **Phase 9: Agentic Loop Strategy** - §6.2 step 6b: SB's bounded agentic loop on any cloud provider, gated and honest on every exit (completed 2026-10-01)
-- [ ] **Phase 10: Sample Harness, Gate-1 & Docs** - §6.2 step 7: `:sample` A10 proof on the TESTER, live smokes on 3 clouds, agent-ready README
+- [x] **Phase 10: Sample Harness, Gate-1 & Docs** - §6.2 step 7: `:sample` A10 proof on the TESTER, live smokes on 3 clouds, agent-ready README (completed 2026-10-01)
 - [ ] **Phase 11: Cut v1.0.0** - §6.2 step 7 / §11: gated release after Phase 10's green Gate-1; tag row messaged to the orchestrator
 
 ## Dependencies & Parallelism
@@ -540,5 +540,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. SingleShot Strategy | 8/8 | Complete    | 2026-10-01 |
 | 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
 | 9. Agentic Loop Strategy | 9/9 | Complete    | 2026-10-01 |
-| 10. Sample Harness, Gate-1 & Docs | 10/10 | In Progress|  |
+| 10. Sample Harness, Gate-1 & Docs | 10/10 | Complete    | 2026-10-01 |
 | 11. Cut v1.0.0 | 0/TBD | Not started | - |
