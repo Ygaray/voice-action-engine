@@ -21,6 +21,10 @@ private const val ROLE_ASSISTANT = "assistant"
 private const val ROLE_TOOL = "tool"
 private const val TEXT_SEPARATOR = "\n"
 
+// Response-only fields (annotations, reasoning text and the like) are rejected or ignored as input, so a replay keeps
+// just these. The reasoning details stay because a router needs them back to continue a reasoning turn.
+private val REPLAY_FIELDS = setOf("role", "content", "tool_calls", "refusal", "reasoning_details")
+
 /**
  * Encodes the request's conversation as Chat Completions messages, oldest first. The system prompt is not part of it.
  *
@@ -42,9 +46,15 @@ private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
     put(CONTENT, message.text)
 }
 
-// A reply this vendor produced for this model goes back as received; anything else is rebuilt from the neutral parts.
-private fun assistantMessage(message: AssistantMessage, call: ProviderRequest, vendor: ChatVendor): JsonObject =
-    (message.nativeFor(vendor.providerId, call.model) as? JsonObject) ?: rebuiltAssistantMessage(message)
+// A reply this vendor produced for this model goes back as received, keeping only the fields the endpoint takes as
+// input; anything else is rebuilt from the neutral parts.
+private fun assistantMessage(message: AssistantMessage, call: ProviderRequest, vendor: ChatVendor): JsonObject {
+    val replay = message.nativeFor(vendor.providerId, call.model) as? JsonObject
+    return if (replay != null) replayedFields(replay) else rebuiltAssistantMessage(message)
+}
+
+private fun replayedFields(replay: JsonObject): JsonObject =
+    JsonObject(replay.filterKeys { it in REPLAY_FIELDS })
 
 private fun rebuiltAssistantMessage(message: AssistantMessage): JsonObject =
     buildJsonObject {
