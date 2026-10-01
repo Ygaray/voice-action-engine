@@ -1,0 +1,22 @@
+LIVE_CAPTURE conv=A1 turn=1 status=200 stop=tool_use tool_calls=4 thinking=absent reasoning_details=absent usage=in:348,cache_read:0,cache_write:6754,out:148
+LIVE_CAPTURE finding=A1 turn 1 made parallel tool calls
+LIVE_CAPTURE conv=A1 turn=2 status=200 stop=end_turn tool_calls=0 thinking=absent reasoning_details=absent usage=in:617,cache_read:6754,cache_write:0,out:31
+LIVE_CAPTURE finding=A1 turn 2 read from the cache
+LIVE_CAPTURE conv=A2 turn=1 status=200 stop=tool_use tool_calls=4 thinking=present reasoning_details=absent usage=in:564,cache_read:0,cache_write:0,out:304
+LIVE_CAPTURE finding=A2 turn 1 made parallel tool calls
+LIVE_CAPTURE conv=A2 turn=2 status=200 stop=end_turn tool_calls=0 thinking=absent reasoning_details=absent usage=in:986,cache_read:0,cache_write:0,out:44
+LIVE_CAPTURE requests=4 ceiling=6
+
+# 2026-10-01 Anthropic run (with-test-keys --only anthropic, once, --no-daemon, exit 0). Gate: approve-capture relayed
+# by the milestone master from orchestrator yahir-gsd-control-plane-f2 (2026-10-01), basis Yahir's standing test-key policy.
+requests anthropic run: 4 (A1: 2, A2: 2) of at most 6. Both conversations finished in 2 turns; both met; both goldens committed.
+estimated cost anthropic run: about USD 0.021 (Haiku 4.5 at 1/5 per MTok in/out, cache write 1.25x, cache read 0.1x: about 0.011;
+  Sonnet 5.5 assumed 3/15 per MTok: about 0.010). Estimate from the usage numbers above, not a billing figure.
+
+findings (anthropic):
+- A1 (claude-haiku-4-5): turn 1 returned 4 parallel tool_use blocks; cache_write 6754 on turn 1 and cache_read 6754 on turn 2. Cache hit confirmed on the replayed turn 2.
+- A2 (claude-sonnet-5-5, no thinking parameter sent by us): turn 1 returned a thinking block (thinking field present but empty, signature 1440 chars),
+  no redacted_thinking block, plus 4 parallel tool_use blocks. Turn 2 (replaying the turn-1 assistant content with the signed thinking block
+  verbatim) was accepted: status 200, stop end_turn. The signature is therefore accepted by the real API after our byte-for-byte replay.
+- The response model id equals the requested id for both conversations (claude-haiku-4-5, claude-sonnet-5-5).
+- Both captured goldens replay green in the MultiTurn conformance and ConversationGolden tests (checked after the manifest rows were appended).
