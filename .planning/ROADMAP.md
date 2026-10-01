@@ -151,7 +151,7 @@ Plans:
   4. A fake provider that declares caching and returns zero cache read/write on a prefix above the model's minimum cacheable length raises `CacheNotEngaged`. The same result below the minimum stays silent.
   5. Limits and model ids reach the engine only through `TierPolicy` defaults, the selection seam and the app-overridable capability table. No hard-coded model-id or limit constant exists in library code, and no library code reads app settings storage.
 
-**Plans**: 6/10 plans executed
+**Plans**: 7/10 plans executed
 
 Plans:
 **Wave 1**
@@ -171,7 +171,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03-07-PLAN.md — Tracer: session.model() lazy frozen per-tier handle through commandPipeline { provider; providerSelection; credentials; capabilities }; capabilityTable; one probe instance; snapshot under turns, tiers and concurrency
+- [x] 03-07-PLAN.md — Tracer: session.model() lazy frozen per-tier handle through commandPipeline { provider; providerSelection; credentials; capabilities }; capabilityTable; one probe instance; snapshot under turns, tiers and concurrency
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -317,7 +317,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Scaffold & Publishing Proof | 6/6 | Complete    | 2026-09-30 |
 | 2. Core Contract, Pipeline & Commit Seam | 9/9 | Complete    | 2026-09-30 |
-| 3. Transcript Types, ProviderRouter & On-Device Gate | 6/10 | In Progress|  |
+| 3. Transcript Types, ProviderRouter & On-Device Gate | 7/10 | In Progress|  |
 | 4. Anthropic Transport & OkHttp Matrix | 0/TBD | Not started | - |
 | 5. OpenAI & OpenRouter Transports | 0/TBD | Not started | - |
 | 6. Keystore | 0/TBD | Not started | - |
