@@ -69,6 +69,61 @@ class ChatMessageEncoderTest {
         assertEquals(expected, encode(assistant(replay)))
     }
 
+    private fun replayOf(json: String): String =
+        encode(assistant(NativeReplay(ProviderId.OPENAI, model, Json.parseToJsonElement(json) as JsonObject)))
+
+    @Test
+    fun aReplayIsRepairedOnlyWhereItWouldBeInvalidInput() {
+        val valid = """
+            {"role":"assistant","content":"Sure","refusal":null,"annotations":[{"u":1}],
+            "tool_calls":[{"id":"call_1","type":"function","function":{"name":"log_food","arguments":"{\"a\":1}"}}]}
+        """.trimIndent().replace("\n", "")
+        val validOut = """
+            [{"role":"assistant","content":"Sure","refusal":null,
+            "tool_calls":[{"id":"call_1","type":"function","function":{"name":"log_food","arguments":"{\"a\":1}"}}]}]
+        """.trimIndent().replace("\n", "")
+        assertEquals(validOut, replayOf(valid))
+
+        val routed = """
+            {"role":"assistant","content":null,"refusal":null,"reasoning":"r",
+            "tool_calls":[{"type":"function","index":0,"id":"call_2","function":{"arguments":"{}","name":"x"}}]}
+        """.trimIndent().replace("\n", "")
+        val routedOut = """
+            [{"role":"assistant","content":null,"refusal":null,
+            "tool_calls":[{"type":"function","index":0,"id":"call_2","function":{"arguments":"{}","name":"x"}}]}]
+        """.trimIndent().replace("\n", "")
+        assertEquals(routedOut, replayOf(routed))
+
+        val details = """[{"type":"t","text":"a","signature":"s","format":"f","index":0},{"type":"e","data":"d"}]"""
+        val withDetails = """{"role":"assistant","content":"x","reasoning_details":$details}"""
+        assertEquals("""[{"role":"assistant","content":"x","reasoning_details":$details}]""", replayOf(withDetails))
+
+        assertEquals("""[{"role":"assistant","content":"x"}]""", replayOf("""{"content":"x","annotations":[]}"""))
+
+        for (empty in listOf("\"\"", "\" \"", "\"null\"", "null")) {
+            val call = """{"id":"c","type":"function","function":{"name":"n","arguments":$empty}}"""
+            val out = replayOf("""{"role":"assistant","content":null,"tool_calls":[$call]}""")
+            val fixed = """{"id":"c","type":"function","function":{"name":"n","arguments":"{}"}}"""
+            assertEquals(empty, """[{"role":"assistant","content":null,"tool_calls":[$fixed]}]""", out)
+        }
+
+        val absent = """{"id":"c","type":"function","function":{"name":"n"},"index":3}"""
+        val mixed = """{"id":"d","type":"function","function":{"name":"m","arguments":"{\"k\":2}"}}"""
+        val absentOut = """{"id":"c","type":"function","function":{"name":"n","arguments":"{}"},"index":3}"""
+        assertEquals(
+            """[{"role":"assistant","content":null,"tool_calls":[$absentOut,$mixed]}]""",
+            replayOf("""{"role":"assistant","content":null,"tool_calls":[$absent,$mixed]}"""),
+        )
+    }
+
+    @Test
+    fun theRepairIsDeterministic() {
+        val call = """{"id":"c","type":"function","function":{"name":"n","arguments":""}}"""
+        val raw = """{"content":null,"tool_calls":[$call]}"""
+        assertEquals(replayOf(raw), replayOf(raw))
+        assertTrue(replayOf(raw).startsWith("""[{"role":"assistant","content":null"""))
+    }
+
     @Test
     fun aReplayFromAnotherVendorProviderOrModelIsRefusedAndANullOneIsRebuilt() {
         val others = listOf(

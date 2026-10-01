@@ -10,8 +10,10 @@ import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import io.github.ygaray.voiceactionengine.providers.transcript.resultsInCallOrder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -19,6 +21,8 @@ import kotlinx.serialization.json.put
 private const val ROLE = "role"
 private const val CONTENT = "content"
 private const val TOOL_CALLS = "tool_calls"
+private const val FUNCTION = "function"
+private const val ARGUMENTS = "arguments"
 private const val ROLE_USER = "user"
 private const val ROLE_ASSISTANT = "assistant"
 private const val ROLE_TOOL = "tool"
@@ -61,11 +65,29 @@ private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
 private fun assistantMessage(message: AssistantMessage, call: ProviderRequest, vendor: ChatVendor): JsonObject {
     if (message.nativeReplay == null) return rebuiltAssistantMessage(message)
     val replay = message.nativeFor(vendor.providerId, call.model) as? JsonObject
-    return replayedFields(checkNotNull(replay) { REPLAY_REFUSED })
+    return repaired(checkNotNull(replay) { REPLAY_REFUSED })
 }
 
-private fun replayedFields(replay: JsonObject): JsonObject =
-    JsonObject(replay.filterKeys { it in REPLAY_FIELDS })
+// A replay goes back as stored, minus response-only fields. Only a missing role or an empty arguments value is filled
+// in, because the endpoint rejects those as input; ids and every other value are never touched, and a valid replay is
+// returned unchanged. The result depends only on the stored turn, so a later request repeats the same bytes.
+private fun repaired(replay: JsonObject): JsonObject {
+    val projection = JsonObject(replay.filterKeys { it in REPLAY_FIELDS })
+    val withRole =
+        if (ROLE in projection) projection else JsonObject(mapOf(ROLE to JsonPrimitive(ROLE_ASSISTANT)) + projection)
+    val calls = withRole[TOOL_CALLS] as? JsonArray ?: return withRole
+    return JsonObject(withRole + (TOOL_CALLS to JsonArray(calls.map { repairedCall(it) })))
+}
+
+private fun repairedCall(entry: JsonElement): JsonElement {
+    val call = entry as? JsonObject
+    val function = call?.get(FUNCTION) as? JsonObject
+    return if (call != null && function != null && isEmptyArgumentsForm(function[ARGUMENTS])) {
+        JsonObject(call + (FUNCTION to JsonObject(function + (ARGUMENTS to JsonPrimitive("{}")))))
+    } else {
+        entry
+    }
+}
 
 private fun rebuiltAssistantMessage(message: AssistantMessage): JsonObject =
     buildJsonObject {
