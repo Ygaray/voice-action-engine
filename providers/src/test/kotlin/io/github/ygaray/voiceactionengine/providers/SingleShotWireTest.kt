@@ -6,6 +6,8 @@ import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.commit.ActionKind
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
+import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.AiProvider
@@ -14,6 +16,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
@@ -23,9 +26,16 @@ import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedSelectionSource
+import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicProvider
 import io.github.ygaray.voiceactionengine.providers.anthropic.successBody
+import io.github.ygaray.voiceactionengine.providers.anthropic.textBlock
 import io.github.ygaray.voiceactionengine.providers.anthropic.toolUseBlock
+import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsProvider
+import io.github.ygaray.voiceactionengine.providers.chat.chatBody
+import io.github.ygaray.voiceactionengine.providers.chat.chatMessage
+import io.github.ygaray.voiceactionengine.providers.chat.chatToolCall
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -41,6 +51,7 @@ import okhttp3.HttpUrl
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Clock
@@ -189,5 +200,95 @@ class SingleShotWireTest {
         assertEquals("text", lastBlock["type"]!!.jsonPrimitive.content)
         assertEquals("Call the $ENTRIES_TOOL tool with your result.", lastBlock["text"]!!.jsonPrimitive.content)
         assertCommittedOnce(exchange)
+    }
+
+    private fun throughChat(openRouter: Boolean, model: String, answer: String, fallback: CommandStrategy? = null) =
+        drive(
+            Scenario(
+                { url ->
+                    if (openRouter) {
+                        ChatCompletionsProvider.openRouter { baseUrl = url }
+                    } else {
+                        ChatCompletionsProvider.openAi { baseUrl = url }
+                    }
+                },
+                if (openRouter) ProviderId.OPENROUTER else ProviderId.OPENAI,
+                model,
+                answer,
+                fallback = fallback,
+            ),
+        )
+
+    private fun chatCallAnswer(vararg entries: String): String = chatBody(
+        chatMessage(
+            null,
+            entries.mapIndexed { index, entry ->
+                chatToolCall("call_$index", ENTRIES_TOOL, entryArguments(entry).toString())
+            },
+        ),
+        "tool_calls",
+    )
+
+    @Test(timeout = 30_000)
+    fun openAiBodySendsParallelToolCallsFalseAndCommits() {
+        val exchange = throughChat(openRouter = false, model = "gpt-5.4-mini", answer = chatCallAnswer("milk"))
+
+        assertEquals(
+            buildJsonObject {
+                put("type", "function")
+                putJsonObject("function") { put("name", ENTRIES_TOOL) }
+            },
+            exchange.body["tool_choice"],
+        )
+        assertEquals(false, exchange.body["parallel_tool_calls"]!!.jsonPrimitive.content.toBooleanStrict())
+        assertCommittedOnce(exchange)
+    }
+
+    @Test(timeout = 30_000)
+    fun openRouterBodyOmitsParallelToolCallsAndUsesTheFirstCall() {
+        val exchange = throughChat(
+            openRouter = true,
+            model = "openai/gpt-5.4-mini",
+            answer = chatCallAnswer("milk", "eggs"),
+        )
+
+        assertFalse(exchange.bodyText.contains("parallel_tool_calls"))
+        assertEquals(
+            buildJsonObject { put("require_parameters", true) },
+            exchange.body["provider"],
+        )
+        assertEquals(listOf(entryArguments("milk")), exchange.resolver.extractions.map { it.arguments })
+        assertTrue(TraceCode.EXTRA_TOOL_CALLS_DROPPED in exchange.outcome.trace.codes)
+        assertCommittedOnce(exchange)
+    }
+
+    @Test(timeout = 30_000)
+    fun openAiProseAnswerEscalatesToTheNextTier() {
+        val next = ScriptedStrategy(StrategyId("next"), { _, _ -> StrategyOutcome.Completed("fallback") })
+        val prose = chatBody(chatMessage("I added them.", emptyList()), "stop")
+
+        val exchange = throughChat(openRouter = false, model = "gpt-5.4-mini", answer = prose, fallback = next)
+
+        val outcome = exchange.outcome
+        assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+        assertEquals("fallback", (outcome as CommandOutcome.Completed).reply)
+        assertTrue(outcome.trace.attempts.first().escalationReason is EscalationReason.NoToolCall)
+        assertEquals(1, next.executions)
+        assertEquals(1, exchange.requestCount)
+        assertEquals(0, exchange.resolver.extractions.size)
+    }
+
+    @Test(timeout = 30_000)
+    fun anthropicRefusalFailsWithRefusal() {
+        val refusal = successBody(listOf(textBlock("I can't help with that.")), "refusal")
+
+        val exchange = throughAnthropic("claude-opus-5-5", forcingOverride = true, answer = refusal)
+
+        val outcome = exchange.outcome
+        assertTrue(outcome.toString(), outcome is CommandOutcome.Failed)
+        assertTrue((outcome as CommandOutcome.Failed).reason is FailureReason.Refusal)
+        assertEquals(0, exchange.gate.calls)
+        assertEquals(1, exchange.requestCount)
+        assertEquals(0, exchange.resolver.extractions.size)
     }
 }
