@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v1.0
 milestone_name: Core Engine
 current_phase: 03
-current_phase_name: transcript-types-providerrouter-on-device-gate
+current_phase_name: Transcript Types, ProviderRouter & On-Device Gate
 status: executing
-stopped_at: Phase 02 complete, ready to plan Phase 03
-last_updated: "2026-10-01T02:58:05.610Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-10-01T03:03:41.893Z"
 last_activity: 2026-09-30
-last_activity_desc: Phase 02 complete, transitioned to Phase 03
-state_head: 78a3d2b452e799dfce131136064b4f994ce0587a
+last_activity_desc: Phase 03 execution started
+state_head: f6841338876850340dfd9fa2160610d0eb92118b
 progress:
   total_phases: 11
-  completed_phases: 2
+  completed_phases: 0
   total_plans: 25
-  completed_plans: 15
-  percent: 9
+  completed_plans: 16
+  percent: 0
 ---
 
 # Project State
@@ -25,16 +25,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md · Requirements: .planning/REQUIREMENTS.md (v1.0, 60 reqs)
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 02 — Core Contract, Pipeline & Commit Seam
+**Current focus:** Phase 03 — Transcript Types, ProviderRouter & On-Device Gate
 
 ## Current Position
 
-Phase: 03 (transcript-types-providerrouter-on-device-gate) — READY TO EXECUTE
-Plan: Not started
+Phase: 03 (Transcript Types, ProviderRouter & On-Device Gate) — EXECUTING
+Plan: 2 of 10
 Status: Ready to execute
-Last activity: 2026-09-30 — Phase 02 complete, transitioned to Phase 03
+Last activity: 2026-09-30 — Phase 03 execution started
 
-Progress: [█░░░░░░░░░] 9%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [█░░░░░░░░░] 9%
 | Phase 02 P07 | 25min | 3 tasks | 3 files |
 | Phase 02 P08 | 10min | 3 tasks | 21 files |
 | Phase 02 P09 | 25min | 2 tasks | 3 files |
+| Phase 03 P01 | 4 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [Phase 1]: Phase 1 plan 03: scanner (not detekt) gates runCatching/print/printStackTrace/FQ DI annotations; detekt control compared as exact (line, rule) set
 - [Phase 01]: 01-04: structural gates have no override knob; negative controls plant real violations — A knob equal to a wrongly-compiled truth would pass a bad artifact
 - [Phase 02]: 02-05: APPLY_ERROR_CONTENT is file-private in ApplyStep.kt, read via internal fun applyErrorContent() (internal const leaks a public static field)
+- [Phase 03]: 03-01: Message and AssistantPart are the only new sealed types; ToolChoice, StopReason and later vocabularies stay open — Three message kinds and two part kinds are contract-closed and mapped exhaustively; surface gate allow-list widened to seven
+- [Phase 03]: 03-01: transcript constructors declare no default arguments; maxTokens required, no model id on ModelRequest — Metalava freezes constructor shapes at the cut; secondary constructors keep growth binary-safe
 
 ### Pending Todos
 
@@ -124,6 +127,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-01T00:55:09.440Z
-Stopped at: Phase 02 complete, ready to plan Phase 03
+Last session: 2026-10-01T03:03:41.833Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
