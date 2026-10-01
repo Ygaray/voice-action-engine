@@ -248,7 +248,7 @@ Plans:
 - [x] 05-02-PLAN.md
 - [x] 05-03-PLAN.md
 - [x] 05-04-PLAN.md
-- [ ] 05-05-PLAN.md
+- [x] 05-05-PLAN.md
 - [ ] 05-06-PLAN.md
 - [ ] 05-07-PLAN.md
 - [ ] 05-08-PLAN.md
@@ -363,7 +363,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. Core Contract, Pipeline & Commit Seam | 9/9 | Complete    | 2026-09-30 |
 | 3. Transcript Types, ProviderRouter & On-Device Gate | 10/10 | Complete    | 2026-09-30 |
 | 4. Anthropic Transport & OkHttp Matrix | 8/8 | Complete    | 2026-10-01 |
-| 5. OpenAI & OpenRouter Transports | 4/12 | In Progress|  |
+| 5. OpenAI & OpenRouter Transports | 5/12 | In Progress|  |
 | 6. Keystore | 0/TBD | Not started | - |
 | 7. SingleShot Strategy | 0/TBD | Not started | - |
 | 8. Multi-turn Mappers | 0/TBD | Not started | - |
