@@ -315,7 +315,7 @@ Plans:
   2. By default, a reply with no tool call (or prose only) escalates with `NoToolCall`, and a refusal fails with `REFUSAL`. Both mappings can be overridden per tier, and Chat Completions requests carry `parallel_tool_calls: false`.
   3. CT's confirm scenarios pass as acceptance tests: weak match held for confirmation, batch proposal, amended confirm, and deferred `commitHeld`.
 
-**Plans**: 4/8 plans executed (one per wave, strictly sequential: 07-01 → 07-08; 07-03 ends at the seam sign-off checkpoint)
+**Plans**: 5/8 plans executed (one per wave, strictly sequential: 07-01 → 07-08; 07-03 ends at the seam sign-off checkpoint)
 **Wave 1**
 
 - [x] 07-01-PLAN.md — tracer: neutral `ModelRequest.singleToolCall` flag end to end, `EXTRA_TOOL_CALLS_DROPPED` + internal `recordCode`, FakeAiProvider refusal/multi-call helpers
@@ -334,7 +334,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 07-05-PLAN.md — limits (6 / 60000 / 4096) enforced and named in `SingleShotLimitsTest`; cache-prefix safety in `SingleShotUserTurnTest`
+- [x] 07-05-PLAN.md — limits (6 / 60000 / 4096) enforced and named in `SingleShotLimitsTest`; cache-prefix safety in `SingleShotUserTurnTest`
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -424,7 +424,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Anthropic Transport & OkHttp Matrix | 8/8 | Complete    | 2026-10-01 |
 | 5. OpenAI & OpenRouter Transports | 12/12 | Complete    | 2026-10-01 |
 | 6. Keystore | 7/7 | Complete    | 2026-10-01 |
-| 7. SingleShot Strategy | 4/8 | In Progress|  |
+| 7. SingleShot Strategy | 5/8 | In Progress|  |
 | 8. Multi-turn Mappers | 0/TBD | Not started | - |
 | 9. Agentic Loop Strategy | 0/TBD | Not started | - |
 | 10. Sample Harness, Gate-1 & Docs | 0/TBD | Not started | - |
