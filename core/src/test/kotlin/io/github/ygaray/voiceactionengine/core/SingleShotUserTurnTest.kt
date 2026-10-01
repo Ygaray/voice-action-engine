@@ -8,6 +8,7 @@ import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
+import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy
@@ -24,12 +25,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.TimeZone
 import java.util.concurrent.CopyOnWriteArrayList
 
 private const val ADD_TEXT = "add two things"
@@ -165,6 +168,31 @@ class SingleShotUserTurnTest {
 
             assertEquals(3, fake.callCount)
             fake.calls.forEach { assertEquals(SINGLE_SHOT_SYSTEM, it.request.system) }
+        }
+    }
+
+    @Test
+    fun theDefaultClockReadsTheDeviceZoneAgainForEveryCommand() = runTest {
+        NoNetworkGuard.during {
+            val original = TimeZone.getDefault()
+            try {
+                val fake = fakeAnswering(2)
+                val strategy = SingleShotStrategy(StrategyId("single_shot")) {
+                    tooling = ToolSpecProvider.fixed(snapshotOf(entriesTool(), askTool()))
+                    resolver = savingResolver()
+                }
+                val pipeline = pipeline(listOf(strategy), fake)
+
+                TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tokyo"))
+                pipeline.execute(CommandInput(ADD_TEXT, "en", null))
+                TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"))
+                pipeline.execute(CommandInput(DELETE_TEXT, "es", null))
+
+                assertTrue(userText(fake, 0), userText(fake, 0).contains("(Asia/Tokyo)"))
+                assertTrue(userText(fake, 1), userText(fake, 1).contains("(America/New_York)"))
+            } finally {
+                TimeZone.setDefault(original)
+            }
         }
     }
 }

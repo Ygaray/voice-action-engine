@@ -26,9 +26,24 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 private const val TOOL_MISSING_CODE = "single_shot_tool_missing"
+
+/**
+ * The default clock: the system time with the device's zone read again on every call. `Clock.systemDefaultZone()` would
+ * freeze the zone when the strategy is built, and a strategy lives as long as the app, so a traveller's relative
+ * phrases ("tomorrow at 9") would resolve against the old zone.
+ */
+private object CurrentZoneClock : Clock() {
+    override fun getZone(): ZoneId = ZoneId.systemDefault()
+
+    override fun withZone(zone: ZoneId): Clock = system(zone)
+
+    override fun instant(): Instant = Instant.now()
+}
 
 /**
  * A tier that turns one spoken command into one provider call and one local resolution.
@@ -151,8 +166,11 @@ public class SingleShotStrategy internal constructor(
         /** Renders the one user message of the request. Defaults to [UserTurnRenderer.standard]. */
         public var userTurn: UserTurnRenderer = UserTurnRenderer.standard()
 
-        /** The clock that gives the date-time shown to the renderer. Defaults to the system clock and zone. */
-        public var clock: Clock = Clock.systemDefaultZone()
+        /**
+         * The clock that gives the date-time shown to the renderer. Defaults to the system time in the device's
+         * current zone, read again for every command, so a change of zone applies from the next command.
+         */
+        public var clock: Clock = CurrentZoneClock
 
         /**
          * True (the default) forces the model to call the snapshot's single-shot tool; a snapshot with no single-shot
