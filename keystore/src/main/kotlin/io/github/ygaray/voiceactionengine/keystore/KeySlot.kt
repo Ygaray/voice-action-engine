@@ -20,6 +20,13 @@ public class KeySlot(
     public val ciphertextKey: String,
     public val ivKey: String,
 ) {
+    init {
+        require(alias.isNotBlank()) { "KeySlot alias must not be blank (provider $provider)" }
+        require(ciphertextKey.isNotBlank()) { "KeySlot ciphertextKey must not be blank (provider $provider)" }
+        require(ivKey.isNotBlank()) { "KeySlot ivKey must not be blank (provider $provider)" }
+        require(ciphertextKey != ivKey) { "KeySlot ciphertextKey and ivKey must differ, both are $ciphertextKey" }
+    }
+
     override fun equals(other: Any?): Boolean =
         other is KeySlot &&
             provider == other.provider &&

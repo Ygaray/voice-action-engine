@@ -25,7 +25,7 @@ public class ApiKeyStore internal constructor(
     private val ioDispatcher: CoroutineDispatcher,
     private val keyAccess: KeyAccess,
 ) {
-    private val slotsByProvider: Map<ProviderId, KeySlot> = slots.toList().associateBy { it.provider }
+    private val slotsByProvider: Map<ProviderId, KeySlot> = indexValidated(slots)
     private val writeMutex = Mutex()
     private val encoder: Base64.Encoder = Base64.getEncoder()
     private val decoder: Base64.Decoder = Base64.getDecoder()
@@ -99,3 +99,22 @@ public class ApiKeyStore internal constructor(
 }
 
 private const val LAST_CHARS = 4
+
+/**
+ * Copies the app's table and refuses a shape that would let one provider's save overwrite another's key: no rows, a
+ * repeated provider, a repeated alias, or a preference name used twice anywhere in the table. Messages carry names
+ * only.
+ */
+private fun indexValidated(slots: List<KeySlot>): Map<ProviderId, KeySlot> {
+    val copy = slots.toList()
+    require(copy.isNotEmpty()) { "Key slot table must not be empty" }
+    requireDistinct(copy.map { it.provider.value }, "provider")
+    requireDistinct(copy.map { it.alias }, "alias")
+    requireDistinct(copy.flatMap { listOf(it.ciphertextKey, it.ivKey) }, "preference key")
+    return copy.associateBy { it.provider }
+}
+
+private fun requireDistinct(names: List<String>, what: String) {
+    val repeated = names.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }?.key
+    require(repeated == null) { "Key slot table repeats $what $repeated" }
+}
