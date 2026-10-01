@@ -90,3 +90,9 @@ None beyond the decisions above.
 See REQUIREMENTS.md v2 / LATER items.
 
 </deferred>
+
+## Runtime Decisions
+
+- **userTurn carry (orchestrator, 2026-10-01; Phase 7 seam sign-off):** `AgenticLoopStrategy` MUST accept the same `userTurn: UserTurnRenderer` seam that SingleShot ships (core/strategy/UserTurn.kt: `UserTurnRenderer`, engine-built `UserTurnContext(input, dateTime, carry)`, `UserTurnRenderer.standard()`). SB's byte-exact user-turn framing need is on the agentic path, so Phase 9's plan must state this explicitly. It must also reuse `ToolSpecProvider`/`ToolingSnapshot` (with singleShotTool = null) and keep system and tools as the invariant cached prefix.
+- **Limits precondition (orchestrator, carried from Phase 11):** AgenticLoop must enforce AND test the 6 / 60000 / 4096 limits (maxIterations / token ceiling / per-turn tokens) from `session.policy`/`session.tokensUsed`, mirroring Phase 7's SingleShotLimitsTest. The v1.0.0 cut is blocked without them.
+- **Phase 2 security O-1 (carried):** `CommitCoordinator.applyAll` has no per-item cancellation check. Assess it here, because a multi-step agentic run is where a mid-batch cancel matters.
