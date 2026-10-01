@@ -17,6 +17,9 @@ naming:
   MatchingDeclarationName:
     # Guarded.kt holds the guarded helper function plus its one small EngineFault carrier; the file is named for the function.
     excludes: ['**/internal/Guarded.kt']
+  MemberNameEqualsClassName:
+    # Resolution.Steps exposes its list as `steps` (the shape the app seam is signed off on); it reads as a plural list, not a constructor.
+    excludes: ['**/strategy/OutcomeResolver.kt']
 
 style:
   ForbiddenImport:
