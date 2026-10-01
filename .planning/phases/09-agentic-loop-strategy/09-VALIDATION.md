@@ -42,7 +42,7 @@ created: "2026-10-01"
 | LOOP-01 | tool turn then prose; sequential dispatch; reply = first text block; reads absent from executed list | unit | `... --tests '*AgenticLoopDispatchTest'` | W0 | pending |
 | LOOP-01 | gate path: held notice bytes, rejected/preview, unknown tool, read-returns-Mutation, prepare fault | unit | `... --tests '*AgenticLoopGateTest'` | W0 | pending |
 | LOOP-01 | same scripted conversation on three ProviderIds gives identical outcomes | unit | `... --tests '*AgenticLoopProviderNeutralityTest'` | W0 | pending |
-| LOOP-01 | real mappers: Anthropic/OpenAI/OpenRouter bodies, Auto choice, SB-shaped user-turn bytes, held bytes | integration | `./gradlew :providers:test :providers:testOkhttp521 :providers:testOkhttp550 --tests '*AgenticLoopWireTest' --offline` | W0 | pending |
+| LOOP-01 | real mappers: Anthropic/OpenAI/OpenRouter bodies, Auto choice, SB-shaped user-turn bytes, held bytes | integration | `./gradlew :providers:test --tests '*AgenticLoopWireTest' :providers:testOkhttp521 --tests '*AgenticLoopWireTest' :providers:testOkhttp550 --tests '*AgenticLoopWireTest' --offline` | W0 | pending |
 | LOOP-02 | whole-turn validation incl. cross-turn dup ids; ceiling before dispatch; final-iteration guard; 2-strike per tool; stop-leaf matrix; stop+tool_calls guard | unit | `... --tests '*AgenticLoopGuardsTest'` | W0 | pending |
 | LOOP-02 | 6 / 60000 / 4096 from session.policy / session.tokensUsed | unit | `... --tests '*AgenticLoopLimitsTest'` | W0 | pending |
 | D-13 | terminal-only; terminal after commit; terminal alongside held; calls after terminal dropped | unit | `... --tests '*AgenticLoopTerminalTest'` | W0 | pending |

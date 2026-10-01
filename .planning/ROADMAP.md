@@ -413,7 +413,43 @@ Plans:
   3. On every exit path (done, budget, cancel, error), the outcome lists the executed actions and commits made so far, and `CommitSink` has already been told about each commit.
   4. With both ports now landed, library code in `:core`, `:providers` and `:keystore` contains no app-domain types or prompts (`LogFood*`, `log_food`, SB `SYSTEM_PROMPT`, SB tool names, `MutationTier`) and hard-codes no tool count.
 
-**Plans**: TBD
+**Plans**: 9 plans (one per wave, strictly sequential: 09-01 → 09-09; 09-02 ends at the blocking seam sign-off checkpoint relayed through the master)
+
+**Wave 1**
+
+- [ ] 09-01-PLAN.md — O-1 fix (per-item cancellation in `CommitCoordinator.applyAll`, gated and held paths) + shared limit/stop helpers moved to `core.strategy.StrategyLimits`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 09-02-PLAN.md — `ToolExecutor` seam + `ScriptedToolExecutor` + three trace codes; blocking `checkpoint:decision` seam/behavior sign-off (Q1-Q10)
+
+**Wave 3** *(blocked on Wave 2 completion and a SIGNOFF: APPROVE)*
+
+- [ ] 09-03-PLAN.md — tracer: `AgenticLoopStrategy` end to end (builder, Phase 7 `UserTurnRenderer`, `ToolChoice.Auto`, invariant prefix, structural limits, sequential dispatch, 1/2/25 tools)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 09-04-PLAN.md — gate path (read-tool mutation rejected, held/rejected/preview/faults), per-tool-name 2-strike abort, A19 terminal tool with edge rules
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 09-05-PLAN.md — whole-turn validation incl. cross-turn ids, stop-leaf matrix + stop/tool_calls guard, `AgenticLoopLimitsTest` (6 / 60000 / 4096)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 09-06-PLAN.md — every exit path (done, budget, strike, error, cancel at provider/gate/apply), Phase 8 carries, three-provider neutrality, redaction canary
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 09-07-PLAN.md — `:providers` `AgenticLoopWireTest`: Anthropic, OpenAI, OpenRouter on all three OkHttp legs (SB framing, held bytes, prefix, parallel rules)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 09-08-PLAN.md — CLN-02 raw-text scanner rule + negative controls + plants (proven red), keystore KDoc neutralized
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 09-09-PLAN.md — phase gate on the merged tree + limits/surface/mandate-coverage evidence and carry-forwards
 
 ### Phase 10: Sample Harness, Gate-1 & Docs
 
