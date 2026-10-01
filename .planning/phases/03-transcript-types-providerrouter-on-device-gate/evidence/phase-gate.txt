@@ -102,3 +102,90 @@ ls: ls: cannot access 'providers/api.txt': No such file or directory
 ls: ls: cannot access 'keystore/api.txt': No such file or directory
 git status of module api.txt: [] (expect empty)
 exit=0
+
+[8] constructor audit over evidence/api-surface-review.txt (both 'ctor public' and 'ctor @KotlinOnly public' lines)  (03:56:55Z)
+public-constructor lines matched: 103  distinct owners: 79
+owner list:
+  CommandInput
+  Credential
+  ProviderId
+  StrategyId
+  AwaitingConfirmGate
+  GateDecision.Admit
+  GateDecision.Hold
+  StepResult
+  ToolStep.Finished
+  ToolStep.Mutation
+  EscalationReason.MalformedExtraction
+  EscalationReason.ModelDeclined
+  EscalationReason.NoToolCall
+  EscalationReason.Other
+  EscalationReason.ProviderUnavailable
+  EscalationReason.ResolverAmbiguous
+  FailureDetails
+  FailureReason.Auth
+  FailureReason.Billing
+  FailureReason.BudgetExceeded
+  FailureReason.ContextWindowExceeded
+  FailureReason.CredentialUnreadable
+  FailureReason.HttpError
+  FailureReason.MalformedResponse
+  FailureReason.MalformedToolArgs
+  FailureReason.MaxTokens
+  FailureReason.ModelNotFound
+  FailureReason.ModelUnsupported
+  FailureReason.Network
+  FailureReason.NoEligibleTier
+  FailureReason.NoToolCall
+  FailureReason.NotConfigured
+  FailureReason.Other
+  FailureReason.Overloaded
+  FailureReason.PauseTurn
+  FailureReason.PolicyUnavailable
+  FailureReason.ProviderUnavailable
+  FailureReason.RateLimited
+  FailureReason.Refusal
+  FailureReason.Timeout
+  FailureReason.ToolFailure
+  FailureReason.Unexpected
+  FailureReason.UnknownStop
+  TierSelector.Fixed
+  CredentialLookup.Missing
+  CredentialLookup.Present
+  CredentialLookup.Unreadable
+  ModelResult.Failure
+  ModelResult.Success
+  OnDeviceAvailability.Available
+  OnDeviceAvailability.Downloadable
+  OnDeviceAvailability.Downloading
+  OnDeviceAvailability.Unavailable
+  ProviderCall
+  ProviderSelection
+  Clarification
+  ClarificationOption
+  StrategyCapabilities
+  StrategyOutcome.Completed
+  StrategyOutcome.Escalate
+  StrategyOutcome.Failed
+  StrategyOutcome.NoMatch
+  TerminalCall
+  ToolSpec
+  TurnRecord
+  Usage
+  AssistantMessage
+  AssistantPart.Text
+  AssistantPart.ToolCall
+  CacheDirective
+  ModelRequest
+  ModelResponse
+  NativeReplay
+  StopReason
+  ToolChoice.Auto
+  ToolChoice.Required
+  ToolResult
+  ToolResultsMessage
+  UserMessage
+owners outside the allowed list (Phase 2 owners + Phase 3 owners): none
+engine-produced types with a public constructor (SelectionRequest, BoundModel, ModelCapabilities, ModelCapabilities.Builder, ModelCapabilityTable, CachingMode): none
+open/abstract/sealed base classes with a public constructor: none
+constructor audit verdict: PASSED
