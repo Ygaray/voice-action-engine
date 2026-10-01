@@ -76,3 +76,79 @@ git status --porcelain -- core/api.txt providers/api.txt keystore/api.txt: '' (e
 Fix recorded: hand-off KDoc in core/commit/HeldProposal.kt said 'In memory only'; reworded to 'In-memory only' so the literal in-memory note exists (KDoc only, no signature change; the api surface dump above was taken from the same tree).
 
 RESULT: every section above exited 0; Task 1 gate green.
+
+== Task 2 evidence
+
+constructor audit (over .planning/phases/02-core-contract-pipeline-commit-seam/evidence/api-surface-review.txt)
+public constructor lines in the dump (all forms, incl. '@KotlinOnly public'): 66; distinct owner classes: 54
+owners:
+  AwaitingConfirmGate
+  Clarification
+  ClarificationOption
+  CommandInput
+  Credential
+  EscalationReason.MalformedExtraction
+  EscalationReason.ModelDeclined
+  EscalationReason.NoToolCall
+  EscalationReason.Other
+  EscalationReason.ProviderUnavailable
+  EscalationReason.ResolverAmbiguous
+  FailureDetails
+  FailureReason.Auth
+  FailureReason.Billing
+  FailureReason.BudgetExceeded
+  FailureReason.ContextWindowExceeded
+  FailureReason.HttpError
+  FailureReason.MalformedResponse
+  FailureReason.MalformedToolArgs
+  FailureReason.MaxTokens
+  FailureReason.ModelNotFound
+  FailureReason.ModelUnsupported
+  FailureReason.Network
+  FailureReason.NoEligibleTier
+  FailureReason.NotConfigured
+  FailureReason.NoToolCall
+  FailureReason.Other
+  FailureReason.Overloaded
+  FailureReason.PauseTurn
+  FailureReason.PolicyUnavailable
+  FailureReason.ProviderUnavailable
+  FailureReason.RateLimited
+  FailureReason.Refusal
+  FailureReason.Timeout
+  FailureReason.ToolFailure
+  FailureReason.Unexpected
+  FailureReason.UnknownStop
+  GateDecision.Admit
+  GateDecision.Hold
+  ProviderId
+  StepResult
+  StrategyCapabilities
+  StrategyId
+  StrategyOutcome.Completed
+  StrategyOutcome.Escalate
+  StrategyOutcome.Failed
+  StrategyOutcome.NoMatch
+  TerminalCall
+  TierSelector.Fixed
+  ToolSpec
+  ToolStep.Finished
+  ToolStep.Mutation
+  TurnRecord
+  Usage
+engine-produced types (CommandOutcome and leaves, RunTermination, ActionEvent, ExecutedAction, CommitProposal, HeldProposal, DispatchResult, CommandTrace, TierAttempt, PipelineEvent leaves, PendingConfirmation, TierPolicy, CommandSession, CommandPipeline, PipelineBuilder) with a public constructor: 0
+verdict: clean. Every owner is in the allowed list (CommandInput, ProviderId, StrategyId, Credential, FailureReason and EscalationReason leaves, FailureDetails, StepResult, ToolStep.Finished, ToolStep.Mutation, GateDecision.Admit/Hold, StrategyOutcome leaves, ToolSpec, TerminalCall, Clarification, ClarificationOption, Usage, TurnRecord, StrategyCapabilities, TierSelector.Fixed, AwaitingConfirmGate). No constructor was changed.
+note: the plan's verify greps 'ctor public'; Metalava also emits 'ctor @KotlinOnly public', so the audit above matches both forms (66 lines vs 55 for the narrow pattern).
+
+hand-off KDoc check (positive greps in source)
+PRESENT  pipeline/CommandOutcome.kt  ~ 'couldn't finish'  (line 76)
+PRESENT  commit/ToolStep.kt  ~ 're-validate'  (line 65)
+PRESENT  commit/ToolStep.kt  ~ 'must not retry'  (line 105)
+PRESENT  commit/CommitCoordinator.kt  ~ 'must not retry'  (line 106)
+PRESENT  commit/AwaitingConfirmGate.kt  ~ 'sequential'  (line 63)
+PRESENT  commit/HeldProposal.kt  ~ 'in-memory'  (line 8)
+PRESENT  failure/FailureReason.kt  ~ '`else`'  (line 7)
+PRESENT  failure/EscalationReason.kt  ~ '`else`'  (line 7)
+PRESENT  telemetry/PipelineEvent.kt  ~ '`else`'  (line 13)
+
+Fix recorded (second pass): the plan's literal grep is case-sensitive 'in-memory', so HeldProposal.kt line 8 now reads 'Held in-memory only: it does not survive the process.' (KDoc only). After it: ./gradlew :core:check :providers:check -q exit=0, kdoc greps all PRESENT.

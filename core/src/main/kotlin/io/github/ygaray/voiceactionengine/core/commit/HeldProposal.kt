@@ -5,7 +5,7 @@ import kotlinx.coroutines.CompletableDeferred
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Changes the gate held instead of applying. In-memory only: it does not survive the process.
+ * Changes the gate held instead of applying. Held in-memory only: it does not survive the process.
  *
  * Commit it later with `CommandPipeline.commitHeld`. That runs without asking the gate again, so the app must
  * re-validate inside each change's `apply`: the world may have moved on since the change was held. A proposal is
