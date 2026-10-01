@@ -84,3 +84,8 @@ None beyond the decisions above.
 See REQUIREMENTS.md v2 / LATER items.
 
 </deferred>
+
+## Runtime Decisions
+
+- **credential-adapter (refreshed vs Phase 3, ai-auto):** CONFIRMED vs Phase 3. The seam exists: public `fun interface CredentialSource { suspend fun credential(provider: ProviderId): CredentialLookup }` in core/provider/CredentialSource.kt, with `CredentialLookup.Present(credential)`, `.Missing` and `.Unreadable(cause)`. ModelRouter already maps these to `FailureReason.NotConfigured` and `CredentialUnreadable`. Phase 6 `KeystoreCredentialSource` implements this interface and adds no parallel type. A lost Keystore key, AEADBadTag or a restored-from-backup ciphertext returns `Unreadable(cause)` with a non-secret cause code, so the user sees "re-enter your key", not "not configured". Missing is only for a key that was never stored.
+- **minSdk/compileSdk (orchestrator, 2026-09-30):** `:keystore` minSdk 35 / compileSdk 36.1 CONFIRMED (matches SB + CT).
