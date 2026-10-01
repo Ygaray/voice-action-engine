@@ -36,6 +36,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CopyOnWriteArrayList
 
 /** A required tool: forced where the model accepts it, reshaped where it does not. */
 class AnthropicForcedToolTest {
@@ -153,5 +154,176 @@ class AnthropicForcedToolTest {
         assertFalse(sent.bodyText.contains("Call the add_item tool"))
         assertFalse(sent.bodyText.contains("\"strict\""))
         assertTrue(sent.result is ModelResult.Success)
+    }
+
+    private val unknownModel = "claude-new-model"
+
+    private fun toolChoiceRejection(): MockResponse = MockResponse().setResponseCode(400).setBody(
+        errorBody(
+            "invalid_request_error",
+            "tool_choice: type \"tool\" and \"any\" are not supported for this model.",
+            "req_tc_1",
+        ),
+    )
+
+    private fun otherBadRequest(): MockResponse = MockResponse().setResponseCode(400).setBody(
+        errorBody("invalid_request_error", "messages: text content blocks must be non-empty", "req_bad_1"),
+    )
+
+    private fun status(code: Int): MockResponse =
+        MockResponse().setResponseCode(code).setBody(errorBody("api_error", "boom", "req_s_1"))
+
+    private class Run(
+        val result: ModelResult,
+        val requestCount: Int,
+        val bodies: List<JsonObject>,
+        val attempts: List<AnthropicAttempt>,
+        val waits: List<Long>,
+    )
+
+    /** Calls the provider directly; [responses] are served in order, then a sentinel 200 so an extra request counts. */
+    private fun run(model: String, request: ModelRequest, vararg responses: MockResponse): Run = runBlocking {
+        MockWebServer().use { server ->
+            responses.forEach { server.enqueue(it) }
+            server.enqueue(MockResponse().setResponseCode(200).setBody("{}"))
+            server.start()
+            val attempts = CopyOnWriteArrayList<AnthropicAttempt>()
+            val waits = CopyOnWriteArrayList<Long>()
+            val provider = AnthropicProvider {
+                baseUrl = server.url("/")
+                callTimeoutMillis = 2_000
+                sleep = { waits.add(it) }
+                attemptObserver = AnthropicAttemptObserver { attempts.add(it) }
+            }
+            val result = provider.complete(anthropicRequest(model, request, "sk-test-key"))
+            val count = server.requestCount
+            val bodies = List(count) { Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject }
+            Run(result, count, bodies, attempts.toList(), waits.toList())
+        }
+    }
+
+    private fun Run.code(): String = (result as ModelResult.Failure).reason.code
+
+    private fun Run.kinds(): List<String> = attempts.map { it.kind.value }
+
+    private fun JsonObject.isForced(): Boolean =
+        this["tool_choice"]!!.jsonObject["type"]!!.jsonPrimitive.content == "tool"
+
+    private fun JsonObject.hasInstruction(): Boolean = toString().contains("Call the add_item tool with your result.")
+
+    @Test(timeout = 30_000)
+    fun anUnknownModelThatRejectsForcingIsResentOnceReshapedAndSucceeds() {
+        val run = run(unknownModel, requiredRequest(), toolChoiceRejection(), toolAnswer())
+
+        assertTrue(run.result is ModelResult.Success)
+        assertEquals(2, run.requestCount)
+        assertTrue(run.bodies[0].isForced())
+        assertFalse(run.bodies[0].hasInstruction())
+        assertEquals("auto", run.bodies[1]["tool_choice"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertTrue(run.bodies[1].hasInstruction())
+        assertEquals(
+            listOf(
+                AnthropicAttempt(1, AnthropicAttemptKind.INITIAL, 400),
+                AnthropicAttempt(2, AnthropicAttemptKind.FORCED_TOOL_RESHAPE, 200),
+            ),
+            run.attempts,
+        )
+        assertTrue(run.waits.isEmpty())
+    }
+
+    @Test(timeout = 30_000)
+    fun aForcedRequestRejectedForAnotherReasonIsAFinalHttpError() {
+        val run = run(unknownModel, requiredRequest(), otherBadRequest(), toolAnswer())
+
+        assertEquals("http_error", run.code())
+        assertEquals(1, run.requestCount)
+    }
+
+    @Test(timeout = 30_000)
+    fun anAutoRequestWhoseRejectionMentionsToolChoiceIsAFinalHttpError() {
+        val auto = ModelRequest(system, listOf(UserMessage("add milk")), listOf(addItem), 256)
+
+        val run = run(unknownModel, auto, toolChoiceRejection(), toolAnswer())
+
+        assertEquals("http_error", run.code())
+        assertEquals(1, run.requestCount)
+    }
+
+    @Test(timeout = 30_000)
+    fun aRequestTheTableAlreadyReshapedIsNotReshapedAgain() {
+        val run = run("claude-opus-5-5", requiredRequest(), toolChoiceRejection(), toolAnswer())
+
+        assertEquals("http_error", run.code())
+        assertEquals(1, run.requestCount)
+        assertEquals(listOf("initial"), run.kinds())
+    }
+
+    @Test(timeout = 30_000)
+    fun aToolChoiceMessageOnAnotherStatusIsNotReshaped() {
+        val unauthorized = MockResponse().setResponseCode(401).setBody(
+            errorBody("authentication_error", "tool_choice and a bad key", "req_u_1"),
+        )
+
+        val run = run(unknownModel, requiredRequest(), unauthorized, toolAnswer())
+
+        assertEquals("auth", run.code())
+        assertEquals(1, run.requestCount)
+    }
+
+    @Test(timeout = 30_000)
+    fun aReshapeThenATransientRetrySucceedsWithinThreeRequests() {
+        val run = run(unknownModel, requiredRequest(), toolChoiceRejection(), status(529), toolAnswer())
+
+        assertTrue(run.result is ModelResult.Success)
+        assertEquals(3, run.requestCount)
+        assertEquals(listOf("initial", "forced_tool_reshape", "transient_retry"), run.kinds())
+        assertEquals(listOf(500L), run.waits)
+        assertTrue(run.bodies[2].hasInstruction())
+    }
+
+    @Test(timeout = 30_000)
+    fun aTransientRetryThenAReshapeSucceedsWithinThreeRequests() {
+        val run = run(unknownModel, requiredRequest(), status(529), toolChoiceRejection(), toolAnswer())
+
+        assertTrue(run.result is ModelResult.Success)
+        assertEquals(3, run.requestCount)
+        assertEquals(listOf("initial", "transient_retry", "forced_tool_reshape"), run.kinds())
+        assertEquals(listOf(500L), run.waits)
+        assertTrue(run.bodies[1].isForced())
+        assertTrue(run.bodies[2].hasInstruction())
+    }
+
+    @Test(timeout = 30_000)
+    fun aSecondRejectionAfterTheReshapeIsFinalAndNeverReshapedAgain() {
+        val run = run(unknownModel, requiredRequest(), toolChoiceRejection(), toolChoiceRejection(), toolAnswer())
+
+        assertEquals("http_error", run.code())
+        assertEquals(2, run.requestCount)
+    }
+
+    @Test(timeout = 30_000)
+    fun noCombinationOfRetryAndReshapeSendsAFourthRequest() {
+        val run = run(unknownModel, requiredRequest(), status(529), toolChoiceRejection(), status(529), toolAnswer())
+
+        assertEquals("overloaded", run.code())
+        assertEquals(3, run.requestCount)
+    }
+
+    @Test(timeout = 30_000)
+    fun nothingIsRememberedBetweenCalls() = runBlocking {
+        MockWebServer().use { server ->
+            repeat(2) {
+                server.enqueue(toolChoiceRejection())
+                server.enqueue(toolAnswer())
+            }
+            server.start()
+            val provider = AnthropicProvider { baseUrl = server.url("/") }
+            val call = anthropicRequest(unknownModel, requiredRequest(), "sk-test-key")
+
+            assertTrue(provider.complete(call) is ModelResult.Success)
+            assertTrue(provider.complete(call) is ModelResult.Success)
+
+            assertEquals(4, server.requestCount)
+        }
     }
 }
