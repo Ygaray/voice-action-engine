@@ -1,0 +1,39 @@
+Phase 7 (07-singleshot-strategy) phase gate - plan 07-08, Task 1
+date (UTC): 2026-10-01
+HEAD: 35e8e920681dfe96b08d9a0ea3b682171a4fe7db (worktree HEAD, content-equal to the merged tree; no source, test or build file changed by this plan)
+
+COMMANDS (run one at a time, offline)
+1. ./gradlew check --offline                                   exit=0   BUILD SUCCESSFUL (every module: detekt, scanners, ApiShapeTest, NoHardCodedConstantsTest, three OkHttp legs)
+2. scripts/review-api-surface.sh --expect-sealed-complete      exit=0   API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=177
+3. scripts/verify-repo-hygiene.sh                              exit=0   HYGIENE OK (no api.txt, no tag)
+4. scripts/verify-negative-controls.sh                         exit=0   negative-control failures: 0
+
+NOTE on test counts: command 4 deliberately forces the OkHttp guard tests red (expected=9.9.9) and so leaves
+failing JUnit XML in providers/build/test-results. After command 4, `./gradlew check --offline --no-build-cache`
+was re-run from clean test tasks (:core:cleanTest, :providers:cleanTest, :providers:cleanTestOkhttp521,
+:providers:cleanTestOkhttp550) so the counts below come from a genuine run of the unmodified tree
+(exit=0, BUILD SUCCESSFUL; core:test, providers:test, providers:testOkhttp521, providers:testOkhttp550 all executed).
+
+TEST COUNTS (summed over TEST-*.xml)
+core/build/test-results/test                        suites=55 tests=526 failures=0 errors=0 skipped=0
+providers/build/test-results/test            (4.12.0) suites=41 tests=430 failures=0 errors=0 skipped=0
+providers/build/test-results/testOkhttp521   (5.2.1)  suites=41 tests=430 failures=0 errors=0 skipped=0
+providers/build/test-results/testOkhttp550   (5.5.0)  suites=41 tests=430 failures=0 errors=0 skipped=0
+keystore/build/test-results/testDebugUnitTest       suites=15 tests=96 failures=0 errors=0 skipped=0
+
+REPO STATE
+git ls-files -- '*api.txt'  -> (empty)
+git tag                     -> (empty)
+
+REQUIREMENT COVERAGE (each class passed in the run above)
+SHOT-01: SingleShotRequestTest, SingleShotResolveTest, SingleShotSeamTypesTest, SingleShotUserTurnTest, SingleShotLimitsTest
+SHOT-02: SingleShotOutcomeMappingTest, SingleShotTerminalTest, AnthropicEncoderTest, ChatEncoderTest, OpenAiModelRulesTest, SingleShotWireTest
+SHOT-03: SingleShotAcceptanceTest
+
+CARRY-FORWARDS
+Phase 10 VER-03: assert the Anthropic smoke body contains disable_parallel_tool_use and returns 200; optional two cheap calls showing cache_read_input_tokens > 0 retire RESEARCH A2. Live work is opt-in via with-test-keys -- <cmd>, outside check, cheapest models, bounded call count.
+Phase 5 follow-up: o-series parallel_tool_calls gate (OpenAiModelRules.acceptsParallelToolCalls) shipped in 07-02.
+Gate-1: N/A (JVM-only phase; no device-verifiable behaviour).
+Live leg: none in Phase 7.
+
+PHASE GATE: PASS
