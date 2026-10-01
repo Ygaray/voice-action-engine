@@ -17,10 +17,14 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
+// Anything not listed (stop_sequence, a value added later, a missing field) is reported as OTHER.
 private val STOP_REASONS: Map<String, StopReason> = mapOf(
     "end_turn" to StopReason.END_TURN,
     "tool_use" to StopReason.TOOL_USE,
     "max_tokens" to StopReason.MAX_TOKENS,
+    "refusal" to StopReason.REFUSAL,
+    "pause_turn" to StopReason.PAUSE_TURN,
+    "model_context_window_exceeded" to StopReason.CONTEXT_WINDOW_EXCEEDED,
 )
 
 /** Carries the typed reason for a 2xx answer that cannot be used; the message never holds any body text. */
