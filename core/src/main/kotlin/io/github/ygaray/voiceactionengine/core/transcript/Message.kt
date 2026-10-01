@@ -1,5 +1,8 @@
 package io.github.ygaray.voiceactionengine.core.transcript
 
+import io.github.ygaray.voiceactionengine.core.ProviderId
+import kotlinx.serialization.json.JsonElement
+
 /**
  * One message in a neutral, provider-independent conversation.
  *
@@ -40,6 +43,15 @@ public class AssistantMessage(
 
     /** The tool calls among [parts], in order. */
     public val toolCalls: List<AssistantPart.ToolCall> = this.parts.filterIsInstance<AssistantPart.ToolCall>()
+
+    /**
+     * The provider's own version of this turn, to send back unchanged, or null.
+     *
+     * It is the very same raw instance, returned only when [provider] and [model] both match the replay's stamp
+     * exactly. A null result means the mapper must rebuild this turn from the neutral [parts].
+     */
+    public fun nativeFor(provider: ProviderId, model: String): JsonElement? =
+        nativeReplay?.takeIf { it.provider == provider && it.model == model }?.raw
 
     /** Prints counts, tool names and the replay stamp only, never text, arguments or the raw turn. */
     override fun toString(): String =
