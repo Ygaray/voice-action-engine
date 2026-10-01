@@ -84,7 +84,6 @@ No new framework install.
 ## Validation Sign-Off
 
 > Finalized post-execution (2026-10-01) by the Nyquist finalizer.
-> they are finalized only post-execution by the Nyquist finalizer.
 
 - [x] All tasks have `<automated>` verify or Wave 0 dependencies
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify
