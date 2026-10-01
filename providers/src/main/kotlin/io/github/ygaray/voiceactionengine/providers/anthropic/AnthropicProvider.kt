@@ -74,7 +74,7 @@ public class AnthropicProvider internal constructor(
         /**
          * Hears about every HTTP attempt of every call, or null for none. It is called on the provider's I/O dispatcher
          * after the status is known, with a null status when the attempt had no HTTP answer, and receives ids only: no
-         * text, headers or body. It must return quickly and must not throw, because a throwing observer fails the call.
+         * text, headers or body. It must return quickly; an exception it throws is ignored and never changes the call's result.
          */
         public var attemptObserver: AnthropicAttemptObserver? = null
 
