@@ -14,9 +14,10 @@ private const val UNKNOWN_MODEL_RESULT_CODE = "unknown_model_result"
  * Decides a provider result before any tool call is read. Returns the final outcome, or null when the result is a
  * usable answer that holds at least one tool call, which makes it a tool turn.
  *
- * A refused, truncated, paused or over-long answer is final even when it holds tool calls, so it can never be turned
- * into a write. An answer that holds tool calls is a tool turn whatever its stop reason says, because the providers
- * differ in the stop reason they report for one.
+ * An answer whose stop reason is refusal, max tokens, pause turn or context window exceeded is final even when it holds
+ * tool calls, so it can never be turned into a write. Any other answer that holds tool calls is a tool turn whatever
+ * its stop reason says, because the providers differ in the stop reason they report for one; that includes a stop
+ * reason the engine does not map.
  */
 internal fun decideTurn(result: ModelResult): StrategyOutcome? =
     when (result) {
