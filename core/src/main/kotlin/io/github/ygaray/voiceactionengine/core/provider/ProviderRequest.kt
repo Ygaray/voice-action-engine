@@ -14,7 +14,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
  * tool facts the engine decided on.
  * @throws IllegalArgumentException when [model] is blank.
  */
-public class ProviderCall(
+public class ProviderRequest(
     public val model: String,
     public val request: ModelRequest,
     public val credential: Credential?,
@@ -26,6 +26,6 @@ public class ProviderCall(
 
     /** Prints the model, the message and tool counts and the credential's provider only, never any content or key. */
     override fun toString(): String =
-        "ProviderCall(model=$model, messages=${request.messages.size}, tools=${request.tools.size}, " +
+        "ProviderRequest(model=$model, messages=${request.messages.size}, tools=${request.tools.size}, " +
             "credential=${credential?.provider ?: "none"})"
 }

@@ -1,6 +1,6 @@
 package io.github.ygaray.voiceactionengine.core
 
-import io.github.ygaray.voiceactionengine.core.provider.ProviderCall
+import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import kotlinx.serialization.json.JsonObject
@@ -134,7 +134,7 @@ class ApiShapeTest {
         assertTrue("inspected only ${inspected.size} classes", inspected.size >= MIN_INSPECTED)
         val names = inspected.map { it.name }
         assertTrue(ModelRequest::class.java.name in names)
-        assertTrue(ProviderCall::class.java.name in names)
+        assertTrue(ProviderRequest::class.java.name in names)
         assertTrue(ToolSpec::class.java.name in names)
         val flagged = inspected.filter { hasDefaultArgumentStub(it) }.map { it.name }
         val unexpected = flagged - STUB_EXCEPTIONS

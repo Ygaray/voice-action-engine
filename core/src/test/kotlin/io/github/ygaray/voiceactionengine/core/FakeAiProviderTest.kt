@@ -5,7 +5,7 @@ import io.github.ygaray.voiceactionengine.core.provider.AiProvider
 import io.github.ygaray.voiceactionengine.core.provider.CachingMode
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
-import io.github.ygaray.voiceactionengine.core.provider.ProviderCall
+import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
@@ -31,8 +31,8 @@ class FakeAiProviderTest {
 
     private fun request(): ModelRequest = ModelRequest("system", listOf(UserMessage("hi")), MAX_TOKENS)
 
-    private fun call(): ProviderCall =
-        ProviderCall("model-a", request(), Credential(ProviderId.ANTHROPIC, KEY), ModelCapabilities.UNKNOWN)
+    private fun call(): ProviderRequest =
+        ProviderRequest("model-a", request(), Credential(ProviderId.ANTHROPIC, KEY), ModelCapabilities.UNKNOWN)
 
     @Test
     fun singleShotRequestReachesTheFakeAndTheScriptedResponseComesBack() = runTest {
@@ -56,7 +56,7 @@ class FakeAiProviderTest {
     private fun bare(): AiProvider = object : AiProvider {
         override val id: ProviderId = ProviderId.OPENAI
 
-        override suspend fun complete(call: ProviderCall): ModelResult =
+        override suspend fun complete(call: ProviderRequest): ModelResult =
             ModelResult.Failure(FailureReason.RateLimited())
     }
 
@@ -121,7 +121,7 @@ class FakeAiProviderTest {
     @Test
     fun aBlankModelFailsAtConstruction() {
         assertThrows(IllegalArgumentException::class.java) {
-            ProviderCall(" ", request(), null, ModelCapabilities.UNKNOWN)
+            ProviderRequest(" ", request(), null, ModelCapabilities.UNKNOWN)
         }
     }
 
@@ -136,9 +136,9 @@ class FakeAiProviderTest {
             CacheDirective(true),
         )
         val rendered =
-            ProviderCall("model-a", secretRequest, Credential(ProviderId.ANTHROPIC, KEY), ModelCapabilities.UNKNOWN)
+            ProviderRequest("model-a", secretRequest, Credential(ProviderId.ANTHROPIC, KEY), ModelCapabilities.UNKNOWN)
                 .toString()
-        assertEquals("ProviderCall(model=model-a, messages=1, tools=1, credential=anthropic)", rendered)
+        assertEquals("ProviderRequest(model=model-a, messages=1, tools=1, credential=anthropic)", rendered)
         assertFalse(rendered.contains(KEY))
         assertFalse(rendered.contains(CANARY_SYSTEM))
         assertFalse(rendered.contains(CANARY_TEXT))
@@ -146,7 +146,7 @@ class FakeAiProviderTest {
 
     @Test
     fun aNullCredentialPrintsNone() {
-        val rendered = ProviderCall("model-a", request(), null, ModelCapabilities.UNKNOWN).toString()
+        val rendered = ProviderRequest("model-a", request(), null, ModelCapabilities.UNKNOWN).toString()
         assertTrue(rendered, rendered.endsWith("credential=none)"))
     }
 

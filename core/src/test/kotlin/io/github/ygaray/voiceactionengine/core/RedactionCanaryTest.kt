@@ -15,7 +15,7 @@ import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.OnDeviceAvailability
-import io.github.ygaray.voiceactionengine.core.provider.ProviderCall
+import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
@@ -344,7 +344,7 @@ class RedactionCanaryTest {
         see(assistant.nativeReplay)
     }
 
-    private fun sweepCall(call: ProviderCall) {
+    private fun sweepCall(call: ProviderRequest) {
         see(call)
         see(call.request)
         see(call.request.cache)

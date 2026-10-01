@@ -3,7 +3,7 @@ package io.github.ygaray.voiceactionengine.core.provider
 import io.github.ygaray.voiceactionengine.core.ProviderId
 
 /**
- * A model provider: it turns one neutral [ProviderCall] into a [ModelResult].
+ * A model provider: it turns one neutral [ProviderRequest] into a [ModelResult].
  *
  * Implement it by mapping the neutral request to the provider's wire format and the wire answer back to the neutral
  * response. Rules for every implementation:
@@ -28,10 +28,10 @@ public interface AiProvider {
 
     /**
      * What this provider says about [model], including its default for a model id it does not know. The app's
-     * overrides are applied on top before the call, and the result arrives as [ProviderCall.capabilities].
+     * overrides are applied on top before the call, and the result arrives as [ProviderRequest.capabilities].
      */
     public fun capabilities(model: String): ModelCapabilities = ModelCapabilities.UNKNOWN
 
     /** Sends [call] and returns the answer or the failure. */
-    public suspend fun complete(call: ProviderCall): ModelResult
+    public suspend fun complete(call: ProviderRequest): ModelResult
 }

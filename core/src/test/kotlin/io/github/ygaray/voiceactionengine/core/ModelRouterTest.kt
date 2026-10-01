@@ -11,7 +11,7 @@ import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilityTable
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
-import io.github.ygaray.voiceactionengine.core.provider.ProviderCall
+import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
@@ -332,7 +332,7 @@ class ModelRouterTest {
             override fun capabilities(model: String): ModelCapabilities =
                 runBlocking { withTimeout(1) { delay(1_000) }; error("unreachable") }
 
-            override suspend fun complete(call: ProviderCall): ModelResult = FakeAiProvider.reply("ok", Usage.ZERO)
+            override suspend fun complete(call: ProviderRequest): ModelResult = FakeAiProvider.reply("ok", Usage.ZERO)
         }
         val recorder = recorder()
 
@@ -506,7 +506,7 @@ class ModelRouterTest {
 
             override fun capabilities(model: String): ModelCapabilities = error("no table")
 
-            override suspend fun complete(call: ProviderCall): ModelResult {
+            override suspend fun complete(call: ProviderRequest): ModelResult {
                 calls++
                 return FakeAiProvider.reply("ok", Usage.ZERO)
             }

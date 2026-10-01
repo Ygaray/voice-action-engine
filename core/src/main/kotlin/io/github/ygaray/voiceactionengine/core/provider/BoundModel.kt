@@ -96,7 +96,7 @@ internal class RoutedModel(
             recorder.recordCode(TraceCode.CAPABILITY_REFUSED)
             return ModelResult.Failure(FailureReason.ModelUnsupported())
         }
-        val call = ProviderCall(binding.model, request, binding.credential, binding.capabilities)
+        val call = ProviderRequest(binding.model, request, binding.credential, binding.capabilities)
         // Taken before sending: only responses that had completed when this request left can have written the cache.
         val priorSuccesses = successfulResponses.get()
         val started = recorder.runClock.read()
