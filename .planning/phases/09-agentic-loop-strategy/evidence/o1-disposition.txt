@@ -1,0 +1,18 @@
+Phase 9 O-1 disposition (CommitCoordinator.applyAll per-item cancellation)
+Date: 2026-10-01
+HEAD: 39a761b783632b490ef8cbd30608eb82f3ba2bc6
+
+Finding: Phase 2 security note O-1 (advisory): "CommitCoordinator.applyAll has no per-item cancellation check inside one admitted batch; if the caller is cancelled after item N applies, item N+1 apply() is still invoked unless the app apply reaches a cancellable suspension point."
+
+Change: one per-item cancellation check in applyAll (currentCoroutineContext().ensureActive() before each item). Internal; no public API change, no new write path.
+
+Semantics: an item not yet started leaves no ledger entry and no sink action; the run closes Cancelled with the commits made so far; the item already applied stays recorded and delivered; the held path (commitHeld goes through the same applyAll) closes its child run Cancelled with the commit_held_cancelled trace code. An uncancelled batch is unchanged: every item applies once, and an item that fails still never stops or undoes its siblings.
+
+Tests: BatchCancellationTest
+  - aCancelBetweenBatchItemsStopsTheRestAndKeepsTheCommittedOne (failed before the change: item 1 applyCount expected 0 but was 1; passes after)
+  - aCancelBetweenHeldBatchItemsStopsTheRestAndKeepsTheCommittedOne
+  - anUncancelledBatchStillAppliesEveryItem
+  ./gradlew :core:test --tests '*BatchCancellationTest' --offline -q  -> exit code 0
+  BatchIsolationTest, CommitPathTest and HeldCommitGuardsTest unchanged and green.
+
+O-1 DISPOSITION: FIXED
