@@ -4,7 +4,6 @@ import io.github.ygaray.voiceactionengine.core.provider.CachingMode
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
-import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -15,9 +14,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
-private const val TYPE = "type"
-private const val TEXT = "text"
-private const val ROLE_USER = "user"
 private const val CACHE_CONTROL = "cache_control"
 private const val EPHEMERAL = "ephemeral"
 
@@ -78,20 +74,6 @@ private fun encodeSystem(system: String, breakpoint: Boolean): JsonArray = build
         put(TEXT, system)
         if (breakpoint) putEphemeralBreakpoint()
     }
-}
-
-private fun encodeMessages(call: ProviderRequest): JsonArray = buildJsonArray {
-    call.request.messages.filterIsInstance<UserMessage>().forEach { add(userMessage(it)) }
-}
-
-private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
-    put("role", ROLE_USER)
-    put("content", buildJsonArray { addJsonObject { textBlock(message.text) } })
-}
-
-private fun JsonObjectBuilder.textBlock(text: String) {
-    put(TYPE, TEXT)
-    put(TEXT, text)
 }
 
 private fun JsonObjectBuilder.putEphemeralBreakpoint() {
