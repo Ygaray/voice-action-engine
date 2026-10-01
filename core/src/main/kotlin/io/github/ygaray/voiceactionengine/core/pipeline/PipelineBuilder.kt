@@ -80,8 +80,8 @@ public class PipelineBuilder internal constructor() {
 }
 
 /**
- * Composes a [CommandPipeline]. Throws [IllegalArgumentException] if the pipeline is misconfigured; `execute` itself
- * never throws.
+ * Composes a [CommandPipeline]. Throws [IllegalArgumentException] if the pipeline is misconfigured. `execute` throws
+ * only for the caller's own cancellation or a JVM `Error`; see [CommandPipeline.execute].
  */
 public fun commandPipeline(block: PipelineBuilder.() -> Unit): CommandPipeline =
     PipelineBuilder().apply(block).build()

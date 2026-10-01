@@ -23,6 +23,14 @@ import kotlin.coroutines.cancellation.CancellationException
 private const val ATTEMPT_TIMEOUT = "timeout"
 private const val ATTEMPT_CANCELLED = "cancelled"
 private const val ATTEMPT_FAILED = "failed"
+private const val ERROR_CLASS = "Error"
+
+/** The identity, trace and write path of a run that has begun. */
+private class StartedRun(
+    val runId: String,
+    val recorder: RunRecorder,
+    val coordinator: CommitCoordinator,
+)
 
 /**
  * An app's composed ladder. Build one with [commandPipeline] and call [execute] once per spoken command.
@@ -42,14 +50,35 @@ public class CommandPipeline internal constructor(
     private val heldCommit = HeldCommit(gate, sink, clock, runIds, listener)
 
     /**
-     * Runs [input] up the ladder and returns what happened. It never throws: a failing strategy, policy source or
-     * engine fault becomes a failed outcome. Only cancellation of the calling coroutine propagates, and the sink's
-     * `onRunClosed` is still called exactly once, even then.
+     * Runs [input] up the ladder and returns what happened. A failing strategy, policy source or engine fault becomes
+     * a failed outcome, and the sink's `onRunClosed` is called exactly once. What can still escape:
+     * - the calling coroutine's own cancellation (the run still closes once, as cancelled);
+     * - a JVM `Error` such as out of memory, a stack overflow or an assertion failure, which the engine does not
+     *   catch (the run still closes once, as failed with `Unexpected("Error")`, before the error propagates).
+     *
+     * If the app's run id maker or clock throws before the run can begin, the result is `Failed(Unexpected)` with no
+     * actions, and the sink is not told, because no run began.
      */
     public suspend fun execute(input: CommandInput): CommandOutcome {
+        var failure: EngineFault? = null
+        val started = guarded<StartedRun?>(onFault = { failure = it; null }) { startRun(input) }
+        if (started == null) {
+            val errorClass = failure?.errorClass ?: ERROR_CLASS
+            return unstartedFailure(input.parentRunId, input.language, input.transcript.length, errorClass)
+        }
+        return drive(input, started)
+    }
+
+    private fun startRun(input: CommandInput): StartedRun {
         val runId = runIds()
         val recorder = RunRecorder(runId, input.parentRunId, input.language, input.transcript.length, clock, listener)
-        val coordinator = CommitCoordinator(runId, input.parentRunId, gate, sink, recorder)
+        return StartedRun(runId, recorder, CommitCoordinator(runId, input.parentRunId, gate, sink, recorder))
+    }
+
+    private suspend fun drive(input: CommandInput, started: StartedRun): CommandOutcome {
+        val runId = started.runId
+        val recorder = started.recorder
+        val coordinator = started.coordinator
         var outcome: CommandOutcome? = null
         var cancelled = false
         try {
@@ -76,8 +105,9 @@ public class CommandPipeline internal constructor(
      *
      * It opens a new run whose `parentRunId` is the held run's id and which closes once on its own, so the original
      * run's close stays final. The first call applies; any later or concurrent call for the same [held] returns that
-     * call's outcome with nothing applied. Like [execute] it never throws, except for the caller's own cancellation;
-     * if that cancels the first call mid-apply, the proposal stays used up and later calls get a failed outcome with
+     * call's outcome with nothing applied. Like [execute] it throws only for the caller's own cancellation or a JVM
+     * `Error`, and a throwing run id maker or clock gives `Failed(Unexpected)`. If the caller's cancellation cancels
+     * the first call mid-apply, the proposal stays used up and later calls get a failed outcome with
      * reason `Other("commit_held_cancelled")` carrying what was journaled. A change that threw or reported an error
      * is an `is_error` action inside a `Completed` outcome, as the apps count them; read [CommandOutcome.commits] and
      * [CommandOutcome.executed] to learn what was actually written, never the outcome type alone.
@@ -187,5 +217,5 @@ internal fun terminationOf(outcome: CommandOutcome?, cancelled: Boolean, effects
         outcome is CommandOutcome.Failed -> RunTermination.Failed(outcome.effects, outcome.reason, outcome.details)
         outcome is CommandOutcome.Unhandled -> RunTermination.Exhausted(outcome.effects, outcome.lastReason)
         cancelled -> RunTermination.Cancelled(effects)
-        else -> RunTermination.Failed(effects, FailureReason.Unexpected("Error"), null)
+        else -> RunTermination.Failed(effects, FailureReason.Unexpected(ERROR_CLASS), null)
     }
