@@ -361,8 +361,44 @@ Plans:
   3. Tool results are encoded per dialect: Anthropic batches all of a turn's results into one user message with `is_error`, and Chat Completions sends one `role:tool` message per call id. Golden tests built from recorded, sanitized real response bodies prove it.
   4. Each dialect applies its own cache directive (Anthropic keeps its single system breakpoint; Chat Completions relies on automatic caching), and the cached prefix bytes stay identical on every iteration of a multi-turn conversation.
 
-**Plans**: TBD
+**Plans**: 9 plans (one per wave, strictly sequential: 08-01 → 08-09; 08-09 starts at the capture checkpoint routed through the master)
 **Research flag**: yes. Open items: preserved-thinking replay rules and OpenAI tool-message ordering edge cases. Build the golden fixtures from real responses.
+
+**Wave 1**
+
+- [ ] 08-01-PLAN.md — tracer: `ConversationCheck` pre-flight (replay key + tool-call coverage, kind-only codes) in both transports with zero requests; encoders never rebuild a stamped turn
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 08-02-PLAN.md — per-dialect tool results in call order: Anthropic batch with `is_error` and empty content omitted; Chat one `role:tool` per id with the `{"error": …}` wrapper
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 08-03-PLAN.md — lenient empty arguments on both decoders; Chat allowlist replay with repair-only normalization
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 08-04-PLAN.md — conversation golden infrastructure: strict manifest, canonical printer, tree-aware hygiene, shared-id-map sanitizer, synthetic `ConversationScript`
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 08-05-PLAN.md — the conformance suite + Anthropic binding: round trip, per-dialect results, whole-history byte-for-byte replay (derived thinking golden), fail-loud stamp/coverage via the real provider
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 08-06-PLAN.md — the same suite on OpenAI and OpenRouter: four derived Chat goldens on real Phase 5 envelopes (parallel, empty-args forms, `index`, `reasoning_details`)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 08-07-PLAN.md — SC4: append-only prefix bytes on every iteration + per-dialect cache directive, negative controls, reshape pinned as single-turn only
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 08-08-PLAN.md — bounded multi-turn recorder extending the two opt-in live tasks (≤ 19 requests), key-free proof, phase gate
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 08-09-PLAN.md — gated live capture (checkpoint via the master; with-test-keys; Sonnet 5.5 thinking legs bounded); captured goldens or explicit NOT RUN with SC2/SC3 status
 
 ### Phase 9: Agentic Loop Strategy
 
