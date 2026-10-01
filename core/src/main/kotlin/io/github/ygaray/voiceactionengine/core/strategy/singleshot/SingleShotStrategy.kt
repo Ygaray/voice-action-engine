@@ -51,7 +51,8 @@ private object CurrentZoneClock : Clock() {
  * The tier asks the app's [ToolSpecProvider] for the system text and tools, sends one request that forces the model to
  * call the snapshot's single-shot tool, hands the model's first tool call to the app's [OutcomeResolver], and submits
  * whatever steps the resolver prepared. It never writes by itself: every change goes through the session, so the gate
- * decides. The tier makes at most one provider call per command and never retries.
+ * decides. Finished steps are submitted first, in list order; all mutations are then combined, in list order, into one
+ * step, so the gate sees one proposal. The tier makes at most one provider call per command and never retries.
  *
  * The tier reads its limits from the session policy. It sends the policy's per-turn token limit with the request,
  * refuses before calling when the run has already reached the token ceiling, fails before resolving or

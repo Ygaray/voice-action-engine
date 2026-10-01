@@ -46,7 +46,10 @@ public class Extraction(
  */
 public abstract class Resolution internal constructor() {
     /**
-     * Steps the strategy submits to the engine, in order. Nothing is applied until the gate admits the mutations.
+     * Steps the strategy submits to the engine. A single-shot tier submits the finished steps first, in list order,
+     * then folds every mutation, in list order, into one combined mutation step, so the gate decides once over all of
+     * them and the commit sink sees the finished steps before the mutations whatever order they were listed in.
+     * Nothing is applied until the gate admits the mutations.
      *
      * @property reply text to show the user, or null. It is prepared before the gate decides, so it cannot describe
      * the result. The tier drops it when applying the mutations reported an error, and the command's outcome (its
