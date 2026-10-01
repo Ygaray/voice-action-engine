@@ -45,7 +45,7 @@ findings:
   warning: 3
   info: 6
   total: 9
-status: issues_found
+status: resolved
 ---
 
 # Phase 9: Code Review Report
