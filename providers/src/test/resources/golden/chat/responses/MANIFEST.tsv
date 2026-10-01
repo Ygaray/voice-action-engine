@@ -1,0 +1,6 @@
+# Golden responses for the Chat Completions transport: one row per case, nine tab-separated columns.
+# provenance derived: source is derived.json#<case>; captured: source is captured/<vendor>-<label>.json (added by the key-gated capture plan).
+# expected is success:<stop reason>:<tool names or -> or failure:<reason code>; absent_keys are dotted paths into the first tool call's arguments or -.
+case	vendor	provenance	source	http_status	tool_choice	expected	absent_keys	note
+openai_forced_log_food	openai	derived	derived.json#openai_forced_log_food	200	required	success:tool_use:log_food	-	derived: API reference response shape; replace on capture C1
+openrouter_forced_log_food	openrouter	derived	derived.json#openrouter_forced_log_food	200	required	success:tool_use:log_food	-	derived: API reference response shape; replace on capture R1
