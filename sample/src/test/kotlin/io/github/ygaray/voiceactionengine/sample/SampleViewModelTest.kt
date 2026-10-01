@@ -389,6 +389,24 @@ class SampleViewModelTest {
     @Test
     fun anAutorunRerunSaysSoOnTheVerdictLine() = runTest {
         NoNetworkGuard.during {
+            val rig = openAiRig(editCall(), editCall())
+            val viewModel = sampleViewModel(rig)
+            runCurrent()
+
+            viewModel.runLeg(LegId.SMOKE_OPENAI)
+            runCurrent()
+            viewModel.runLeg(LegId.SMOKE_OPENAI, TRIGGER_AUTORUN)
+            runCurrent()
+
+            assertEquals(1, rig.sink.starting("VAE_AUTORUN leg=smoke_openai").size)
+            assertEquals(1, rig.sink.starting("VAE_VERDICT leg=smoke_openai verdict=PASS key_charset=ok trigger=ui").size)
+            assertEquals(1, rig.sink.starting("VAE_VERDICT leg=smoke_openai verdict=PASS key_charset=ok trigger=autorun").size)
+        }
+    }
+
+    @Test
+    fun anAutorunCannotBeALegsFirstRun() = runTest {
+        NoNetworkGuard.during {
             val rig = openAiRig(editCall())
             val viewModel = sampleViewModel(rig)
             runCurrent()
@@ -396,8 +414,24 @@ class SampleViewModelTest {
             viewModel.runLeg(LegId.SMOKE_OPENAI, TRIGGER_AUTORUN)
             runCurrent()
 
-            assertEquals(1, rig.sink.starting("VAE_AUTORUN leg=smoke_openai").size)
-            assertEquals(1, rig.sink.starting("VAE_VERDICT leg=smoke_openai verdict=PASS key_charset=ok trigger=autorun").size)
+            assertEquals(0, rig.fake(ProviderId.OPENAI).calls.size)
+            assertEquals(0, rig.budget.snapshot().total)
+            assertEquals(
+                1,
+                rig.sink.starting("VAE_VERDICT leg=smoke_openai verdict=REFUSED reason=autorun_before_ui trigger=autorun").size,
+            )
+            // A demo leg costs nothing but follows the same rule.
+            viewModel.runLeg(LegId.DEMO_PARTIAL, TRIGGER_AUTORUN)
+            runCurrent()
+            assertEquals(
+                1,
+                rig.sink.starting("VAE_VERDICT leg=demo_partial verdict=REFUSED reason=autorun_before_ui trigger=autorun").size,
+            )
+            viewModel.runLeg(LegId.DEMO_PARTIAL)
+            runCurrent()
+            viewModel.runLeg(LegId.DEMO_PARTIAL, TRIGGER_AUTORUN)
+            runCurrent()
+            assertEquals(1, rig.sink.starting("VAE_VERDICT leg=demo_partial verdict=PASS trigger=autorun").size)
         }
     }
 }

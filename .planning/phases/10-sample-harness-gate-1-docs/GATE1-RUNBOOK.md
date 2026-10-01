@@ -172,6 +172,6 @@ Run G1-01..G1-04, G1-12 and G1-14. Mark G1-05..G1-11 and G1-13 `result: partial`
 ## 7. Dispositions of open questions
 
 - Q1: an out-of-band VER-02 measurement is recorded with its value and escalated to the orchestrator; it is never silently widened.
-- Q2: the debug autorun extra (`adb -s R5CT10XNKQN shell am start -n io.github.ygaray.voiceactionengine.sample/.MainActivity --es vae_autorun <leg>`, debug build only) is allowed only for a rerun; the verdict line of every leg's first run must show `trigger=ui`.
+- Q2: the debug autorun extra (`adb -s R5CT10XNKQN shell am start -n io.github.ygaray.voiceactionengine.sample/.MainActivity --es vae_autorun <leg>`, debug build only) is allowed only for a rerun; the verdict line of every leg's first run must show `trigger=ui`. The app enforces it: an autorun of a leg that has not been run from the screen is refused with `VAE_VERDICT ... verdict=REFUSED reason=autorun_before_ui` and sends nothing.
 - Q4: if `README.md`, `INTEGRATION.md`, `API.md` or a public signature changes after the SHA recorded in `10-WIRING-TEST.md`, the wiring test reruns before Phase 11 cuts the tag. Today that status is `pending-rerun` (tested SHA 338d85ffa3); the rerun on the final SHA is a Phase 11 precondition.
 - Phase 10 creates no tag (D-08, D-12), no `api.txt` (D-09) and no release script (D-10).

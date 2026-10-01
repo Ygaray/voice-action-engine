@@ -24,7 +24,10 @@ internal object DebugTools {
     /**
      * The leg a debug intent asks to rerun, from its string extra `vae_autorun` (a leg's wire name), or null when the
      * extra is absent or names no leg. This is a RERUN convenience only: the first Gate-1 run of every leg is driven
-     * through the screen (D-01), so a leg's first verdict never carries `trigger=autorun`.
+     * through the screen (D-01), and `LegRunner` enforces it by refusing an autorun for a leg that has not been run from
+     * the screen (`autorun_before_ui`), so a leg's first verdict never carries `trigger=autorun`. The intent itself is
+     * not authenticated (a launcher activity must be exported): any app on a debug device can ask for a RERUN, bounded
+     * by the 33+1 request budget and the warm window; release builds ignore the extra entirely.
      */
     fun autorunLeg(intent: Intent?): LegId? {
         val wire = intent?.getStringExtra(AUTORUN_EXTRA) ?: return null

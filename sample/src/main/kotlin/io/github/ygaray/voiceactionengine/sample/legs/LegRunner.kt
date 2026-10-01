@@ -24,6 +24,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStr
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.keystore.KeyState
 import io.github.ygaray.voiceactionengine.sample.SampleEngine
+import io.github.ygaray.voiceactionengine.sample.TRIGGER_AUTORUN
 import io.github.ygaray.voiceactionengine.sample.evidence.CostEstimate
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceListener
@@ -128,10 +129,24 @@ internal class LegRunner(
     // The demos run on their own engine: the demo provider only, and a credential source that is never consulted.
     private val demoEngine = SampleEngine(listOf(demo), CredentialSource { CredentialLookup.Missing() }, demoSink, null)
 
-    /** Runs [leg] and returns its result. [trigger] is `ui` for a tap or `autorun` for a debug intent. */
+    // The legs that have been started from the screen in this process. A live leg's earlier runs are also in the budget file.
+    private val startedFromUi = HashSet<LegId>()
+
+    /**
+     * Runs [leg] and returns its result. [trigger] is `ui` for a tap or `autorun` for a debug intent. An autorun is a
+     * rerun convenience only (D-01): it is refused with `autorun_before_ui` for a leg that has not been run from the
+     * screen first, so an intent can never make a leg's first run.
+     */
     suspend fun run(leg: LegId, trigger: String = TRIGGER_UI): LegResult {
         if (!running.tryLock()) return refuse(leg, "another_leg_running", emptyMap(), trigger)
         try {
+            if (trigger == TRIGGER_AUTORUN) {
+                if (!startedFromUi.contains(leg) && budget.runsOf(leg.wire) == 0) {
+                    return refuse(leg, "autorun_before_ui", emptyMap(), trigger)
+                }
+            } else {
+                startedFromUi.add(leg)
+            }
             return runLocked(LegCatalog.spec(leg), trigger)
         } finally {
             running.unlock()
