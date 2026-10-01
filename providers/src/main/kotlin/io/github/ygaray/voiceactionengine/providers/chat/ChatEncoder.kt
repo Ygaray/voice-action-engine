@@ -44,7 +44,9 @@ private const val CHOICE_AUTO = "auto"
  * schema is the stripped copy. Every other tool goes out without a `strict` key and with the app's schema untouched.
  *
  * A required tool is sent as a named choice when the model can be forced to call it. Otherwise the choice is `auto` and
- * one line naming the tool closes the last user message; the system prompt and the tools stay as they are.
+ * one line naming the tool closes the last user message; the system prompt and the tools stay as they are. The line
+ * is written for a single-turn call: in a multi-turn tool loop the history ends with assistant and tool messages, so
+ * the line closes an earlier user turn rather than being the last thing the model reads.
  */
 internal fun encodeChatRequest(call: ProviderRequest, vendor: ChatVendor): ByteArray {
     val request = call.request
