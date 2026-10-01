@@ -1,0 +1,7 @@
+date_utc=2026-10-01T20:27:48Z
+head=e2b9f0be11
+verify-repo-hygiene.sh: HYGIENE OK
+jitpack-dry-run.sh: DRY RUN OK version=dryrun-e2b9f0be11 group=com.github.Ygaray.voice-action-engine
+gradlew check --offline: BUILD SUCCESSFUL in 1m 3s
+sample/build.gradle.kts configuration-time read inspection: none found (no env, file, fileTree, readText or exec match)
+debug apk bytes: 32989061
