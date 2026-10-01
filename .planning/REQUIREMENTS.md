@@ -76,9 +76,9 @@
 
 ### SingleShot Strategy (step 5)
 
-- [ ] **SHOT-01**: Consumer can run a `SingleShotStrategy` that makes one forced-tool extraction call using the app's `ToolSpecProvider`, then resolves the result locally through the app's `OutcomeResolver` into a (possibly batch) commit proposal routed through the commit path (GATE-01).
-- [ ] **SHOT-02**: Default mapping: no tool call / prose → `Escalate(NoToolCall)`; refusal → `Failed(REFUSAL)`; both overridable per tier; `parallel_tool_calls: false` on Chat Completions.
-- [ ] **SHOT-03**: CT's confirm scenarios pass as acceptance tests: weak match held for confirmation, batch proposal, amended confirm, deferred `commitHeld`.
+- [x] **SHOT-01**: Consumer can run a `SingleShotStrategy` that makes one forced-tool extraction call using the app's `ToolSpecProvider`, then resolves the result locally through the app's `OutcomeResolver` into a (possibly batch) commit proposal routed through the commit path (GATE-01).
+- [x] **SHOT-02**: Default mapping: no tool call / prose → `Escalate(NoToolCall)`; refusal → `Failed(REFUSAL)`; both overridable per tier; `parallel_tool_calls: false` on Chat Completions.
+- [x] **SHOT-03**: CT's confirm scenarios pass as acceptance tests: weak match held for confirmation, batch proposal, amended confirm, deferred `commitHeld`.
 
 ### Multi-turn Mappers (step 6a)
 
@@ -198,9 +198,9 @@
 | KEY-02 | Phase 6 | Complete |
 | KEY-03 | Phase 6 | Complete |
 | KEY-04 | Phase 6 | Complete |
-| SHOT-01 | Phase 7 | Pending |
-| SHOT-02 | Phase 7 | Pending |
-| SHOT-03 | Phase 7 | Pending |
+| SHOT-01 | Phase 7 | Complete |
+| SHOT-02 | Phase 7 | Complete |
+| SHOT-03 | Phase 7 | Complete |
 | XCR-01 | Phase 8 | Pending |
 | XCR-02 | Phase 8 | Pending |
 | XCR-03 | Phase 8 | Pending |
