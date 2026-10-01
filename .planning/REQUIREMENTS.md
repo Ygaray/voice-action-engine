@@ -37,7 +37,7 @@
 ### Commit, Gate & Undo Seam (steps 2, 6b; A2, A6, A17, E1)
 
 - [x] **GATE-01**: All writes go through one engine-owned path: strategy produces a prepared step (`Finished | Mutation`) → `PreApplyGate.admit(proposal)` (modeled on SB's `MutationGate.admit`, E1) → `Admit(amended?)` commits via `CommitSink`, or `Hold(reason?)` records a non-committing held proposal. Strategies never write directly. Each pending mutation carries an **app-owned opaque context object** that survives prepare → admit → apply; the gate may amend it (`Admit(amended)` = an amended context/proposal, e.g. SB's `PreMutationSnapshot` + merge authorization via `MutationDispatchContext`) and the engine never inspects it.
-- [ ] **GATE-02**: `PreApplyGate` supports **suspend mode** (SB: waits for the user inside `admit`; fail-closed on timeout/decline/error) via a shipped `AwaitingConfirmGate` helper (mutex, configurable timeout, default 120 s) and **defer mode** (CT: returns `Hold` immediately; the app later calls `commitHeld`, optionally with an amended batch — covers weak-match and "confirm all").
+- [x] **GATE-02**: `PreApplyGate` supports **suspend mode** (SB: waits for the user inside `admit`; fail-closed on timeout/decline/error) via a shipped `AwaitingConfirmGate` helper (mutex, configurable timeout, default 120 s) and **defer mode** (CT: returns `Hold` immediately; the app later calls `commitHeld`, optionally with an amended batch — covers weak-match and "confirm all").
 - [x] **GATE-03**: A `Hold` reason is optional and app-typed (the engine never requires or constructs one; A2's needs-confirmation + reason is carried when the app supplies it). A held action is never reported as success: inside the agent loop it yields the SB-byte-compatible `tool_result` `{"applied":false,"status":"held_for_confirmation"}`, and every outcome lists its held proposals.
 - [x] **GATE-04 (A17)**: `CommitSink` is notified **per mutating action as it happens** (not at run end) — every mutating call, including held, `is_error` and dry-run preview, not just commits — with a `runId` and an `ExecutedToolCall`-shaped payload: tool name, mutating flag, outcome (`committed | held | preview | is_error`), target ids, and the pre-mutation snapshot captured at the gate (shape kept compatible with the v1.1 `:undo` journal, A18).
 - [x] **GATE-05 (A17)**: `CommitSink.onRunClosed(runId, terminalOutcome)` fires exactly once on **every** exit path — done, cancelled, budget exceeded, provider error, escalation exhausted — proven by one test per path.
@@ -168,10 +168,10 @@
 | CORE-05 | Phase 2 | Pending |
 | CORE-06 | Phase 2 | Complete |
 | CORE-07 | Phase 2 | Complete |
-| CORE-08 | Phase 2 | Pending |
+| CORE-08 | Phase 2 | Complete |
 | CORE-09 | Phase 2 | Complete |
 | GATE-01 | Phase 2 | Complete |
-| GATE-02 | Phase 2 | Pending |
+| GATE-02 | Phase 2 | Complete |
 | GATE-03 | Phase 2 | Complete |
 | GATE-04 | Phase 2 | Complete |
 | GATE-05 | Phase 2 | Complete |
