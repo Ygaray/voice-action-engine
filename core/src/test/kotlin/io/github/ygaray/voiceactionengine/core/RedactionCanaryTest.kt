@@ -18,10 +18,14 @@ import io.github.ygaray.voiceactionengine.core.provider.OnDeviceAvailability
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
+import io.github.ygaray.voiceactionengine.core.strategy.Extraction
+import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
+import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
+import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
@@ -57,6 +61,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -408,6 +414,19 @@ class RedactionCanaryTest {
         )
         see(required)
         see(required.toolChoice)
+        sweepSingleShotSeams()
+    }
+
+    /** The app seams a single-shot tier is built on, built from canary-carrying values. */
+    private fun sweepSingleShotSeams() {
+        see(ToolingSnapshot("$CANARY-SYSTEM", listOf(canaryTool()), "lookup"))
+        see(Extraction("lookup", buildJsonObject { put("value", "$CANARY-ARGUMENT") }))
+        see(Resolution.Steps(listOf(ToolStep.Mutation(mutation("write"))), "$CANARY-REPLY"))
+        see(Resolution.NoMatch())
+        see(Resolution.Escalate(EscalationReason.NoToolCall(), Canary("CARRY")))
+        see(Resolution.Failed(FailureReason.Refusal(), null))
+        val input = CommandInput("$CANARY-TRANSCRIPT", "en", Canary("CONTEXT"))
+        see(UserTurnContext(input, ZonedDateTime.now(ZoneId.of("UTC")), Canary("CARRY")))
     }
 
     @Test

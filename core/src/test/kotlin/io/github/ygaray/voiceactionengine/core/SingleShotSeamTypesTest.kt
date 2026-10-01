@@ -15,6 +15,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
+import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
+import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
@@ -42,11 +44,17 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 private const val TOOL_NAME = "record_entries"
 private const val SYSTEM_MARKER = "SYSTEM-MARKER-4471"
 private const val ARGUMENT_MARKER = "ARGUMENT-MARKER-4471"
 private const val REPLY_MARKER = "REPLY-MARKER-4471"
+private const val TRANSCRIPT_MARKER = "TRANSCRIPT-MARKER-4471"
+private const val LOS_ANGELES = "America/Los_Angeles"
+private const val INSTANT = "2026-10-01T16:30:12.345Z"
 
 /** The app seams a single-shot tier is built on compose with the shipped write path before any strategy exists. */
 class SingleShotSeamTypesTest {
@@ -204,6 +212,65 @@ class SingleShotSeamTypesTest {
         assertTrue(extraction.toString(), extraction.toString().contains("argumentCount=1"))
         assertTrue(steps.toString(), steps.toString().contains("replyLength=${REPLY_MARKER.length}"))
         assertTrue(escalate.toString(), escalate.toString().contains("ReplyCarry"))
+    }
+
+    private fun dateTimeIn(zone: String): ZonedDateTime =
+        ZonedDateTime.ofInstant(Instant.parse(INSTANT), ZoneId.of(zone))
+
+    @Test
+    fun theStandardRendererFramesTheTranscriptWithTheLocalDateTimeInLosAngeles() = runTest {
+        val input = CommandInput("add two things", "en", null)
+        val context = UserTurnContext(input, dateTimeIn(LOS_ANGELES), null)
+
+        val text = UserTurnRenderer.standard().render(context)
+
+        assertEquals("Current local date-time: 2026-10-01T09:30:12-07:00 (America/Los_Angeles)\n\nadd two things", text)
+    }
+
+    @Test
+    fun theStandardRendererFramesTheTranscriptWithTheLocalDateTimeInUtc() = runTest {
+        val context = UserTurnContext(CommandInput("add two things", "en", null), dateTimeIn("UTC"), null)
+
+        val text = UserTurnRenderer.standard().render(context)
+
+        assertEquals("Current local date-time: 2026-10-01T16:30:12Z (UTC)\n\nadd two things", text)
+    }
+
+    @Test
+    fun theStandardRendererLeavesOutTheLanguageAndTheContext() = runTest {
+        val input = CommandInput("add two things", "es", ReplyCarry("CONTEXT-MARKER-4471"))
+        val context = UserTurnContext(input, dateTimeIn("UTC"), ReplyCarry("CARRY-MARKER-4471"))
+
+        val text = UserTurnRenderer.standard().render(context)
+
+        assertEquals("Current local date-time: 2026-10-01T16:30:12Z (UTC)\n\nadd two things", text)
+    }
+
+    @Test
+    fun aLambdaRendererIsCalledWithTheCommand() = runTest {
+        val renderer = UserTurnRenderer { "FRAMED[" + it.input.transcript + "]" }
+        val context = UserTurnContext(CommandInput("add two things", "en", null), dateTimeIn("UTC"), null)
+
+        assertEquals("FRAMED[add two things]", renderer.render(context))
+    }
+
+    @Test
+    fun aContextExposesItsPartsUnchangedAndPrintsNoContent() {
+        val input = CommandInput(TRANSCRIPT_MARKER, "en", ReplyCarry("CONTEXT-MARKER-4471"))
+        val carry = ReplyCarry("CARRY-MARKER-4471")
+        val dateTime = dateTimeIn("UTC")
+
+        val context = UserTurnContext(input, dateTime, carry)
+
+        assertSame(input, context.input)
+        assertSame(dateTime, context.dateTime)
+        assertSame(carry, context.carry)
+        val printed = context.toString()
+        assertFalse(printed, printed.contains(TRANSCRIPT_MARKER))
+        assertFalse(printed, printed.contains("CONTEXT-MARKER-4471"))
+        assertFalse(printed, printed.contains("CARRY-MARKER-4471"))
+        assertTrue(printed, printed.contains("transcriptLength=${TRANSCRIPT_MARKER.length}"))
+        assertTrue(printed, printed.contains("carry=ReplyCarry"))
     }
 
     private class ReplyCarry(val text: String) {
