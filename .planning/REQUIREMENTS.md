@@ -48,14 +48,14 @@
 
 - [x] **TEL-01**: Every outcome carries a `CommandTrace`: per-tier attempts, escalation reasons, provider/model, tokens normalized as `{inputUncached, cacheRead, cacheWrite, output}` across providers (Anthropic `input_tokens` excludes cached tokens; OpenAI `prompt_tokens` includes them), and latency. A cross-provider parity test proves the CORE-04 token ceiling (SB's sum semantics) counts the same work identically on every provider.
 - [x] **TEL-02**: Consumer can register an optional typed event callback that receives pipeline events live (tier started/finished, provider call, commit, hold, run closed, `CacheNotEngaged`).
-- [ ] **TEL-03**: A `CacheNotEngaged` event fires when a provider with caching declared returns zero cache read/write on a prefix above the model's minimum cacheable length (and stays silent below the minimum).
+- [x] **TEL-03**: A `CacheNotEngaged` event fires when a provider with caching declared returns zero cache read/write on a prefix above the model's minimum cacheable length (and stays silent below the minimum).
 - [ ] **TEL-04**: A canary test proves no API key, transcript, tool argument or tool_result content appears in the trace, events, any `toString()`, or any failure message; failures carry HTTP status and provider `error.type` only, never bodies.
 
 ### Providers (steps 3a, 3b)
 
-- [ ] **PROV-01**: Neutral multi-turn transcript types (messages, tool calls, tool results, system, usage, stop reason, cache directive, and a verbatim `NativeReplay` payload on assistant turns) live in `:core` from step 3a.
+- [x] **PROV-01**: Neutral multi-turn transcript types (messages, tool calls, tool results, system, usage, stop reason, cache directive, and a verbatim `NativeReplay` payload on assistant turns) live in `:core` from step 3a.
 - [x] **PROV-02**: The engine asks the app per call, through a seam, for the active provider, model and key; a provider switch takes effect on the next command; a missing key returns `NotConfigured` before any network call; one provider's key is never used for another.
-- [ ] **PROV-03**: Provider/model are snapshotted **once per command** (never re-read per loop iteration), so a mid-command settings change can't switch models and break the cache.
+- [x] **PROV-03**: Provider/model are snapshotted **once per command** (never re-read per loop iteration), so a mid-command settings change can't switch models and break the cache.
 - [ ] **PROV-04**: `AnthropicProvider` sends tools + system with exactly one `cache_control: ephemeral` on the (last) system block and no breakpoint on messages (A10 parity with SB's `buildRequestBody`), uses `anthropic-version 2023-06-01`, HTTPS-only fixed base URL (overridable for tests only), and a cancellation-safe `Call.await()` that closes late responses.
 - [ ] **PROV-05**: The tools + system prefix is byte-identical across calls and iterations for the same command inputs (tools sorted by name, no timestamps); a unit test encodes the same request twice and compares bytes.
 - [ ] **PROV-06**: The detected language (`CommandInput.language`), date/time and transcript are placed only in the user/messages portion — never interpolated into the cached tools + system prefix; a test proves switching `en`↔`es` leaves the prefix bytes unchanged.
@@ -96,8 +96,8 @@
 
 - [x] **CLN-01**: Library code has no DI-framework annotations; everything is wired with plain constructors/builders/DSL.
 - [ ] **CLN-02**: Library code contains no app-domain types or prompts (no `LogFood*`, `log_food`, SB `SYSTEM_PROMPT`, SB tool names, `MutationTier`) and hard-codes no tool count.
-- [ ] **CLN-03**: Limits and model ids come from policy/config defaults, not hard-coded constants.
-- [ ] **CLN-04**: The library never reads app settings storage directly (provider/model/key/policy arrive through seams).
+- [x] **CLN-03**: Limits and model ids come from policy/config defaults, not hard-coded constants.
+- [x] **CLN-04**: The library never reads app settings storage directly (provider/model/key/policy arrive through seams).
 - [x] **CLN-05**: Library comments carry no app planning ids (T-xx-xx, WR-xx, "Phase NN D-xx").
 
 ### Verification, Docs & Tag (step 7; A8, A10, A16, §11)
@@ -179,11 +179,11 @@
 | GATE-07 | Phase 2 | Complete |
 | TEL-01 | Phase 2 | Complete |
 | TEL-02 | Phase 2 | Complete |
-| TEL-03 | Phase 3 | Pending |
+| TEL-03 | Phase 3 | Complete |
 | TEL-04 | Phase 4 | Pending |
-| PROV-01 | Phase 3 | Pending |
+| PROV-01 | Phase 3 | Complete |
 | PROV-02 | Phase 3 | Complete |
-| PROV-03 | Phase 3 | Pending |
+| PROV-03 | Phase 3 | Complete |
 | PROV-04 | Phase 4 | Pending |
 | PROV-05 | Phase 4 | Pending |
 | PROV-06 | Phase 4 | Pending |
@@ -209,8 +209,8 @@
 | LOOP-03 | Phase 9 | Pending |
 | CLN-01 | Phase 1 | Complete |
 | CLN-02 | Phase 9 | Pending |
-| CLN-03 | Phase 3 | Pending |
-| CLN-04 | Phase 3 | Pending |
+| CLN-03 | Phase 3 | Complete |
+| CLN-04 | Phase 3 | Complete |
 | CLN-05 | Phase 1 | Complete |
 | VER-01 | Phase 10 | Pending |
 | VER-02 | Phase 10 | Pending |

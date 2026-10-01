@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: Core Engine
 current_phase: 03
 current_phase_name: Transcript Types, ProviderRouter & On-Device Gate
-status: executing
-stopped_at: Completed 03-09-PLAN.md
-last_updated: "2026-10-01T03:46:56.656Z"
+status: verifying
+stopped_at: Completed 03-10-PLAN.md
+last_updated: "2026-10-01T03:58:53.534Z"
 last_activity: 2026-09-30
 last_activity_desc: Phase 03 execution started
-state_head: 04658a4629909b3130dcc0eb68a2d62e52cddece
+state_head: 579465edf89200745322d91349494054b5724187
 progress:
   total_phases: 11
   completed_phases: 0
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md 
 
 Phase: 03 (Transcript Types, ProviderRouter & On-Device Gate) — EXECUTING
 Plan: 10 of 10
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-30 — Phase 03 execution started
 
 Progress: [░░░░░░░░░░] 0%
@@ -85,6 +85,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P07 | 25 min | 3 tasks | 6 files |
 | Phase 03 P08 | 5 min | 3 tasks | 4 files |
 | Phase 03 P09 | 20 min | 3 tasks | 4 files |
+| Phase 03 P10 | 20 min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,7 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-03: ProviderSelection fallback allowed only when own provider is ON_DEVICE and fallback is not ON_DEVICE (chains structurally impossible); CredentialLookup.Unreadable maps to FailureReason.CredentialUnreadable, distinct from NotConfigured — Loud, structural no-substitution; lost key surfaces as re-enter your key
 - [Phase 03]: 03-06: providerGate returns FailureReason? so the on-device fallback (03-08) reuses the same gate and maps its own trace code — One gate for primary and fallback; the static policy must hold for the provider a run-time selection picked
 - [Phase 03]: 03-08: a permitted on-device fallback records provider_fallback only; refusals record on_device_unavailable then fallback_refused
+- [Phase 03]: 03-10: phase gate green on merged tree with no main-source change; constructor audit passed (79 owners, none outside allowed list); evidence named api-surface-review.txt to stay clear of the pre-cut api.txt hygiene rule
 
 ### Pending Todos
 
@@ -139,6 +141,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-01T03:46:56.587Z
-Stopped at: Completed 03-09-PLAN.md
+Last session: 2026-10-01T03:58:49.053Z
+Stopped at: Completed 03-10-PLAN.md
 Resume file: None
