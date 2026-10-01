@@ -64,7 +64,7 @@ class ModelRouterTest {
         credentials: CredentialSource? = ScriptedCredentialSource.keys(ProviderId.ANTHROPIC to key),
         probe: suspend () -> Boolean = { false },
         table: ModelCapabilityTable = tableOf(providers),
-    ): ModelRouter = ModelRouter(providers.associateBy { it.id }, selection, credentials, table, clock, probe)
+    ): ModelRouter = ModelRouter(providers.associateBy { it.id }, selection, credentials, table, probe)
 
     private fun anthropicSelection(): ProviderSelectionSource =
         ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ANTHROPIC, "model-a"))
@@ -542,6 +542,29 @@ class ModelRouterTest {
         assertEquals("model-a", turn.model)
         assertEquals(0L, turn.usage.total)
         assertNull(turn.stopReason)
+    }
+
+    @Test
+    fun aClockThatStartsThrowingAfterTheRunBeganDoesNotBreakComplete() = runTest {
+        var reads = 0
+        val flaky: () -> Long = {
+            reads += 1
+            if (reads > 1) error("clock broke") else 0L
+        }
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            ModelCapabilities.UNKNOWN,
+            { _ -> FakeAiProvider.reply("ok", Usage.ZERO) },
+        )
+        val recorder = RunRecorder("run-1", null, null, 0, flaky, listener)
+        recorder.tierStarted(strategy)
+        val handle = bindDefault(routerOf(listOf(fake)), recorder)
+
+        val result = handle.complete(request)
+
+        assertEquals("ok", textOf(result))
+        finish(recorder)
+        assertEquals(0L, turnsOf(recorder).single().latencyMillis)
     }
 
     @Test

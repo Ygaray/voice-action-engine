@@ -6,16 +6,18 @@ import io.github.ygaray.voiceactionengine.core.commit.ExecutedAction
 import io.github.ygaray.voiceactionengine.core.commit.RunTermination
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.internal.GuardedClock
 
 /**
  * Collects what one run did, hands out immutable [CommandTrace] snapshots, and delivers each happening to the app's
  * [listener] as it occurs. Safe to call from several threads.
  *
- * State changes happen under a lock; the listener is called after the lock is released, so app code never runs while
- * the lock is held. A listener that throws is recorded once as [TraceCode.LISTENER_ERROR]; the failure itself
- * produces no event.
+ * State changes happen under a lock; the listener is called after the lock is released, and the app's clock is read
+ * before the lock is taken, so app code never runs while the lock is held. A listener that throws is recorded once as
+ * [TraceCode.LISTENER_ERROR]; the failure itself produces no event.
  *
- * @param clock milliseconds on a monotonic clock; the first reading is the run's start.
+ * @param clock milliseconds on a monotonic clock; the first reading is the run's start and may throw, later readings
+ * that throw answer with the last good one.
  * @param listener where events go, or null when the app set none.
  */
 internal class RunRecorder(
@@ -27,7 +29,9 @@ internal class RunRecorder(
     listener: PipelineEventListener? = null,
 ) {
     private val lock = Any()
-    private val startedAt = clock()
+    /** The run's clock: its first reading may throw, later readings never do. */
+    val runClock = GuardedClock(clock)
+    private val startedAt = runClock.read()
     private val codes = mutableListOf<TraceCode>()
     private val book = TierBook(startedAt)
     private var tokenTotal = 0L
@@ -45,9 +49,10 @@ internal class RunRecorder(
 
     /** Marks the moment [strategy] starts, for its latency, and starts collecting its turns. */
     suspend fun tierStarted(strategy: StrategyId) {
+        val now = runClock.read()
         synchronized(lock) {
             check(strategy !in skipped) { "tier $strategy was skipped and cannot start" }
-            book.start(strategy, clock())
+            book.start(strategy, now)
         }
         dispatch.send(PipelineEvent.TierStarted(runId, strategy))
     }
@@ -78,8 +83,9 @@ internal class RunRecorder(
         failure: FailureReason?,
         suppressed: EscalationReason?,
     ) {
+        val now = runClock.read()
         val attempt = synchronized(lock) {
-            book.close(clock()) { latency, turns ->
+            book.close(now) { latency, turns ->
                 TierAttempt(strategy, outcome, escalation, suppressed, failure, latency, turns)
             }
         }
@@ -92,9 +98,11 @@ internal class RunRecorder(
      * nothing when no tier is in flight, so it is safe to call on every exit path.
      */
     suspend fun flushInFlight(outcome: String, failure: FailureReason?) {
+        if (synchronized(lock) { book.inFlight } == null) return
+        val now = runClock.read()
         val attempt = synchronized(lock) {
             book.inFlight?.let { tier ->
-                book.close(clock()) { latency, turns ->
+                book.close(now) { latency, turns ->
                     TierAttempt(tier, outcome, null, null, failure, latency, turns)
                 }
             }
@@ -134,17 +142,20 @@ internal class RunRecorder(
     }
 
     /** An immutable trace of everything recorded so far. */
-    fun snapshot(): CommandTrace = synchronized(lock) {
-        CommandTrace(
-            runId = runId,
-            parentRunId = parentRunId,
-            language = language,
-            transcriptLength = transcriptLength,
-            startedAtMillis = startedAt,
-            durationMillis = clock() - startedAt,
-            attempts = book.attempts.toList(),
-            codes = codes.toList(),
-        )
+    fun snapshot(): CommandTrace {
+        val now = runClock.read()
+        return synchronized(lock) {
+            CommandTrace(
+                runId = runId,
+                parentRunId = parentRunId,
+                language = language,
+                transcriptLength = transcriptLength,
+                startedAtMillis = startedAt,
+                durationMillis = now - startedAt,
+                attempts = book.attempts.toList(),
+                codes = codes.toList(),
+            )
+        }
     }
 }
 

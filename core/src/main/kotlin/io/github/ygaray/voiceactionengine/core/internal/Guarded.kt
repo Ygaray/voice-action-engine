@@ -1,3 +1,5 @@
+@file:Suppress("TooGenericExceptionCaught")
+
 package io.github.ygaray.voiceactionengine.core.internal
 
 import kotlinx.coroutines.TimeoutCancellationException
@@ -41,8 +43,8 @@ internal suspend inline fun <T> guarded(onFault: (EngineFault) -> T, block: () -
 internal suspend inline fun <T> guardedUncancellable(onFault: (EngineFault) -> T, block: () -> T): T =
     guardedCore(cancellationIsFault = true, onFault = onFault, block = block)
 
-// The engine's single never-throw collapse point; every app callback is routed through here.
-@Suppress("TooGenericExceptionCaught")
+// The engine's never-throw collapse points (this one and guardedPlain below); the file-level suppression is the
+// repository's only one, and every app callback is routed through here.
 internal suspend inline fun <T> guardedCore(
     cancellationIsFault: Boolean,
     onFault: (EngineFault) -> T,
@@ -55,6 +57,18 @@ internal suspend inline fun <T> guardedCore(
 } catch (e: CancellationException) {
     if (!cancellationIsFault && !currentCoroutineContext().isActive) throw e
     onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
+} catch (e: LinkageError) {
+    onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
+} catch (e: Exception) {
+    onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
+}
+
+/**
+ * Like [guarded] for app code that is not a suspend call (a plain function such as the clock): exceptions and linkage
+ * errors become [onFault]'s value; other JVM errors propagate. There is no coroutine cancellation to preserve.
+ */
+internal inline fun <T> guardedPlain(onFault: (EngineFault) -> T, block: () -> T): T = try {
+    block()
 } catch (e: LinkageError) {
     onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
 } catch (e: Exception) {

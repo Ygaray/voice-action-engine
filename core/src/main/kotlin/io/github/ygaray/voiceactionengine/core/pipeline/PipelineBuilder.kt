@@ -160,7 +160,7 @@ public class PipelineBuilder internal constructor() {
             { provider, model -> byId[provider]?.capabilities(model) ?: ModelCapabilities.UNKNOWN },
             patches,
         )
-        val router = ModelRouter(byId, providerSelection, credentials, table, clock, probe)
+        val router = ModelRouter(byId, providerSelection, credentials, table, probe)
         return PipelineWiring(PolicyPreCheck(strategies.toList(), selector, probe), router, table)
     }
 }

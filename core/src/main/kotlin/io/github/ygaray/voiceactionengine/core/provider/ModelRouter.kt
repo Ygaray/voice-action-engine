@@ -75,7 +75,6 @@ internal fun providerGate(provider: ProviderId, declared: Set<ProviderId>, polic
  * @param selection the app's selection source, or null when none is set.
  * @param credentials the app's credential source, or null when none is set.
  * @param table the capability lookup applied to the bound model.
- * @param clock milliseconds on the pipeline's monotonic clock, used for each call's latency.
  * @param onDeviceProbe whether on-device inference is ready right now.
  */
 internal class ModelRouter(
@@ -83,7 +82,6 @@ internal class ModelRouter(
     private val selection: ProviderSelectionSource?,
     private val credentials: CredentialSource?,
     private val table: ModelCapabilityTable,
-    private val clock: () -> Long,
     private val onDeviceProbe: suspend () -> Boolean,
 ) {
     /** Binds the model [strategy] will use; a refused binding comes back as a refused handle, never an exception. */
@@ -93,7 +91,7 @@ internal class ModelRouter(
         policy: TierPolicy,
         recorder: RunRecorder,
     ): BoundModel = when (val step = resolve(strategy, declared, policy, recorder)) {
-        is Step.Go -> RoutedModel(step.value, strategy, recorder, clock)
+        is Step.Go -> RoutedModel(step.value, strategy, recorder)
         is Step.Stop -> {
             recorder.recordCode(step.code)
             RefusedModel(step.reason)

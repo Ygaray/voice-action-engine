@@ -48,4 +48,20 @@ class RunSetupGuardTest {
             assertTrue(sink.closes.isEmpty())
         }
     }
+
+    @Test
+    fun aClockThatThrowsAfterTheRunBeganDoesNotChangeTheOutcome() = runTest {
+        NoNetworkGuard.during {
+            val sink = RecordingCommitSink()
+            var reads = 0
+            val flaky: () -> Long = {
+                reads += 1
+                if (reads > 1) error("clock broke") else 0L
+            }
+            val outcome = result(sink, { "run-1" }, flaky).execute(CommandInput("hi"))
+
+            assertTrue(outcome is CommandOutcome.Completed)
+            assertEquals(1, sink.closes.size)
+        }
+    }
 }

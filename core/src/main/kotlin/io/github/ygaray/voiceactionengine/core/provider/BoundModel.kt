@@ -72,16 +72,16 @@ internal class RefusedModel(override val refusal: FailureReason) : BoundModel() 
 }
 
 /**
- * A usable handle. Concurrent [complete] calls are independent; each records its own turn through [recorder] on
- * [clock] (the same path a strategy's own `recordTurn` takes). The only state is a count of successful responses, which
- * the cache diagnostic needs to tell a first request from a later one. A request's turn is the number of responses
- * that had already completed when it was sent, plus one, so two overlapping first requests are both turn 1.
+ * A usable handle. Concurrent [complete] calls are independent; each records its own turn through [recorder], whose
+ * clock never throws once the run has begun (the same path a strategy's own `recordTurn` takes). The only state is a
+ * count of successful responses, which the cache diagnostic needs to tell a first request from a later one. A request's
+ * turn is the number of responses that had already completed when it was sent, plus one, so two overlapping first
+ * requests are both turn 1.
  */
 internal class RoutedModel(
     private val binding: Binding,
     private val strategy: StrategyId,
     private val recorder: RunRecorder,
-    private val clock: () -> Long,
 ) : BoundModel() {
     override val provider: ProviderId? get() = binding.provider.id
     override val model: String? get() = binding.model
@@ -99,7 +99,7 @@ internal class RoutedModel(
         val call = ProviderCall(binding.model, request, binding.credential, binding.capabilities)
         // Taken before sending: only responses that had completed when this request left can have written the cache.
         val priorSuccesses = successfulResponses.get()
-        val started = clock()
+        val started = recorder.runClock.read()
         val result = guarded(onFault = { fault ->
             recorder.recordCode(TraceCode.PROVIDER_ERROR)
             val reason = if (fault.timeoutLeak) {
@@ -109,7 +109,7 @@ internal class RoutedModel(
             }
             ModelResult.Failure(reason)
         }) { binding.provider.complete(call) }
-        recorder.turnRecorded(strategy, turnOf(result, clock() - started))
+        recorder.turnRecorded(strategy, turnOf(result, recorder.runClock.read() - started))
         if (result is ModelResult.Success) {
             successfulResponses.incrementAndGet()
             reportMissedCache(request, result.response.usage, priorSuccesses + 1)
