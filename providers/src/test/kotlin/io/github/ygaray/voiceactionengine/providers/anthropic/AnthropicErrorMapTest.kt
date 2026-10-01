@@ -162,6 +162,18 @@ class AnthropicErrorMapTest {
     }
 
     @Test
+    fun aDepletedCreditBalanceOn400IsBillingAndNeverRetried() {
+        val low = parse(400, message = "Your credit balance is too low to access the Anthropic API. $canary")
+        assertEquals("billing", low.reason().code)
+        assertTrue(low.userSpendLimit)
+        assertFalse(low.spendCapReached)
+        assertNoCanary(low)
+
+        // Only a 400 is refined: the same words on another status keep that status's own reason.
+        assertEquals("rate_limited", parse(429, message = "credit balance is too low").reason().code)
+    }
+
+    @Test
     fun theToolChoiceFlagFollowsTheMessageOnly() {
         val named = parse(400, message = "tool_choice: type \"tool\" and \"any\" are not supported for this model.")
         assertTrue(named.mentionsToolChoice)

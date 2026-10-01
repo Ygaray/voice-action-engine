@@ -22,6 +22,7 @@ private const val STATUS_OVERLOADED = 529
 
 private const val SPEND_CAP_ERROR_CODE = "enforced_spend_limit_reached"
 private const val USER_SPEND_LIMIT_PREFIX = "You have reached your specified"
+private const val LOW_CREDIT_MARKER = "credit balance is too low"
 private const val TOOL_CHOICE_MARKER = "tool_choice"
 
 // The status decides the reason; the two spend checks in reason() refine a 429 and a 400 before this table is read.
@@ -42,7 +43,8 @@ private val STATUS_REASONS: Map<Int, () -> FailureReason> = mapOf(
  * text. The body and the error message are never stored, so nothing the server echoed can reach a failure.
  *
  * @property spendCapReached the account's enforced spend cap was hit (a 429 that is billing, not a rate limit).
- * @property userSpendLimit the user-set spend limit was reached (a 400 that is billing, not a bad request).
+ * @property userSpendLimit the user-set spend limit was reached or the credit balance is too low (a 400 that is
+ * billing, not a bad request).
  * @property mentionsToolChoice the error message names `tool_choice`.
  */
 internal class AnthropicErrorInfo(
@@ -72,10 +74,14 @@ internal fun parseAnthropicError(status: Int, requestIdHeader: String?, body: St
         errorType = safeToken(textField(error, "type")),
         requestId = safeRequestId(requestIdHeader) ?: safeRequestId(textField(root, "request_id")),
         spendCapReached = status == STATUS_TOO_MANY_REQUESTS && errorCode == SPEND_CAP_ERROR_CODE,
-        userSpendLimit = status == STATUS_BAD_REQUEST && message?.startsWith(USER_SPEND_LIMIT_PREFIX) == true,
+        userSpendLimit = status == STATUS_BAD_REQUEST && isBillingMessage(message),
         mentionsToolChoice = message?.contains(TOOL_CHOICE_MARKER) == true,
     )
 }
+
+// A 400 is billing, not a bad request, when the account's own limit was reached or its credit balance ran out.
+private fun isBillingMessage(message: String?): Boolean =
+    message != null && (message.startsWith(USER_SPEND_LIMIT_PREFIX) || message.contains(LOW_CREDIT_MARKER))
 
 /** The failure reason for this answer, status first; a spend cap or a user spend limit is billing, never a retry. */
 internal fun AnthropicErrorInfo.reason(): FailureReason = when {
