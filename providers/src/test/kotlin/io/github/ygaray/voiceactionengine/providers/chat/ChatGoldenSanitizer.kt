@@ -28,10 +28,11 @@ private const val KEY_FINGERPRINT = "system_fingerprint"
 // Keys that never reach a committed golden: pricing, tier and user identity.
 private val DROPPED_KEYS = setOf("service_tier", "cost", "cost_details", "user_id")
 
-private val ID_IN_TEXT = Regex("(?<![A-Za-z0-9_])(chatcmpl-|gen-|call_)([A-Za-z0-9_-]*)")
-private val GOLDEN_TAIL = Regex("GOLDEN[0-9]*")
-private val KEY_IN_TEXT = Regex("(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}")
-private val BEARER_IN_TEXT = Regex("Bearer\\s+\\S+")
+// One rule set, shared with the hygiene scan in ChatGoldenReplayTest so the two cannot drift apart.
+internal val ID_IN_TEXT = Regex("(?<![A-Za-z0-9_])(chatcmpl-|gen-|call_)([A-Za-z0-9_-]*)")
+internal val GOLDEN_TAIL = Regex("GOLDEN[0-9]*")
+internal val KEY_IN_TEXT = Regex("(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}")
+internal val BEARER_IN_TEXT = Regex("Bearer\\s+\\S+")
 
 private val PRINTER = Json {
     prettyPrint = true

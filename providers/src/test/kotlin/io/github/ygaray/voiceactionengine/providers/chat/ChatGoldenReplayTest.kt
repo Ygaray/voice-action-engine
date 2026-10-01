@@ -176,10 +176,6 @@ private object GoldenReplay {
     }
 }
 
-private val KEY_SHAPE = Regex("(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}")
-private val BEARER_VALUE = Regex("Bearer\\s+\\S+")
-private val ID_VALUE = Regex("(?<![A-Za-z0-9_])(chatcmpl-|gen-|call_)([A-Za-z0-9_-]*)")
-private val GOLDEN_ID_TAIL = Regex("GOLDEN[0-9]*")
 private val FINGERPRINT_VALUE = Regex("\"system_fingerprint\"\\s*:\\s*([^,}\\s]+)")
 private val CREATED_VALUE = Regex("\"created\"\\s*:\\s*([^,}\\s]+)")
 private val USER_ID_KEY = Regex("\"user_id\"")
@@ -191,9 +187,9 @@ private val USER_ID_KEY = Regex("\"user_id\"")
  * never repeats the offending text.
  */
 internal fun goldenHygieneViolations(text: String): List<String> = buildList {
-    if (KEY_SHAPE.containsMatchIn(text)) add("key-shaped string (sk- followed by 16 or more key characters)")
-    if (BEARER_VALUE.containsMatchIn(text)) add("Bearer value")
-    if (ID_VALUE.findAll(text).any { !GOLDEN_ID_TAIL.matches(it.groupValues[2]) }) {
+    if (KEY_IN_TEXT.containsMatchIn(text)) add("key-shaped string (sk- followed by 16 or more key characters)")
+    if (BEARER_IN_TEXT.containsMatchIn(text)) add("Bearer value")
+    if (ID_IN_TEXT.findAll(text).any { !GOLDEN_TAIL.matches(it.groupValues[2]) }) {
         add("id that does not end in GOLDEN (chatcmpl-, gen- or call_)")
     }
     if (FINGERPRINT_VALUE.findAll(text).any { it.groupValues[1] != "null" }) add("system_fingerprint is not null")
