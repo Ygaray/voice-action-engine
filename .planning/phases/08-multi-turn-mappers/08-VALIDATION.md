@@ -1,9 +1,9 @@
 ---
 phase: "08"
 slug: "multi-turn-mappers"
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-01"
 ---
 
@@ -56,9 +56,9 @@ created: "2026-10-01"
 
 ## Wave 0 Requirements
 
-- [ ] `ConversationCheckTest` - XCR-02/03 (created test-first with the code)
-- [ ] `golden/conversations/` dir + `MANIFEST.tsv` + loader/hygiene
-- [ ] `conformance/` package (abstract suite + three dialect subclasses)
+- [x] `ConversationCheckTest` - XCR-02/03 (created test-first with the code)
+- [x] `golden/conversations/` dir + `MANIFEST.tsv` + loader/hygiene
+- [x] `conformance/` package (abstract suite + three dialect subclasses)
 
 ---
 
@@ -66,19 +66,26 @@ created: "2026-10-01"
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Live multi-turn golden capture | XCR-03 | Needs real provider keys (`with-test-keys`), opt-in, outside `check` | Run the extended `liveAnthropicCapture` / `liveChatCompletionsCapture` per plan 08 after master approval |
+| Live multi-turn golden capture | XCR-03 | Needs real provider keys (`with-test-keys`), opt-in, outside `check` | EXECUTED 2026-10-01 under approve-capture (14 requests, about USD 0.033); 5 captured goldens now replay under `check`. Re-run only to refresh. |
 
 ---
 
 ## Validation Sign-Off
 
-> **Plan-time state is a DRAFT.** Frontmatter stays `status: draft`, `nyquist_compliant: false`; the Nyquist finalizer sets them post-execution.
+> Finalized post-execution by the Nyquist finalizer (2026-10-01): every requirement row has an existing, green automated test (`./gradlew check --offline` exit 0; providers 572 tests per OkHttp leg, 0 failures).
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 300 s
-- [ ] `nyquist_compliant: true` set in frontmatter (post-execution only)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 300 s
+- [x] `nyquist_compliant: true` set in frontmatter (post-execution only)
 
-**Approval:** pending
+**Approval:** validated 2026-10-01
+
+## Validation Audit 2026-10-01
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
