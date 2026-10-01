@@ -1,21 +1,26 @@
 package io.github.ygaray.voiceactionengine.providers.conformance
 
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.provider.AiProvider
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicProvider
 import io.github.ygaray.voiceactionengine.providers.anthropic.anthropicRequest
 import io.github.ygaray.voiceactionengine.providers.anthropic.decodeAnthropicResponse
 import io.github.ygaray.voiceactionengine.providers.anthropic.encodeAnthropicRequest
+import io.github.ygaray.voiceactionengine.providers.anthropic.successBody
+import io.github.ygaray.voiceactionengine.providers.anthropic.textBlock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import okhttp3.HttpUrl
 
 /** The credential every conformance request carries; it is not a real key. */
 internal const val FAKE_KEY = "sk-test-key"
@@ -45,6 +50,9 @@ internal interface WireDialect {
     /** The provider id a decoded turn of this dialect is stamped with. */
     val providerId: ProviderId
 
+    /** Some other provider id, used to build a turn stamped for the wrong provider. */
+    val otherProviderId: ProviderId
+
     /** The request the production code is handed for [request] and [model]. */
     fun call(model: String, request: ModelRequest): ProviderRequest
 
@@ -71,6 +79,15 @@ internal interface WireDialect {
 
     /** How many wire messages carry the results of a turn with [callCount] calls. */
     fun resultMessageCount(callCount: Int): Int
+
+    /** A raw turn of a shape this dialect's provider refuses to replay. */
+    fun rawOfOtherShape(): JsonElement
+
+    /** The real provider, pointed at [baseUrl]. */
+    fun provider(baseUrl: HttpUrl): AiProvider
+
+    /** A minimal successful end-of-turn answer body. */
+    fun okAnswer(): String
 }
 
 /** What replaying one conversation produced: every request body in order, and the rule names that failed. */
@@ -196,6 +213,7 @@ private fun compact(element: JsonElement): String = Json.encodeToString(JsonElem
 internal object AnthropicWire : WireDialect {
     override val name: String = "anthropic"
     override val providerId: ProviderId = ProviderId.ANTHROPIC
+    override val otherProviderId: ProviderId = ProviderId.OPENAI
 
     override fun call(model: String, request: ModelRequest): ProviderRequest =
         anthropicRequest(model, request, FAKE_KEY)
@@ -227,6 +245,13 @@ internal object AnthropicWire : WireDialect {
     }
 
     override fun resultMessageCount(callCount: Int): Int = 1
+
+    // Anthropic replays a content array, so an object is the wrong shape.
+    override fun rawOfOtherShape(): JsonElement = JsonObject(emptyMap())
+
+    override fun provider(baseUrl: HttpUrl): AiProvider = AnthropicProvider { this.baseUrl = baseUrl }
+
+    override fun okAnswer(): String = successBody(listOf(textBlock("Done.")), "end_turn")
 
     private fun roleOf(message: JsonElement): String? = text((message as? JsonObject)?.get(KEY_ROLE))
 
