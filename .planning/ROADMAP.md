@@ -464,7 +464,7 @@ Plans:
   3. One live single-shot smoke call each to Anthropic, OpenAI and OpenRouter from `:sample` (Yahir's real keys) returns a parsed tool call.
   4. An AI agent can wire the engine into a new app from the README (plus the integration doc) alone. The docs cover the per-module coordinates, a minimal pipeline, every seam, both gate modes and the `else` branches on open taxonomies, and they point to `:sample` as the working example.
 
-**Plans**: 8/10 plans executed (one per wave, strictly sequential: 10-01 → 10-10; executors build and host-test only, the live legs run afterwards under Gate-1 by the agentic tester per GATE1-RUNBOOK.md; 10-09 and 10-10 end at decision checkpoints relayed through the master)
+**Plans**: 10/10 plans executed (one per wave, strictly sequential: 10-01 → 10-10; executors build and host-test only, the live legs run afterwards under Gate-1 by the agentic tester per GATE1-RUNBOOK.md; 10-09 and 10-10 end at decision checkpoints relayed through the master)
 
 **Wave 1**
 
@@ -500,11 +500,11 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 10-09-PLAN.md — agent wiring test: workspace generator + mechanical judge + selftest; master-dispatched fresh subagent (checkpoint); verdict in 10-WIRING-TEST.md
+- [x] 10-09-PLAN.md — agent wiring test: workspace generator + mechanical judge + selftest; master-dispatched fresh subagent (checkpoint); verdict in 10-WIRING-TEST.md
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 10-10-PLAN.md — GATE1-RUNBOOK.md + Gate-2 carry register + COVERAGE.md; live-leg approve/defer checkpoint via the master; phase gate on the merged tree
+- [x] 10-10-PLAN.md — GATE1-RUNBOOK.md + Gate-2 carry register + COVERAGE.md; live-leg approve/defer checkpoint via the master; phase gate on the merged tree
 
 **Device note**: all device work (Gate-1, the live smokes, the `:keystore` round trip) runs only on the wired TESTER (`…-s22-ultra-2`), never the personal phone (`…-s22-ultra`). Read `~/.claude/context/devices/common.md` first and always use `adb -s`.
 **Fixture note**: never commit the fixture or reference SB's path at build time. If SB's prompt or tools change before this phase, ask the orchestrator to regenerate it. Never hard-code the tool count (18, E4).
@@ -540,5 +540,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. SingleShot Strategy | 8/8 | Complete    | 2026-10-01 |
 | 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
 | 9. Agentic Loop Strategy | 9/9 | Complete    | 2026-10-01 |
-| 10. Sample Harness, Gate-1 & Docs | 8/10 | In Progress|  |
+| 10. Sample Harness, Gate-1 & Docs | 10/10 | In Progress|  |
 | 11. Cut v1.0.0 | 0/TBD | Not started | - |
