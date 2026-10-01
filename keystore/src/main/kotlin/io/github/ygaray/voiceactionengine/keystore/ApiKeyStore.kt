@@ -28,7 +28,7 @@ public class ApiKeyStore internal constructor(
     private val slotsByProvider: Map<ProviderId, KeySlot> = indexValidated(slots)
     private val writeMutex = Mutex()
     private val encoder: Base64.Encoder = Base64.getEncoder()
-    private val decoder: Base64.Decoder = Base64.getDecoder()
+    private val reader = SecretReader(keyAccess)
 
     /**
      * Encrypts [apiKey] (trimmed) and stores it for [provider], replacing any previous one.
@@ -74,31 +74,17 @@ public class ApiKeyStore internal constructor(
      * Reads what is stored for [provider]. A provider without a slot, or without a stored pair, is
      * [KeyState.NotConfigured]. Reading never creates a key and never changes storage.
      */
-    public suspend fun read(provider: ProviderId): KeyState {
-        val slot = slotsByProvider[provider] ?: return KeyState.NotConfigured()
-        val prefs = dataStore.data.first()
-        val ciphertext = prefs[stringPreferencesKey(slot.ciphertextKey)]
-        val iv = prefs[stringPreferencesKey(slot.ivKey)]
-        return if (ciphertext == null || iv == null) {
-            KeyState.NotConfigured()
-        } else {
-            withContext(ioDispatcher) { open(slot, iv, ciphertext) }
-        }
-    }
+    public suspend fun read(provider: ProviderId): KeyState = readSecret(provider).state
 
-    private fun open(slot: KeySlot, iv: String, ciphertext: String): KeyState {
-        val key = keyAccess.existingKey(slot.alias) ?: return KeyState.KeyMissing()
-        val plain = AesGcm.open(key, decoder.decode(iv), decoder.decode(ciphertext))
-        return KeyState.Ready(lastFour(String(plain, Charsets.UTF_8)))
+    internal suspend fun readSecret(provider: ProviderId): SecretRead {
+        val slot = slotsByProvider[provider] ?: return SecretRead(KeyState.NotConfigured(), null)
+        val prefs = dataStore.data.first()
+        return withContext(ioDispatcher) { reader.open(slot, prefs) }
     }
 
     /** Prints the providers only: never a key or a name of storage. */
     override fun toString(): String = "ApiKeyStore(providers=${slotsByProvider.keys.toList()})"
-
-    private fun lastFour(key: String): String = if (key.length > LAST_CHARS) key.takeLast(LAST_CHARS) else ""
 }
-
-private const val LAST_CHARS = 4
 
 /**
  * Copies the app's table and refuses a shape that would let one provider's save overwrite another's key: no rows, a
