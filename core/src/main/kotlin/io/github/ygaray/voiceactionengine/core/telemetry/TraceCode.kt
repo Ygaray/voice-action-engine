@@ -99,8 +99,8 @@ public value class TraceCode internal constructor(public val value: String) {
         public val FALLBACK_REFUSED: TraceCode = TraceCode("fallback_refused")
 
         /**
-         * The model answered with more tool calls than the strategy takes; only the first was used, and a completed
-         * outcome is partial.
+         * The model sent more tool calls than the strategy acts on (a single-shot tier's first call, or the calls after
+         * a terminal call); the extra calls were dropped, and a completed outcome is partial.
          */
         public val EXTRA_TOOL_CALLS_DROPPED: TraceCode = TraceCode("extra_tool_calls_dropped")
 

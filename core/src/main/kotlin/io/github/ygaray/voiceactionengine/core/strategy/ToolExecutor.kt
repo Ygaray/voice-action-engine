@@ -14,11 +14,13 @@ import io.github.ygaray.voiceactionengine.core.commit.ToolStep
  * invalid.
  *
  * A [ToolStep.Mutation] returned for a tool whose [ToolSpec.mutating] is false is rejected by the engine before the
- * gate, and the model is told the call failed. When the executor throws, the model gets an error result with a fixed
- * notice, never the exception text. A cancellation always propagates.
+ * gate, and the model is told the call failed. A preview or error result from such a tool is treated as a read: the
+ * model gets its content, and no action is recorded. When the executor throws, the model gets an error result with a
+ * fixed notice, never the exception text. A cancellation always propagates.
  *
  * The engine calls the executor one call at a time, in the order the model emitted the calls, and never for a tool name
- * the tier did not offer.
+ * the tier did not offer. It also never calls the executor for a terminal tool: the first call to one ends the run, and
+ * the calls after it are dropped.
  */
 public fun interface ToolExecutor {
     /** Prepares [call], one tool call the model made, for the command described by [input]. */
