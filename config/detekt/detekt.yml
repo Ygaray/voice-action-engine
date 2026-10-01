@@ -16,7 +16,8 @@ complexity:
 naming:
   MatchingDeclarationName:
     # Guarded.kt holds the guarded helper function plus its one small EngineFault carrier; the file is named for the function.
-    excludes: ['**/internal/Guarded.kt']
+    # StrategyLimits.kt holds the limit helper functions shared by the strategies plus the small default-clock object; the file is named for the functions.
+    excludes: ['**/internal/Guarded.kt', '**/strategy/StrategyLimits.kt']
   MemberNameEqualsClassName:
     # Resolution.Steps exposes its list as `steps` (the shape the app seam is signed off on); it reads as a plural list, not a constructor.
     excludes: ['**/strategy/OutcomeResolver.kt']

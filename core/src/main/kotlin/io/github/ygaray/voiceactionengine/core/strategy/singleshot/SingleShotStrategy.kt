@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.core.provider.BoundModel
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.CurrentZoneClock
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
@@ -19,6 +20,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
+import io.github.ygaray.voiceactionengine.core.strategy.ceilingCrossed
+import io.github.ygaray.voiceactionengine.core.strategy.ceilingReached
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
@@ -27,24 +30,9 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import java.time.Clock
-import java.time.Instant
-import java.time.ZoneId
 import java.time.ZonedDateTime
 
 private const val TOOL_MISSING_CODE = "single_shot_tool_missing"
-
-/**
- * The default clock: the system time with the device's zone read again on every call. `Clock.systemDefaultZone()` would
- * freeze the zone when the strategy is built, and a strategy lives as long as the app, so a traveller's relative
- * phrases ("tomorrow at 9") would resolve against the old zone.
- */
-private object CurrentZoneClock : Clock() {
-    override fun getZone(): ZoneId = ZoneId.systemDefault()
-
-    override fun withZone(zone: ZoneId): Clock = system(zone)
-
-    override fun instant(): Instant = Instant.now()
-}
 
 /**
  * A tier that turns one spoken command into one provider call and one local resolution.
