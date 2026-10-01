@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import io.github.ygaray.voiceactionengine.sample.net.OkHttpRuntime
 
 /** The sample's single screen; the full harness UI arrives in a later plan. */
 class MainActivity : ComponentActivity() {
@@ -22,6 +23,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Column(Modifier.semantics { testTagsAsResourceId = true }) {
                     Text("vae-sample", Modifier.testTag("title"))
+                    Text("okhttp ${OkHttpRuntime.version()}", Modifier.testTag("okhttp_version"))
                 }
             }
         }
