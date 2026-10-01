@@ -16,6 +16,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
 
 private const val UNKNOWN_TOOL_CONTENT = """{"status":"error","reason":"unknown_tool"}"""
 private const val TOOL_ERROR_CONTENT = """{"status":"error","reason":"tool_error"}"""
+private const val NOT_A_MUTATING_TOOL_CONTENT = """{"status":"error","reason":"not_a_mutating_tool"}"""
 
 /** What dispatching a turn's calls needs: the run's session, the command, the offered tools and the app's executor. */
 internal class DispatchContext(
@@ -47,9 +48,17 @@ private suspend fun unknownTool(context: DispatchContext, call: AssistantPart.To
 
 // The one place a prepared step becomes a result for the model; every step is submitted, so the write path is single.
 private suspend fun settle(context: DispatchContext, spec: ToolSpec, call: AssistantPart.ToolCall): ToolResult {
-    val step = prepare(context, spec, call)
+    val step = guardWrites(context, spec, prepare(context, spec, call))
     val dispatch = context.session.submit(step)
     return ToolResult(call.id, dispatch.contentForModel, dispatch.isError)
+}
+
+// A tool not declared mutating can never reach the gate: its change is dropped and the model gets an error. A read
+// step is never recorded, so nothing reaches the ledger or the sink.
+private suspend fun guardWrites(context: DispatchContext, spec: ToolSpec, step: ToolStep): ToolStep {
+    if (step !is ToolStep.Mutation || spec.mutating) return step
+    context.session.recordCode(TraceCode.READ_TOOL_MUTATION_REJECTED)
+    return ToolStep.Finished(spec.name, FinishedKind.READ, StepResult(NOT_A_MUTATING_TOOL_CONTENT, true))
 }
 
 // An executor fault is answered with a fixed notice, never the exception text. A failed attempt on a mutating tool is
