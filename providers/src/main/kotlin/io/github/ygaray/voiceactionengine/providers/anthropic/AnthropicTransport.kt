@@ -123,7 +123,6 @@ internal class AnthropicTransport(
     // (a billed, decoded answer would be lost), and its exception, which could carry any text, is dropped unread. The
     // only function here that catches this broadly, for that one reason; it is not a suspend function, so no
     // cancellation signal can pass through it.
-    @Suppress("TooGenericExceptionCaught")
     private fun notify(attempt: AnthropicAttempt) {
         try {
             observer?.onAttempt(attempt)

@@ -42,7 +42,6 @@ internal suspend fun Call.await(): HttpReply = suspendCancellableCoroutine { con
             // onFailure and would leave the awaiter suspended until its caller cancels. Every failure to read the
             // body therefore resumes the awaiter; a non-IOException is turned into a text-free IOException, because
             // its own message could carry anything.
-            @Suppress("TooGenericExceptionCaught")
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body
                 try {
