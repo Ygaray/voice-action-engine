@@ -68,11 +68,14 @@ public class TierAttempt internal constructor(
     /** The model of the tier's last reported turn, or null when it reported none. */
     public val model: String? get() = this.turns.lastOrNull()?.model
 
+    /** The provider the tier's last reported turn fell back from, or null when it reported none or had no fallback. */
+    public val fallbackFrom: ProviderId? get() = this.turns.lastOrNull()?.fallbackFrom
+
     /** The tokens used by the tier's turns, summed bucket by bucket. */
     public val usage: Usage = this.turns.fold(Usage.ZERO) { sum, turn -> sum + turn.usage }
 
     override fun toString(): String =
         "TierAttempt(strategy=$strategy, outcome=$outcome, escalationReason=$escalationReason, " +
             "suppressedEscalation=$suppressedEscalation, failure=$failure, latencyMillis=$latencyMillis, " +
-            "turns=${this.turns.size}, provider=$provider, model=$model, usage=$usage)"
+            "turns=${this.turns.size}, provider=$provider, model=$model, fallbackFrom=$fallbackFrom, usage=$usage)"
 }

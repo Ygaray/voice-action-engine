@@ -142,6 +142,61 @@ class TraceTest {
         }
     }
 
+    @Test
+    fun aFallbackTurnFlowsToTheAttemptTheEventAndTheToString() = runTest {
+        NoNetworkGuard.during {
+            val listener = RecordingEventListener()
+            val usage = Usage(INPUT, CACHE_READ, 0, OUTPUT)
+            val strategy = tier("a") { _, session ->
+                val fellBack = TurnRecord(
+                    ProviderId.ANTHROPIC, "model-a", "end_turn", emptyList(), usage, TURN_LATENCY, ProviderId.ON_DEVICE,
+                )
+                session.recordTurn(fellBack)
+                StrategyOutcome.Completed("ok")
+            }
+
+            val outcome = commandPipeline {
+                tier(strategy)
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+                this.listener = listener
+            }.execute(CommandInput("add milk"))
+
+            val attempt = outcome.trace.attempts.single()
+            assertEquals(ProviderId.ON_DEVICE, attempt.fallbackFrom)
+            assertEquals(ProviderId.ON_DEVICE, attempt.turns.single().fallbackFrom)
+            val call = listener.events.filterIsInstance<PipelineEvent.ProviderCall>().single()
+            assertEquals(ProviderId.ON_DEVICE, call.turn.fallbackFrom)
+            assertTrue(attempt.toString().contains("fallbackFrom=on_device"))
+            assertTrue(attempt.turns.single().toString().contains("fallbackFrom=on_device"))
+        }
+    }
+
+    @Test
+    fun aSixArgumentTurnHasNoFallbackAndATierWithNoTurnsHasNone() = runTest {
+        NoNetworkGuard.during {
+            assertNull(turn().fallbackFrom)
+
+            val reporting = tier("a") { _, session ->
+                session.recordTurn(turn())
+                StrategyOutcome.Completed("ok")
+            }
+            val withTurn = commandPipeline {
+                tier(reporting)
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+            }.execute(CommandInput("add milk"))
+            assertNull(withTurn.trace.attempts.single().fallbackFrom)
+
+            val silent = commandPipeline {
+                tier(tier("a") { _, _ -> StrategyOutcome.Completed("ok") })
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+            }.execute(CommandInput("add milk"))
+            assertNull(silent.trace.attempts.single().fallbackFrom)
+        }
+    }
+
     /** Maps an Anthropic response (its input excludes cached tokens) to the normalized usage. */
     private fun anthropicUsage(input: Long, cacheRead: Long, cacheWrite: Long, output: Long) =
         Usage(input, cacheRead, cacheWrite, output)

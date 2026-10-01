@@ -13,6 +13,8 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
  * @property toolNames the names of the tools the model called in this turn, in order.
  * @property usage the tokens this turn used, normalized to the four [Usage] buckets.
  * @property latencyMillis how long the round trip took.
+ * @property fallbackFrom the provider this turn fell back from (on-device when the declared fallback answered), or
+ * null.
  */
 public class TurnRecord(
     public val provider: ProviderId?,
@@ -21,11 +23,22 @@ public class TurnRecord(
     toolNames: List<String>,
     public val usage: Usage,
     public val latencyMillis: Long,
+    public val fallbackFrom: ProviderId?,
 ) {
+    /** A turn that did not fall back from another provider. */
+    public constructor(
+        provider: ProviderId?,
+        model: String?,
+        stopReason: String?,
+        toolNames: List<String>,
+        usage: Usage,
+        latencyMillis: Long,
+    ) : this(provider, model, stopReason, toolNames, usage, latencyMillis, null)
+
     /** A copy of the tool names. */
     public val toolNames: List<String> = toolNames.toList()
 
     override fun toString(): String =
         "TurnRecord(provider=$provider, model=$model, stopReason=$stopReason, toolNames=$toolNames, " +
-            "usage=$usage, latencyMillis=$latencyMillis)"
+            "usage=$usage, latencyMillis=$latencyMillis, fallbackFrom=$fallbackFrom)"
 }
