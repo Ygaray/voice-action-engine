@@ -220,7 +220,7 @@ class ChatGoldenReplayTest {
         case: String = "openai_forced_log_food",
         vendor: String = "openai",
         provenance: String = DERIVED,
-        source: String = "derived.json#openai_forced_log_food",
+        source: String = "derived.json#openai_forced_log_food_stop",
         expected: String = "success:tool_use:log_food",
     ): String = listOf(case, vendor, provenance, source, "200", TOOL_REQUIRED, expected, NO_VALUE, "derived: n")
         .joinToString("\t")
