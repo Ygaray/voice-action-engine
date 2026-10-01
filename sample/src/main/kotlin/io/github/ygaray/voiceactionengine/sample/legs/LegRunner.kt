@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
+import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
@@ -12,6 +13,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
+import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
+import io.github.ygaray.voiceactionengine.core.strategy.agentic.AgenticLoopStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.keystore.KeyState
@@ -27,8 +30,11 @@ import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
 import io.github.ygaray.voiceactionengine.sample.net.AttemptTap
 import io.github.ygaray.voiceactionengine.sample.net.LegContext
+import io.github.ygaray.voiceactionengine.sample.net.OkHttpRuntime
 import io.github.ygaray.voiceactionengine.sample.tools.CannedToolExecutor
 import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
+import io.github.ygaray.voiceactionengine.sample.verdict.CacheVerdict
+import io.github.ygaray.voiceactionengine.sample.verdict.MultiTurnVerdict
 import io.github.ygaray.voiceactionengine.sample.verdict.OutcomeSummary
 import io.github.ygaray.voiceactionengine.sample.verdict.SmokeVerdict
 import io.github.ygaray.voiceactionengine.sample.verdict.Verdict
@@ -126,14 +132,20 @@ internal class LegRunner(
         val variant = minOf(budget.runsOf(spec.id.wire), spec.prompts.size - 1)
         budget.recordRun(spec.id.wire)
         val context = LegContext(spec.id, spec.optional)
-        val legListener = EvidenceListener(spec.id, sink, loaded?.prefixChars)
+        val fixtureForLeg = if (spec.needsFixture) loaded else null
+        val legListener = EvidenceListener(spec.id, sink, fixtureForLeg?.prefixChars)
         val smoke = SmokeResolver(LegCatalog.liveTools)
         val pipeline = engine.pipeline(
-            tier = tierFor(spec, smoke),
+            tier = tierFor(spec, smoke, fixtureForLeg),
             selection = ProviderSelection(spec.provider, spec.model),
             policy = TierPolicy { maxIterations = spec.maxIterations },
         ) {
             listener = legListener
+        }
+
+        if (spec.kind == LegKind.AGENTIC_FIXTURE && fixtureForLeg != null) {
+            budget.markAgenticStart(nowSeconds())
+            emitEnv(spec, fixtureForLeg, pipeline)
         }
 
         tap.current = context
@@ -161,7 +173,27 @@ internal class LegRunner(
         if (refusal == null && spec.reservation > 0 && !budget.canStart(spec.reservation, spec.optional)) {
             refusal = "budget" to emptyMap()
         }
+        if (refusal == null && spec.kind == LegKind.AGENTIC_FIXTURE) {
+            // A second Anthropic agentic start inside the cache TTL would read the first run's cache and prove nothing.
+            val remaining = budget.warmWindowRemaining(nowSeconds())
+            if (remaining > 0L) refusal = "warm_window" to mapOf("remaining" to remaining)
+        }
         return refusal
+    }
+
+    // The runtime facts the cold-run verdict is read against: OkHttp, fixture digest, cache minimum and prefix size.
+    private fun emitEnv(spec: LegSpec, loaded: FixtureState.Loaded, pipeline: CommandPipeline) {
+        val capabilities = pipeline.capabilityTable.lookup(spec.provider, spec.model)
+        sink.emit(
+            EvidenceLine.env(
+                okhttp = OkHttpRuntime.version(),
+                fixtureSha = loaded.sha256,
+                fixtureTools = loaded.tools.size,
+                minCacheable = capabilities.minCacheablePrefixTokens,
+                prefixChars = loaded.prefixChars,
+                estPrefixTokens = (loaded.prefixChars / capabilities.charsPerToken).toInt(),
+            ),
+        )
     }
 
     private fun fixtureWord(state: FixtureState): String = when (state) {
@@ -171,14 +203,26 @@ internal class LegRunner(
         is FixtureState.Malformed -> "malformed"
     }
 
-    private fun tierFor(spec: LegSpec, smoke: SmokeResolver): CommandStrategy = when (spec.kind) {
-        LegKind.SINGLE_SHOT -> SingleShotStrategy(StrategyId("single")) {
-            tooling = ToolSpecProvider.fixed(LegCatalog.liveSnapshot(spec.forcedTool))
-            resolver = smoke
-            forceTool = true
+    private fun tierFor(spec: LegSpec, smoke: SmokeResolver, loaded: FixtureState.Loaded?): CommandStrategy =
+        when (spec.kind) {
+            LegKind.SINGLE_SHOT -> SingleShotStrategy(StrategyId("single")) {
+                tooling = ToolSpecProvider.fixed(LegCatalog.liveSnapshot(spec.forcedTool))
+                resolver = smoke
+                forceTool = true
+            }
+            LegKind.AGENTIC_FIXTURE -> {
+                val state = checkNotNull(loaded) { "the fixture leg needs a loaded fixture" }
+                AgenticLoopStrategy(StrategyId("agentic")) {
+                    tooling = ToolSpecProvider.fixed(ToolingSnapshot(state.system, state.tools, null))
+                    executor = CannedToolExecutor(state.tools)
+                }
+            }
+            LegKind.AGENTIC_SYNTHETIC -> AgenticLoopStrategy(StrategyId("agentic")) {
+                tooling = ToolSpecProvider.fixed(LegCatalog.liveSnapshot(null))
+                executor = CannedToolExecutor(LegCatalog.liveTools)
+            }
+            else -> error("leg kind ${spec.kind} is not wired yet")
         }
-        else -> error("leg kind ${spec.kind} is not wired yet")
-    }
 
     private fun judge(facts: RunFacts): Judged = when (facts.spec.kind) {
         LegKind.SINGLE_SHOT -> {
@@ -195,6 +239,19 @@ internal class LegRunner(
                 anthropicStrict = spec.provider == ProviderId.ANTHROPIC,
             )
             Judged(result.verdict, emptyMap(), result.optionalAbsent)
+        }
+        LegKind.AGENTIC_FIXTURE -> {
+            val result = CacheVerdict.classify(facts.turns, facts.attempts, facts.summary)
+            Judged(result.verdict, result.extras())
+        }
+        LegKind.AGENTIC_SYNTHETIC -> {
+            val result = MultiTurnVerdict.classify(
+                requireNotNull(facts.spec.readTool),
+                facts.turns,
+                facts.attempts,
+                facts.summary,
+            )
+            Judged(result.verdict, result.extras(facts.turns.size))
         }
         else -> error("leg kind ${facts.spec.kind} is not wired yet")
     }
