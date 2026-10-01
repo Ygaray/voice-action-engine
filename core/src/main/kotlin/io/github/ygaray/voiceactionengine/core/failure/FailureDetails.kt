@@ -20,13 +20,11 @@ public class FailureDetails(
 
     override fun hashCode(): Int {
         var result = httpStatus ?: 0
-        result = HASH_PRIME * result + (providerErrorType?.hashCode() ?: 0)
-        result = HASH_PRIME * result + (requestId?.hashCode() ?: 0)
+        result = mixHash(result, providerErrorType?.hashCode() ?: 0)
+        result = mixHash(result, requestId?.hashCode() ?: 0)
         return result
     }
 
     override fun toString(): String =
         "FailureDetails(httpStatus=$httpStatus, providerErrorType=$providerErrorType, requestId=$requestId)"
 }
-
-private const val HASH_PRIME = 31

@@ -128,4 +128,15 @@ class FailureTaxonomyTest {
         const val TWENTY_FIVE = 25
         const val HTTP_OK = 200
     }
+
+    @Test
+    fun aProviderUnavailableCauseMustBeAStableCodeNotAMessage() {
+        assertTrue(
+            runCatching { FailureReason.ProviderUnavailable(ProviderId.OPENAI, "Connection refused: key sk-123") }
+                .exceptionOrNull() is IllegalArgumentException,
+        )
+        assertEquals("provider_unavailable", FailureReason.ProviderUnavailable(ProviderId.OPENAI, null).code)
+        val device = FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, "on_device_unavailable")
+        assertEquals("on_device_unavailable", device.cause)
+    }
 }

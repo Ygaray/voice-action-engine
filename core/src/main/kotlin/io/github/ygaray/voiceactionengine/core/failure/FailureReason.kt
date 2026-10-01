@@ -18,7 +18,7 @@ public interface FailureReason {
         override val code: String get() = "auth"
         override fun equals(other: Any?): Boolean = other is Auth
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("Auth", code)
+        override fun toString(): String = describe("FailureReason", "Auth", code)
     }
 
     /** The provider account has a billing or quota problem. */
@@ -26,7 +26,7 @@ public interface FailureReason {
         override val code: String get() = "billing"
         override fun equals(other: Any?): Boolean = other is Billing
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("Billing", code)
+        override fun toString(): String = describe("FailureReason", "Billing", code)
     }
 
     /** The provider rejected the request as rate limited. */
@@ -34,7 +34,7 @@ public interface FailureReason {
         override val code: String get() = "rate_limited"
         override fun equals(other: Any?): Boolean = other is RateLimited
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("RateLimited", code)
+        override fun toString(): String = describe("FailureReason", "RateLimited", code)
     }
 
     /** The provider is temporarily overloaded. */
@@ -42,7 +42,7 @@ public interface FailureReason {
         override val code: String get() = "overloaded"
         override fun equals(other: Any?): Boolean = other is Overloaded
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("Overloaded", code)
+        override fun toString(): String = describe("FailureReason", "Overloaded", code)
     }
 
     /** A time limit expired before the provider or a tool answered. */
@@ -50,7 +50,7 @@ public interface FailureReason {
         override val code: String get() = "timeout"
         override fun equals(other: Any?): Boolean = other is Timeout
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("Timeout", code)
+        override fun toString(): String = describe("FailureReason", "Timeout", code)
     }
 
     /** The network failed before a usable response arrived. */
@@ -58,7 +58,7 @@ public interface FailureReason {
         override val code: String get() = "network"
         override fun equals(other: Any?): Boolean = other is Network
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("Network", code)
+        override fun toString(): String = describe("FailureReason", "Network", code)
     }
 
     /** The provider's response could not be understood. */
@@ -66,7 +66,7 @@ public interface FailureReason {
         override val code: String get() = "malformed_response"
         override fun equals(other: Any?): Boolean = other is MalformedResponse
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("MalformedResponse", code)
+        override fun toString(): String = describe("FailureReason", "MalformedResponse", code)
     }
 
     /** The model produced tool arguments that do not match the tool's schema. */
@@ -74,7 +74,7 @@ public interface FailureReason {
         override val code: String get() = "malformed_tool_args"
         override fun equals(other: Any?): Boolean = other is MalformedToolArgs
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("MalformedToolArgs", code)
+        override fun toString(): String = describe("FailureReason", "MalformedToolArgs", code)
     }
 
     /** The model refused to answer. */
@@ -82,7 +82,7 @@ public interface FailureReason {
         override val code: String get() = "refusal"
         override fun equals(other: Any?): Boolean = other is Refusal
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("Refusal", code)
+        override fun toString(): String = describe("FailureReason", "Refusal", code)
     }
 
     /** The model stopped because it hit its output token limit. */
@@ -90,7 +90,7 @@ public interface FailureReason {
         override val code: String get() = "max_tokens"
         override fun equals(other: Any?): Boolean = other is MaxTokens
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("MaxTokens", code)
+        override fun toString(): String = describe("FailureReason", "MaxTokens", code)
     }
 
     /** The model answered without calling any tool. */
@@ -98,7 +98,7 @@ public interface FailureReason {
         override val code: String get() = "no_tool_call"
         override fun equals(other: Any?): Boolean = other is NoToolCall
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("NoToolCall", code)
+        override fun toString(): String = describe("FailureReason", "NoToolCall", code)
     }
 
     /** A tool reported a failure that ended the run. */
@@ -106,7 +106,7 @@ public interface FailureReason {
         override val code: String get() = "tool_failure"
         override fun equals(other: Any?): Boolean = other is ToolFailure
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("ToolFailure", code)
+        override fun toString(): String = describe("FailureReason", "ToolFailure", code)
     }
 
     /** The chosen model does not support what was asked of it. */
@@ -114,7 +114,7 @@ public interface FailureReason {
         override val code: String get() = "model_unsupported"
         override fun equals(other: Any?): Boolean = other is ModelUnsupported
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("ModelUnsupported", code)
+        override fun toString(): String = describe("FailureReason", "ModelUnsupported", code)
     }
 
     /** The provider does not know the requested model. */
@@ -122,7 +122,7 @@ public interface FailureReason {
         override val code: String get() = "model_not_found"
         override fun equals(other: Any?): Boolean = other is ModelNotFound
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("ModelNotFound", code)
+        override fun toString(): String = describe("FailureReason", "ModelNotFound", code)
     }
 
     /** The provider paused the turn and the run could not continue it. */
@@ -130,7 +130,7 @@ public interface FailureReason {
         override val code: String get() = "pause_turn"
         override fun equals(other: Any?): Boolean = other is PauseTurn
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("PauseTurn", code)
+        override fun toString(): String = describe("FailureReason", "PauseTurn", code)
     }
 
     /** The conversation no longer fits the model's context window. */
@@ -138,7 +138,7 @@ public interface FailureReason {
         override val code: String get() = "context_window_exceeded"
         override fun equals(other: Any?): Boolean = other is ContextWindowExceeded
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("ContextWindowExceeded", code)
+        override fun toString(): String = describe("FailureReason", "ContextWindowExceeded", code)
     }
 
     /** The model stopped for a reason the engine does not recognise. */
@@ -146,7 +146,7 @@ public interface FailureReason {
         override val code: String get() = "unknown_stop"
         override fun equals(other: Any?): Boolean = other is UnknownStop
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("UnknownStop", code)
+        override fun toString(): String = describe("FailureReason", "UnknownStop", code)
     }
 
     /** The provider answered with an HTTP error that no other reason covers. */
@@ -154,7 +154,7 @@ public interface FailureReason {
         override val code: String get() = "http_error"
         override fun equals(other: Any?): Boolean = other is HttpError
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("HttpError", code)
+        override fun toString(): String = describe("FailureReason", "HttpError", code)
     }
 
     /** No tier in the ladder was allowed to run under the current policy. */
@@ -162,7 +162,7 @@ public interface FailureReason {
         override val code: String get() = "no_eligible_tier"
         override fun equals(other: Any?): Boolean = other is NoEligibleTier
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("NoEligibleTier", code)
+        override fun toString(): String = describe("FailureReason", "NoEligibleTier", code)
     }
 
     /** The tier policy could not be read, so nothing was run. */
@@ -170,42 +170,49 @@ public interface FailureReason {
         override val code: String get() = "policy_unavailable"
         override fun equals(other: Any?): Boolean = other is PolicyUnavailable
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("PolicyUnavailable", code)
+        override fun toString(): String = describe("FailureReason", "PolicyUnavailable", code)
     }
 
     /** The run exceeded a budget; [bound] says which one. */
     public class BudgetExceeded(public val bound: BudgetBound) : FailureReason {
         override val code: String get() = "budget_exceeded"
         override fun equals(other: Any?): Boolean = other is BudgetExceeded && bound == other.bound
-        override fun hashCode(): Int = code.hashCode() * HASH_PRIME + bound.hashCode()
-        override fun toString(): String = describe("BudgetExceeded", code, "bound" to bound)
+        override fun hashCode(): Int = mixHash(code.hashCode(), bound.hashCode())
+        override fun toString(): String = describe("FailureReason", "BudgetExceeded", code, "bound" to bound)
     }
 
     /** A provider is needed but has no credential or configuration; [provider] is null when not provider-specific. */
     public class NotConfigured(public val provider: ProviderId?) : FailureReason {
         override val code: String get() = "not_configured"
         override fun equals(other: Any?): Boolean = other is NotConfigured && provider == other.provider
-        override fun hashCode(): Int = code.hashCode() * HASH_PRIME + provider.hashCode()
-        override fun toString(): String = describe("NotConfigured", code, "provider" to provider)
+        override fun hashCode(): Int = mixHash(code.hashCode(), provider.hashCode())
+        override fun toString(): String = describe("FailureReason", "NotConfigured", code, "provider" to provider)
     }
 
-    /** A provider cannot be used right now; [cause] is a stable code (never a message) or null. */
+    /**
+     * A provider cannot be used right now; [cause] is a stable lower snake case code (`[a-z0-9_]+`, never a message)
+     * or null. Anything else is refused with [IllegalArgumentException], so free text can never reach `toString`.
+     */
     public class ProviderUnavailable(public val provider: ProviderId, public val cause: String?) : FailureReason {
+        init {
+            require(cause == null || isStableCode(cause)) { "ProviderUnavailable cause must be a stable code" }
+        }
+
         override val code: String get() = "provider_unavailable"
         override fun equals(other: Any?): Boolean =
             other is ProviderUnavailable && provider == other.provider && cause == other.cause
         override fun hashCode(): Int =
-            (code.hashCode() * HASH_PRIME + provider.hashCode()) * HASH_PRIME + cause.hashCode()
+            mixHash(mixHash(code.hashCode(), provider.hashCode()), cause.hashCode())
         override fun toString(): String =
-            describe("ProviderUnavailable", code, "provider" to provider, "cause" to cause)
+            describe("FailureReason", "ProviderUnavailable", code, "provider" to provider, "cause" to cause)
     }
 
     /** An unexpected exception ended the run; only its class name [errorClass] is kept, never its message. */
     public class Unexpected(public val errorClass: String) : FailureReason {
         override val code: String get() = "unexpected"
         override fun equals(other: Any?): Boolean = other is Unexpected && errorClass == other.errorClass
-        override fun hashCode(): Int = code.hashCode() * HASH_PRIME + errorClass.hashCode()
-        override fun toString(): String = describe("Unexpected", code, "errorClass" to errorClass)
+        override fun hashCode(): Int = mixHash(code.hashCode(), errorClass.hashCode())
+        override fun toString(): String = describe("FailureReason", "Unexpected", code, "errorClass" to errorClass)
     }
 
     /** A reason defined outside the engine, identified by its own stable [code]. */
@@ -216,14 +223,6 @@ public interface FailureReason {
 
         override fun equals(other: Any?): Boolean = other is Other && code == other.code
         override fun hashCode(): Int = code.hashCode()
-        override fun toString(): String = describe("Other", code)
+        override fun toString(): String = describe("FailureReason", "Other", code)
     }
-}
-
-private const val HASH_PRIME = 31
-
-/** Shared redaction-safe rendering: leaf name, code, and any extra stable fields. */
-private fun describe(leaf: String, code: String, vararg extras: Pair<String, Any?>): String {
-    val tail = extras.joinToString("") { ", ${it.first}=${it.second}" }
-    return "FailureReason.$leaf(code=$code$tail)"
 }
