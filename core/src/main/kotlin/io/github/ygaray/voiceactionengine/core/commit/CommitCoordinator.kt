@@ -133,9 +133,16 @@ internal class CommitCoordinator(
         return DispatchResult(heldForConfirmationContent(), false, true, actions)
     }
 
-    /** Applies the items one at a time; an item that fails never stops or undoes its siblings. */
+    /**
+     * Applies the items one at a time; an item that fails never stops or undoes its siblings. A cancelled caller stops
+     * the batch before the next item: an item that has not started leaves no record and the sink never hears of it,
+     * while the items already applied stay recorded and reported.
+     */
     private suspend fun applyAll(mutations: List<PendingMutation>): DispatchResult {
-        val changes = mutations.map { applyStep.run(it) }
+        val changes = mutations.map {
+            currentCoroutineContext().ensureActive()
+            applyStep.run(it)
+        }
         return DispatchResult(
             contentForModel = changes.joinToString(CONTENT_SEPARATOR) { it.content },
             isError = changes.any { it.action.kind == ActionKind.IS_ERROR },
