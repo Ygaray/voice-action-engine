@@ -64,7 +64,14 @@ for m in core providers keystore; do
   expect_red "printStackTrace ($m)"         $m 'internal fun p() { Exception("m").printStackTrace() }'   ":$m:scanBannedConstructs"
   expect_red "FQ DI annotation ($m)"         $m '@javax.inject.Inject internal class P'                   ":$m:scanBannedConstructs"
   expect_red "planning id comment ($m)"      $m '// T-01-02 leaked'                                       ":$m:detekt" ":$m:scanBannedConstructs"
+  expect_red "app-domain name ($m)"          $m 'internal const val P = "log_food"'                       ":$m:scanBannedConstructs"
+  expect_red "hard-coded tool count ($m)"    $m 'internal fun p(tools: List<Any>) = tools.size == 18'     ":$m:scanBannedConstructs"
 done
+# CLN-02 also covers core's testFixtures (shipped in no artifact, but they must name no app domain either).
+fx="core/src/testFixtures/kotlin/io/github/ygaray/voiceactionengine/core/testing/ZzPlant.kt"; PLANTS+=("$fx")
+printf 'package io.github.ygaray.voiceactionengine.core.testing\n\ninternal const val P = "log_food"\n' > "$fx"
+expect_task_red "app-domain name (core testFixtures)" "Banned constructs" :core:scanBannedConstructs
+rm -f "$fx"
 for m in core providers; do   # :keystore compiles against android.jar, which legitimately carries newer JDK APIs
   MARKER="Unresolved reference" expect_red "JDK 16 API (Stream.toList) in a JVM-11 module ($m)" $m 'internal fun p(): List<Int> = java.util.stream.Stream.of(1).toList()' ":$m:compileKotlin"
 done

@@ -1,0 +1,4 @@
+// EXPECT: hard-coded tool count
+package x
+internal fun hasAll(tools: List<Any>) = tools.size == 18
+// the app has 18 tools

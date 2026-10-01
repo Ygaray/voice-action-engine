@@ -11,3 +11,12 @@ val nested = "a ${listOf("b")[0]} println(1) runCatching { } ${'}'} System.out"
 fun print(x: Int) = x
 fun printable() = 1 // "print" as identifier prefix is fine
 fun g(printer: Any) = printer.toString()
+// CLN-02 near-misses: none of these is a deny-listed name or a tool count
+val catalog_food = 1
+val SYSTEM_PROMPTS_SEEN = 2
+fun createTagged() = 3
+val edit_text_cards = 4
+val edit_text_card_x = 5
+// a comment saying 118 tools
+val tools = listOf(1)
+val sizeOk = tools.size == 3

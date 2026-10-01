@@ -1,0 +1,6 @@
+// EXPECT: app-domain name in source
+package x
+internal const val FOOD_TOOL = "log_food"
+/** KDoc naming the result type LogFoodResult */
+internal class MutationTierMap
+internal const val CARD_TOOL = "edit_text_card"

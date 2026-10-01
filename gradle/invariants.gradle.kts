@@ -31,6 +31,26 @@ val bannedRules = listOf(
     Rule("app planning id in comment", Regex("""\b(T-\d+-\d+|WR-\d+|Phase\s+\d+\s+D-\d+)\b""")),
 )
 
+// CLN-02: matched against the UNMODIFIED file text. The rules above run on text with literals and comments blanked,
+// but an app-domain name or a tool count hides exactly there (a tool-name string, a KDoc sentence), so these must see it all.
+// Deny-list: only names already tracked in planning docs. The list lives here, in a .kts that is never scanned.
+val rawRules = listOf(
+    Rule(
+        "app-domain name in source",
+        Regex(
+            """\b(LogFood\w*|log_food|MutationTier\w*|SYSTEM_PROMPT|TAG_DISAMBIGUATION\w*""" +
+                """|find_tags|create_tag|edit_list_card|edit_text_card)\b""",
+        ),
+    ),
+    Rule(
+        "hard-coded tool count",
+        Regex(
+            """\b(TOOL_COUNT|EXPECTED_TOOL_COUNT|NUM_TOOLS|toolCount)\b|\b1[78]\s+tools?\b""" +
+                """|\b\w*[Tt]ools?\w*\s*\.\s*(size|count\s*\(\s*\))\s*==\s*1[78]\b""",
+        ),
+    ),
+)
+
 // Splits Kotlin source into (code with literal text blanked, comments only), both preserving line structure.
 // Template expressions (`${ ... }`) inside string and raw-string literals are real code, so the lexer switches back
 // to code mode for them (recursively: a template can contain strings, which can contain templates) and only the
@@ -160,12 +180,19 @@ fun scanText(label: String, text: String): List<String> {
             out += "$label:$line [${rule.id}] '${m.value.trim()}'"
         }
     }
+    for (rule in rawRules) {
+        rule.regex.findAll(text).forEach { m ->
+            val line = text.substring(0, m.range.first).count { it == '\n' } + 1
+            out += "$label:$line [${rule.id}] '${m.value.trim()}'"
+        }
+    }
     return out
 }
 
 val scanBanned = tasks.register("scanBannedConstructs") {
     group = "verification"
-    val files = fileTree("src/main") { include("**/*.kt", "**/*.java") }
+    // src/testFixtures exists only in :core (absent elsewhere, harmless): fixtures ship in no artifact but still must name no app.
+    val files = fileTree("src") { include("main/**/*.kt", "main/**/*.java", "testFixtures/**/*.kt", "testFixtures/**/*.java") }
     inputs.files(files)
     val moduleDir = projectDir
     val modulePath = project.path
