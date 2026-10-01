@@ -196,7 +196,7 @@ Plans:
   4. Cancelling a command mid-call cancels the HTTP call and closes any late response. The client has no logging interceptors, targets the fixed HTTPS base URL (overridable in tests only) with `anthropic-version 2023-06-01`, and reads bodies with `body?.string()`.
   5. A canary runs through the pipeline and the Anthropic transport with a known key, transcript, tool arguments and tool_result, plus a provider error body. None of them appears in the trace, the events, any `toString()` or any failure message; failures carry only the HTTP status and the provider `error.type`.
 
-**Plans**: 6/8 plans executed
+**Plans**: 7/8 plans executed
 
 Plans:
 **Wave 1**
@@ -222,7 +222,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 04-07-PLAN.md — Tracer: opt-in liveAnthropicCapture outside check (*Live* excluded from test and legs), Haiku 4.5 only, at most 6 requests; run once if the key is installed
+- [x] 04-07-PLAN.md — Tracer: opt-in liveAnthropicCapture outside check (*Live* excluded from test and legs), Haiku 4.5 only, at most 6 requests; run once if the key is installed
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -348,7 +348,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Scaffold & Publishing Proof | 6/6 | Complete    | 2026-09-30 |
 | 2. Core Contract, Pipeline & Commit Seam | 9/9 | Complete    | 2026-09-30 |
 | 3. Transcript Types, ProviderRouter & On-Device Gate | 10/10 | Complete    | 2026-09-30 |
-| 4. Anthropic Transport & OkHttp Matrix | 6/8 | In Progress|  |
+| 4. Anthropic Transport & OkHttp Matrix | 7/8 | In Progress|  |
 | 5. OpenAI & OpenRouter Transports | 0/TBD | Not started | - |
 | 6. Keystore | 0/TBD | Not started | - |
 | 7. SingleShot Strategy | 0/TBD | Not started | - |
