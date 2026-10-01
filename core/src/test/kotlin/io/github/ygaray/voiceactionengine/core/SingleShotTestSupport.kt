@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
+import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
@@ -13,12 +14,17 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy
+import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.RecordingEventListener
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedSelectionSource
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
+import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -90,13 +96,14 @@ internal class RecordingResolver(
     }
 }
 
-/** A single-shot tier with id `single_shot`, the fixed clock and [configure] applied last. */
+/** A single-shot tier with id [id], the fixed clock and [configure] applied last. */
 internal fun singleShot(
     resolver: OutcomeResolver,
     snapshot: ToolingSnapshot,
+    id: String = "single_shot",
     configure: SingleShotStrategy.Builder.() -> Unit = {},
 ): SingleShotStrategy =
-    SingleShotStrategy(StrategyId("single_shot")) {
+    SingleShotStrategy(StrategyId(id)) {
         tooling = ToolSpecProvider.fixed(snapshot)
         this.resolver = resolver
         clock = fixedClock
@@ -126,6 +133,14 @@ internal fun pipelineOf(
         runIds = { "run-${ids.incrementAndGet()}" }
     }
 }
+
+/** A successful provider answer with [parts] and an explicit [stop] reason. */
+internal fun answerOf(stop: StopReason, vararg parts: AssistantPart): ModelResult =
+    ModelResult.Success(ModelResponse(AssistantMessage(parts.toList()), stop, Usage(1, 0, 0, 1)))
+
+/** A tool call part for the answer helpers. */
+internal fun callOf(id: String, name: String, arguments: JsonObject): AssistantPart.ToolCall =
+    AssistantPart.ToolCall(id, name, arguments)
 
 /** The usual credentials: a key for Anthropic. */
 internal fun testKey(): ScriptedCredentialSource = ScriptedCredentialSource.keys(ProviderId.ANTHROPIC to "test-key")

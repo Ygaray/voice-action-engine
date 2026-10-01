@@ -63,7 +63,7 @@ class SingleShotRequestTest {
         val snapshot = snapshotOf(*tools, forced = forced)
         val fake = answeringWithTheTool()
         val sink = RecordingCommitSink()
-        val tier = singleShot(resolver, snapshot, configure)
+        val tier = singleShot(resolver, snapshot, configure = configure)
         val pipeline = pipelineOf(listOf(tier), fake, ScriptedGate.admitAll(), sink)
         return Run(pipeline.execute(CommandInput("add two things", "en", null)), fake, sink, resolver)
     }

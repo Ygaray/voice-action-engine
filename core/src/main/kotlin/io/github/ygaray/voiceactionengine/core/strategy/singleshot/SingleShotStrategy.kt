@@ -13,22 +13,22 @@ import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
+import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
-import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import java.time.Clock
 import java.time.ZonedDateTime
 
 private const val TOOL_MISSING_CODE = "single_shot_tool_missing"
-private const val UNKNOWN_RESOLUTION_CODE = "unknown_resolution"
 
 /**
  * A tier that turns one spoken command into one provider call and one local resolution.
@@ -53,8 +53,7 @@ public class SingleShotStrategy internal constructor(
     private val userTurn: UserTurnRenderer = settings.userTurn
     private val clock: Clock = settings.clock
     private val forceTool: Boolean = settings.forceTool
-    private val onNoToolCall: suspend (ModelResponse?) -> StrategyOutcome = settings.onNoToolCall
-    private val onRefusal: suspend (ModelResponse?) -> StrategyOutcome = settings.onRefusal
+    private val hooks = OutcomeHooks(settings.onNoToolCall, settings.onRefusal)
 
     override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome {
         val snapshot = tooling.tooling(input)
@@ -84,29 +83,25 @@ public class SingleShotStrategy internal constructor(
     }
 
     private suspend fun answer(attempt: Attempt, result: ModelResult): StrategyOutcome {
-        val response = (result as? ModelResult.Success)?.response
-        val call = response?.message?.toolCalls?.firstOrNull()
-        return if (call != null && response?.stopReason != StopReason.REFUSAL) {
-            resolve(attempt, call)
-        } else {
-            interim(result)
+        val calls = (result as? ModelResult.Success)?.response?.message?.toolCalls.orEmpty()
+        return decideResult(result, hooks) ?: route(attempt, calls)
+    }
+
+    // Only the first call is ever acted on; a call to a tool the snapshot never offered is not trusted.
+    private suspend fun route(attempt: Attempt, calls: List<AssistantPart.ToolCall>): StrategyOutcome {
+        val call = calls.firstOrNull() ?: return StrategyOutcome.Failed(FailureReason.MalformedResponse())
+        if (calls.size > 1) attempt.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+        val tool = attempt.snapshot.tools.firstOrNull { it.name == call.name }
+        return when {
+            tool == null -> StrategyOutcome.Escalate(EscalationReason.MalformedExtraction())
+            tool.terminal -> StrategyOutcome.Completed(null, TerminalCall(call.name, call.arguments))
+            else -> resolve(attempt, call)
         }
     }
 
-    private fun interim(result: ModelResult): StrategyOutcome =
-        if (result is ModelResult.Failure) {
-            StrategyOutcome.Failed(result.reason, result.details)
-        } else {
-            StrategyOutcome.Failed(FailureReason.UnknownStop())
-        }
-
     private suspend fun resolve(attempt: Attempt, call: AssistantPart.ToolCall): StrategyOutcome {
         val resolution = resolver.resolve(Extraction(call.name, call.arguments), attempt.input)
-        return if (resolution is Resolution.Steps) {
-            submitAll(attempt.session, resolution)
-        } else {
-            StrategyOutcome.Failed(FailureReason.Other(UNKNOWN_RESOLUTION_CODE))
-        }
+        return resolutionOutcome(resolution) { submitAll(attempt.session, it) }
     }
 
     // Finished steps first, in list order; then every mutation, in order, as one step so the gate decides once.
