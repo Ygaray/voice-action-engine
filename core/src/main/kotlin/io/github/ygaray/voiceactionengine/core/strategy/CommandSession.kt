@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.commit.DispatchResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
+import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 
 /**
  * What the engine hands a strategy for one run: the run's identity, the limits in force, whatever the previous tier
@@ -30,6 +31,19 @@ public abstract class CommandSession internal constructor() {
      * hears about it before this call returns. The result is what to tell the model.
      */
     public abstract suspend fun submit(step: ToolStep): DispatchResult
+
+    /**
+     * The tokens used so far in this run: the total of every turn's usage reported with [recordTurn], across tiers.
+     * A strategy that loops compares it with `policy.tokenCeiling`; it also enforces `policy.maxIterations` and
+     * `policy.maxTokensPerTurn` itself.
+     */
+    public abstract val tokensUsed: Long
+
+    /**
+     * Reports one model round trip. The engine attaches it to this tier's trace attempt, adds its tokens to
+     * [tokensUsed] and tells the event listener. The record must carry ids, codes, counts and tool names only.
+     */
+    public abstract suspend fun recordTurn(turn: TurnRecord)
 
     /** Prints ids and the carry's class name only. */
     final override fun toString(): String =

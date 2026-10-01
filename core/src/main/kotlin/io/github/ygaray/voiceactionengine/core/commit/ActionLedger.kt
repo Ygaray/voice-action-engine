@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core.commit
 
+import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -26,25 +27,32 @@ internal class ActionDetails(
  * Positions are handed out here, rising from 0 in the order actions are recorded. Writers are serialized by the
  * coordinator's mutex; readers (the outcome snapshot, the run close) may run at any time and see a consistent copy.
  */
-internal class ActionLedger {
+internal class ActionLedger(private val recorder: RunRecorder) {
     private val lock = Any()
     private val actions = CopyOnWriteArrayList<ExecutedAction>()
     private val proposals = CopyOnWriteArrayList<HeldProposal>()
 
-    /** Records an action of [kind] and returns it, with the next position. */
-    fun record(kind: ActionKind, applied: Boolean, details: ActionDetails): ExecutedAction = synchronized(lock) {
-        val action = ExecutedAction(
-            position = actions.size,
-            kind = kind,
-            applied = applied,
-            appOutcomeToken = details.appOutcomeToken,
-            toolName = details.toolName,
-            targetIds = details.targetIds,
-            context = details.context,
-            mutating = details.mutating,
-        )
-        actions.add(action)
-        action
+    /**
+     * Records an action of [kind] and returns it, with the next position. This is the only place an action is
+     * appended, so it is also the only place the run announces one.
+     */
+    suspend fun record(kind: ActionKind, applied: Boolean, details: ActionDetails): ExecutedAction {
+        val action = synchronized(lock) {
+            val made = ExecutedAction(
+                position = actions.size,
+                kind = kind,
+                applied = applied,
+                appOutcomeToken = details.appOutcomeToken,
+                toolName = details.toolName,
+                targetIds = details.targetIds,
+                context = details.context,
+                mutating = details.mutating,
+            )
+            actions.add(made)
+            made
+        }
+        recorder.actionRecorded(action)
+        return action
     }
 
     /** Remembers a change the gate held. */

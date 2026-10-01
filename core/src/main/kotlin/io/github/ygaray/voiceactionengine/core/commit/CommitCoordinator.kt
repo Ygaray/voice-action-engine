@@ -28,7 +28,7 @@ internal class CommitCoordinator(
 
     @Volatile
     private var closed = false
-    private val ledger = ActionLedger()
+    private val ledger = ActionLedger(recorder)
     private val gateStep = GateStep(gate, recorder)
     private val delivery = ActionDelivery(runId, parentRunId, sink, recorder)
     private val applyStep = ApplyStep(ledger, delivery, recorder)

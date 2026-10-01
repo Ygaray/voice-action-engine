@@ -8,6 +8,7 @@ import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.EngineFault
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import kotlinx.coroutines.NonCancellable
@@ -26,6 +27,7 @@ internal class HeldCommit(
     private val sink: CommitSink,
     private val clock: () -> Long,
     private val runIds: () -> String,
+    private val listener: PipelineEventListener?,
 ) {
     /** Commits [mutations] for [held] if nobody has yet, otherwise returns what the first caller got. */
     suspend fun resolve(held: HeldProposal, mutations: List<PendingMutation>): CommandOutcome =
@@ -33,11 +35,12 @@ internal class HeldCommit(
 
     private suspend fun runChild(held: HeldProposal, mutations: List<PendingMutation>): CommandOutcome {
         val runId = runIds()
-        val recorder = RunRecorder(runId, held.runId, null, 0, clock)
+        val recorder = RunRecorder(runId, held.runId, null, 0, clock, listener)
         val child = ChildRun(runId, held, CommitCoordinator(runId, held.runId, gate, sink, recorder), recorder)
         var outcome: CommandOutcome? = null
         var cancelled = false
         try {
+            recorder.commandStarted()
             outcome = guarded(onFault = { child.failed(it) }) {
                 child.coordinator.applyWithoutGate(mutations)
                 CommandOutcome.Completed(child.effects(), null, null, partial = false)

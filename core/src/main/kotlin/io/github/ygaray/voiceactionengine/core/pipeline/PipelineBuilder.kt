@@ -3,6 +3,7 @@ package io.github.ygaray.voiceactionengine.core.pipeline
 import io.github.ygaray.voiceactionengine.core.commit.CommitSink
 import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
+import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import java.util.UUID
 
 private const val NANOS_PER_MILLI = 1_000_000L
@@ -32,6 +33,12 @@ public class PipelineBuilder internal constructor() {
 
     /** The limits each command runs under; the default is [TierPolicy.DEFAULT] for every command. */
     public var policy: TierPolicySource = TierPolicySource.fixed(TierPolicy.DEFAULT)
+
+    /**
+     * Receives events as each command runs, or null for none (the default). It cannot suspend; if it throws, the
+     * command carries on and the trace records `listener_error`.
+     */
+    public var listener: PipelineEventListener? = null
 
     /** Milliseconds on a monotonic clock, used for the trace; replace it in tests. */
     public var clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI }
@@ -67,6 +74,7 @@ public class PipelineBuilder internal constructor() {
             policy,
             clock,
             runIds,
+            listener,
         )
     }
 }

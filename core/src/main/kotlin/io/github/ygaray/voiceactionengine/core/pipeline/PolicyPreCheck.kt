@@ -59,7 +59,7 @@ internal class PolicyPreCheck(
     }
 
     /** The failure for a ladder with no eligible tier; offline-only gets its own loud, specific reason. */
-    private fun nothingMayRun(policy: TierPolicy, recorder: RunRecorder): FailureReason =
+    private suspend fun nothingMayRun(policy: TierPolicy, recorder: RunRecorder): FailureReason =
         if (policy.offlineOnly) {
             recorder.recordCode(TraceCode.OFFLINE_UNAVAILABLE)
             FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, OFFLINE_CAUSE)

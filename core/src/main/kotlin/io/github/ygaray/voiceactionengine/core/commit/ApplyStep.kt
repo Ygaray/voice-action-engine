@@ -73,7 +73,7 @@ internal class ApplyStep(
         null
     }) { mutation.apply() }
 
-    private fun recordOutcome(mutation: PendingMutation, result: StepResult?): AppliedChange {
+    private suspend fun recordOutcome(mutation: PendingMutation, result: StepResult?): AppliedChange {
         val failed = result == null || result.isError
         val details = ActionDetails(
             toolName = mutation.toolName,

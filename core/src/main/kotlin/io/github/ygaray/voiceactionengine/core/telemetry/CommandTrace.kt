@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core.telemetry
 
+import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
@@ -13,6 +14,7 @@ import io.github.ygaray.voiceactionengine.core.failure.FailureReason
  * @property transcriptLength how many characters the transcript had.
  * @property attempts one entry per tier that ran, in order.
  * @property codes the engine codes recorded during the run, in order.
+ * @property usage the tokens used across all attempts' reported turns, summed bucket by bucket.
  * @property startedAtMillis when the run started, on the pipeline's clock.
  * @property durationMillis how long the run had been going when this trace was taken.
  */
@@ -26,9 +28,12 @@ public class CommandTrace internal constructor(
     public val attempts: List<TierAttempt> = emptyList(),
     public val codes: List<TraceCode> = emptyList(),
 ) {
+    /** The tokens used across all attempts' reported turns. */
+    public val usage: Usage = attempts.fold(Usage.ZERO) { sum, attempt -> sum + attempt.usage }
+
     override fun toString(): String =
         "CommandTrace(runId=$runId, parentRunId=$parentRunId, language=$language, " +
-            "transcriptLength=$transcriptLength, attempts=${attempts.size}, codes=$codes, " +
+            "transcriptLength=$transcriptLength, attempts=${attempts.size}, codes=$codes, usage=$usage, " +
             "startedAtMillis=$startedAtMillis, durationMillis=$durationMillis)"
 }
 
@@ -41,6 +46,7 @@ public class CommandTrace internal constructor(
  * @property suppressedEscalation the escalation that was blocked because earlier work had been done, when one was.
  * @property failure why it failed, when it did.
  * @property latencyMillis how long the tier took, on the pipeline's clock.
+ * @property turns the model round trips the tier reported, in order.
  */
 public class TierAttempt internal constructor(
     public val strategy: StrategyId,
@@ -49,8 +55,22 @@ public class TierAttempt internal constructor(
     public val suppressedEscalation: EscalationReason?,
     public val failure: FailureReason?,
     public val latencyMillis: Long,
+    turns: List<TurnRecord> = emptyList(),
 ) {
+    /** A copy of the round trips the tier reported. */
+    public val turns: List<TurnRecord> = turns.toList()
+
+    /** The provider of the tier's last reported turn, or null when it reported none. */
+    public val provider: ProviderId? get() = this.turns.lastOrNull()?.provider
+
+    /** The model of the tier's last reported turn, or null when it reported none. */
+    public val model: String? get() = this.turns.lastOrNull()?.model
+
+    /** The tokens used by the tier's turns, summed bucket by bucket. */
+    public val usage: Usage = this.turns.fold(Usage.ZERO) { sum, turn -> sum + turn.usage }
+
     override fun toString(): String =
         "TierAttempt(strategy=$strategy, outcome=$outcome, escalationReason=$escalationReason, " +
-            "suppressedEscalation=$suppressedEscalation, failure=$failure, latencyMillis=$latencyMillis)"
+            "suppressedEscalation=$suppressedEscalation, failure=$failure, latencyMillis=$latencyMillis, " +
+            "turns=${this.turns.size}, provider=$provider, model=$model, usage=$usage)"
 }

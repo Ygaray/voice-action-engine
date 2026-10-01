@@ -69,7 +69,7 @@ internal class TierWalk(
             return CommandOutcome.Failed(effects(), ladder.onDeviceFailure(), null)
         }
         recorder.tierStarted(strategy.id)
-        val session = RunSession(runId, parentRunId, strategy.id, policy, carry, coordinator)
+        val session = RunSession(runId, parentRunId, strategy.id, policy, carry, coordinator, recorder)
         return when (val outcome = executeGuarded(strategy, input, session)) {
             is StrategyOutcome.Completed -> {
                 recorder.tierFinished(strategy.id, ATTEMPT_COMPLETED, null, null, null)
@@ -86,14 +86,14 @@ internal class TierWalk(
         }
     }
 
-    private fun handUp(strategy: CommandStrategy, outcome: StrategyOutcome.Escalate): CommandOutcome? {
+    private suspend fun handUp(strategy: CommandStrategy, outcome: StrategyOutcome.Escalate): CommandOutcome? {
         recorder.tierFinished(strategy.id, ATTEMPT_ESCALATED, outcome.reason, null, null)
         carry = outcome.carry
         lastReason = outcome.reason
         return null
     }
 
-    private fun startFresh(strategy: CommandStrategy): CommandOutcome? {
+    private suspend fun startFresh(strategy: CommandStrategy): CommandOutcome? {
         recorder.tierFinished(strategy.id, ATTEMPT_NO_MATCH, null, null, null)
         carry = null
         lastReason = null
@@ -110,7 +110,7 @@ internal class TierWalk(
      * The tier asked to hand the command up after the run had already written or held something, so no later tier may
      * run: it would repeat the write. The command ends as a partial completion with the handed-up reason in the trace.
      */
-    private fun suppressed(strategy: CommandStrategy, reason: EscalationReason?): CommandOutcome {
+    private suspend fun suppressed(strategy: CommandStrategy, reason: EscalationReason?): CommandOutcome {
         recorder.recordCode(TraceCode.ESCALATION_SUPPRESSED)
         recorder.tierFinished(strategy.id, ATTEMPT_SUPPRESSED, null, null, reason)
         return CommandOutcome.Completed(effects(), reply = null, terminalCall = null, partial = true)
