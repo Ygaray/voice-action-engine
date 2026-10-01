@@ -8,12 +8,15 @@ import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilityTable
 import io.github.ygaray.voiceactionengine.core.provider.ModelRouter
+import io.github.ygaray.voiceactionengine.core.provider.OnDeviceAvailability
+import io.github.ygaray.voiceactionengine.core.provider.OnDeviceCapability
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import java.util.UUID
 
 private const val NANOS_PER_MILLI = 1_000_000L
+private const val NOT_IMPLEMENTED = "not_implemented"
 
 /** Marks the pipeline builder so a nested block cannot reach the outer builder's members by accident. */
 @DslMarker
@@ -68,10 +71,20 @@ public class PipelineBuilder internal constructor() {
     public var runIds: () -> String = { UUID.randomUUID().toString() }
 
     /**
-     * Whether on-device inference can run right now. Defaults to unavailable; the on-device tier plugs in here, so a
-     * ladder with an on-device-only tier fails loudly instead of climbing silently to the cloud.
+     * Tells the engine whether on-device inference can run right now. Version 1.0 has no on-device implementation, so
+     * the default reports [OnDeviceAvailability.Unavailable] with a "not implemented" code. Only
+     * [OnDeviceAvailability.Available] is usable; every other status counts as unavailable.
+     *
+     * A tier whose only provider is on-device fails loudly when it is unavailable and never climbs to the cloud. To
+     * fall back instead, declare both providers on the tier and a fallback on the app's selection; the fallback is
+     * still subject to the command's policy, so an offline-only command never reaches it.
      */
-    internal var onDeviceAvailability: suspend () -> Boolean = { false }
+    public var onDevice: OnDeviceCapability = OnDeviceCapability { OnDeviceAvailability.Unavailable(NOT_IMPLEMENTED) }
+
+    /** Whether [onDevice] reports available, read at call time; the pre-check and the router share this one hook. */
+    internal var onDeviceAvailability: suspend () -> Boolean = {
+        onDevice.availability() is OnDeviceAvailability.Available
+    }
 
     /** Adds [strategy] above the tiers already added. The first tier added is tried first. */
     public fun tier(strategy: CommandStrategy) {

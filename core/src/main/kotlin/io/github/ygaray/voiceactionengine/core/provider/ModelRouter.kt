@@ -30,6 +30,9 @@ private inline fun <A, B> Step<A>.then(next: (A) -> Step<B>): Step<B> = when (th
 private fun unexpectedOrTimeout(fault: EngineFault): FailureReason =
     if (fault.timeoutLeak) FailureReason.Timeout() else FailureReason.Unexpected(fault.errorClass)
 
+private fun onDeviceStop(code: TraceCode): Step.Stop =
+    Step.Stop(code, FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, ON_DEVICE_UNAVAILABLE_CAUSE))
+
 private fun notSelected(): Step.Stop = Step.Stop(TraceCode.PROVIDER_NOT_SELECTED, FailureReason.NotConfigured(null))
 
 private fun gate(provider: ProviderId, declared: Set<ProviderId>, policy: TierPolicy): Step<Unit> =
@@ -104,17 +107,24 @@ internal class ModelRouter(
         policy: TierPolicy,
         recorder: RunRecorder,
     ): Step<Binding> = select(strategy).then { chosen ->
-        gate(chosen.provider, declared, policy)
-            .then { onDevice(chosen.provider, recorder) }
-            .then { registered(chosen.provider) }
-            .then { provider ->
-                credential(provider).then { key ->
-                    capabilities(provider, chosen.model).then { caps ->
-                        Step.Go(Binding(provider, chosen.model, key, caps, null))
-                    }
+        gate(chosen.provider, declared, policy).then {
+            if (usable(chosen.provider, recorder)) {
+                bound(chosen, null)
+            } else {
+                viaFallback(chosen, declared, policy, recorder)
+            }
+        }
+    }
+
+    /** Registration, the credential for that provider only, then the model's capabilities. */
+    private suspend fun bound(chosen: ProviderSelection, fallbackFrom: ProviderId?): Step<Binding> =
+        registered(chosen.provider).then { provider ->
+            credential(provider).then { key ->
+                capabilities(provider, chosen.model).then { caps ->
+                    Step.Go(Binding(provider, chosen.model, key, caps, fallbackFrom))
                 }
             }
-    }
+        }
 
     private suspend fun select(strategy: StrategyId): Step<ProviderSelection> {
         val source = selection ?: return notSelected()
@@ -124,16 +134,37 @@ internal class ModelRouter(
         return answer.then { chosen -> chosen?.let { Step.Go(it) } ?: notSelected() }
     }
 
-    private suspend fun onDevice(provider: ProviderId, recorder: RunRecorder): Step<Unit> {
-        if (provider != ProviderId.ON_DEVICE) return Step.Go(Unit)
+    /** Whether [provider] can be called now; on-device needs a ready probe and a registered provider. */
+    private suspend fun usable(provider: ProviderId, recorder: RunRecorder): Boolean {
+        if (provider != ProviderId.ON_DEVICE) return true
         val ready = guarded(onFault = { recorder.recordCode(TraceCode.ON_DEVICE_PROBE_ERROR); false }) {
             onDeviceProbe()
         }
-        return if (ready && ProviderId.ON_DEVICE in providers) {
-            Step.Go(Unit)
-        } else {
-            val reason = FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, ON_DEVICE_UNAVAILABLE_CAUSE)
-            Step.Stop(TraceCode.ON_DEVICE_UNAVAILABLE, reason)
+        return ready && ProviderId.ON_DEVICE in providers
+    }
+
+    /**
+     * The only way past an unusable on-device selection is the fallback the app declared, and only when the tier and
+     * the policy permit its provider, exactly as for any selection. Otherwise the command fails loudly, before any key
+     * is asked for.
+     */
+    private suspend fun viaFallback(
+        chosen: ProviderSelection,
+        declared: Set<ProviderId>,
+        policy: TierPolicy,
+        recorder: RunRecorder,
+    ): Step<Binding> {
+        val fallback = chosen.fallback
+        return when {
+            fallback == null -> onDeviceStop(TraceCode.ON_DEVICE_UNAVAILABLE)
+            providerGate(fallback.provider, declared, policy) != null -> {
+                recorder.recordCode(TraceCode.ON_DEVICE_UNAVAILABLE)
+                onDeviceStop(TraceCode.FALLBACK_REFUSED)
+            }
+            else -> {
+                recorder.recordCode(TraceCode.PROVIDER_FALLBACK)
+                bound(fallback, ProviderId.ON_DEVICE)
+            }
         }
     }
 
