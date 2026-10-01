@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core.transcript
 
+import io.github.ygaray.voiceactionengine.core.failure.isRequestId
 import io.github.ygaray.voiceactionengine.core.failure.isStableCode
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 
@@ -10,6 +11,9 @@ import io.github.ygaray.voiceactionengine.core.telemetry.Usage
  * @property stopReason why the model stopped.
  * @property usage the tokens the call used, in the same four buckets as the trace.
  * @property requestId the provider's id for the request, or null when it gave none.
+ * @throws IllegalArgumentException when [requestId] is not a short identifier (letters, digits and `_ . : -`, 1 to
+ * 128 characters); it comes from the server and is printed by `toString`, so a transport drops a value that does not
+ * fit.
  */
 public class ModelResponse(
     public val message: AssistantMessage,
@@ -17,6 +21,10 @@ public class ModelResponse(
     public val usage: Usage,
     public val requestId: String?,
 ) {
+    init {
+        require(requestId == null || isRequestId(requestId)) { "requestId must be a short identifier" }
+    }
+
     /** A response with no request id. */
     public constructor(message: AssistantMessage, stopReason: StopReason, usage: Usage) :
         this(message, stopReason, usage, null)

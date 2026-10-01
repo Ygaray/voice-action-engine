@@ -75,8 +75,18 @@ internal inline fun <T> guardedPlain(onFault: (EngineFault) -> T, block: () -> T
     onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
 }
 
-/** The simple class name, or the last segment of the JVM name when the class is anonymous. */
+private const val CLASS_NAME_LENGTH = 128
+private const val UNKNOWN_CLASS = "Throwable"
+private val UNSAFE_CLASS_CHARS = Regex("[^A-Za-z0-9_$.-]")
+
+/**
+ * The simple class name, or the last segment of the JVM name when the class is anonymous. Anything outside letters,
+ * digits and `_ $ . -` becomes `_` and the name is cut to 128 characters, so the result is always a valid
+ * `FailureReason.Unexpected` class name even for an exotic class.
+ */
 internal fun errorClassOf(error: Throwable): String {
     val type = error::class.java
-    return type.simpleName.ifEmpty { type.name.substringAfterLast('.') }
+    val name = type.simpleName.ifEmpty { type.name.substringAfterLast('.') }
+    val clean = name.take(CLASS_NAME_LENGTH).replace(UNSAFE_CLASS_CHARS, "_")
+    return clean.ifEmpty { UNKNOWN_CLASS }
 }

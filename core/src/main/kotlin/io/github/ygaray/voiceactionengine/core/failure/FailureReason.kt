@@ -226,18 +226,34 @@ public interface FailureReason {
             describe("FailureReason", "ProviderUnavailable", code, "provider" to provider, "cause" to cause)
     }
 
-    /** An unexpected exception ended the run; only its class name [errorClass] is kept, never its message. */
+    /**
+     * An unexpected exception ended the run; only its class name [errorClass] is kept, never its message.
+     *
+     * @throws IllegalArgumentException when [errorClass] is not a class name (letters, digits and `_ . $ -`, 1 to 128
+     * characters), so free text can never reach `toString`, the trace or the event stream.
+     */
     public class Unexpected(public val errorClass: String) : FailureReason {
+        init {
+            require(isClassName(errorClass)) { "Unexpected errorClass must be a class name" }
+        }
+
         override val code: String get() = "unexpected"
         override fun equals(other: Any?): Boolean = other is Unexpected && errorClass == other.errorClass
         override fun hashCode(): Int = mixHash(code.hashCode(), errorClass.hashCode())
         override fun toString(): String = describe("FailureReason", "Unexpected", code, "errorClass" to errorClass)
     }
 
-    /** A reason defined outside the engine, identified by its own stable [code]. */
+    /**
+     * A reason defined outside the engine, identified by its own stable [code].
+     *
+     * @throws IllegalArgumentException when [code] is not a short identifier (letters, digits and `_ . : -`, 1 to 64
+     * characters), so a reason can never carry a sentence, a key or a line break into `toString`, the trace or events.
+     */
     public class Other(override val code: String) : FailureReason {
         init {
-            require(code.isNotBlank()) { "Other code must not be blank" }
+            require(isSafeToken(code)) {
+                "Other code must be a short identifier"
+            }
         }
 
         override fun equals(other: Any?): Boolean = other is Other && code == other.code
