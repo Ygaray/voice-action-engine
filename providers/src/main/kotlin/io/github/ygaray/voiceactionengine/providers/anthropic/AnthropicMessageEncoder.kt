@@ -29,16 +29,20 @@ private const val ROLE_ASSISTANT = "assistant"
 // Fixed text: no id, model or provider is ever interpolated into it.
 private const val REPLAY_REFUSED = "a replay stamped for another provider or model reached the encoder"
 
+/**
+ * Encodes the conversation as Messages API messages, oldest first. An assistant turn whose content comes out empty (a
+ * provider may return an empty turn, and the API rejects an empty assistant message with a 400) is left out; it holds
+ * no text and no call, so nothing is lost, and the user messages around it travel one after the other.
+ */
 internal fun encodeMessages(call: ProviderRequest): JsonArray = buildJsonArray {
     val messages = call.request.messages
     messages.forEachIndexed { index, message ->
-        add(
-            when (message) {
-                is UserMessage -> userMessage(message)
-                is AssistantMessage -> assistantMessage(message, call.model)
-                is ToolResultsMessage -> toolResultsMessage(message, precedingCalls(messages.getOrNull(index - 1)))
-            },
-        )
+        val encoded = when (message) {
+            is UserMessage -> userMessage(message)
+            is AssistantMessage -> assistantMessage(message, call.model)
+            is ToolResultsMessage -> toolResultsMessage(message, precedingCalls(messages.getOrNull(index - 1)))
+        }
+        if (encoded != null) add(encoded)
     }
 }
 
@@ -52,17 +56,23 @@ private fun userMessage(message: UserMessage): JsonObject = buildJsonObject {
 
 // A turn this provider produced for this model goes back as received, so thinking blocks and their signatures survive
 // the round trip, except that a tool_use block without an object input gets an empty one (see repairedBlock); a turn
-// with no replay is rebuilt from the neutral parts. The transport refuses any other
-// stamp before encoding, so the check here is a backstop: a stamped turn is never rebuilt.
-private fun assistantMessage(message: AssistantMessage, model: String): JsonObject = buildJsonObject {
-    put("role", ROLE_ASSISTANT)
+// with no replay is rebuilt from the neutral parts. The transport refuses any other stamp before encoding, so the
+// check here is a backstop: a stamped turn is never rebuilt. Null when the turn has no content to send.
+private fun assistantMessage(message: AssistantMessage, model: String): JsonObject? {
     val content = if (message.nativeReplay == null) {
         rebuiltContent(message)
     } else {
         val replay = message.nativeFor(ProviderId.ANTHROPIC, model)?.let { anthropicReplayContent(it) }
         repairedContent(checkNotNull(replay) { REPLAY_REFUSED })
     }
-    put("content", content)
+    return if (content.isEmpty()) {
+        null
+    } else {
+        buildJsonObject {
+            put("role", ROLE_ASSISTANT)
+            put("content", content)
+        }
+    }
 }
 
 /**

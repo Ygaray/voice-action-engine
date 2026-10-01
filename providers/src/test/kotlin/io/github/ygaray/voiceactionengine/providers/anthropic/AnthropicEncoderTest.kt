@@ -426,4 +426,24 @@ class AnthropicEncoderTest {
             assertEquals(raw.toString(), accepted, encodes)
         }
     }
+
+    @Test
+    fun anAssistantTurnWithNoContentIsLeftOutOfTheMessages() {
+        val emptyStamped =
+            AssistantMessage(emptyList(), NativeReplay(ProviderId.ANTHROPIC, model, JsonArray(emptyList())))
+        val onlyEmptyText = AssistantMessage(listOf(AssistantPart.Text("")))
+        val thinkingOnly = AssistantMessage(
+            emptyList(),
+            NativeReplay(ProviderId.ANTHROPIC, model, JsonArray(listOf(thinkingBlock("hmm")))),
+        )
+        for (empty in listOf(AssistantMessage(emptyList()), onlyEmptyText, emptyStamped)) {
+            val request = call(messages = listOf(UserMessage("one"), empty, UserMessage("two")))
+            assertEquals(listOf("user", "user"), roles(request))
+        }
+        val kept = call(messages = listOf(UserMessage("one"), thinkingOnly, UserMessage("two")))
+        assertEquals(listOf("user", "assistant", "user"), roles(kept))
+    }
+
+    private fun roles(request: ProviderRequest): List<String> =
+        parse(request).getValue("messages").jsonArray.map { it.jsonObject.getValue("role").jsonPrimitive.content }
 }
