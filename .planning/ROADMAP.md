@@ -151,7 +151,36 @@ Plans:
   4. A fake provider that declares caching and returns zero cache read/write on a prefix above the model's minimum cacheable length raises `CacheNotEngaged`. The same result below the minimum stays silent.
   5. Limits and model ids reach the engine only through `TierPolicy` defaults, the selection seam and the app-overridable capability table. No hard-coded model-id or limit constant exists in library code, and no library code reads app settings storage.
 
-**Plans**: TBD
+**Plans**: 10 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Tracer: neutral transcript types (sealed Message/AssistantPart, ToolResult, NativeReplay, ModelRequest/Response, ToolChoice, CacheDirective, StopReason); sealed allow-list widened to seven
+- [ ] 03-02-PLAN.md — Tracer: ModelCapabilities/CachingMode/ModelCapabilityTable (override > provider default > unknown); NoHardCodedConstantsTest (CLN-03/04 scan + no on-device implementation tokens)
+- [ ] 03-03-PLAN.md — Tracer: app seams (ProviderSelectionSource + one-level on-device fallback, CredentialSource + typed lookup, OnDeviceCapability); CredentialUnreadable; scripted source fakes
+- [ ] 03-04-PLAN.md — Tracer: TurnRecord/TierAttempt fallbackFrom; thirteen router trace codes
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-05-PLAN.md — Tracer: AiProvider/ProviderCall/ModelResult contract + FakeAiProvider; ToolSpec.strict via @JvmOverloads; ApiShapeTest growth rule
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-06-PLAN.md — Tracer: ModelRouter.bind (selection, policy gate, on-device probe, credential, capabilities) -> frozen BoundModel -> provider; every refusal typed, traced, call-free; capability check before call
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-07-PLAN.md — Tracer: session.model() lazy frozen per-tier handle through commandPipeline { provider; providerSelection; credentials; capabilities }; capabilityTable; one probe instance; snapshot under turns, tiers and concurrency
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 03-08-PLAN.md — Tracer: public ON_DEVICE gate behind the one internal hook; declared, policy-checked fallback with its own key; KeyIsolationTest
+- [ ] 03-09-PLAN.md — Tracer: CacheNotEngaged detection after each response (D-08..D-10, divisor 4.0 capped by billed prompt)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 03-10-PLAN.md — Tracer: routed-path redaction canary; phase gate, sealed-complete review, constructor audit, decision/edge/prohibition trace
 
 ### Phase 4: Anthropic Transport & OkHttp Matrix
 
