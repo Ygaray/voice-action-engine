@@ -16,3 +16,11 @@ internal fun safeToken(value: String?): String? =
 /** Like [safeToken] for a provider request id, which may be up to 128 characters. */
 internal fun safeRequestId(value: String?): String? =
     value?.takeIf { it.length <= REQUEST_ID_MAX_LENGTH && SAFE_IDENTIFIER.matches(it) }
+
+/**
+ * True when [value] can be sent as an HTTP header value: visible ASCII, space and tab. OkHttp's own refusal of a bad
+ * header value quotes the whole value, so a pasted newline would put an API key in an exception message; a transport
+ * runs this on the key before it builds any request and answers a failure with a plain auth reason instead. An empty
+ * value passes: whether a credential may be empty is the credential type's concern, not the header's.
+ */
+internal fun isHeaderSafe(value: String): Boolean = value.all { it == '\t' || it in ' '..'~' }

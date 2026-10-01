@@ -2,7 +2,9 @@ package io.github.ygaray.voiceactionengine.providers.http
 
 import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SafeFieldsTest {
@@ -43,6 +45,21 @@ class SafeFieldsTest {
     fun safeRequestIdRejectsEverythingElse() {
         assertNull(safeRequestId("r".repeat(129)))
         rejected.forEach { assertNull("request id input: $it", safeRequestId(it)) }
+    }
+
+    @Test
+    fun headerSafeAcceptsPrintableAsciiSpaceAndTab() {
+        assertTrue(isHeaderSafe("sk-test-key"))
+        assertTrue(isHeaderSafe("inner space"))
+        assertTrue(isHeaderSafe("with\ttab"))
+        assertTrue(isHeaderSafe(""))
+    }
+
+    @Test
+    fun headerSafeRejectsControlAndNonAsciiCharacters() {
+        listOf("key\n", "in\rner", "nul\u0000", "del\u007f", "naïve").forEach {
+            assertFalse("header input of length ${it.length}", isHeaderSafe(it))
+        }
     }
 
     @Test

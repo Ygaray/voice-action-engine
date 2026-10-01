@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.providers.http.HttpReply
 import io.github.ygaray.voiceactionengine.providers.http.OneShotJsonBody
 import io.github.ygaray.voiceactionengine.providers.http.await
+import io.github.ygaray.voiceactionengine.providers.http.isHeaderSafe
 import io.github.ygaray.voiceactionengine.providers.http.isTransientStatus
 import io.github.ygaray.voiceactionengine.providers.http.retryAfterSeconds
 import io.github.ygaray.voiceactionengine.providers.http.transientWaitMillis
@@ -44,9 +45,6 @@ private fun refusalFor(credential: Credential?): FailureReason? = when {
     !isHeaderSafe(credential.apiKey) -> FailureReason.Auth()
     else -> null
 }
-
-// Visible ASCII, space and tab: what a header value may carry without OkHttp rejecting it.
-private fun isHeaderSafe(value: String): Boolean = value.all { it == '\t' || it in ' '..'~' }
 
 /**
  * One logical call against the Messages endpoint: encode, POST, await, decode, and at most two more POSTs: one when a
