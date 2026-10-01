@@ -1,0 +1,35 @@
+{
+  "system": "You are a synthetic assistant used only by the sample's host tests.",
+  "tools": [
+    {
+      "name": "find_items",
+      "description": "Finds items matching a query.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "query": { "type": "string" } },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_item",
+      "description": "Creates an item with a title.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "title": { "type": "string" } },
+        "required": ["title"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delete_item",
+      "description": "Deletes an item by id.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "id": { "type": "string" } },
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
