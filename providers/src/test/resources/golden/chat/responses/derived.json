@@ -533,14 +533,6 @@
       "code": "server_error"
     }
   },
-  "openai_401": {
-    "error": {
-      "message": "Incorrect API key provided.",
-      "type": "invalid_request_error",
-      "param": null,
-      "code": "invalid_api_key"
-    }
-  },
   "openai_quota_429": {
     "error": {
       "message": "You exceeded your current quota, please check your plan and billing details.",
@@ -798,12 +790,6 @@
         "flagged_input": "synthetic flagged text",
         "provider_name": "Example"
       }
-    }
-  },
-  "openrouter_401": {
-    "error": {
-      "code": 401,
-      "message": "No auth credentials found"
     }
   }
 }
