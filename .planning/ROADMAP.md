@@ -196,13 +196,13 @@ Plans:
   4. Cancelling a command mid-call cancels the HTTP call and closes any late response. The client has no logging interceptors, targets the fixed HTTPS base URL (overridable in tests only) with `anthropic-version 2023-06-01`, and reads bodies with `body?.string()`.
   5. A canary runs through the pipeline and the Anthropic transport with a known key, transcript, tool arguments and tool_result, plus a provider error body. None of them appears in the trace, the events, any `toString()` or any failure message; failures carry only the HTTP status and the provider `error.type`.
 
-**Plans**: 8 plans
+**Plans**: 2/8 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Tracer: ModelCapabilities.supportsForcedToolChoice (one additive core field) + verified AnthropicModels table (four rejecting ids, Haiku 4.5, unknown default); app override reaches the bound model
-- [ ] 04-02-PLAN.md — Tracer: shared http plumbing: cleanClient (no app hooks, no redirects, timeouts), OneShotJsonBody, callback-confined Call.await (cancel + late-response close), SafeFields
+- [x] 04-01-PLAN.md — Tracer: ModelCapabilities.supportsForcedToolChoice (one additive core field) + verified AnthropicModels table (four rejecting ids, Haiku 4.5, unknown default); app override reaches the bound model
+- [x] 04-02-PLAN.md — Tracer: shared http plumbing: cleanClient (no app hooks, no redirects, timeouts), OneShotJsonBody, callback-confined Call.await (cancel + late-response close), SafeFields
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -348,7 +348,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Scaffold & Publishing Proof | 6/6 | Complete    | 2026-09-30 |
 | 2. Core Contract, Pipeline & Commit Seam | 9/9 | Complete    | 2026-09-30 |
 | 3. Transcript Types, ProviderRouter & On-Device Gate | 10/10 | Complete    | 2026-09-30 |
-| 4. Anthropic Transport & OkHttp Matrix | 0/TBD | Not started | - |
+| 4. Anthropic Transport & OkHttp Matrix | 2/8 | In Progress|  |
 | 5. OpenAI & OpenRouter Transports | 0/TBD | Not started | - |
 | 6. Keystore | 0/TBD | Not started | - |
 | 7. SingleShot Strategy | 0/TBD | Not started | - |
