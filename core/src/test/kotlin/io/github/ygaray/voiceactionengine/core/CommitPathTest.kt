@@ -8,7 +8,6 @@ import io.github.ygaray.voiceactionengine.core.commit.PendingMutation
 import io.github.ygaray.voiceactionengine.core.commit.RunTermination
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
-import io.github.ygaray.voiceactionengine.core.commit.applyErrorContent
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
@@ -90,7 +89,6 @@ class CommitPathTest {
             assertNull(action.appOutcomeToken)
             assertTrue(outcome.trace.codes.contains(TraceCode.APPLY_ERROR))
             assertTrue(seen!!.isError)
-            assertEquals(applyErrorContent(), seen!!.contentForModel)
             assertEquals("""{"status":"error"}""", seen!!.contentForModel)
             assertTrue(outcome.commits.isEmpty())
             assertFalse(outcome.toString().contains("CANARY"))

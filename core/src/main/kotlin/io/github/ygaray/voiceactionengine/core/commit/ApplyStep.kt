@@ -11,9 +11,6 @@ import kotlin.coroutines.cancellation.CancellationException
 // What a strategy receives when an apply threw: a fixed notice, never the exception's text.
 private const val APPLY_ERROR_CONTENT = """{"status":"error"}"""
 
-/** The bytes a strategy receives when applying a change threw. */
-internal fun applyErrorContent(): String = APPLY_ERROR_CONTENT
-
 // The name reported when the app's own descriptor getters threw; a fixed word, never anything the app produced.
 private const val UNKNOWN_TOOL = "unknown"
 

@@ -63,9 +63,6 @@ internal class ActionLedger(private val recorder: RunRecorder) {
     /** Every action recorded so far, in position order. */
     fun executed(): List<ExecutedAction> = actions.toList()
 
-    /** The actions whose change was committed, in position order. */
-    fun committed(): List<ExecutedAction> = actions.filter { it.kind == ActionKind.COMMITTED }
-
     /** Changes the gate held so far. */
     fun held(): List<HeldProposal> = proposals.toList()
 
