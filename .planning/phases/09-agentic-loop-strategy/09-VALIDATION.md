@@ -43,10 +43,10 @@ created: "2026-10-01"
 | LOOP-01 | gate path: held notice bytes, rejected/preview, unknown tool, read-returns-Mutation, prepare fault | unit | `... --tests '*AgenticLoopGateTest'` | W0 | pending |
 | LOOP-01 | same scripted conversation on three ProviderIds gives identical outcomes | unit | `... --tests '*AgenticLoopProviderNeutralityTest'` | W0 | pending |
 | LOOP-01 | real mappers: Anthropic/OpenAI/OpenRouter bodies, Auto choice, SB-shaped user-turn bytes, held bytes | integration | `./gradlew :providers:test --tests '*AgenticLoopWireTest' :providers:testOkhttp521 --tests '*AgenticLoopWireTest' :providers:testOkhttp550 --tests '*AgenticLoopWireTest' --offline` | W0 | pending |
-| LOOP-02 | whole-turn validation incl. cross-turn dup ids; ceiling before dispatch; final-iteration guard; 2-strike per tool; stop-leaf matrix; stop+tool_calls guard | unit | `... --tests '*AgenticLoopGuardsTest'` | W0 | pending |
+| LOOP-02 | whole-turn validation (duplicate ids rejected within a turn only; an id reused from an earlier turn is accepted, per seam sign-off item 5); ceiling before dispatch; final-iteration guard; token ceiling beats the iteration cap on the same turn (BudgetExceeded(TOKENS)); 2-strike per tool; stop-leaf matrix; stop+tool_calls guard | unit | `... --tests '*AgenticLoopGuardsTest'` | W0 | pending |
 | LOOP-02 | 6 / 60000 / 4096 from session.policy / session.tokensUsed | unit | `... --tests '*AgenticLoopLimitsTest'` | W0 | pending |
 | D-13 | terminal-only; terminal after commit; terminal alongside held; calls after terminal dropped | unit | `... --tests '*AgenticLoopTerminalTest'` | W0 | pending |
-| LOOP-03 | every exit path lists executed/commits/held; sink precedes onRunClosed; one close | unit | `... --tests '*AgenticLoopExitPathsTest'` | W0 | pending |
+| LOOP-03 | every exit path lists executed/commits/held; held, errored and previewed calls keep distinct ActionKind (HELD, IS_ERROR, PREVIEW; no new member, seam sign-off item 3); sink precedes onRunClosed; one close | unit | `... --tests '*AgenticLoopExitPathsTest'` | W0 | pending |
 | LOOP-03 / O-1 | cancel between batch items stops the rest | unit | `... --tests '*BatchIsolationTest' --tests '*BatchCancellationTest'` | partial | pending |
 | carries | Auto choice every request; replay stamped same provider/model; loop never escalates | unit | `... --tests '*AgenticLoopCarryTest'` | W0 | pending |
 | D-02 | SB-shaped renderer exact text, core and wire | unit+integration | `AgenticLoopUserTurnTest`, `AgenticLoopWireTest` | W0 | pending |

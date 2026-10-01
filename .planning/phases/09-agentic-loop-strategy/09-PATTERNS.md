@@ -61,7 +61,7 @@ val snapshot = tooling.tooling(input)          // once per command; pass snapsho
 val model = attempt.session.model()
 return model.refusal?.let { StrategyOutcome.Failed(it) } ?: ask(attempt, model)
 ```
-Use a small carrier class like `private class Attempt(input, session, snapshot, ...)` (SingleShotStrategy.kt:171-176) to dodge detekt `LongParameterList`; add a `LoopState` carrier for history / seen ids / strikes.
+Use a small carrier class like `private class Attempt(input, session, snapshot, ...)` (SingleShotStrategy.kt:171-176) to dodge detekt `LongParameterList`; add a `LoopState` carrier for history / strikes (no run-wide seen-id set: cross-turn id reuse is allowed per the seam sign-off, item 5).
 
 **Request building** (lines 109-120). DIFFERENCES are load-bearing:
 ```kotlin
@@ -221,7 +221,7 @@ Assert on `fake.calls.first()` first `UserMessage.text`. Also port `twoCommandsS
 
 ### `CT/AgenticLoop{Dispatch,Gate,Terminal,Guards,ExitPaths,Carry,ProviderNeutrality}Test.kt`, `ToolExecutorSeamTest`
 
-**Analogs:** `CT/SingleShotPlumbingTest.kt`, `SingleShotResolveTest.kt`, `SingleShotOutcomeMappingTest.kt`, `SingleShotTerminalTest.kt`, `CommitPathTest.kt:99-130`, `RunClosedPathsTest`, `RedactionCanaryTest`. Same imports block as `SingleShotLimitsTest.kt:3-27`; hand-written fakes only (`FakeAiProvider`, `FakeMutation(name, StepResult(..), log = log)`, `ScriptedGate.admitAll(log)`/`holdAll`/`sequence`, `RecordingCommitSink(log)`, `RecordingEventListener`). Test names are enumerated in RESEARCH "Named tests to port" and the Validation table (e.g. `aRejectedMutatingCallNeverReachesTheGate`, `repeatedFailureOfTheSameToolAbortsButTheCommittedSiblingIsStillRecorded`, `aToolCallIdSeenInAnEarlierTurnRejectsTheWholeTurn`, `aTerminalTurnOnTheFinalIterationCompletesInsteadOfBudgetExceeded`; D-13 trio: terminal-only, terminal after a committing call, terminal alongside a held call). Provider neutrality: run the same script under `ProviderId.ANTHROPIC/OPENAI/OPENROUTER` using the generalized `pipelineOf`. Stop-leaf matrix: one test per leaf (HttpError asserting `details.httpStatus`, Network, MalformedResponse, MaxTokens, Refusal, PauseTurn, ContextWindowExceeded, UnknownStop, ToolFailure, plus "END_TURN + tool_calls" guard). Tool-count independence: run with 1, 2 and 25 tools.
+**Analogs:** `CT/SingleShotPlumbingTest.kt`, `SingleShotResolveTest.kt`, `SingleShotOutcomeMappingTest.kt`, `SingleShotTerminalTest.kt`, `CommitPathTest.kt:99-130`, `RunClosedPathsTest`, `RedactionCanaryTest`. Same imports block as `SingleShotLimitsTest.kt:3-27`; hand-written fakes only (`FakeAiProvider`, `FakeMutation(name, StepResult(..), log = log)`, `ScriptedGate.admitAll(log)`/`holdAll`/`sequence`, `RecordingCommitSink(log)`, `RecordingEventListener`). Test names are enumerated in RESEARCH "Named tests to port" and the Validation table (e.g. `aRejectedMutatingCallNeverReachesTheGate`, `repeatedFailureOfTheSameToolAbortsButTheCommittedSiblingIsStillRecorded`, `aToolCallIdReusedFromAnEarlierTurnIsAccepted` (replaces the earlier cross-turn rejection test per seam sign-off item 5), `aTerminalTurnOnTheFinalIterationCompletesInsteadOfBudgetExceeded`; D-13 trio: terminal-only, terminal after a committing call, terminal alongside a held call). Provider neutrality: run the same script under `ProviderId.ANTHROPIC/OPENAI/OPENROUTER` using the generalized `pipelineOf`. Stop-leaf matrix: one test per leaf (HttpError asserting `details.httpStatus`, Network, MalformedResponse, MaxTokens, Refusal, PauseTurn, ContextWindowExceeded, UnknownStop, ToolFailure, plus "END_TURN + tool_calls" guard). Tool-count independence: run with 1, 2 and 25 tools.
 
 ---
 
@@ -305,8 +305,8 @@ expect_red "app-domain name ($m)"  $m 'internal const val X = "log_food"'  ":$m:
 
 | File | Role | Data Flow | Reason |
 |---|---|---|---|
-| Loop body itself (iteration, history append, per-tool-name strikes, whole-turn cross-turn id set) | strategy logic | multi-turn | SingleShot is one-shot; port semantics from SecondBrain `AnthropicAgentLoop.kt` (read-only, see RESEARCH "SB guard semantics") onto the neutral `Message`/`ModelRequest` types |
-| Cross-turn duplicate tool-call id rejection | validation | transform | `ConversationCheck.kt:83-92` is within-turn only; loop adds a run-wide `HashSet<String>` (Open Question 2 risk with regenerating upstreams) |
+| Loop body itself (iteration, history append, per-tool-name strikes, within-turn id validation) | strategy logic | multi-turn | SingleShot is one-shot; port semantics from SecondBrain `AnthropicAgentLoop.kt` (read-only, see RESEARCH "SB guard semantics") onto the neutral `Message`/`ModelRequest` types |
+| Within-turn duplicate tool-call id rejection (no cross-turn rejection) | validation | transform | `ConversationCheck.kt:83-92` is within-turn only; the loop validates ids distinct within the turn and keeps no run-wide set, because the seam sign-off (item 5) allows cross-turn reuse (regenerating upstreams) |
 
 ## Metadata
 
