@@ -16,6 +16,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 private val HEADER = listOf("case", "dialect", "provenance", "model", "file", "tags", "note").joinToString("\t")
 
@@ -269,6 +270,20 @@ class ConversationGoldenTest {
             assertEquals("${row.case} breaks hygiene", emptyList<String>(), conversationHygieneViolations(text))
             assertTrue("${row.case} has no turns", parseConversation(text).isNotEmpty())
         }
+    }
+
+    @Test
+    fun everyGoldenFileOnDiskHasAManifestRow() {
+        val root = File(checkNotNull(ConversationRow::class.java.getResource("/" + CONVERSATIONS_DIR)).toURI())
+        val onDisk = root.walkTopDown().filter { it.isFile && it.extension == "json" }
+            .map { it.relativeTo(root).invariantSeparatorsPath }.toSet()
+        assertEquals(conversationRows().map { it.file }.toSet(), onDisk)
+    }
+
+    @Test
+    fun hygieneFlagsALowerCaseBearerValueToo() {
+        assertTrue(hygiene(buildJsonObject { put("text", "send bearer abc123def") }).isNotEmpty())
+        assertTrue(hygiene(buildJsonObject { put("text", "BEARER abc123def") }).isNotEmpty())
     }
 
     @Test

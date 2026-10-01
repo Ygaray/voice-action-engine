@@ -41,7 +41,6 @@ private const val ANTHROPIC_PATH = "v1/messages"
 private const val ANTHROPIC_VERSION = "2023-06-01"
 private const val CHAT_PATH = "chat/completions"
 private const val CALL_TIMEOUT_MILLIS = 60_000L
-private const val THINKING_CONVERSATION = "A2"
 private const val COUNT_ITEMS = "count_items"
 private const val LOOKUP_ITEM = "lookup_item"
 private const val NO_VALUE = "-"
@@ -68,7 +67,8 @@ private const val TAG_LONG_SYSTEM = "long_system"
 /**
  * One planned conversation: [code] selects it, [dialect] says which wire it speaks (anthropic, openai or openrouter),
  * [maxRequests] is the most requests it may send, and [echoProbeOf] names the conversation whose stored first turn it
- * echoes (a one-request probe) or is null for a normal conversation.
+ * echoes (a one-request probe) or is null for a normal conversation. [requiresThinking] is true for a conversation that
+ * is kept only when its first turn carried a thinking block.
  */
 internal class ConversationPlan(
     val code: String,
@@ -78,6 +78,7 @@ internal class ConversationPlan(
     val maxTokens: Int,
     val maxRequests: Int,
     val echoProbeOf: String? = null,
+    val requiresThinking: Boolean = false,
 ) {
     override fun toString(): String = code
 }
@@ -113,7 +114,9 @@ internal object ConversationPlans {
     /** The Anthropic conversations: Haiku with a long cached system, and Sonnet 5.5 that must think. */
     val ANTHROPIC: List<ConversationPlan> = listOf(
         ConversationPlan("A1", DIALECT_ANTHROPIC, HAIKU, true, plain, CONVERSATION_REQUESTS),
-        ConversationPlan("A2", DIALECT_ANTHROPIC, SONNET, false, thinking, CONVERSATION_REQUESTS),
+        ConversationPlan(
+            "A2", DIALECT_ANTHROPIC, SONNET, false, thinking, CONVERSATION_REQUESTS, requiresThinking = true,
+        ),
     )
 
     /** The Chat conversations: OpenAI, its echo probe, and the three routed ones. */
@@ -488,7 +491,7 @@ internal class ConversationRecorder(
 
     // A complete conversation becomes a golden only after it is sanitized whole and its copy replays.
     private fun finish(plan: ConversationPlan, state: Conversation) {
-        if (plan.code == THINKING_CONVERSATION && TAG_THINKING !in state.firstTurnTags) {
+        if (plan.requiresThinking && TAG_THINKING !in state.firstTurnTags) {
             unmet.add("${plan.code} turn 1 carried no thinking block")
         } else {
             val text = sanitized(plan, state)

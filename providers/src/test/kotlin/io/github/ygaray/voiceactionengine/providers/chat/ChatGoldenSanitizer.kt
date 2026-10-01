@@ -32,7 +32,7 @@ private val DROPPED_KEYS = setOf("service_tier", "cost", "cost_details", "user_i
 internal val ID_IN_TEXT = Regex("(?<![A-Za-z0-9_])(chatcmpl-|gen-|call_)([A-Za-z0-9_-]*)")
 internal val GOLDEN_TAIL = Regex("GOLDEN[0-9]*")
 internal val KEY_IN_TEXT = Regex("(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}")
-internal val BEARER_IN_TEXT = Regex("Bearer\\s+\\S+")
+internal val BEARER_IN_TEXT = Regex("(?i)Bearer\\s+\\S+")
 
 private val PRINTER = Json {
     prettyPrint = true

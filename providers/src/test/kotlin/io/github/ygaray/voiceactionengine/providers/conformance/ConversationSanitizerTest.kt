@@ -298,6 +298,21 @@ class ConversationSanitizerTest {
     }
 
     @Test
+    fun aLowerCaseBearerValueIsRedactedLikeAnyOther() {
+        val clean = ConversationSanitizer().sanitize(buildJsonObject { put("text", "use bearer abcdef.ghi now") })
+        assertEquals("use redacted now", clean.text("text"))
+    }
+
+    @Test
+    fun anErrorWrappedInAChoiceIsRefusedToo() {
+        val wrapped = obj("""{"choices":[{"index":0,"error":{"message":"secret text"}}]}""")
+        val failure = assertThrows(IllegalArgumentException::class.java) { ConversationSanitizer().sanitize(wrapped) }
+        assertFalse(failure.message, failure.message.orEmpty().contains("secret text"))
+        val fine = obj("""{"choices":[{"index":0,"error":null,"message":{"content":"ok"}}]}""")
+        assertEquals("ok", ConversationSanitizer().sanitize(fine).text("choices", 0, "message", "content"))
+    }
+
+    @Test
     fun aResponseHoldingAnErrorObjectIsRefused() {
         val failure = assertThrows(IllegalArgumentException::class.java) {
             ConversationSanitizer().conversation(

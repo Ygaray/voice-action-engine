@@ -158,6 +158,12 @@ class ConversationCaptureRunTest {
     }
 
     @Test
+    fun onlyTheSonnetThinkingConversationRequiresAThinkingBlock() {
+        val all = ConversationPlans.ANTHROPIC + ConversationPlans.CHAT
+        assertEquals(listOf("A2"), all.filter { it.requiresThinking }.map { it.code })
+    }
+
+    @Test
     fun everyPlannedModelIsOnTheAllowedList() {
         assertEquals(
             setOf(

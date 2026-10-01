@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonPrimitive
 private const val GOLDEN = "GOLDEN"
 private const val REDACTED = "redacted"
 private const val KEY_ERROR = "error"
+private const val KEY_CHOICES = "choices"
 private const val KEY_CREATED = "created"
 private const val KEY_FINGERPRINT = "system_fingerprint"
 private const val KEY_TURNS = "turns"
@@ -50,13 +51,20 @@ internal class ConversationSanitizer {
     private val ids = HashMap<String, String>()
     private val counters = HashMap<String, Int>()
 
-    /** Cleans one element; an object that holds an `error` value is refused. */
+    /** Cleans one element; an object that holds an `error` value, at the top or in a choice, is refused. */
     fun sanitize(element: JsonElement): JsonElement {
-        require(element !is JsonObject || element[KEY_ERROR] == null || element[KEY_ERROR] is JsonNull) {
-            "a body that holds an error is not a golden"
-        }
+        require(!holdsError(element)) { "a body that holds an error is not a golden" }
         return clean(element)
     }
+
+    // A wrapped vendor error can sit in a choice instead of at the top of the body.
+    private fun holdsError(element: JsonElement): Boolean {
+        val body = element as? JsonObject ?: return false
+        val choices = (body[KEY_CHOICES] as? JsonArray).orEmpty()
+        return hasError(body) || choices.any { it is JsonObject && hasError(it) }
+    }
+
+    private fun hasError(body: JsonObject): Boolean = body[KEY_ERROR].let { it != null && it !is JsonNull }
 
     /**
      * Sanitizes [turns] in order (each turn's messages, then its response), prints the result as canonical compact
