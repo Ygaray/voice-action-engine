@@ -34,6 +34,24 @@ import org.junit.rules.TemporaryFolder
 private const val EDIT_TOOL = "edit_item"
 private val ALL_PROVIDERS = listOf(ProviderId.ANTHROPIC, ProviderId.OPENAI, ProviderId.OPENROUTER)
 
+/** A view model over [rig]'s runner, vault, budget and clock; its evidence goes to [sink]. */
+internal fun sampleViewModel(
+    rig: LegRig,
+    fixture: FixtureState = FixtureState.Absent(listOf("none")),
+    keyImport: KeyImport? = null,
+    sink: EvidenceSink = rig.sink,
+) = SampleViewModel(
+    runner = rig.runner,
+    vault = rig.vault,
+    keyImport = keyImport,
+    fixture = fixture,
+    budget = rig.budget,
+    okhttpVersion = "5.2.1",
+    sink = sink,
+    providers = ALL_PROVIDERS,
+    nowSeconds = { rig.clock.seconds },
+)
+
 /** The screen's logic: one leg at a time, verdict to status word, keys, import and the follow-up, over fake transports. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SampleViewModelTest {
@@ -66,23 +84,6 @@ class SampleViewModelTest {
     private fun openAiRig(vararg steps: AttemptStep) =
         legRig(folder.newFolder()) { tap -> listOf(AttemptingFake(ProviderId.OPENAI, tap, steps.toList())) }
 
-    private fun viewModel(
-        rig: LegRig,
-        fixture: FixtureState = FixtureState.Absent(listOf("none")),
-        keyImport: KeyImport? = null,
-        sink: EvidenceSink = rig.sink,
-    ) = SampleViewModel(
-        runner = rig.runner,
-        vault = rig.vault,
-        keyImport = keyImport,
-        fixture = fixture,
-        budget = rig.budget,
-        okhttpVersion = "5.2.1",
-        sink = sink,
-        providers = ALL_PROVIDERS,
-        nowSeconds = { rig.clock.seconds },
-    )
-
     private fun SampleViewModel.row(leg: LegId) = state.value.legs.first { it.leg == leg }
 
     private fun TestScope.settle() {
@@ -93,7 +94,7 @@ class SampleViewModelTest {
     fun aLegPressShowsRunningThenItsVerdict() = runTest {
         NoNetworkGuard.during {
             val rig = openAiRig(editCall())
-            val viewModel = viewModel(rig)
+            val viewModel = sampleViewModel(rig)
             settle()
 
             viewModel.runLeg(LegId.SMOKE_OPENAI)
@@ -117,7 +118,7 @@ class SampleViewModelTest {
     fun aSecondPressWhileRunningIsIgnored() = runTest {
         NoNetworkGuard.during {
             val rig = openAiRig(editCall())
-            val viewModel = viewModel(rig)
+            val viewModel = sampleViewModel(rig)
             settle()
 
             viewModel.runLeg(LegId.SMOKE_OPENAI)
@@ -136,7 +137,7 @@ class SampleViewModelTest {
         NoNetworkGuard.during {
             val rig = openAiRig()
             rig.vault.set(ProviderId.OPENAI, KeyState.NotConfigured())
-            val viewModel = viewModel(rig)
+            val viewModel = sampleViewModel(rig)
             settle()
 
             viewModel.runLeg(LegId.SMOKE_OPENAI)

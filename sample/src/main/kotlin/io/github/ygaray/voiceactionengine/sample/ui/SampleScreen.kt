@@ -29,6 +29,7 @@ private val WARN_COLOR = Color(0xFFB26A00)
 /** What the screen can ask for. The view model fills these in. */
 internal class SampleActions(
     val runLeg: (LegId) -> Unit,
+    val chooseOption: (String) -> Unit,
 ) {
     override fun toString(): String = "SampleActions"
 }
@@ -57,6 +58,7 @@ internal fun SampleScreen(state: UiState, actions: SampleActions) {
     ) {
         Header(state)
         Legs(state, actions)
+        Readout(state, actions)
     }
 }
 
@@ -80,6 +82,34 @@ private fun Legs(state: UiState, actions: SampleActions) {
                 Text(row.leg.wire)
             }
             Text(row.text, Modifier.testTag(UiTags.status(row.leg)), color = toneColor(row.tone))
+        }
+    }
+}
+
+@Composable
+private fun Readout(state: UiState, actions: SampleActions) {
+    val view = state.readout ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(CONTROL_GAP)) {
+        Text(view.headline, Modifier.testTag(UiTags.READOUT), color = toneColor(view.tone))
+        val banner = view.banner
+        if (banner != null) {
+            Text(
+                banner,
+                Modifier.testTag(UiTags.FAILURE_BANNER),
+                color = BAD_COLOR,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+        val question = view.question
+        if (question != null) Text(question, Modifier.testTag(UiTags.CLARIFY_QUESTION))
+        for (option in view.options) {
+            Button(
+                onClick = { actions.chooseOption(option.id) },
+                enabled = state.runEnabled,
+                modifier = Modifier.testTag(UiTags.clarifyOption(option.id)),
+            ) {
+                Text(option.label)
+            }
         }
     }
 }

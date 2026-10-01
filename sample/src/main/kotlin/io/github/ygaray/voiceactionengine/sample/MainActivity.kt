@@ -17,7 +17,10 @@ class MainActivity : ComponentActivity() {
         // Samsung Freecess freezes a backgrounded or dimmed app mid-run; keep the screen on while a leg runs.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val viewModel = ViewModelProvider(this, AppGraph.get(this).viewModelFactory())[SampleViewModel::class.java]
-        val actions = SampleActions(runLeg = { leg -> viewModel.runLeg(leg) })
+        val actions = SampleActions(
+            runLeg = { leg -> viewModel.runLeg(leg) },
+            chooseOption = { id -> viewModel.chooseOption(id) },
+        )
         setContent {
             MaterialTheme {
                 val state = viewModel.state.collectAsStateWithLifecycle().value

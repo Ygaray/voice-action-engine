@@ -3,14 +3,19 @@ package io.github.ygaray.voiceactionengine.sample
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceSink
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.evidence.RequestBudget
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.keys.KeyImport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
+import io.github.ygaray.voiceactionengine.sample.legs.DEMO_PROVIDER
+import io.github.ygaray.voiceactionengine.sample.legs.LegCatalog
 import io.github.ygaray.voiceactionengine.sample.legs.LegResult
 import io.github.ygaray.voiceactionengine.sample.legs.LegRunner
+import io.github.ygaray.voiceactionengine.sample.ui.OutcomeText
+import io.github.ygaray.voiceactionengine.sample.ui.OutcomeView
 import io.github.ygaray.voiceactionengine.sample.ui.Tone
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,7 +63,7 @@ internal data class UiState(
     val okhttp: String,
     val legs: List<LegView>,
     val running: LegId?,
-    val readout: String?,
+    val readout: OutcomeView?,
 ) {
     /** Whether the run buttons are enabled. */
     val runEnabled: Boolean get() = running == null
@@ -79,6 +84,9 @@ internal class SampleViewModel(
     @Suppress("unused") private val providers: List<ProviderId>,
     @Suppress("unused") private val nowSeconds: () -> Long,
 ) : ViewModel() {
+    // The last result, kept so a pressed clarification option can name the run it answers.
+    private var lastResult: LegResult? = null
+
     private val mutableState = MutableStateFlow(
         UiState(
             okhttp = okhttpVersion,
@@ -101,11 +109,27 @@ internal class SampleViewModel(
         viewModelScope.launch { finish(runner.run(leg, trigger)) }
     }
 
+    /**
+     * Answers the clarification the last demo run ended on with the option [optionId]. This starts a NEW command linked
+     * to the first by `parentRunId` (D-14); nothing is resumed. Ignored while a leg runs or when there is no such option.
+     */
+    fun chooseOption(optionId: String) {
+        val previous = lastResult
+        val completed = previous?.outcome as? CommandOutcome.Completed
+        val option = completed?.terminalCall?.asClarification()?.options?.firstOrNull { it.id == optionId }
+        if (previous == null || completed == null || option == null) return
+        if (previous.leg != LegId.DEMO_CLARIFY || mutableState.value.running != null) return
+        mutableState.update { it.withStatus(LegId.DEMO_CLARIFY, STATUS_RUNNING, null).copy(running = LegId.DEMO_CLARIFY) }
+        viewModelScope.launch { finish(runner.followUp(completed, option)) }
+    }
+
     private fun finish(result: LegResult) {
+        lastResult = result
         val verdict = result.verdict
+        val live = LegCatalog.spec(result.leg).provider != DEMO_PROVIDER
         mutableState.update {
             it.withStatus(result.leg, verdict.kind.name, verdict.reason)
-                .copy(running = null, readout = result.verdict.toString())
+                .copy(running = null, readout = OutcomeText.render(result, live))
         }
     }
 
