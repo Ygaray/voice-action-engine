@@ -11,6 +11,7 @@ import io.github.ygaray.voiceactionengine.core.commit.RunTermination
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.EngineFault
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.internal.guardedUncancellable
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
@@ -151,7 +152,7 @@ public class CommandPipeline internal constructor(
  */
 internal suspend fun closeRun(sink: CommitSink, runId: String, recorder: RunRecorder, termination: RunTermination) {
     withContext(NonCancellable) {
-        guarded(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
+        guardedUncancellable(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
             sink.onRunClosed(runId, termination)
         }
         recorder.runClosed(termination)

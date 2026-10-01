@@ -1,6 +1,6 @@
 package io.github.ygaray.voiceactionengine.core.telemetry
 
-import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.internal.guardedUncancellable
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -16,9 +16,12 @@ internal class EventDispatch(
 ) {
     private val reported = AtomicBoolean(false)
 
-    /** Delivers [event] if there is a listener. Only the caller's own cancellation can escape. */
+    /**
+     * Delivers [event] if there is a listener. Nothing the listener throws escapes: it cannot suspend, so a
+     * `CancellationException` from it is never the caller's own cancellation and counts as a fault.
+     */
     suspend fun send(event: PipelineEvent) {
         val target = listener ?: return
-        guarded(onFault = { if (reported.compareAndSet(false, true)) onFault() }) { target.onEvent(event) }
+        guardedUncancellable(onFault = { if (reported.compareAndSet(false, true)) onFault() }) { target.onEvent(event) }
     }
 }

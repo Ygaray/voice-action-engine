@@ -1,6 +1,7 @@
 package io.github.ygaray.voiceactionengine.core.commit
 
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.internal.guardedUncancellable
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import kotlinx.coroutines.NonCancellable
@@ -32,7 +33,7 @@ internal class ActionDelivery(
     /** Tells the sink about [action] and waits for it to finish. */
     suspend fun deliver(action: ExecutedAction) {
         withContext(NonCancellable) {
-            guarded(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
+            guardedUncancellable(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
                 sink.onAction(ActionEvent(runId, parentRunId, action))
             }
         }

@@ -23,16 +23,36 @@ internal class EngineFault(
  * a timeout is rethrown when the caller is cancelled and is a fault when the caller is still active (an inner
  * `withTimeout` in app code leaked out); any other cancellation is rethrown; linkage errors and exceptions are faults.
  * Other errors (out of memory, assertion failures) are not caught.
+ *
+ * Use [guardedUncancellable] instead for app code that runs under `NonCancellable`.
  */
+internal suspend inline fun <T> guarded(onFault: (EngineFault) -> T, block: () -> T): T =
+    guardedCore(cancellationIsFault = false, onFault = onFault, block = block)
+
+/**
+ * Like [guarded], for app code the engine runs under `NonCancellable` (sink delivery, run close, event listeners).
+ *
+ * There the caller's own cancellation cannot be what surfaces, so any [CancellationException] thrown by the app code
+ * (a cancelled deferred awaited by the sink, a closed storage scope) is foreign and is a fault like any other. Letting
+ * it escape would replace the run's outcome, skip the rest of the close and abort the siblings of a batch.
+ */
+internal suspend inline fun <T> guardedUncancellable(onFault: (EngineFault) -> T, block: () -> T): T =
+    guardedCore(cancellationIsFault = true, onFault = onFault, block = block)
+
 // The engine's single never-throw collapse point; every app callback is routed through here.
 @Suppress("TooGenericExceptionCaught")
-internal suspend inline fun <T> guarded(onFault: (EngineFault) -> T, block: () -> T): T = try {
+internal suspend inline fun <T> guardedCore(
+    cancellationIsFault: Boolean,
+    onFault: (EngineFault) -> T,
+    block: () -> T,
+): T = try {
     block()
 } catch (e: TimeoutCancellationException) {
-    if (!currentCoroutineContext().isActive) throw e
+    if (!cancellationIsFault && !currentCoroutineContext().isActive) throw e
     onFault(EngineFault(errorClassOf(e), timeoutLeak = true))
 } catch (e: CancellationException) {
-    throw e
+    if (!cancellationIsFault) throw e
+    onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
 } catch (e: LinkageError) {
     onFault(EngineFault(errorClassOf(e), timeoutLeak = false))
 } catch (e: Exception) {

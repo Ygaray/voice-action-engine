@@ -2,6 +2,7 @@ package io.github.ygaray.voiceactionengine.core
 
 import io.github.ygaray.voiceactionengine.core.internal.EngineFault
 import io.github.ygaray.voiceactionengine.core.internal.guarded
+import io.github.ygaray.voiceactionengine.core.internal.guardedUncancellable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.TimeoutCancellationException
@@ -84,6 +85,29 @@ class GuardedTest {
             assertFalse(e is TimeoutCancellationException)
         }
         assertTrue(faults.isEmpty())
+    }
+
+    @Test
+    fun uncancellableVariantTurnsAForeignCancellationIntoAFault() = runTest {
+        val result = guardedUncancellable<String>(::onFault) { throw CancellationException("foreign") }
+        assertEquals(FAULT, result)
+        assertEquals("CancellationException", faults.single().errorClass)
+        assertFalse(faults.single().timeoutLeak)
+    }
+
+    @Test
+    fun uncancellableVariantTurnsALeakedTimeoutIntoAFault() = runTest {
+        val result = guardedUncancellable<String>(::onFault) { withTimeout(1) { awaitCancellation() } }
+        assertEquals(FAULT, result)
+        assertTrue(faults.single().timeoutLeak)
+    }
+
+    @Test
+    fun uncancellableVariantStillPassesValuesAndOrdinaryFaultsLikeGuarded() = runTest {
+        assertEquals("value", guardedUncancellable<String>(::onFault) { "value" })
+        assertTrue(faults.isEmpty())
+        assertEquals(FAULT, guardedUncancellable<String>(::onFault) { throw IllegalStateException("x") })
+        assertEquals("IllegalStateException", faults.single().errorClass)
     }
 
     @Test
