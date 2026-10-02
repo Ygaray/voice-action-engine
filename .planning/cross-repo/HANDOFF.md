@@ -98,12 +98,10 @@ Session names can change after a restart. If one doesn't resolve, ask the orches
 (hubs: what tag and roughly when; consumers: which tags you need, for which phases)
 ```
 
-## Current state (2026-09-30)
+## Current state (2026-10-02)
 
-- **Stage:** v1.0 initialized, researched, discussed; R1 reconvene done → **GO-WITH-CHANGES** (folded in). No phase planned or executed yet.
-- **Next action:** WAIT for the orchestrator to dispatch `/gsd-execute-milestone --subagent-driven` in this session (Yahir process change, 2026-09-30). Do NOT hand-run `/gsd-plan-phase` / `/gsd-execute-phase`, and never `/gsd-milestone`. When it runs: Phase 1 publishing probes go first; tell the orchestrator before Phase 2 if a fallback changes coordinates or module shape.
-- **Keys: UNBLOCKED (2026-09-30).** Yahir installed all three test keys. Host captures (P5/P8): `with-test-keys -- <cmd>`. P10 on the TESTER only: `push-test-key <provider> --device <TESTER serial> --package <sample appId>`. Read `~/.claude/context/workflows/test-keys.md`. No per-key spend caps, so live legs use the cheapest capable models (Haiku 4.5, gpt-5.4-mini, a cheap OpenRouter route), stay opt-in and outside `check`, and each capture/smoke states a bounded call count in its plan.
-- **A19 recorded (contract 725d8d7) and folded in:** terminal tools → `Completed.terminalCall`, typed `Clarification(question, options: List<ClarificationOption(id, label)>)`, `CommandInput.parentRunId` follow-ups (new CORE-08/09; Phase 2/3/7/9/10 CONTEXT updated).
-- **Peer Q&A:** SB and CT confirmations done and recorded in `RECONVENE-BRIEF.md` §3; A17 payload clarifications recorded by the orchestrator in contract `1b064a0`.
-- **Roadmap change:** tag cut is its own **Phase 11 "Cut v1.0.0"** after Phase 10's green Gate-1; `git.create_tag: false` (no stray `v1.0` marker tag).
-- **Key files:** `.planning/PROJECT.md`, `REQUIREMENTS.md` (63), `ROADMAP.md` (11 phases), `v1.0-DECISION-MAP.md` (discussed), `phases/*/NN-CONTEXT.md`, `cross-repo/RECONVENE-BRIEF.md`, `.continue-here.md`, `HANDOFF.json`.
+- **Stage:** v1.0 EXECUTED, and **`v1.0.0` is CUT**: annotated tag 343fd3f286, peeled `efc060f8fe462b71af2e4586b75a97db119ebabd`, JitPack status ok for core/providers/keystore. The §11 ledger row was messaged to the orchestrator on 2026-10-02 (row args in `.planning/phases/11-cut-v1-0-0/evidence/ledger-row.txt`). All 11 phases have ROADMAP `[x]` and VERIFICATION `passed`. The manager flags them "stale" only because later commits landed after each phase's verify.
+- **Next action:** wait for the orchestrator. Milestone close (`/gsd-certify-milestone` then `/gsd-verify-milestone`, Gate-2) is orchestrator-dispatched; do not self-start it. At close: re-verify against the tag (clears the staleness), run Gate-2 including **W04** (C3, the Responses-only 400 wording; carried by Yahir 2026-10-02), and drain `.planning/uat-pending/`.
+- **v1.0.x follow-ups (patch tag = new row; tags are immutable):** the 6 wiring-rerun doc stumbles, starting with ECOSYSTEM.md's private `~/.claude/...` path mention in a public doc; Phase 11 review WR-01..04 (waiver-gate empty-row check, release-cut.sh hard-wired to v1.0.0, no doc names the version to pin, KeystoreCauseCodes KDoc vs KeyMissing). Any doc change needs an ISOLATED wiring rerun (headless `claude -p`, throwaway CLAUDE_CONFIG_DIR) before its tag.
+- **Waivers (Yahir, 2026-10-02):** all 13 rows of `11-WAIVER-PACKET.md` answered as proposed (W02/C5 accepted by evidence, not a pass).
+- **Wave-1:** SB/CT can repin to `v1.0.0` with per-module coordinates (never the aggregator, E5).
