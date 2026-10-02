@@ -1,0 +1,12 @@
+# interim gates on the commit that becomes W (pre-push)
+date_utc: 2026-10-02T01:18:56Z
+head: 68274aa2e357831f30b5ec14234ca651deb09fa9
+
+CMD ./gradlew check --offline -> BUILD SUCCESSFUL
+CMD scripts/verify-docs-coverage.sh -> DOC COVERAGE OK checks=23 types=97
+CMD scripts/verify-repo-hygiene.sh -> HYGIENE OK
+CMD scripts/release-cut.sh gate leak -> GATE OK leak
+CMD scripts/release-cut.sh gate tags-absent v1.0.0 -> GATE OK tags-absent
+CMD scripts/release-cut.sh gate create-tag -> GATE OK create-tag
+CMD scripts/api-dump-isolated.sh --out <tmp> -> API DUMP ISOLATED OK out=/tmp/tmp.vFPawHukJY core=1698 providers=121 keystore=67
+CMD cmp <tmp>/{core,providers,keystore}.api.sig vs evidence/interim-api -> IDENTICAL
