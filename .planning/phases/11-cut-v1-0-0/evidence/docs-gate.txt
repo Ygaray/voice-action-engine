@@ -1,0 +1,14 @@
+DOCS GATE evidence, plan 11-03
+date: 2026-10-02T00:23:32Z
+HEAD: 7e5c314623047fa86851c1dae2094522f6ab16c3 (docs and snippet commits of 11-03 included; this file is committed after)
+plan_head_before: b8a1081c5d9eb86b01dc8d81ecb3717fc5b483c3
+
+CMD ./gradlew check --offline -> BUILD SUCCESSFUL in 12s (182 actionable tasks)
+CMD scripts/verify-docs-coverage.sh -> DOC COVERAGE OK checks=23 types=97
+CMD scripts/agent-wiring-test.sh selftest -> WIRING SELFTEST OK (reference WIRING TEST: PASS checks=9; planted bad copy FAIL W1-W5)
+CMD scripts/verify-repo-hygiene.sh -> HYGIENE OK
+CMD scripts/api-dump-isolated.sh --out <scratch> + cmp against evidence/interim-api/*.api.sig -> API DUMP ISOLATED OK core=1698 providers=121 keystore=67; identical core, identical providers, identical keystore
+CMD git tag --list -> (empty)
+CMD git ls-files -co --exclude-standard -- '*api.txt' -> (empty)
+
+DOCS GATE: PASS
