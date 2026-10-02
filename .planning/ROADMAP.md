@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Multi-turn Mappers** - §6.2 step 6a: lossless neutral ↔ Anthropic / Chat Completions tool conversations with verbatim replay (completed 2026-10-01)
 - [x] **Phase 9: Agentic Loop Strategy** - §6.2 step 6b: SB's bounded agentic loop on any cloud provider, gated and honest on every exit (completed 2026-10-01)
 - [x] **Phase 10: Sample Harness, Gate-1 & Docs** - §6.2 step 7: `:sample` A10 proof on the TESTER, live smokes on 3 clouds, agent-ready README (completed 2026-10-01)
-- [ ] **Phase 11: Cut v1.0.0** - §6.2 step 7 / §11: gated release after Phase 10's green Gate-1; tag row messaged to the orchestrator
+- [x] **Phase 11: Cut v1.0.0** - §6.2 step 7 / §11: gated release after Phase 10's green Gate-1; tag row messaged to the orchestrator (completed 2026-10-02)
 
 ## Dependencies & Parallelism
 
@@ -546,19 +546,19 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 11-06-PLAN.md — push the final-API SHA W, JitPack-probe it, isolated headless wiring rerun and waiver relay (pre-freeze rows first) via the master, record `11-WIRING-RERUN.md`
+- [x] 11-06-PLAN.md — push the final-API SHA W, JitPack-probe it, isolated headless wiring rerun and waiver relay (pre-freeze rows first) via the master, record `11-WIRING-RERUN.md`
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 11-07-PLAN.md — pre-freeze rows answered (`gate prefreeze`), then the Metalava api.txt baseline on W's descendant, byte-identical to the reviewed surface; push and JitPack-probe by SHA
+- [x] 11-07-PLAN.md — pre-freeze rows answered (`gate prefreeze`), then the Metalava api.txt baseline on W's descendant, byte-identical to the reviewed surface; push and JitPack-probe by SHA
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 11-08-PLAN.md — `release-cut.sh preflight v1.0.0` → CUT/HOLD decision via the master → cut and push the annotated `v1.0.0` (the one-way door)
+- [x] 11-08-PLAN.md — `release-cut.sh preflight v1.0.0` → CUT/HOLD decision via the master → cut and push the annotated `v1.0.0` (the one-way door)
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 11-09-PLAN.md — JitPack builds v1.0.0, three coordinates resolve from an empty cache; §11 row drafted and messaged to the orchestrator (never committed to §11)
+- [x] 11-09-PLAN.md — JitPack builds v1.0.0, three coordinates resolve from an empty cache; §11 row drafted and messaged to the orchestrator (never committed to §11)
 
 ## Progress
 
@@ -577,4 +577,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
 | 9. Agentic Loop Strategy | 9/9 | Complete    | 2026-10-01 |
 | 10. Sample Harness, Gate-1 & Docs | 10/10 | Complete    | 2026-10-01 |
-| 11. Cut v1.0.0 | 5/9 | In Progress|  |
+| 11. Cut v1.0.0 | 9/9 | Complete    | 2026-10-02 |

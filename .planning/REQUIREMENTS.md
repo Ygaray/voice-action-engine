@@ -216,7 +216,7 @@
 | VER-02 | Phase 10 | Complete |
 | VER-03 | Phase 10 | Complete |
 | VER-04 | Phase 10 | Complete |
-| VER-05 | Phase 11 | Pending |
+| VER-05 | Phase 11 | Complete |
 
 **Coverage:**
 
