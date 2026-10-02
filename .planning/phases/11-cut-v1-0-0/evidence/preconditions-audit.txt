@@ -1,0 +1,74 @@
+Phase 11 preconditions audit - plan 11-01, Task 2
+Date (UTC): 2026-10-02   HEAD at audit: b87b285 (parent e2aa3e1bec723a902f21179a1a200ee5056c2d3b; no product, script or build change)
+Method: read-only commands; each section shows the command and its output.
+
+== 1. D-04: Phase 10 Gate-1 SELF-UAT is green and committed
+$ git log -1 --format='%H %s' -- .planning/phases/10-sample-harness-gate-1-docs/10-SELF-UAT.md
+6073e613ae2a2bce1d57a1c91a2d8429a9f3b46b docs(phase-10): complete phase - wiring rerun PASS, C5 accepted by evidence, verification passed
+$ grep -n '13 of 14' .planning/uat-pending/10-sample-harness-gate-1-docs.md
+5: Verdict: 13 of 14 criteria PASS + 1 ACCEPTED BY EVIDENCE (G1-09 INCONCLUSIVE model_filled_optional after one rerun, accepted by the orchestrator 2026-10-01, NOT a PASS)
+$ sed -n 1,4p .planning/phases/10-sample-harness-gate-1-docs/10-VERIFICATION.md
+phase: 10-sample-harness-gate-1-docs / verified: 2026-10-01T23:30:00Z / status: passed / goal_met: true
+D-04: MET
+
+== 2. D-02: no stray tag, create_tag false
+$ git tag --list
+(empty)
+$ git ls-remote --tags origin
+(empty, exit 0, no retry needed)
+$ grep -n create_tag .planning/config.json        (worktree copy, committed)
+15:    "create_tag": false,
+$ grep -n create_tag <main checkout>/.planning/config.json   (read only; the main copy carries uncommitted edits)
+15:    "create_tag": false,
+config.json was only read, never edited or staged by this plan.
+D-02: MET
+
+== 3. Suppressions
+$ git grep -nE '@(file:)?Suppress' -- '*.kt' '*.kts'
+core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/internal/Guarded.kt:1:@file:Suppress("TooGenericExceptionCaught")
+core/src/test/kotlin/io/github/ygaray/voiceactionengine/core/IdentityTypesTest.kt:14:    private class AppContext(@Suppress("unused") val secret: String)
+sample/src/release/kotlin/io/github/ygaray/voiceactionengine/sample/DebugTools.kt:12:    @Suppress("UNUSED_PARAMETER")
+sample/src/release/kotlin/io/github/ygaray/voiceactionengine/sample/DebugTools.kt:16:    @Suppress("UNUSED_PARAMETER")
+
+Published main sources (core|providers|keystore src/main): ONLY core/.../core/internal/Guarded.kt:1 (TooGenericExceptionCaught). Criterion MET.
+Non-Guarded hits (3 found; the plan's acceptance text says "four" but names only these three, and the command finds exactly three), each with its treatment:
+  1. core/src/test/.../IdentityTypesTest.kt:14   "unused"            test-private fixture class whose property exists only to prove redaction; test source, never published. Noted, unchanged.
+  2. sample/src/release/.../DebugTools.kt:12     "UNUSED_PARAMETER"  release no-op stub in the never-published :sample (A10). Noted, unchanged.
+  3. sample/src/release/.../DebugTools.kt:16     "UNUSED_PARAMETER"  same file, second release no-op stub. Noted, unchanged.
+Phase 04 review-fix suppressions are gone:
+$ git show --stat --format='%h %s' a6def62
+a6def62 fix(04): drop the two review-fix @Suppress entries, the ignored-name catch passes detekt as is
+  providers/.../anthropic/AnthropicTransport.kt | 1 -
+  providers/.../http/CallAwait.kt | 1 -
+  2 files changed, 2 deletions(-)
+The current grep above has no hit in AnthropicTransport.kt or CallAwait.kt. This corrects the stale Phase 04 line in the cross-repo packet (used by Task 3).
+Baseline:
+$ git ls-files -co --exclude-standard -- '*baseline*.xml'
+(empty)
+$ grep -n baseline build.gradle.kts
+44:            // deliberately NO `baseline` property: zero-baseline policy, fix or tune, never bank debt   (a comment, no assignment)
+Reading for the orchestrator: "Guarded.kt is the only suppression" holds for the published main sources; the literal repo-wide reading is false (3 test/sample hits, none published).
+SUPPRESSIONS: PASS (published-main reading)
+
+== 4. Keystore cause-code mapping against the shipped Phase 6 code
+Public surface today: the codes are spelled only in the INTERNAL object keystore/src/main/kotlin/io/github/ygaray/voiceactionengine/keystore/KeystoreCauses.kt:16-20 (vocabulary set at :31-37), so a consumer cannot see its KDoc (11-02 must put the UX KDoc on a public constants object). The wire value reaches consumers as CredentialLookup.Unreadable(cause) -> FailureReason.CredentialUnreadable(provider, cause).
+
+code                    | produced at (file:line)                                                          | producing condition                                              | UX per orchestrator | consistent
+key_missing             | KeystoreCredentialSource.kt:29 (KeyState.KeyMissing -> keyMissingLookup); KeystoreCauses.kt:28; SecretReader.kt:62 (existingKey returns null) | device key gone (for example a backup restore); the lookup answered "no such key" | re-enter key        | yes
+decrypt_failed          | SecretReader.kt:92-95 (BadPaddingException, IllegalBlockSizeException from AesGcm.open at :89) | stored value failed authentication or is a malformed block: altered, or sealed under another key | re-enter key        | yes
+stored_value_malformed  | SecretReader.kt:74-75 (strict Base64 decode IllegalArgumentException), :78-83 (iv not 12 bytes or ciphertext under 16 bytes), :105 (decrypted text blank) | stored value is not in the shape this library writes | re-enter key        | yes
+keystore_unavailable    | SecretReader.kt:65-68 (GeneralSecurityException, ProviderException on key lookup), :96-99 (same two during decrypt) | key store could not be queried now; the stored value may be fine | transient, retry    | yes
+storage_unreadable      | ApiKeyStore.kt:126 (IOException on the observe flow), :133 with :140-146 (IOException reading DataStore -> null)         | the preferences file could not be read (I/O, includes a corrupt file) | transient, retry    | yes
+Cross-checks: API.md:244-245 and INTEGRATION.md:357-366 already document exactly this mapping, and INTEGRATION.md:359 treats an unknown cause as re-enter. No code contradicts the UX column.
+One nuance, not a mismatch: storage_unreadable also covers a corrupt preferences file (an IOException), which a retry may not heal; "transient, retry" is still the right first response and the orchestrator's wording stands.
+CAUSE MAPPING: MATCH
+
+== 5. minSdk / compileSdk
+$ grep -n 'minSdk\|compileSdk' keystore/build.gradle.kts
+10:    compileSdk { version = release(36) { minorApiLevel = 1 } }
+12:        minSdk = 35
+MINSDK: no action (orchestrator-confirmed; observed minSdk 35, compileSdk 36 minor 1 in keystore/build.gradle.kts)
+
+== Verdict
+D-04 MET, D-02 MET, suppressions PASS, cause mapping MATCH, minSdk recorded.
+PRECONDITIONS AUDIT: PASS
