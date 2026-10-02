@@ -1,0 +1,22 @@
+# 11-07 baseline evidence
+date_utc: 2026-10-02T17:37:59Z
+baseline_commit: c43c65ef437d50c4e9bbefe236a552aa027d2ca3
+W: be49ea8fc5036f0cb3c8203a0d3accb19146480a
+GATE OK prefreeze (W05=ok on record in 11-WAIVER-PACKET.md, committed dc6a5e4)
+GATE OK wiring (tested_sha be49ea8fc5036f0cb3c8203a0d3accb19146480a)
+GATE OK diff (only api.txt files and .planning since W; no DIFF NOTE)
+core/api.txt sha256=dd2e3b573475d85eeafe59bd270b47977fd5e4e6b3c00ba4d13f09895735a780 lines=1698
+cmp core: byte-identical to the reviewed signature in 11-API-REVIEW.md
+providers/api.txt sha256=9e45e6873659bcfe974b518fb906d44a488add0848f28101b5268cafe1a78875 lines=121
+cmp providers: byte-identical to the reviewed signature in 11-API-REVIEW.md
+keystore/api.txt sha256=113e7c2ff8aa958d9d3386ee03dcfe83f646eaad265acdf13b2575e4fd2b597f lines=67
+cmp keystore: byte-identical to the reviewed signature in 11-API-REVIEW.md
+new or odd entries since the review: none (byte-identical)
+apiCheck: BUILD SUCCESSFUL; :core:metalavaCheckCompatibility, :providers:metalavaCheckCompatibility, :keystore:metalavaCheckCompatibilityRelease executed (not SKIPPED)
+./gradlew check --offline: BUILD SUCCESSFUL (compat tasks armed with the baseline)
+PRE_RELEASE=0 scripts/verify-repo-hygiene.sh: HYGIENE OK
+GATE OK api-dump
+GATE OK hygiene
+GATE OK leak
+GATE OK diff
+BASELINE: PASS
