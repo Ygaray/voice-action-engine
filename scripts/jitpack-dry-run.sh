@@ -5,6 +5,10 @@
 #   -> resolve them from an EMPTY Gradle cache with scripts/jitpack-consumer-probe.sh (jar->jar and AAR->jar).
 # Usage:  scripts/jitpack-dry-run.sh              committed HEAD content (exactly what JitPack would check out)
 #         WORKTREE=1 scripts/jitpack-dry-run.sh   tracked + untracked-but-not-ignored working tree (pre-commit checks)
+#         DRYRUN_VERSION=v1.0.0 scripts/jitpack-dry-run.sh
+#                                                 export VERSION=<value> exactly as JitPack does for a tag build (the release
+#                                                 gate proves the published coordinates carry the tag). Default, when unset:
+#                                                 dryrun-<sha10>, as before.
 # The install commands are read from jitpack.yml and run verbatim (plus -Dmaven.repo.local), so a drift between
 # jitpack.yml and the module publish tasks fails here, not on JitPack.
 set -euo pipefail
@@ -18,7 +22,7 @@ if [ "${WORKTREE:-0}" = "1" ]; then
 else
   git -C "$ROOT" archive HEAD | tar -x -C "$CLONE"
 fi
-export VERSION="dryrun-$(git -C "$ROOT" rev-parse --short=10 HEAD)"   # JitPack exports VERSION to the build (fallback F3)
+export VERSION="${DRYRUN_VERSION:-dryrun-$(git -C "$ROOT" rev-parse --short=10 HEAD)}"   # JitPack exports VERSION to the build (fallback F3)
 cd "$CLONE"
 [ -x ./gradlew ] || { echo "DRY RUN FAIL: gradlew is not executable in the tree JitPack would see" >&2; exit 1; }
 [ -f jitpack.yml ] || { echo "DRY RUN FAIL: no jitpack.yml" >&2; exit 1; }
