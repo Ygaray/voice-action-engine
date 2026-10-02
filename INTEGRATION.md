@@ -332,7 +332,21 @@ fun PipelineBuilder.registerProviders(shared: OkHttpClient?) {
   to be called, and the engine refuses a credential stamped for another provider. `CredentialLookup` is an open set; `Missing` is a class, so write `CredentialLookup.Missing()`.
 - **`:keystore`.** Spell out your key table (one `KeySlot` per provider: the AndroidKeyStore alias and the two
   preference names, copied verbatim from your existing storage so saved keys keep working), own one `DataStore` per
-  file per process, and hand `KeystoreCredentialSource(ApiKeyStore(...))` to the pipeline:
+  file per process, and hand `KeystoreCredentialSource(ApiKeyStore(...))` to the pipeline. The snippet needs these
+  imports; the DataStore classes come with `keystore`, which exposes `datastore-preferences` as an `api` dependency:
+
+```text
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
+import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.provider.CredentialSource
+import io.github.ygaray.voiceactionengine.keystore.ApiKeyStore
+import io.github.ygaray.voiceactionengine.keystore.KeySlot
+import io.github.ygaray.voiceactionengine.keystore.KeystoreCauseCodes
+import io.github.ygaray.voiceactionengine.keystore.KeystoreCredentialSource
+```
 
 <!-- doc-snippet: keystore-wiring -->
 ```kotlin
@@ -354,16 +368,23 @@ fun keyCredentials(context: Context): CredentialSource =
 
 // What to tell the user when a key is stored but cannot be read. The causes are an open set.
 fun keyAdvice(cause: String): String = when (cause) {
-    "key_missing", "decrypt_failed", "stored_value_malformed" -> "Key unreadable ($cause): re-enter key"
-    "keystore_unavailable", "storage_unreadable" -> "Key unreadable ($cause): transient, retry"
+    KeystoreCauseCodes.KEY_MISSING,
+    KeystoreCauseCodes.DECRYPT_FAILED,
+    KeystoreCauseCodes.STORED_VALUE_MALFORMED,
+    -> "Key unreadable ($cause): re-enter key"
+    KeystoreCauseCodes.KEYSTORE_UNAVAILABLE,
+    KeystoreCauseCodes.STORAGE_UNREADABLE,
+    -> "Key unreadable ($cause): transient, retry"
     else -> "Key unreadable ($cause): re-enter key"
 }
 ```
 
 An unreadable key reaches you as `FailureReason.CredentialUnreadable(provider, cause)` (and `KeyState.Unreadable` from
-the store). The causes are stable codes: `key_missing`, `decrypt_failed` and `stored_value_malformed` mean **re-enter
-the key**; `keystore_unavailable` and `storage_unreadable` mean **transient, retry**. The set is open, so treat an
-unknown cause as re-enter.
+the store). The causes are stable codes, also public constants on `KeystoreCauseCodes`: `key_missing`
+(`KeystoreCauseCodes.KEY_MISSING`), `decrypt_failed` (`KeystoreCauseCodes.DECRYPT_FAILED`) and `stored_value_malformed`
+(`KeystoreCauseCodes.STORED_VALUE_MALFORMED`) mean **re-enter the key**; `keystore_unavailable`
+(`KeystoreCauseCodes.KEYSTORE_UNAVAILABLE`) and `storage_unreadable` (`KeystoreCauseCodes.STORAGE_UNREADABLE`) mean
+**transient, retry**. The set is open, so treat an unknown cause as re-enter.
 
 - **Capability overrides.** `capabilities(provider, model) { ... }` patches what the engine believes about one exact
   model id (never a prefix or family); it wins over the provider's built-in table. Read the result with

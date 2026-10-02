@@ -63,6 +63,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import io.github.ygaray.voiceactionengine.keystore.ApiKeyStore
 import io.github.ygaray.voiceactionengine.keystore.KeySlot
+import io.github.ygaray.voiceactionengine.keystore.KeystoreCauseCodes
 import io.github.ygaray.voiceactionengine.keystore.KeystoreCredentialSource
 import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicProvider
 import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsProvider
@@ -328,8 +329,13 @@ fun keyCredentials(context: Context): CredentialSource =
 
 // What to tell the user when a key is stored but cannot be read. The causes are an open set.
 fun keyAdvice(cause: String): String = when (cause) {
-    "key_missing", "decrypt_failed", "stored_value_malformed" -> "Key unreadable ($cause): re-enter key"
-    "keystore_unavailable", "storage_unreadable" -> "Key unreadable ($cause): transient, retry"
+    KeystoreCauseCodes.KEY_MISSING,
+    KeystoreCauseCodes.DECRYPT_FAILED,
+    KeystoreCauseCodes.STORED_VALUE_MALFORMED,
+    -> "Key unreadable ($cause): re-enter key"
+    KeystoreCauseCodes.KEYSTORE_UNAVAILABLE,
+    KeystoreCauseCodes.STORAGE_UNREADABLE,
+    -> "Key unreadable ($cause): transient, retry"
     else -> "Key unreadable ($cause): re-enter key"
 }
 // doc-snippet:end keystore-wiring
