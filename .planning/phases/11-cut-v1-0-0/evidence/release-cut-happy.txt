@@ -1,0 +1,66 @@
+# release-cut.sh happy-path evidence (plan 11-04)
+date_utc: 2026-10-02T00:57:08Z
+head: 1fca9dd0dfb25d70660768665ba18c982afde30f
+
+## Gates in preflight order (15)
+tag-format, tags-absent, create-tag, clean, pushed, wiring, diff, waiver, check, api-dump, hygiene, api-check, dry-run, leak, version
+diagnostic only: prefreeze (not in preflight; waiver covers the category C rule)
+
+## Gate argument table
+tag-format <tag> [<wiringSHA>] | tags-absent <tag> | wiring <wiringSHA> | diff <wiringSHA> | dry-run <tag> | version <tag>
+create-tag, clean, pushed, waiver, prefreeze, check, api-dump, hygiene, api-check, leak: no argument
+
+## Real-tree diagnostics (one at a time)
+CMD scripts/release-cut.sh gate create-tag -> GATE OK create-tag
+CMD scripts/release-cut.sh gate tag-format v1.0.0 -> GATE OK tag-format
+CMD scripts/release-cut.sh gate tags-absent v1.0.0 -> GATE OK tags-absent
+CMD scripts/release-cut.sh gate leak -> GATE OK leak
+CMD scripts/release-cut.sh gate diff HEAD -> GATE OK diff   (empty range)
+CMD scripts/release-cut.sh gate tag-format v1.0.1 -> RELEASE GATE FAIL tag-format: tag 'v1.0.1' is not the release tag v1.0.0   (expected red)
+CMD scripts/release-cut.sh gate prefreeze -> RELEASE GATE FAIL prefreeze: W05 pending: the api.txt baseline waits for this pre-freeze answer   (expected red: the real packet from 11-01 is pending)
+CMD scripts/release-cut.sh gate waiver -> RELEASE GATE FAIL waiver: packet_status is 'pending', must be accepted: Yahir's answers to the waiver packet are a hard tag precondition   (expected red: pending)
+
+## Sandbox happy path: scripts/release-cut.sh selftest happy
+--- sandbox preflight (W=348380edc61525e6f9aacb3e9dbf762448894c79)
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.0.0 commit=81b34dfed969398da8474b58c9ce6ef53804e86b wiring=348380edc61525e6f9aacb3e9dbf762448894c79 gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+--- sandbox cut
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.0.0 commit=81b34dfed969398da8474b58c9ce6ef53804e86b wiring=348380edc61525e6f9aacb3e9dbf762448894c79 gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+GATE OK tags-absent
+To /tmp/tmp.LqmgEOomi7/sandbox/origin.git
+ * [new tag]         v1.0.0 -> v1.0.0
+CUT OK tag=v1.0.0 commit=81b34dfed969398da8474b58c9ce6ef53804e86b tag_object=28af4f4f54997fdea6cc5870368d34be6e9ca854 pushed=refs/tags/v1.0.0
+sandbox remote: exactly one annotated tag v1.0.0 peeling to 81b34dfed9
+real-repo guard: unchanged (tags, remote tags, status, config.json, contract)
+RELEASE SELFTEST OK happy=1 negatives=0 positives=0
