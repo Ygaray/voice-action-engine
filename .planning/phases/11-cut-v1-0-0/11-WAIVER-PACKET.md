@@ -70,23 +70,25 @@ Lines whose classification is unchanged: the 58 `already-satisfied` lines in the
 Reply per row with: waive, accept, carry-to-gate-2, ok or needs-fix. A category C row accepts only ok, accept, waive or needs-fix. Rows are only ever filled from relayed answers, never inferred.
 
 ## Answer block
-packet_status: pending
-answered_by: -
-answered_at: -
+packet_status: accepted
+answered_by: Yahir (relayed by yahir-gsd-control-plane-f2 via the milestone master; all rows by=Yahir, "all as proposed", relayed 2026-10-02)
+answered_at: 2026-10-02T17:33:27Z
 answers:
-- W01: pending
-- W02: pending
-- W03: pending
-- W04: pending
-- W05: pending
-- W06: pending
-- W07: pending
-- W08: pending
-- W09: pending
-- W10: pending
-- W11: pending
-- W12: pending
-- W13: pending
+- W01: waive
+- W02: accept
+- W03: waive
+- W04: carry-to-gate-2
+- W05: ok
+- W06: waive
+- W07: waive
+- W08: waive
+- W09: waive
+- W10: waive
+- W11: waive
+- W12: waive
+- W13: ok
+
+Relay note (verbatim): W04=carry means carry-to-gate-2 (the milestone-close Gate-2). W02 stays ACCEPTED BY EVIDENCE, NOT a PASS. Source: p11-waiver-answer.txt, rows stamped by=Yahir at=2026-10-02T17:33:27Z.
 
 ### Rules for the answer block
 

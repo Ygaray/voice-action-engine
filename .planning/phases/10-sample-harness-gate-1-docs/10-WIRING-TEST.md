@@ -5,6 +5,7 @@ tested_sha: 338d85ffa3
 rerun_sha: 36c578f464
 rerun_verdict: "WIRING TEST: PASS checks=9"
 date: 2026-10-01
+tag_gate_record: .planning/phases/11-cut-v1-0-0/11-WIRING-RERUN.md
 dispatched_by: milestone master (relayed answer p10-dispatch-answer.txt; fresh general-purpose Sonnet subagent); rerun by the milestone master as an isolated headless process
 ---
 
@@ -106,3 +107,7 @@ Rerun procedure (master-performed; the executor has no Agent tool):
    caveat, dispatch it from a session outside this repository (or one that does not load this repository's
    `.claude/CLAUDE.md`).
 6. `scripts/agent-wiring-test.sh verify <dir> $SHA10`, then record `status: pass|fail`, the stumbles and CONSULTED.md here.
+
+## Phase 11 rerun on be49ea8fc5
+
+The tag-gating record is now `.planning/phases/11-cut-v1-0-0/11-WIRING-RERUN.md` (status pass, `WIRING TEST: PASS checks=9`, isolated headless run on W = `be49ea8fc5`). The `36c578f464` pass above is superseded for the tag, because plans 11-02 and 11-03 changed the API and the docs after it.
