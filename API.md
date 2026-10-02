@@ -238,8 +238,10 @@ written.
 
 ## Credentials and keystore
 
-`CredentialSource.credential(provider)` returns a `CredentialLookup` (**open**): `Present(Credential)`, `Missing()` (a
-class: construct it with parentheses) or `Unreadable(cause)`. `KeystoreCredentialSource(ApiKeyStore(dataStore, slots))` is the ready-made source: the app owns
+`CredentialSource` is a `fun interface` with one `suspend fun credential(provider: ProviderId): CredentialLookup`. The
+`CredentialLookup` (**open**) is `Present(Credential)`, built as `CredentialLookup.Present(Credential(provider, apiKey))`,
+`Missing()` (a class: construct it with parentheses) or `Unreadable(cause)`. The engine refuses a credential stamped for
+another provider, and `Credential.toString()` never shows the key. `KeystoreCredentialSource(ApiKeyStore(dataStore, slots))` is the ready-made source: the app owns
 the `DataStore` (one per file per process) and the `KeySlot` table. `ApiKeyStore` offers `save`, `delete`, `read` and
 `observe`; the plaintext key never leaves through a public member. `KeyState` is **open**. The unreadable causes are
 stable codes: `key_missing`, `decrypt_failed`, `stored_value_malformed` (re-enter the key) and `keystore_unavailable`,

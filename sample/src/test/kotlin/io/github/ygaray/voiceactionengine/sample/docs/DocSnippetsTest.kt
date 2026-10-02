@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.ygaray.voiceactionengine.core.CommandInput
+import io.github.ygaray.voiceactionengine.core.Credential
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.commit.ActionEvent
@@ -339,6 +340,17 @@ fun keyAdvice(cause: String): String = when (cause) {
     else -> "Key unreadable ($cause): re-enter key"
 }
 // doc-snippet:end keystore-wiring
+
+// doc-snippet:start fixed-credentials
+// Serves the one key the app already holds (read from its own secure storage); the key is a parameter, never a literal.
+fun fixedCredentials(apiKey: String): CredentialSource = CredentialSource { provider ->
+    if (provider == ProviderId.ANTHROPIC) {
+        CredentialLookup.Present(Credential(provider, apiKey))
+    } else {
+        CredentialLookup.Missing()
+    }
+}
+// doc-snippet:end fixed-credentials
 
 // doc-snippet:start render-outcome
 class MyOutcomeView(val headline: String, val choices: List<ClarificationOption> = emptyList())
@@ -736,5 +748,14 @@ class DocSnippetsTest {
             "Key unreadable (storage_unreadable): transient, retry",
             failureText(FailureReason.CredentialUnreadable(ProviderId.ANTHROPIC, "storage_unreadable"), 0),
         )
+    }
+
+    @Test
+    fun theFixedCredentialsRegionAnswersPresentOrMissing() = runTest {
+        val source = fixedCredentials("test-key")
+        val present = source.credential(ProviderId.ANTHROPIC)
+        assertTrue(present.toString(), present is CredentialLookup.Present)
+        assertEquals(ProviderId.ANTHROPIC, (present as CredentialLookup.Present).credential.provider)
+        assertEquals(CredentialLookup.Missing(), source.credential(ProviderId.OPENAI))
     }
 }

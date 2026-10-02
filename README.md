@@ -18,7 +18,7 @@ bring the tools, the resolver, the gate and the sink.
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/legs/LegRunner.kt` and
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/OutcomeText.kt`.
 
-**Status:** v1.0 is in verification. Until a release tag exists, pin a commit SHA.
+**Status:** v1.0 releases are immutable git tags, listed in the repository's tags; a commit SHA also works as `<version>`.
 
 ## Install (JitPack)
 
@@ -43,8 +43,10 @@ implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-provid
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:<version>")
 ```
 
-`providers` compiles against OkHttp 4.12 and is tested on 4.12 and 5.x, so your app keeps its own OkHttp version.
-`keystore` is an Android library (AAR) for bring-your-own-key storage; `core` is pure Kotlin.
+Which modules you need: `core` alone is enough for a pipeline, every seam and your own scripted `AiProvider`, so a
+JVM-only consumer (tests included) needs nothing else. Add `providers` only to call Anthropic, OpenAI or OpenRouter over
+HTTP; it compiles against OkHttp 4.12 and is tested on 4.12 and 5.x, so your app keeps its own OkHttp version. Add
+`keystore` only in an Android app (an AAR, minSdk 35) for bring-your-own-key storage; `core` is pure Kotlin.
 
 ## Minimal usage
 

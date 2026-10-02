@@ -37,10 +37,12 @@ implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keysto
 ```
 
 - `core` is pure Kotlin: the pipeline, the strategies, the seams and the neutral types. It has no HTTP dependency.
-- `providers` adds the Anthropic, OpenAI and OpenRouter transports over OkHttp. It compiles against the OkHttp 4.12
+  `core` alone is enough for a pipeline, every seam and your own scripted `AiProvider`, so a JVM-only consumer (tests
+  included) needs nothing else.
+- `providers` is needed only to call Anthropic, OpenAI or OpenRouter over HTTP; it adds those transports over OkHttp. It compiles against the OkHttp 4.12
   floor and is tested on 4.12 and 5.x, so your app keeps its own OkHttp version; do not force one.
-- `keystore` is an Android library (AAR) that stores a bring-your-own API key encrypted with a device key. Skip it if
-  you keep keys elsewhere. It exposes `androidx.datastore:datastore-preferences` as an `api` dependency (the store takes
+- `keystore` is an Android library (AAR, minSdk 35) that stores a bring-your-own API key encrypted with a device key.
+  Add it only in an Android app, and skip it if you keep keys elsewhere. It exposes `androidx.datastore:datastore-preferences` as an `api` dependency (the store takes
   your `DataStore<Preferences>`), so step 7 needs no extra dependency line in the app.
 - What you get transitively: `core` exposes `kotlinx-serialization-json` (tool schemas and arguments are
   `JsonObject`s) and `kotlinx-coroutines-core`; `providers` exposes OkHttp. You do not declare these yourself.
@@ -330,6 +332,25 @@ fun PipelineBuilder.registerProviders(shared: OkHttpClient?) {
   provider by default).
 - **Keys.** A `CredentialSource` answers `CredentialLookup.Present`, `Missing` or `Unreadable` for the provider about
   to be called, and the engine refuses a credential stamped for another provider. `CredentialLookup` is an open set; `Missing` is a class, so write `CredentialLookup.Missing()`.
+  The exact signature: `CredentialSource` is a `fun interface` with one `suspend fun credential(provider: ProviderId): CredentialLookup`.
+  Answer `CredentialLookup.Present(Credential(provider, apiKey))`, `CredentialLookup.Missing()` or
+  `CredentialLookup.Unreadable(cause)`; `Credential.toString()` never shows the key. A source that serves one key the
+  app already holds (from its own secure storage; the key is a parameter, never a literal in your code) is this short;
+  it needs `io.github.ygaray.voiceactionengine.core.Credential` and `io.github.ygaray.voiceactionengine.core.provider.CredentialLookup`
+  on top of the `ProviderId` and `CredentialSource` imports listed below:
+
+<!-- doc-snippet: fixed-credentials -->
+```kotlin
+// Serves the one key the app already holds (read from its own secure storage); the key is a parameter, never a literal.
+fun fixedCredentials(apiKey: String): CredentialSource = CredentialSource { provider ->
+    if (provider == ProviderId.ANTHROPIC) {
+        CredentialLookup.Present(Credential(provider, apiKey))
+    } else {
+        CredentialLookup.Missing()
+    }
+}
+```
+
 - **`:keystore`.** Spell out your key table (one `KeySlot` per provider: the AndroidKeyStore alias and the two
   preference names, copied verbatim from your existing storage so saved keys keep working), own one `DataStore` per
   file per process, and hand `KeystoreCredentialSource(ApiKeyStore(...))` to the pipeline. The snippet needs these

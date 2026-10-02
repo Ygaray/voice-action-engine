@@ -33,7 +33,7 @@ The `:sample` app module is never published.
 
 **Phase 1 proof:** all three modules resolve from an empty Gradle cache by commit SHA (first proven at
 `7f9db2294461d76832116e33cc0a724f05f445e8`; the final phase-gate SHA is recorded alongside it in
-`.planning/phases/01-scaffold-publishing-proof/evidence/jitpack-probe.txt`). Nothing is tagged yet.
+`.planning/phases/01-scaffold-publishing-proof/evidence/jitpack-probe.txt`).
 
 | Consumer | Dev checkout | Pins hub at | Pin file |
 |----------|--------------|-------------|----------|
@@ -42,9 +42,9 @@ The `:sample` app module is never published.
 
 **Repo:** public at `github.com/Ygaray/voice-action-engine` (created 2026-09-29).
 
-**Status:** v1.0 in verification (Phase 10: sample harness, Gate-1, docs; the tag is cut in Phase 11).
+**Status:** the v1.0 core engine; v1.1 is planned.
 
-**Current published tag:** none. Staged plan (two milestones, A4): `v1.0.0` (contract + pipeline + providers + keystore +
+**Published tags:** see the repository's git tags; the control plane's §11 ledger in `CROSS-REPO-SCOPE-CONTRACT.md` is the authoritative list consumers repin from. Staged plan (two milestones, A4): `v1.0.0` (contract + pipeline + providers + keystore +
 2 ported strategies), `v1.1.0` (grammar / plan / router / on-device spike). See the contract, L8.
 
 ## The doc set an integrating agent receives
