@@ -23,12 +23,14 @@
 # GATES, in the order preflight runs them. Entry guards first (cheap, fail fast), then the six ROADMAP SC1 release gates.
 #   1  tag-format   the tag is exactly RELEASE_TAG in strict vMAJOR.MINOR.PATCH form; the wiring SHA resolves to a commit
 #   2  tags-absent  at v1.0.0 the repository holds no tag at all, locally or on origin (D-02)
-#   3  create-tag   (added with the D-02 guard) .planning/config.json git.create_tag is exactly false
+#   3  create-tag   .planning/config.json git.create_tag is exactly false (D-02: GSD's milestone close must not tag)
 #   4  clean        nothing staged; no uncommitted or untracked file outside the orchestrator bookkeeping paths
 #   5  pushed       HEAD equals origin/main exactly
 #   6  wiring       the wiring SHA is an ancestor of HEAD and 11-WIRING-RERUN.md (read from HEAD) passes for exactly it
-#   7  diff         since the wiring SHA only the three api.txt files and paths under .planning/ changed
-#   8  waiver       the waiver packet in HEAD is accepted with no pending row (Yahir's answers are a hard tag precondition)
+#   7  diff         since the wiring SHA only the three api.txt files, paths under .planning/ and (ledger rows only) the
+#                   contract's section 11 table changed
+#   8  waiver       the waiver packet in HEAD is accepted with no pending row and every pre-freeze (category C) row
+#                   answered ok, accept or waive (Yahir's answers are a hard tag precondition)
 #   -- the six ROADMAP SC1 release gates, all on the content of HEAD --
 #   9  check        ./gradlew check green in a clean archive of HEAD
 #   10 api-dump     a fresh apiDump of HEAD equals the three api.txt committed in HEAD, byte for byte
@@ -37,7 +39,10 @@
 #   13 dry-run      clean-clone JitPack dry run from jitpack.yml's install list (never :sample), VERSION=<tag>
 #   14 leak         tracked-content scan for the A10 fixture name and key-shaped strings
 #   15 version      the published coordinates carry the tag version (POM, .module, providers/keystore -> core)
-# The numbering above becomes 15 gates when the create-tag guard lands; the PREFLIGHT OK line lists the gates it ran.
+# That is 15 gates; the PREFLIGHT OK line lists the gates it ran, in order. One more gate exists only as a DIAGNOSTIC and is
+# not part of preflight (waiver already covers it): `prefreeze`, run before the api.txt baseline is dumped (plan 11-07).
+# It requires every category C (pre-freeze API confirmation) row of the waiver packet to be answered ok, accept or waive,
+# whatever the state of the other rows.
 #
 # GATE ARGUMENTS (pinned; a wrong count or an unknown gate is a usage error, exit 2, never a gate verdict):
 #   gate tag-format <tag> [<wiringSHA>]   gate tags-absent <tag>        gate wiring <wiringSHA>   gate diff <wiringSHA>
@@ -69,7 +74,10 @@ CONTRACT="CROSS-REPO-SCOPE-CONTRACT.md"
 #   .claude/worktrees  parallel-executor worktrees of this milestone run
 CLEAN_EXCLUDES=(':!.planning' ':!graphify-out' ':!.gsd' ':!.claude/worktrees')
 
-GATE_ORDER=(tag-format tags-absent clean pushed wiring diff waiver check api-dump hygiene api-check dry-run leak version)
+# The header row of the section 11 ledger table in the contract (the table the orchestrator appends dated rows to).
+LEDGER_HEADER='| Date | Repo | Tag | Commit | Coordinate(s) | Contents | Evidence | Consumers repinned |'
+
+GATE_ORDER=(tag-format tags-absent create-tag clean pushed wiring diff waiver check api-dump hygiene api-check dry-run leak version)
 
 TMPROOT=""
 DRY_M2=""
@@ -94,7 +102,7 @@ usage() {
     echo "  gate diff <wiringSHA>"
     echo "  gate dry-run <tag>"
     echo "  gate version <tag>"
-    echo "  gate clean | pushed | waiver | check | api-dump | hygiene | api-check | leak   (no argument)"
+    echo "  gate create-tag | clean | pushed | waiver | prefreeze | check | api-dump | hygiene | api-check | leak   (no argument)"
   } >&2
   exit 2
 }
@@ -152,6 +160,20 @@ gate_tags_absent() {
   gate_ok tags-absent
 }
 
+# D-02 entry guard (INC-2026-09-30-01): GSD's milestone close would create its own v1.0 marker tag if git.create_tag were
+# true. This reads the WORKING-TREE value (the one milestone close would use) and only reads: it never edits config.json.
+gate_create_tag() {
+  local val cfg="$REPO/.planning/config.json"
+  [ -f "$cfg" ] || gate_fail create-tag "git.create_tag is missing (no .planning/config.json), must be false (D-02); this script never edits config.json"
+  if command -v jq >/dev/null; then
+    val="$(jq -r '.git.create_tag' "$cfg" 2>/dev/null)" || val="unreadable"
+  else
+    val="$(cd "$REPO" && node "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/gsd-core/bin/gsd-tools.cjs" query config-get git.create_tag --raw 2>/dev/null)" || val="unreadable"
+  fi
+  [ "$val" = "false" ] || gate_fail create-tag "git.create_tag is $val, must be false (D-02); this script never edits config.json"
+  gate_ok create-tag
+}
+
 gate_clean() {
   local st
   git diff --cached --quiet -- . "${CLEAN_EXCLUDES[@]}" || gate_fail clean "files are staged"
@@ -184,6 +206,63 @@ gate_wiring() {
   gate_ok wiring
 }
 
+# "<separator line> <last row line>" of the section 11 ledger table in a revision of the contract. Fails unless exactly one
+# ledger header line follows the '## 11.' heading, directly followed by its separator line. The table block is the run of
+# lines starting with '|' after the separator.
+ledger_range() {
+  git show "$1:$CONTRACT" 2>/dev/null | awk -v hdr="$LEDGER_HEADER" '
+    { L[NR] = $0 }
+    /^## 11\./ { in11 = 1; next }
+    in11 && $0 == hdr { nh++; h = NR }
+    END {
+      if (nh != 1 || L[h + 1] !~ /^\|[-| :]+\|$/) exit 1
+      last = h + 1
+      while ((last + 1) in L && L[last + 1] ~ /^\|/) last++
+      print h + 1, last
+    }'
+}
+
+# True only when every change to the contract between the wiring SHA and HEAD is a dated ledger row inside the section 11
+# table. Why this allowance exists: the orchestrator is the sole ledger writer (A14) and commits section 11 rows into this
+# repository (aa65368, 70cfe9b). A ledger row is not part of the docs or the API the wiring test proved, so it cannot void
+# the wiring pass; any other contract change (a section 10 amendment, an erratum, body text) can. The pre-ledger placeholder
+# row was removed at aa65368, before any wiring SHA, so every later ledger commit adds or edits '| 20...' rows only.
+#   (a) both revisions have one well-formed ledger table;
+#   (b) every changed line (a +/- line, ignoring the file headers and the no-newline marker) is a '| 20YY-MM-DD |' row;
+#   (c) every hunk lies inside the table rows of both revisions (a zero-length side anchors between the separator and the
+#       last row).
+contract_change_is_ledger_only() {
+  local w="$1" oldr newr osep olast nsep nlast d rows commits
+  oldr="$(ledger_range "$w")" || return 1
+  newr="$(ledger_range HEAD)" || return 1
+  read -r osep olast <<<"$oldr"
+  read -r nsep nlast <<<"$newr"
+  d="$(git diff -U0 --no-color --no-ext-diff "$w" HEAD -- "$CONTRACT")"
+  [ -n "$d" ] || return 1
+  rows="$(awk -v osep="$osep" -v olast="$olast" -v nsep="$nsep" -v nlast="$nlast" '
+    BEGIN { ok = 1; hunks = 0; rows = 0; inh = 0 }
+    /^@@ / {
+      inh = 1; hunks++
+      s = $0; sub(/^@@ -/, "", s)
+      split(s, parts, " ")
+      o = parts[1]; n = parts[2]; sub(/^\+/, "", n)
+      ob = 1; nb = 1
+      if (index(o, ",")) { split(o, oo, ","); oa = oo[1]; ob = oo[2] } else { oa = o }
+      if (index(n, ",")) { split(n, nn, ","); na = nn[1]; nb = nn[2] } else { na = n }
+      if (ob + 0 > 0) { if (oa + 0 < osep + 1 || oa + ob - 1 > olast) ok = 0 } else { if (oa + 0 < osep || oa + 0 > olast) ok = 0 }
+      if (nb + 0 > 0) { if (na + 0 < nsep + 1 || na + nb - 1 > nlast) ok = 0 } else { if (na + 0 < nsep || na + 0 > nlast) ok = 0 }
+      next
+    }
+    !inh { next }
+    /^\\/ { next }
+    /^[+-]/ { if ($0 ~ /^[+-]\| 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] \|/) rows++; else ok = 0; next }
+    { ok = 0 }
+    END { if (ok && hunks > 0 && rows > 0) print rows; else exit 1 }' <<<"$d")" || return 1
+  commits="$(git log --format=%h "$w..HEAD" -- "$CONTRACT" | paste -sd, -)"
+  echo "DIFF NOTE: ledger-only contract change ($rows row line(s) in section 11; commits: $commits)"
+  return 0
+}
+
 gate_diff() {
   local full f names offenders=()
   full="$(full_sha "$1")" || gate_fail diff "wiring SHA '$1' does not resolve to a commit"
@@ -192,6 +271,7 @@ gate_diff() {
     [ -n "$f" ] || continue
     case "$f" in
       core/api.txt | providers/api.txt | keystore/api.txt | .planning/*) ;;
+      "$CONTRACT") if ! contract_change_is_ledger_only "$full"; then offenders+=("$f"); fi ;;
       *) offenders+=("$f") ;;
     esac
   done <<<"$names"
@@ -207,19 +287,63 @@ gate_diff() {
   gate_ok diff
 }
 
+# Loads HEAD's waiver packet into PACKET and its '## Answer block' section into BLOCK (fails the named gate otherwise).
+PACKET=""
+BLOCK=""
+load_packet() {
+  PACKET="$(git show "HEAD:$WAIVER_PACKET" 2>/dev/null)" || gate_fail "$1" "$WAIVER_PACKET is not in HEAD"
+  [ "$(grep -c '^## Answer block$' <<<"$PACKET" || true)" = 1 ] || gate_fail "$1" "the packet must hold exactly one '## Answer block' section"
+  BLOCK="$(awk '$0 == "## Answer block" { f = 1; next } f && /^#/ { exit } f { print }' <<<"$PACKET")"
+}
+
+# A scalar field ("packet_status", "answered_by", "answered_at") of the answer block.
+block_field() {
+  awk -v k="$1" 'index($0, k ":") == 1 { sub("^" k ":[ \t]*", ""); sub(/[ \t\r]+$/, ""); print; exit }' <<<"$BLOCK"
+}
+
+# The answer recorded for a row id (empty when the id has no answer line).
+answer_of() {
+  awk -v id="$1" '$1 == "-" && $2 == id ":" { a = $3; sub(/\r$/, "", a); print a; exit }' <<<"$BLOCK"
+}
+
+# Ids of the packet table rows of category C (the pre-freeze API confirmations), in table order.
+category_c_ids() {
+  awk -F'|' '/^\| W[0-9][0-9] \|/ { id = $2; c = $3; gsub(/ /, "", id); gsub(/ /, "", c); if (c == "C") print id }' <<<"$PACKET"
+}
+
+# Diagnostic only (not in the preflight list: waiver already covers it). Plan 11-07 runs it before the api.txt baseline is
+# dumped: every category C row must be answered ok, accept or waive, whatever the state of the other rows.
+gate_prefreeze() {
+  local status ids id ans
+  load_packet prefreeze
+  status="$(block_field packet_status)"
+  ids="$(category_c_ids)"
+  [ -n "$ids" ] || gate_fail prefreeze "no category C rows found"
+  for id in $ids; do
+    ans="$(answer_of "$id")"
+    case "$ans" in
+      ok | accept | waive) ;;
+      needs-fix) gate_fail prefreeze "$id needs-fix: W is void; loop: API change in 11-02 scope, 11-03 docs gate, new W and isolated rerun in 11-06, then 11-07" ;;
+      pending | "") gate_fail prefreeze "$id pending: the api.txt baseline waits for this pre-freeze answer" ;;
+      carry-to-gate-2) gate_fail prefreeze "$id carry-to-gate-2: not valid for a pre-freeze row (the API freezes at the baseline)" ;;
+      *) gate_fail prefreeze "$id answered '$ans': not valid for a pre-freeze row (use ok, accept or waive)" ;;
+    esac
+  done
+  [ "$status" != "rejected" ] || gate_fail prefreeze "packet rejected (non-pre-freeze row): stop for the orchestrator"
+  gate_ok prefreeze
+}
+
 gate_waiver() {
-  local packet block status by at ids_ans ids_tab id ans
-  packet="$(git show "HEAD:$WAIVER_PACKET" 2>/dev/null)" || gate_fail waiver "$WAIVER_PACKET is not in HEAD"
-  [ "$(grep -c '^## Answer block$' <<<"$packet" || true)" = 1 ] || gate_fail waiver "the packet must hold exactly one '## Answer block' section"
-  block="$(awk '$0 == "## Answer block" { f = 1; next } f && /^#/ { exit } f { print }' <<<"$packet")"
-  status="$(awk '/^packet_status:/ { sub(/^packet_status:[ \t]*/, ""); sub(/[ \t\r]+$/, ""); print; exit }' <<<"$block")"
-  by="$(awk '/^answered_by:/ { sub(/^answered_by:[ \t]*/, ""); sub(/[ \t\r]+$/, ""); print; exit }' <<<"$block")"
-  at="$(awk '/^answered_at:/ { sub(/^answered_at:[ \t]*/, ""); sub(/[ \t\r]+$/, ""); print; exit }' <<<"$block")"
+  local status by at ids_ans ids_tab id ans
+  load_packet waiver
+  status="$(block_field packet_status)"
+  by="$(block_field answered_by)"
+  at="$(block_field answered_at)"
   [ "$status" = "accepted" ] || gate_fail waiver "packet_status is '${status:-missing}', must be accepted: Yahir's answers to the waiver packet are a hard tag precondition"
   { [ -n "$by" ] && [ "$by" != "-" ]; } || gate_fail waiver "answered_by is '${by:--}'"
   { [ -n "$at" ] && [ "$at" != "-" ]; } || gate_fail waiver "answered_at is '${at:--}'"
-  ids_ans="$(awk '/^- W[0-9][0-9]:/ { id = $2; sub(/:$/, "", id); print id }' <<<"$block" | sort)"
-  ids_tab="$(awk -F'|' '/^\| W[0-9][0-9] \|/ { id = $2; gsub(/ /, "", id); print id }' <<<"$packet" | sort)"
+  ids_ans="$(awk '/^- W[0-9][0-9]:/ { id = $2; sub(/:$/, "", id); print id }' <<<"$BLOCK" | sort)"
+  ids_tab="$(awk -F'|' '/^\| W[0-9][0-9] \|/ { id = $2; gsub(/ /, "", id); print id }' <<<"$PACKET" | sort)"
   [ -n "$ids_tab" ] || gate_fail waiver "no item rows found in the packet table"
   [ "$ids_ans" = "$ids_tab" ] || gate_fail waiver "the answered ids ($(echo "$ids_ans" | tr '\n' ' ')) differ from the table ids ($(echo "$ids_tab" | tr '\n' ' '))"
   while read -r id ans; do
@@ -227,7 +351,15 @@ gate_waiver() {
       waive | accept | carry-to-gate-2 | ok) ;;
       *) gate_fail waiver "$id is answered '$ans'; every row must be waive, accept, carry-to-gate-2 or ok" ;;
     esac
-  done < <(awk '/^- W[0-9][0-9]:/ { id = $2; sub(/:$/, "", id); a = $3; sub(/\r$/, "", a); print id, a }' <<<"$block")
+  done < <(awk '/^- W[0-9][0-9]:/ { id = $2; sub(/:$/, "", id); a = $3; sub(/\r$/, "", a); print id, a }' <<<"$BLOCK")
+  # A pre-freeze row cannot be carried past the freeze: the public API is frozen into api.txt before Gate-2 runs.
+  for id in $(category_c_ids); do
+    ans="$(answer_of "$id")"
+    case "$ans" in
+      ok | accept | waive) ;;
+      *) gate_fail waiver "$id is a pre-freeze (category C) row answered '$ans'; only ok, accept or waive let the API freeze" ;;
+    esac
+  done
   gate_ok waiver
 }
 
@@ -497,6 +629,8 @@ call_gate() {
   case "$g" in
     tag-format) gate_tag_format "$tag" "$wiring" ;;
     tags-absent) gate_tags_absent "$tag" ;;
+    create-tag) gate_create_tag ;;
+    prefreeze) gate_prefreeze ;;
     clean) gate_clean ;;
     pushed) gate_pushed ;;
     wiring) gate_wiring "$wiring" ;;
@@ -523,7 +657,7 @@ run_gate() {
     diff) [ $# -eq 1 ] || usage; gate_diff "$1" ;;
     dry-run) [ $# -eq 1 ] || usage; gate_dry_run "$1" ;;
     version) [ $# -eq 1 ] || usage; gate_dry_run "$1"; gate_version "$1" ;;
-    clean | pushed | waiver | check | api-dump | hygiene | api-check | leak)
+    create-tag | clean | pushed | waiver | prefreeze | check | api-dump | hygiene | api-check | leak)
       [ $# -eq 0 ] || usage
       call_gate "$name" "" ""
       ;;
@@ -613,6 +747,10 @@ selftest_happy() {
   git -C "$clone" add -- scripts .planning/phases/11-cut-v1-0-0
   if ! git -C "$clone" diff --cached --quiet; then git -C "$clone" commit --quiet -m "selftest: overlay working-tree scripts and phase directory"; fi
   w="$(git -C "$clone" rev-parse HEAD)"
+
+  # The clone has the committed config.json; pin the value the create-tag guard reads (uncommitted, under .planning/).
+  mkdir -p "$clone/.planning"
+  printf '{"git":{"create_tag":false}}\n' >"$clone/.planning/config.json"
 
   # 3. A synthetic wiring record (status pass for W) and an accepted packet with every row ok.
   cat >"$clone/$WIRING_RECORD" <<EOF
