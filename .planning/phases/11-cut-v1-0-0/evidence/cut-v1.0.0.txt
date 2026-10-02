@@ -1,0 +1,36 @@
+# cut v1.0.0
+date_utc: 2026-10-02T17:50:58Z
+C: efc060f8fe462b71af2e4586b75a97db119ebabd
+W: be49ea8fc5036f0cb3c8203a0d3accb19146480a
+reply: CUT v1.0.0 at efc060f8fe462b71af2e4586b75a97db119ebabd (relayed by milestone master from orchestrator 'Proceed with the cut' 2026-10-02; A12 authority)
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.0.0 commit=efc060f8fe462b71af2e4586b75a97db119ebabd wiring=be49ea8fc5036f0cb3c8203a0d3accb19146480a gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+GATE OK tags-absent
+To https://github.com/Ygaray/voice-action-engine.git
+ * [new tag]         v1.0.0 -> v1.0.0
+CUT OK tag=v1.0.0 commit=efc060f8fe462b71af2e4586b75a97db119ebabd tag_object=343fd3f28676f4bf4bfb76a1b6ad0cb23b59bfaa pushed=refs/tags/v1.0.0
+## post-cut assertions
+tags: v1.0.0
+type: tag
+peeled: efc060f8fe462b71af2e4586b75a97db119ebabd
+remote:
+343fd3f28676f4bf4bfb76a1b6ad0cb23b59bfaa	refs/tags/v1.0.0
+efc060f8fe462b71af2e4586b75a97db119ebabd	refs/tags/v1.0.0^{}
+GATE OK create-tag
+DOC COVERAGE OK checks=23 types=97
+CUT VERIFIED: v1.0.0 -> efc060f8fe462b71af2e4586b75a97db119ebabd

@@ -1,0 +1,21 @@
+# preflight v1.0.0
+date_utc: 2026-10-02T17:43:37Z
+C: efc060f8fe462b71af2e4586b75a97db119ebabd
+W: be49ea8fc5036f0cb3c8203a0d3accb19146480a
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture) -> content_check=ran(master): master ran the leak content check against the real LE-1 fixture over all 829 tracked files at C; system-prompt needle 0 hits; tool names only in CLN-02 deny-list, negative controls, CROSS-REPO-SCOPE-CONTRACT.md and provider TEST goldens (all already public on origin/main)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.0.0 commit=efc060f8fe462b71af2e4586b75a97db119ebabd wiring=be49ea8fc5036f0cb3c8203a0d3accb19146480a gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
