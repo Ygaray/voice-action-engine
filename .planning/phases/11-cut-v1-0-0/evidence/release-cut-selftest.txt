@@ -1,0 +1,87 @@
+# release-cut.sh selftest all - plan 11-05
+# date (UTC): 2026-10-01
+# HEAD: 45e9d2a3bdebdc51842e0cad89d9ae6bb1b3334f (scripts/release-cut.sh as committed)
+# command: scripts/release-cut.sh selftest all (no SELFTEST_ONLY); wall clock about 9.6 minutes
+# sandbox: temp clones with LOCAL bare remotes only; the real repository is only read
+# The happy path (15-gate preflight, cut, one annotated tag in the sandbox bare remote) is followed by 33 controls:
+# 31 went-red and 2 stayed-green (contract-ledger-only, prefreeze-c-rows-answered). Sub-run controls print one line.
+
+--- sandbox preflight (W=45e9d2a3bdebdc51842e0cad89d9ae6bb1b3334f)
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.0.0 commit=89845b1025384710ac674b8a1c11cdd6347ce817 wiring=45e9d2a3bdebdc51842e0cad89d9ae6bb1b3334f gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+--- sandbox cut
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.0.0 commit=89845b1025384710ac674b8a1c11cdd6347ce817 wiring=45e9d2a3bdebdc51842e0cad89d9ae6bb1b3334f gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+GATE OK tags-absent
+To /tmp/tmp.gUwJ7ejzzH/sandbox/origin.git
+ * [new tag]         v1.0.0 -> v1.0.0
+CUT OK tag=v1.0.0 commit=89845b1025384710ac674b8a1c11cdd6347ce817 tag_object=4addc31174f475010c2959db007e4431fd89c32f pushed=refs/tags/v1.0.0
+sandbox remote: exactly one annotated tag v1.0.0 peeling to 89845b1025
+--- negative controls (one throwaway clone per control; sandbox remotes are local paths)
+ok    [tag-format-args] went red (tag-format: matched 'is not the release tag')
+ok    [tag-local-lightweight] went red (tags-absent: matched 'local tag(s) already exist')
+ok    [tag-remote-only] went red (tags-absent: matched 'origin already has tag ref(s)')
+ok    [tag-unrelated-v0.9.0] went red (tags-absent: matched 'v0.9.0')
+ok    [create-tag-not-false] went red (create-tag: matched 'must be false')
+ok    [clean-tracked-modified] went red (clean: matched 'working tree is not clean')
+ok    [clean-staged] went red (clean: matched 'files are staged')
+ok    [pushed-ahead] went red (pushed: matched 'is not origin/main')
+ok    [wiring-status-fail] went red (wiring: matched 'must be pass')
+ok    [wiring-sha-mismatch] went red (wiring: matched 'tested_sha')
+ok    [wiring-not-ancestor] went red (wiring: matched 'is not an ancestor of HEAD')
+ok    [diff-readme] went red (diff: matched 'README.md')
+ok    [diff-core-main] went red (diff: matched 'core/src/main')
+ok    [diff-jitpack-yml] went red (diff: matched 'jitpack.yml')
+ok    [contract-non-ledger] went red (diff: matched 'yahir-gsd-control-plane-f2')
+ok    [contract-mixed] went red (diff: matched 'yahir-gsd-control-plane-f2')
+ok    [contract-row-outside-11] went red (diff: matched 'yahir-gsd-control-plane-f2')
+ok    [contract-ledger-only] stayed green (diff: matched 'DIFF NOTE: ledger-only contract change')
+ok    [waiver-not-accepted] went red (waiver: matched 'must be accepted')
+ok    [waiver-needs-fix] went red (waiver: matched 'needs-fix'; 'carry-to-gate-2')
+ok    [waiver-id-missing] went red (waiver: matched 'differ from the table ids')
+ok    [prefreeze-c-row-open] went red (prefreeze: matched 'pending'; 'W is void'; 'carry-to-gate-2')
+ok    [prefreeze-c-rows-answered] stayed green (prefreeze: matched 'GATE OK prefreeze')
+ok    [cut-dirty-tree] went red (clean: matched 'working tree is not clean')
+      [cut-dirty-tree] no tag exists afterwards in the clone or in its bare remote
+ok    [cut-approved-not-head] went red (cut: matched 'is not HEAD')
+      [cut-approved-not-head] no tag exists afterwards in the clone or in its bare remote
+ok    [hygiene-api-txt-removed] went red (hygiene: matched 'keystore/api.txt')
+ok    [api-dump-core-line-deleted] went red (api-dump: matched 'core: a fresh apiDump of HEAD differs')
+ok    [leak-key-shape] went red (leak: matched 'provider-key shape')
+ok    [leak-fixture-filename] went red (leak: matched 'a tracked path contains the fixture name')
+ok    [leak-fixture-mention] went red (leak: matched 'names the fixture outside the allow-list')
+ok    [dry-run-sample-install] went red (dry-run: matched 'names :sample')
+ok    [version-not-read] went red (version: matched '0.0.0-local')
+ok    [check-print-call] went red (check: matched 'Banned constructs')
+real-repo guard: unchanged (tags, remote tags, status, config.json, contract)
+RELEASE SELFTEST OK happy=1 negatives=31 positives=2
