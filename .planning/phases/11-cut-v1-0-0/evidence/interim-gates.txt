@@ -10,3 +10,13 @@ CMD scripts/release-cut.sh gate tags-absent v1.0.0 -> GATE OK tags-absent
 CMD scripts/release-cut.sh gate create-tag -> GATE OK create-tag
 CMD scripts/api-dump-isolated.sh --out <tmp> -> API DUMP ISOLATED OK out=/tmp/tmp.vFPawHukJY core=1698 providers=121 keystore=67
 CMD cmp <tmp>/{core,providers,keystore}.api.sig vs evidence/interim-api -> IDENTICAL
+
+# post-push additions (uncommitted until Task 3; .planning only)
+W: be49ea8fc5036f0cb3c8203a0d3accb19146480a  (W10 be49ea8fc5)  pushed to origin/main, JitPack LIVE PROBE PASS ref=be49ea8fc5 (see wiring-sha-jitpack.txt)
+WIRING PREPARED dir=/home/yahir/.cache/vae-wiring-test/be49ea8fc5 version=be49ea8fc5
+workspace holds docs/README.md docs/INTEGRATION.md docs/API.md docs/ECOSYSTEM.md TASK.md: yes
+each docs/*.md byte-equal to git show W:<doc>: yes (4 of 4)
+TASK.md carries be49ea8fc5: yes
+find workspace for .credentials.json, CLAUDE.md, AGENTS.md, .planning, .claude: none
+ancestor CLAUDE.md files above workspace: only /home/yahir/.claude/CLAUDE.md (the user config dir, not CLAUDE_CONFIG_DIR for the isolated run)
+scripts/release-cut.sh gate prefreeze -> RELEASE GATE FAIL prefreeze: W05 pending (expected: the gate reads the real packet)

@@ -1,0 +1,28 @@
+== JitPack live probe  ref=be49ea8fc5  repo=Ygaray/voice-action-engine  2026-10-02T01:19:12Z
+   status=none
+   status=ok
+   api: {"version":"be49ea8fc5","status":"ok","commit":"be49ea8fc5036f0cb3c8203a0d3accb19146480a","isTag":false,"modules":["voice-action-engine-core","voice-action-engine-keystore","voice-action-engine-providers"]}
+   log: Running install command:
+   log: ./gradlew :core:publishReleasePublicationToMavenLocal :providers:publishReleasePublicationToMavenLocal :keystore:publishReleasePublicationToMavenLocal
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-providers:be49ea8fc5
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:be49ea8fc5
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-core:be49ea8fc5
+   served coordinates:
+     com.github.Ygaray.voice-action-engine:voice-action-engine-core:be49ea8fc5
+     com.github.Ygaray.voice-action-engine:voice-action-engine-providers:be49ea8fc5
+     com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:be49ea8fc5
+   voice-action-engine-core: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers -> core dependency version line: <version>be49ea8fc5</version>
+   voice-action-engine-keystore: pom 200, module 200 <packaging>aar</packaging>
+   voice-action-engine-keystore -> core dependency version line: <version>be49ea8fc5</version>
+   aggregator pom: 200, lists all expected modules, no forbidden artifact
+   running consumer probe (empty Gradle cache)...
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:be49ea8fc5
+   consumer:      +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:be49ea8fc5
+   consumer: +--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:be49ea8fc5
+   consumer: |    +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:be49ea8fc5
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:be49ea8fc5
+   consumer:      +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:be49ea8fc5 (*)
+   consumer: PROBE OK (com.github.Ygaray.voice-action-engine:*:be49ea8fc5 from https://jitpack.io) workdir removed on exit
+LIVE PROBE PASS ref=be49ea8fc5  (workdir removed on exit)
