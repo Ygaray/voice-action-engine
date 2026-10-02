@@ -13,7 +13,8 @@
 #   cut <tag> <wiringSHA> <approvedCommit>      re-run the full preflight, re-check HEAD and the tag state, create the
 #                                               ANNOTATED tag on HEAD, push ONLY refs/tags/<tag>, verify the remote
 #   gate <name> [args]                          run one gate as a diagnostic; never tags, never pushes
-#   selftest happy                              prove the happy path in a sandbox (temp clone + LOCAL bare remote)
+#   selftest happy|negative|all                 prove the happy path (happy) and/or that every gate goes red on a planted violation
+#                                               (negative), in a sandbox (temp clones + LOCAL bare remotes); all = happy, then negative
 # Exit codes: 0 ok, 1 a gate failed (RELEASE GATE FAIL <gate>: <why>), 2 usage (RELEASE USAGE: ...), 3 the push failed.
 #
 # NO GATE MAY BE SKIPPED. There is no bypass flag and no environment lever, on purpose: the failures these gates catch
@@ -95,7 +96,7 @@ trap cleanup EXIT
 
 usage() {
   {
-    echo "RELEASE USAGE: release-cut.sh preflight <tag> <wiringSHA> | cut <tag> <wiringSHA> <approvedCommit> | gate <name> [args] | selftest happy"
+    echo "RELEASE USAGE: release-cut.sh preflight <tag> <wiringSHA> | cut <tag> <wiringSHA> <approvedCommit> | gate <name> [args] | selftest happy|negative|all"
     echo "  gate tag-format <tag> [<wiringSHA>]"
     echo "  gate tags-absent <tag>"
     echo "  gate wiring <wiringSHA>"
@@ -710,7 +711,11 @@ Section 11 ledger row: messaged to the orchestrator, the sole ledger writer (A14
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
-# selftest happy: a temp clone and a LOCAL bare remote; the real repository is only read
+# selftest: a temp clone and a LOCAL bare remote; the real repository is only read
+#   happy      green sandbox -> preflight -> cut -> exactly one annotated tag in the sandbox remote
+#   negative   one planted violation per control, each in its own throwaway clone of the green bare repository; a control
+#              passes only when its gate went red (or stayed green, for a positive control) for the RIGHT reason
+#   all        happy, then negative, on one green sandbox
 # ---------------------------------------------------------------------------------------------------------------------
 snapshot_real() {
   local remote
@@ -722,41 +727,64 @@ snapshot_real() {
   printf 'contract: %s\n' "$(sha256sum "$REPO/$CONTRACT" 2>/dev/null | cut -d' ' -f1)"
 }
 
-selftest_happy() {
-  local sb bare clone w head before after out fetch_url push_url n rec_tag
-  sf() { echo "RELEASE SELFTEST FAIL: $*" >&2; exit 1; }
-  mk_tmp
-  sb="$TMPROOT/sandbox"
-  bare="$sb/origin.git"
-  clone="$sb/work"
+sf() { echo "RELEASE SELFTEST FAIL: $*" >&2; exit 1; }
+
+# Every write the selftest makes goes through this assertion: the path must resolve under the temp root.
+under_root() {
+  local p root
+  p="$(realpath -m -- "$1")"
+  root="$(realpath -m -- "$TMPROOT")"
+  case "$p" in "$root"/*) ;; *) sf "refusing to write outside the temp root: $p" ;; esac
+}
+
+# The remote of a sandbox clone is the local bare path and nothing else; checked before any push or cut.
+assert_local_remote() { # <clone> <bare>
+  local f p
+  f="$(git -C "$1" remote get-url origin)"
+  p="$(git -C "$1" remote get-url --push origin)"
+  { [ "$f" = "$2" ] && [ "$p" = "$2" ]; } || sf "the sandbox origin is not the local bare path ($f, $p)"
+  case "$f$p" in *github.com* | *://* | *@*) sf "the sandbox origin looks like a network remote" ;; esac
+  under_root "$f"
+  under_root "$(cd "$1" && git rev-parse --show-toplevel)/."
+}
+
+sandbox_git_config() { # <clone>
+  git -C "$1" config user.name "release-cut selftest"
+  git -C "$1" config user.email "selftest@invalid"
+  git -C "$1" config core.hooksPath /dev/null
+  git -C "$1" config commit.gpgsign false
+  git -C "$1" config tag.gpgsign false
+}
+
+# Steps 1-5: the green state every control starts from. Sets SB_BARE, SB_CLONE, GREEN_W (the overlay commit W) and GREEN_HEAD.
+build_green_sandbox() { # <dir>
+  local sb="$1"
+  under_root "$sb"
   mkdir -p "$sb"
-  before="$(snapshot_real)" || sf "cannot snapshot the real repository"
+  SB_BARE="$sb/origin.git"
+  SB_CLONE="$sb/work"
 
   # 1. A bare repository holding the real HEAD commit as main, and a working clone of it. The push target is a local path.
-  git init --quiet --bare --initial-branch=main "$bare"
-  git -C "$REPO" push --quiet "$bare" HEAD:refs/heads/main
-  git clone --quiet "$bare" "$clone"
-  git -C "$clone" config user.name "release-cut selftest"
-  git -C "$clone" config user.email "selftest@invalid"
-  git -C "$clone" config core.hooksPath /dev/null
-  git -C "$clone" config commit.gpgsign false
-  git -C "$clone" config tag.gpgsign false
+  git init --quiet --bare --initial-branch=main "$SB_BARE"
+  git -C "$REPO" push --quiet "$SB_BARE" HEAD:refs/heads/main
+  git clone --quiet "$SB_BARE" "$SB_CLONE"
+  sandbox_git_config "$SB_CLONE"
 
   # 2. Overlay the real working-tree scripts/ and the phase directory, so uncommitted script edits are what gets tested.
-  tar -C "$REPO" --exclude='*.done.json' -cf - scripts .planning/phases/11-cut-v1-0-0 | tar -C "$clone" -xf -
-  git -C "$clone" add -- scripts .planning/phases/11-cut-v1-0-0
-  if ! git -C "$clone" diff --cached --quiet; then git -C "$clone" commit --quiet -m "selftest: overlay working-tree scripts and phase directory"; fi
-  w="$(git -C "$clone" rev-parse HEAD)"
+  tar -C "$REPO" --exclude='*.done.json' -cf - scripts .planning/phases/11-cut-v1-0-0 | tar -C "$SB_CLONE" -xf -
+  git -C "$SB_CLONE" add -- scripts .planning/phases/11-cut-v1-0-0
+  if ! git -C "$SB_CLONE" diff --cached --quiet; then git -C "$SB_CLONE" commit --quiet -m "selftest: overlay working-tree scripts and phase directory"; fi
+  GREEN_W="$(git -C "$SB_CLONE" rev-parse HEAD)"
 
   # The clone has the committed config.json; pin the value the create-tag guard reads (uncommitted, under .planning/).
-  mkdir -p "$clone/.planning"
-  printf '{"git":{"create_tag":false}}\n' >"$clone/.planning/config.json"
+  mkdir -p "$SB_CLONE/.planning"
+  printf '{"git":{"create_tag":false}}\n' >"$SB_CLONE/.planning/config.json"
 
   # 3. A synthetic wiring record (status pass for W) and an accepted packet with every row ok.
-  cat >"$clone/$WIRING_RECORD" <<EOF
+  cat >"$SB_CLONE/$WIRING_RECORD" <<EOF
 ---
 status: pass
-tested_sha: $w
+tested_sha: $GREEN_W
 consulted_only_workspace: true
 ---
 SANDBOX SYNTHETIC wiring record.
@@ -765,55 +793,559 @@ EOF
   sed -i -e 's/^packet_status: .*/packet_status: accepted/' \
     -e 's/^answered_by: .*/answered_by: SANDBOX SYNTHETIC/' \
     -e 's/^answered_at: .*/answered_at: 2000-01-01/' \
-    -e 's/^- \(W[0-9][0-9]\): .*/- \1: ok/' "$clone/$WAIVER_PACKET"
-  git -C "$clone" add -- "$WIRING_RECORD" "$WAIVER_PACKET"
-  git -C "$clone" commit --quiet -m "selftest: synthetic wiring record and accepted packet"
+    -e 's/^- \(W[0-9][0-9]\): .*/- \1: ok/' "$SB_CLONE/$WAIVER_PACKET"
+  git -C "$SB_CLONE" add -- "$WIRING_RECORD" "$WAIVER_PACKET"
+  git -C "$SB_CLONE" commit --quiet -m "selftest: synthetic wiring record and accepted packet"
 
   # 4. The three api.txt dumps (the freeze), committed and pushed to the sandbox remote.
-  if [ -f "$REPO/local.properties" ]; then cp "$REPO/local.properties" "$clone/"; fi
-  (cd "$clone" && ./gradlew apiDump --console=plain) >"$sb/apidump.log" 2>&1 || { tail -20 "$sb/apidump.log" >&2; sf "apiDump failed in the sandbox clone"; }
-  git -C "$clone" add -- core/api.txt providers/api.txt keystore/api.txt
-  git -C "$clone" commit --quiet -m "selftest: commit the api.txt baseline"
+  if [ -f "$REPO/local.properties" ]; then cp "$REPO/local.properties" "$SB_CLONE/"; fi
+  (cd "$SB_CLONE" && ./gradlew apiDump --console=plain) >"$sb/apidump.log" 2>&1 || { tail -20 "$sb/apidump.log" >&2; sf "apiDump failed in the sandbox clone"; }
+  git -C "$SB_CLONE" add -- core/api.txt providers/api.txt keystore/api.txt
+  git -C "$SB_CLONE" commit --quiet -m "selftest: commit the api.txt baseline"
 
   # 5. Never push or cut before the clone's remote is proven to be the local bare path.
-  fetch_url="$(git -C "$clone" remote get-url origin)"
-  push_url="$(git -C "$clone" remote get-url --push origin)"
-  [ "$fetch_url" = "$bare" ] && [ "$push_url" = "$bare" ] || sf "the sandbox origin is not the local bare path ($fetch_url, $push_url)"
-  case "$fetch_url$push_url" in *github.com* | *://* | *@*) sf "the sandbox origin looks like a network remote" ;; esac
-  case "$(cd "$clone" && git rev-parse --show-toplevel)" in "$TMPROOT"/*) ;; *) sf "the sandbox clone is not under the temp root" ;; esac
-  git -C "$clone" push --quiet origin main
-  head="$(git -C "$clone" rev-parse HEAD)"
+  assert_local_remote "$SB_CLONE" "$SB_BARE"
+  git -C "$SB_CLONE" push --quiet origin main
+  GREEN_HEAD="$(git -C "$SB_CLONE" rev-parse HEAD)"
+}
 
-  # 6. preflight, then cut, run by absolute path with the clone as the working directory.
-  echo "--- sandbox preflight (W=$w)"
-  (cd "$clone" && "$SELF" preflight "$RELEASE_TAG" "$w") >"$sb/preflight.log" 2>&1 || { tail -30 "$sb/preflight.log" >&2; sf "sandbox preflight failed"; }
+# Steps 6-7 of the happy path: preflight, then cut, then the bare repository holds exactly one annotated tag.
+sandbox_preflight_and_cut() {
+  local sb n rec_tag
+  sb="$(dirname "$SB_BARE")"
+  echo "--- sandbox preflight (W=$GREEN_W)"
+  (cd "$SB_CLONE" && "$SELF" preflight "$RELEASE_TAG" "$GREEN_W") >"$sb/preflight.log" 2>&1 || { tail -30 "$sb/preflight.log" >&2; sf "sandbox preflight failed"; }
   cat "$sb/preflight.log"
-  grep -q "^PREFLIGHT OK tag=$RELEASE_TAG commit=$head wiring=$w gates=" "$sb/preflight.log" || sf "no PREFLIGHT OK line for the sandbox HEAD"
+  grep -q "^PREFLIGHT OK tag=$RELEASE_TAG commit=$GREEN_HEAD wiring=$GREEN_W gates=" "$sb/preflight.log" || sf "no PREFLIGHT OK line for the sandbox HEAD"
   echo "--- sandbox cut"
-  (cd "$clone" && "$SELF" cut "$RELEASE_TAG" "$w" "$head") >"$sb/cut.log" 2>&1 || { tail -30 "$sb/cut.log" >&2; sf "sandbox cut failed"; }
+  (cd "$SB_CLONE" && "$SELF" cut "$RELEASE_TAG" "$GREEN_W" "$GREEN_HEAD") >"$sb/cut.log" 2>&1 || { tail -30 "$sb/cut.log" >&2; sf "sandbox cut failed"; }
   cat "$sb/cut.log"
-  grep -q "^CUT OK tag=$RELEASE_TAG commit=$head " "$sb/cut.log" || sf "no CUT OK line"
+  grep -q "^CUT OK tag=$RELEASE_TAG commit=$GREEN_HEAD " "$sb/cut.log" || sf "no CUT OK line"
 
-  # 7. The bare repository holds exactly one tag, annotated, peeling to the clone's HEAD.
-  n="$(git -C "$bare" tag --list | wc -l | tr -d ' ')"
+  n="$(git -C "$SB_BARE" tag --list | wc -l | tr -d ' ')"
   [ "$n" = 1 ] || sf "the sandbox remote holds $n tags, expected exactly one"
-  rec_tag="$(git -C "$bare" tag --list)"
+  rec_tag="$(git -C "$SB_BARE" tag --list)"
   [ "$rec_tag" = "$RELEASE_TAG" ] || sf "the sandbox remote tag is '$rec_tag'"
-  [ "$(git -C "$bare" cat-file -t "refs/tags/$RELEASE_TAG")" = tag ] || sf "the sandbox tag is not annotated"
-  [ "$(git -C "$bare" rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$head" ] || sf "the sandbox tag does not peel to the clone's HEAD"
-  echo "sandbox remote: exactly one annotated tag $RELEASE_TAG peeling to ${head:0:10}"
+  [ "$(git -C "$SB_BARE" cat-file -t "refs/tags/$RELEASE_TAG")" = tag ] || sf "the sandbox tag is not annotated"
+  [ "$(git -C "$SB_BARE" rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$GREEN_HEAD" ] || sf "the sandbox tag does not peel to the clone's HEAD"
+  echo "sandbox remote: exactly one annotated tag $RELEASE_TAG peeling to ${GREEN_HEAD:0:10}"
+}
 
-  # 8. The real repository is unchanged.
+# ---------------------------------------------------------------------------------------------------------------------
+# Negative-control harness
+# ---------------------------------------------------------------------------------------------------------------------
+NEG_RED=0
+NEG_GREEN=0
+NEG_FAIL=0
+CTL_ROOT=""
+GREEN_BARE=""
+CTL_LABEL=""
+CTL_MARKS=()
+CTL_BAD=()
+CTL_NOTE=""
+CASE_OUT=""
+C=""
+CB=""
+PP=""
+DASH=$'\xe2\x80\x94'
+
+# A throwaway clone of the green bare repository for one control (or one sub-run of it), with its OWN bare remote.
+ctl_clone() { # <name>   sets C (working clone) and CB (its bare remote), both under the temp root
+  local d="$CTL_ROOT/$1"
+  under_root "$d"
+  mkdir -p "$d"
+  CB="$d/origin.git"
+  C="$d/work"
+  git clone --quiet --bare "$GREEN_BARE" "$CB"
+  git clone --quiet "$CB" "$C"
+  sandbox_git_config "$C"
+  assert_local_remote "$C" "$CB"
+  under_root "$C/.planning/config.json"
+  mkdir -p "$C/.planning"
+  printf '{"git":{"create_tag":false}}\n' >"$C/.planning/config.json"
+  if [ -f "$REPO/local.properties" ]; then cp "$REPO/local.properties" "$C/"; fi
+}
+
+# Resolves a path inside the current control clone into PP, after asserting it lies under the temp root.
+plant_path() { # <relative path>
+  PP="$C/$1"
+  under_root "$PP"
+}
+
+# Fails the selftest when a planted write changed nothing (a vacuous plant would make a control meaningless).
+assert_planted() { # <relative path>
+  git -C "$C" diff --quiet -- "$1" && sf "[$CTL_LABEL] the plant did not change $1"
+  return 0
+}
+
+ccommit() { # <message> <relative paths...>
+  local msg="$1"
+  shift
+  git -C "$C" add -- "$@"
+  git -C "$C" commit --quiet -m "$msg"
+}
+
+cpush() {
+  assert_local_remote "$C" "$CB"
+  git -C "$C" push --quiet origin main
+}
+
+# One run of a command in the current clone (cwd = the clone). Records a matched marker or a failure description; prints nothing.
+#   red    exit non-zero, a 'RELEASE GATE FAIL <gate>:' line (or 'RELEASE CUT FAIL:' for gate 'cut'), and the marker
+#   green  exit 0, a 'GATE OK <gate>' line, and the marker
+run_case() { # <red|green> <gate> <marker> -- <command...>
+  local mode="$1" gate="$2" marker="$3" rc=0 seen
+  shift 4
+  CASE_OUT="$CTL_ROOT/case.out"
+  under_root "$CASE_OUT"
+  (cd "$C" && "$@") >"$CASE_OUT" 2>&1 || rc=$?
+  if [ "$mode" = red ]; then
+    if [ "$rc" -eq 0 ]; then
+      CTL_BAD+=("stayed GREEN (exit 0) where $gate should have failed [$marker]")
+      return 0
+    fi
+    if [ "$gate" = cut ]; then
+      grep -q '^RELEASE CUT FAIL:' "$CASE_OUT" && seen=ok || seen=""
+    else
+      grep -q "^RELEASE GATE FAIL $gate:" "$CASE_OUT" && seen=ok || seen=""
+    fi
+    if [ -z "$seen" ]; then
+      CTL_BAD+=("went red for the WRONG gate: expected $gate, saw '$(grep -m1 -E '^RELEASE (GATE FAIL|CUT FAIL|USAGE)' "$CASE_OUT" | cut -c1-160 || true)' (exit $rc)")
+      return 0
+    fi
+  else
+    if [ "$rc" -ne 0 ]; then
+      CTL_BAD+=("expected GREEN but exited $rc: '$(grep -m1 -E '^RELEASE ' "$CASE_OUT" | cut -c1-160 || true)'")
+      return 0
+    fi
+    grep -q "^GATE OK $gate\$" "$CASE_OUT" || { CTL_BAD+=("exited 0 without 'GATE OK $gate'"); return 0; }
+  fi
+  if ! grep -qF -- "$marker" "$CASE_OUT"; then
+    CTL_BAD+=("right gate ($gate), wrong reason: marker '$marker' not found; saw '$(grep -m1 -E '^RELEASE ' "$CASE_OUT" | cut -c1-200 || true)'")
+    return 0
+  fi
+  local m dup=0
+  for m in "${CTL_MARKS[@]:-}"; do
+    if [ "$m" = "'$marker'" ]; then dup=1; fi
+  done
+  if [ "$dup" -eq 0 ]; then CTL_MARKS+=("'$marker'"); fi
+}
+
+# Prints the one result line of the current control and updates the counters.
+ctl_done() { # <red|green> <gate>
+  local kind="$1" gate="$2" marks=""
+  if [ "${#CTL_MARKS[@]}" -gt 0 ]; then
+    marks="$(printf '%s; ' "${CTL_MARKS[@]}")"
+    marks="${marks%; }"
+  else
+    CTL_BAD+=("no run recorded a result")
+  fi
+  if [ "${#CTL_BAD[@]}" -gt 0 ]; then
+    printf 'FAIL  [%s] %s\n' "$CTL_LABEL" "${CTL_BAD[*]}"
+    NEG_FAIL=$((NEG_FAIL + 1))
+  elif [ "$kind" = red ]; then
+    printf 'ok    [%s] went red (%s: matched %s)\n' "$CTL_LABEL" "$gate" "$marks"
+    NEG_RED=$((NEG_RED + 1))
+    if [ -n "$CTL_NOTE" ]; then printf '      [%s] %s\n' "$CTL_LABEL" "$CTL_NOTE"; fi
+  else
+    printf 'ok    [%s] stayed green (%s: matched %s)\n' "$CTL_LABEL" "$gate" "$marks"
+    NEG_GREEN=$((NEG_GREEN + 1))
+  fi
+}
+
+# After a refused cut: no tag in the clone and none in its bare remote.
+assert_no_tag() {
+  if [ -n "$(git -C "$C" tag --list)" ] || [ -n "$(git -C "$CB" tag --list)" ]; then
+    CTL_BAD+=("a tag exists after the refused cut (clone: '$(git -C "$C" tag --list | tr '\n' ' ')', bare: '$(git -C "$CB" tag --list | tr '\n' ' ')')")
+  else
+    CTL_NOTE="no tag exists afterwards in the clone or in its bare remote"
+  fi
+}
+
+# Rewrites the answer block of the clone's packet: status, answered_by, answered_at, the answer for every category C row and
+# for every other row, then ID=answer overrides.
+packet_set() { # <status> <by> <at> <c_answer> <other_answer> [ID=answer...]
+  plant_path "$WAIVER_PACKET"
+  python3 - "$PP" "$@" <<'PY'
+import re, sys
+
+path, status, by, at, c_ans, other_ans = sys.argv[1:7]
+over = dict(a.split("=", 1) for a in sys.argv[7:])
+text = open(path, encoding="utf-8").read()
+cats = {m.group(1): m.group(2) for m in re.finditer(r"^\| (W\d\d) \| (\w+) \|", text, re.M)}
+out = []
+for line in text.split("\n"):
+    if line.startswith("packet_status:"):
+        line = "packet_status: " + status
+    elif line.startswith("answered_by:"):
+        line = "answered_by: " + by
+    elif line.startswith("answered_at:"):
+        line = "answered_at: " + at
+    else:
+        m = re.match(r"^- (W\d\d): ", line)
+        if m:
+            i = m.group(1)
+            line = "- %s: %s" % (i, over.get(i, c_ans if cats.get(i) == "C" else other_ans))
+    out.append(line)
+open(path, "w", encoding="utf-8").write("\n".join(out))
+PY
+  assert_planted "$WAIVER_PACKET"
+}
+
+# Id of the first category C row of the clone's packet.
+first_c_id() {
+  awk -F'|' '/^\| W[0-9][0-9] \|/ { id = $2; c = $3; gsub(/ /, "", id); gsub(/ /, "", c); if (c == "C") { print id; exit } }' "$C/$WAIVER_PACKET"
+}
+
+# A synthetic dated row appended at the end of the section 11 table (the last line of the contract).
+contract_append_row() {
+  plant_path "$CONTRACT"
+  printf '| 2026-10-02 | sandbox-peer | v0.0.1 | 0000000000000000000000000000000000000000 | sandbox:none:v0.0.1 | SANDBOX SYNTHETIC ledger row | none | %s |\n' "$DASH" >>"$PP"
+  assert_planted "$CONTRACT"
+}
+
+# A one-word edit of a non-table line under the section 10 heading.
+contract_edit_section10() {
+  plant_path "$CONTRACT"
+  sed -i '/^\*\*A1 /s/$/ SANDBOX-EDIT/' "$PP"
+  assert_planted "$CONTRACT"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Controls (label = function name suffix). W = GREEN_W, the sandbox overlay commit.
+# ---------------------------------------------------------------------------------------------------------------------
+ctl_tag-format-args() {
+  local t
+  ctl_clone "$CTL_LABEL"
+  for t in v1.0.1 1.0.0 v1.0; do
+    run_case red tag-format "is not the release tag" -- "$SELF" preflight "$t" "$GREEN_W"
+  done
+  ctl_done red tag-format
+}
+
+ctl_tag-local-lightweight() {
+  ctl_clone "$CTL_LABEL"
+  git -C "$C" tag v1.0.0
+  run_case red tags-absent "local tag(s) already exist" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red tags-absent
+}
+
+ctl_tag-remote-only() {
+  ctl_clone "$CTL_LABEL"
+  git -C "$CB" tag v1.0.0 refs/heads/main
+  run_case red tags-absent "origin already has tag ref(s)" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red tags-absent
+}
+
+ctl_tag-unrelated-v0.9.0() {
+  ctl_clone "$CTL_LABEL"
+  git -C "$C" tag v0.9.0
+  run_case red tags-absent "v0.9.0" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red tags-absent
+}
+
+ctl_create-tag-not-false() {
+  ctl_clone "$CTL_LABEL-true"
+  plant_path .planning/config.json
+  printf '{"git":{"create_tag":true}}\n' >"$PP"
+  run_case red create-tag "must be false" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_clone "$CTL_LABEL-absent"
+  plant_path .planning/config.json
+  printf '{"git":{"branching_strategy":"none"}}\n' >"$PP"
+  run_case red create-tag "must be false" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red create-tag
+}
+
+ctl_clean-tracked-modified() {
+  ctl_clone "$CTL_LABEL"
+  plant_path README.md
+  printf '\nSANDBOX uncommitted plant\n' >>"$PP"
+  assert_planted README.md
+  run_case red clean "working tree is not clean" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red clean
+}
+
+ctl_clean-staged() {
+  ctl_clone "$CTL_LABEL"
+  plant_path README.md
+  printf '\nSANDBOX staged plant\n' >>"$PP"
+  git -C "$C" add -- README.md
+  run_case red clean "files are staged" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red clean
+}
+
+ctl_pushed-ahead() {
+  ctl_clone "$CTL_LABEL"
+  git -C "$C" commit --quiet --allow-empty -m "sandbox: local commit that was never pushed"
+  run_case red pushed "is not origin/main" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red pushed
+}
+
+ctl_wiring-status-fail() {
+  ctl_clone "$CTL_LABEL"
+  plant_path "$WIRING_RECORD"
+  sed -i 's/^status: .*/status: fail/' "$PP"
+  assert_planted "$WIRING_RECORD"
+  ccommit "sandbox: wiring record status fail" "$WIRING_RECORD"
+  run_case red wiring "must be pass" -- "$SELF" gate wiring "$GREEN_W"
+  ctl_done red wiring
+}
+
+ctl_wiring-sha-mismatch() {
+  ctl_clone "$CTL_LABEL"
+  plant_path "$WIRING_RECORD"
+  sed -i 's/^tested_sha: .*/tested_sha: 0000000000000000000000000000000000000000/' "$PP"
+  assert_planted "$WIRING_RECORD"
+  ccommit "sandbox: wiring record names another SHA" "$WIRING_RECORD"
+  run_case red wiring "tested_sha" -- "$SELF" gate wiring "$GREEN_W"
+  ctl_done red wiring
+}
+
+ctl_wiring-not-ancestor() {
+  local side
+  ctl_clone "$CTL_LABEL"
+  git -C "$C" checkout --quiet -b sandbox-side "${GREEN_W}^"
+  git -C "$C" commit --quiet --allow-empty -m "sandbox: a commit on a side branch"
+  side="$(git -C "$C" rev-parse HEAD)"
+  git -C "$C" checkout --quiet main
+  run_case red wiring "is not an ancestor of HEAD" -- "$SELF" gate wiring "$side"
+  ctl_done red wiring
+}
+
+ctl_diff-readme() {
+  ctl_clone "$CTL_LABEL"
+  plant_path README.md
+  printf '\nSANDBOX committed plant\n' >>"$PP"
+  assert_planted README.md
+  ccommit "sandbox: README edit after W" README.md
+  cpush
+  run_case red diff "README.md" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red diff
+}
+
+ctl_diff-core-main() {
+  local f
+  ctl_clone "$CTL_LABEL"
+  f="$(git -C "$C" ls-files -- 'core/src/main/*.kt' | sed -n 1p)"
+  [ -n "$f" ] || sf "[$CTL_LABEL] no core main source file found"
+  plant_path "$f"
+  printf '// SANDBOX committed plant\n' >>"$PP"
+  assert_planted "$f"
+  ccommit "sandbox: core main edit after W" "$f"
+  run_case red diff "core/src/main" -- "$SELF" gate diff "$GREEN_W"
+  ctl_done red diff
+}
+
+ctl_diff-jitpack-yml() {
+  ctl_clone "$CTL_LABEL"
+  plant_path jitpack.yml
+  printf '# SANDBOX committed plant\n' >>"$PP"
+  assert_planted jitpack.yml
+  ccommit "sandbox: jitpack.yml edit after W" jitpack.yml
+  run_case red diff "jitpack.yml" -- "$SELF" gate diff "$GREEN_W"
+  ctl_done red diff
+}
+
+ctl_contract-non-ledger() {
+  ctl_clone "$CTL_LABEL"
+  contract_edit_section10
+  ccommit "sandbox: section 10 line edited after W" "$CONTRACT"
+  run_case red diff "yahir-gsd-control-plane-f2" -- "$SELF" gate diff "$GREEN_W"
+  ctl_done red diff
+}
+
+ctl_contract-mixed() {
+  ctl_clone "$CTL_LABEL"
+  contract_append_row
+  ccommit "sandbox: ledger row appended" "$CONTRACT"
+  contract_edit_section10
+  ccommit "sandbox: section 10 line edited" "$CONTRACT"
+  run_case red diff "yahir-gsd-control-plane-f2" -- "$SELF" gate diff "$GREEN_W"
+  ctl_done red diff
+}
+
+ctl_contract-row-outside-11() {
+  ctl_clone "$CTL_LABEL"
+  plant_path "$CONTRACT"
+  sed -i '/^## 10\./a | 2026-10-02 | sandbox-peer | v0.0.1 | 0000000000000000000000000000000000000000 | sandbox:none:v0.0.1 | SANDBOX row-shaped line outside section 11 | none | - |' "$PP"
+  assert_planted "$CONTRACT"
+  ccommit "sandbox: row-shaped line under section 10" "$CONTRACT"
+  run_case red diff "yahir-gsd-control-plane-f2" -- "$SELF" gate diff "$GREEN_W"
+  ctl_done red diff
+}
+
+ctl_contract-ledger-only() {
+  ctl_clone "$CTL_LABEL"
+  contract_append_row
+  ccommit "sandbox: ledger row appended" "$CONTRACT"
+  plant_path "$CONTRACT"
+  sed -i "0,/^| 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9] |.*| ${DASH} |\$/s/| ${DASH} |\$/| SANDBOX |/" "$PP"
+  git -C "$C" diff --quiet -- "$CONTRACT" && sf "[$CTL_LABEL] no existing dated row ended in a dash"
+  ccommit "sandbox: last cell of an existing ledger row edited" "$CONTRACT"
+  run_case green diff "DIFF NOTE: ledger-only contract change" -- "$SELF" gate diff "$GREEN_W"
+  ctl_done green diff
+}
+
+ctl_waiver-not-accepted() {
+  ctl_clone "$CTL_LABEL-pending"
+  packet_set pending - - ok ok
+  ccommit "sandbox: packet pending" "$WAIVER_PACKET"
+  cpush
+  run_case red waiver "must be accepted" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_clone "$CTL_LABEL-partial"
+  packet_set partial SANDBOX 2000-01-01 ok pending W03=waive
+  ccommit "sandbox: packet partial" "$WAIVER_PACKET"
+  cpush
+  run_case red waiver "must be accepted" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  ctl_done red waiver
+}
+
+ctl_waiver-needs-fix() {
+  local cid
+  ctl_clone "$CTL_LABEL-other"
+  packet_set accepted SANDBOX 2000-01-01 ok ok W01=needs-fix
+  ccommit "sandbox: a non-C row needs-fix" "$WAIVER_PACKET"
+  run_case red waiver "needs-fix" -- "$SELF" gate waiver
+  ctl_clone "$CTL_LABEL-carry"
+  cid="$(first_c_id)"
+  [ -n "$cid" ] || sf "[$CTL_LABEL] no category C row in the packet"
+  packet_set accepted SANDBOX 2000-01-01 ok ok "$cid=carry-to-gate-2"
+  ccommit "sandbox: a category C row carried to Gate-2" "$WAIVER_PACKET"
+  run_case red waiver "carry-to-gate-2" -- "$SELF" gate waiver
+  ctl_done red waiver
+}
+
+ctl_waiver-id-missing() {
+  ctl_clone "$CTL_LABEL"
+  plant_path "$WAIVER_PACKET"
+  sed -i '/^- W07:/d' "$PP"
+  assert_planted "$WAIVER_PACKET"
+  ccommit "sandbox: answer W07 removed" "$WAIVER_PACKET"
+  run_case red waiver "differ from the table ids" -- "$SELF" gate waiver
+  ctl_done red waiver
+}
+
+ctl_prefreeze-c-row-open() {
+  local cid
+  ctl_clone "$CTL_LABEL-pending"
+  cid="$(first_c_id)"
+  [ -n "$cid" ] || sf "[$CTL_LABEL] no category C row in the packet"
+  packet_set partial SANDBOX 2000-01-01 ok ok "$cid=pending"
+  ccommit "sandbox: category C row pending" "$WAIVER_PACKET"
+  run_case red prefreeze "pending" -- "$SELF" gate prefreeze
+  ctl_clone "$CTL_LABEL-needs-fix"
+  packet_set rejected SANDBOX 2000-01-01 ok ok "$cid=needs-fix"
+  ccommit "sandbox: category C row needs-fix" "$WAIVER_PACKET"
+  run_case red prefreeze "W is void" -- "$SELF" gate prefreeze
+  ctl_clone "$CTL_LABEL-carry"
+  packet_set partial SANDBOX 2000-01-01 ok ok "$cid=carry-to-gate-2"
+  ccommit "sandbox: category C row carried" "$WAIVER_PACKET"
+  run_case red prefreeze "carry-to-gate-2" -- "$SELF" gate prefreeze
+  ctl_done red prefreeze
+}
+
+ctl_prefreeze-c-rows-answered() {
+  ctl_clone "$CTL_LABEL"
+  packet_set partial SANDBOX 2000-01-01 ok pending
+  ccommit "sandbox: partial packet, category C rows answered" "$WAIVER_PACKET"
+  run_case green prefreeze "GATE OK prefreeze" -- "$SELF" gate prefreeze
+  ctl_done green prefreeze
+}
+
+ctl_cut-dirty-tree() {
+  ctl_clone "$CTL_LABEL"
+  plant_path README.md
+  printf '\nSANDBOX uncommitted plant\n' >>"$PP"
+  assert_planted README.md
+  run_case red clean "working tree is not clean" -- "$SELF" cut "$RELEASE_TAG" "$GREEN_W" "$(git -C "$C" rev-parse HEAD)"
+  assert_no_tag
+  ctl_done red clean
+}
+
+ctl_cut-approved-not-head() {
+  ctl_clone "$CTL_LABEL"
+  run_case red cut "is not HEAD" -- "$SELF" cut "$RELEASE_TAG" "$GREEN_W" "$GREEN_W"
+  if grep -q '^GATE OK' "$CASE_OUT"; then CTL_BAD+=("a gate ran before the approvedCommit check (GATE OK line present)"); fi
+  assert_no_tag
+  ctl_done red cut
+}
+
+CONTROL_ORDER=(
+  tag-format-args tag-local-lightweight tag-remote-only tag-unrelated-v0.9.0 create-tag-not-false
+  clean-tracked-modified clean-staged pushed-ahead
+  wiring-status-fail wiring-sha-mismatch wiring-not-ancestor
+  diff-readme diff-core-main diff-jitpack-yml
+  contract-non-ledger contract-mixed contract-row-outside-11 contract-ledger-only
+  waiver-not-accepted waiver-needs-fix waiver-id-missing
+  prefreeze-c-row-open prefreeze-c-rows-answered
+  cut-dirty-tree cut-approved-not-head
+)
+
+# SELFTEST_ONLY="label label" runs just those controls while developing the selftest; the run then ends in
+# RELEASE SELFTEST PARTIAL, never in the OK line, so a filtered run can never pass for the evidence.
+run_controls() {
+  local l
+  for l in "${CONTROL_ORDER[@]}"; do
+    if [ -n "${SELFTEST_ONLY:-}" ] && [[ " $SELFTEST_ONLY " != *" $l "* ]]; then continue; fi
+    CTL_LABEL="$l"
+    CTL_MARKS=()
+    CTL_BAD=()
+    CTL_NOTE=""
+    "ctl_$l"
+  done
+}
+
+selftest_negative_run() { # <green bare repository holding no tag>
+  GREEN_BARE="$1"
+  CTL_ROOT="$TMPROOT/controls"
+  under_root "$CTL_ROOT"
+  mkdir -p "$CTL_ROOT"
+  echo "--- negative controls (one throwaway clone per control; sandbox remotes are local paths)"
+  run_controls
+}
+
+# Runs one selftest mode. The real repository is snapshotted before and compared after.
+selftest() { # <happy|negative|all>
+  local mode="$1" before after happy=0 pristine
+  set -E
+  trap 'echo "RELEASE SELFTEST FAIL: internal error at line $LINENO (control: ${CTL_LABEL:-none})" >&2' ERR
+  mk_tmp
+  before="$(snapshot_real)" || sf "cannot snapshot the real repository"
+  build_green_sandbox "$TMPROOT/sandbox"
+  case "$mode" in
+    happy)
+      sandbox_preflight_and_cut
+      happy=1
+      ;;
+    negative)
+      selftest_negative_run "$SB_BARE"
+      ;;
+    all)
+      pristine="$TMPROOT/green-pristine.git"
+      git clone --quiet --bare "$SB_BARE" "$pristine"
+      sandbox_preflight_and_cut
+      happy=1
+      selftest_negative_run "$pristine"
+      ;;
+  esac
   after="$(snapshot_real)" || sf "cannot snapshot the real repository afterwards"
   [ "$before" = "$after" ] || { echo "$before" >&2; echo "$after" >&2; sf "the real repository changed during the selftest"; }
   echo "real-repo guard: unchanged (tags, remote tags, status, config.json, contract)"
-  echo "RELEASE SELFTEST OK happy=1 negatives=0 positives=0"
+  if [ "$NEG_FAIL" -gt 0 ]; then
+    echo "RELEASE SELFTEST FAIL: $NEG_FAIL control(s) failed (see the FAIL lines above)" >&2
+    exit 1
+  fi
+  if [ -n "${SELFTEST_ONLY:-}" ]; then
+    echo "RELEASE SELFTEST PARTIAL (SELFTEST_ONLY set) happy=$happy negatives=$NEG_RED positives=$NEG_GREEN"
+    return 0
+  fi
+  echo "RELEASE SELFTEST OK happy=$happy negatives=$NEG_RED positives=$NEG_GREEN"
 }
 
 case "${1:-}" in
   preflight) [ $# -eq 3 ] || usage; run_preflight "$2" "$3" ;;
   cut) [ $# -eq 4 ] || usage; run_cut "$2" "$3" "$4" ;;
   gate) [ $# -ge 2 ] || usage; shift; run_gate "$@" ;;
-  selftest) { [ $# -eq 2 ] && [ "$2" = happy ]; } || usage; selftest_happy ;;
+  selftest) { [ $# -eq 2 ] && { [ "$2" = happy ] || [ "$2" = negative ] || [ "$2" = all ]; }; } || usage; selftest "$2" ;;
   *) usage ;;
 esac
