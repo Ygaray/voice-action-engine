@@ -1,0 +1,35 @@
+Phase 11 limits re-verification - plan 11-01, Task 1 (Runtime Decision: limits precondition for the v1.0.0 cut)
+Date (UTC): 2026-10-02T00:09:09Z   Run start (UTC): 2026-10-02T00:08:24Z
+HEAD: e2aa3e1bec723a902f21179a1a200ee5056c2d3b (worktree branch worktree-agent-abb3c8c65a146e181; no source change vs HEAD)
+Command: ./gradlew :core:cleanTest :core:test --tests '*SingleShotLimitsTest' --tests '*AgenticLoopLimitsTest' --offline
+Offline: yes (dependency resolution succeeded offline; BUILD SUCCESSFUL)
+
+Shipped strategy set (classes implementing CommandStrategy in core/src/main):
+  core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/strategy/agentic/AgenticLoopStrategy.kt:66
+  core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/strategy/singleshot/SingleShotStrategy.kt:61
+  (exactly two; no object implementations; LocalGrammar and PlanThenExecute are v1.1)
+
+strategy | limit | test name | result
+SingleShot | 6 (TierPolicy.DEFAULT pin: 6 / 60000 / 4096) | defaultsAreTheContractLimits | PASSED
+SingleShot | 6 (never loops at default iterations) | exactlyOneProviderCallAtDefaultIterations | PASSED
+SingleShot | 60000 (refuse at ceiling) | atTheDefaultCeilingTheTierRefusesBeforeAnyProviderCall | PASSED
+SingleShot | 60000 (one below ceiling calls) | oneTokenBelowTheDefaultCeilingTheCallIsMade | PASSED
+SingleShot | 4096 | defaultPolicySendsTheDefaultPerTurnTokenLimit | PASSED
+AgenticLoop | 6 (TierPolicy.DEFAULT pin: 6 / 60000 / 4096) | defaultsAreTheContractLimits | PASSED
+AgenticLoop | 6 (final iteration guard at default) | theFinalIterationGuardHoldsAtDefaultIterations | PASSED
+AgenticLoop | 60000 (refuse at ceiling) | atTheDefaultCeilingTheTierRefusesBeforeAnyProviderCall | PASSED
+AgenticLoop | 60000 (checked before every iteration) | theCeilingIsCheckedBeforeEveryIteration | PASSED
+AgenticLoop | 4096 (default) | defaultPolicySendsTheDefaultPerTurnTokenLimit | PASSED
+AgenticLoop | 4096 (every request of a multi-turn run) | everyRequestOfAMultiTurnRunCarriesThePerTurnLimit | PASSED
+
+Per-suite counts (parsed from JUnit XML attributes; timestamp must be later than the run start):
+  SingleShotLimitsTest: tests=10 failures=0 errors=0 skipped=0 timestamp=2026-10-02T00:08:26.576Z fresh=YES
+  AgenticLoopLimitsTest: tests=14 failures=0 errors=0 skipped=0 timestamp=2026-10-02T00:08:26.227Z fresh=YES
+
+Phase 9 mandate coverage (.planning/phases/09-agentic-loop-strategy/evidence/mandate-coverage.txt): PASSED lines=127 EXISTS lines=42 FAILED/MISSING/ABSENT lines=0
+Provenance:
+  EXISTS .planning/phases/07-singleshot-strategy/evidence/singleshot-limits-tests.txt
+  EXISTS .planning/phases/09-agentic-loop-strategy/evidence/agenticloop-limits-tests.txt
+  EXISTS .planning/phases/09-agentic-loop-strategy/evidence/mandate-coverage.txt
+
+LIMITS PRECONDITION: MET
