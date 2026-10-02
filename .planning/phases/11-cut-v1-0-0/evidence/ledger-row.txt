@@ -1,0 +1,9 @@
+repo: voice-action-engine
+tag: v1.0.0
+commit: efc060f8fe462b71af2e4586b75a97db119ebabd
+tag_object: 343fd3f28676f4bf4bfb76a1b6ad0cb23b59bfaa
+date: 2026-10-02
+coords: com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.0, com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.0.0, com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.0.0
+contents: Contract §6.2 steps 1-7: :core contract types + CommandPipeline + TierSelector.Linear + TierPolicy 6/60000/4096 + PreApplyGate/CommitSink + ON_DEVICE seam; :providers Anthropic (prompt cache), OpenAI, OpenRouter, OkHttp 4.12 floor green on 4.12.0/5.2.1/5.5.0; :keystore AndroidKeyStore AES/GCM + DataStore BYO keys; SingleShot + AgenticLoop strategies; Gate-1 13/14 PASS + 1 ACCEPTED BY EVIDENCE (not a pass); Metalava api.txt baseline in tag; isolated wiring test PASS at be49ea8fc5; OpenRouter anthropic/* uncached in v1.0 (LATER-02); do not pin the aggregator coordinate (E5)
+evidence: .planning/phases/11-cut-v1-0-0/11-LEDGER-ROW.md, .planning/phases/11-cut-v1-0-0/evidence/11-JITPACK-VERIFY.log, .planning/phases/11-cut-v1-0-0/evidence/cut-v1.0.0.txt, .planning/phases/11-cut-v1-0-0/evidence/baseline.txt, .planning/phases/11-cut-v1-0-0/11-WIRING-RERUN.md
+consumers_repinned: —
