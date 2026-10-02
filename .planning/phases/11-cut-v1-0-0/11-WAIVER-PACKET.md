@@ -17,7 +17,9 @@ Read from `CROSS-REPO-SCOPE-CONTRACT.md`, section 11 and amendments A12 and A14:
 
 Conclusion: human Gate-2 UAT is NOT a section 11 tag precondition. It runs at milestone close, after the tag (`gsd-verify-milestone` drains `.planning/uat-pending/`). This pre-cut packet exists because of the orchestrator's 2026-10-01 runtime decision ("P11 waiver packet"): items that cannot be exercised in v1.0 need a Yahir waiver on record before the cut, and the pre-freeze row needs an answer before the public API freezes.
 
-The committed cross-repo packet says the tag cut is "held until every pending human-UAT item is answered". That is stricter than the reading above. The release gate in plan 11-04 (gate waiver) requires the answer block below to reach `packet_status: accepted` either way, so both readings are satisfied; the orchestrator decides which reading governs.
+The committed cross-repo packet says the tag cut is "held until every pending human-UAT item is answered". That is stricter than the reading above. The release gate in plan 11-04 (gate waiver) requires the answer block below to reach `packet_status: accepted` either way, so both readings are satisfied.
+
+**ORCHESTRATOR RULING (yahir-gsd-control-plane-f2, 2026-10-01, overrides the reading above for this cut): the tag cut HOLDS until EVERY uat-pending item for phases 01 to 10 is resolved or waived by Yahir (xrepo shows TAG-GATE-OPEN).** Yahir's answers to this packet are therefore a HARD tag precondition, even where section 11 alone would not require Gate-2 before the tag. The release gates (11-04 gate waiver and gate prefreeze, 11-08 preflight) enforce `packet_status: accepted` with no pending row. Note for the relay: W13 (the three wiring doc stumbles) is labeled WAIVE in the published cross-repo packet; it is already satisfied by being fixed in Phase 11 (plan 11-03) and re-proven by the isolated wiring rerun (11-06), so it needs no waiver once that rerun passes.
 
 ## 2. Items
 
