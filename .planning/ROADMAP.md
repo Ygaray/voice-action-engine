@@ -522,7 +522,43 @@ Plans:
   3. The full ledger row (repo, tag, commit, coordinates, contents, evidence path) is **messaged to `yahir-gsd-control-plane-f2`** (A14) and never committed to §11 here. The orchestrator writes the control-plane registry/deps-index entries (LE-5).
   4. `git.create_tag` is false, so GSD's milestone close never creates a stray `v1.0` marker tag next to `v1.0.0` (INC-2026-09-30-01).
 
-**Plans**: TBD
+**Plans**: 9 plans (one per wave, strictly sequential: 11-01 → 11-09; after 11-06's wiring SHA only the three api.txt files and .planning/ may change, plus §11 ledger rows reported as a ledger-only DIFF NOTE, enforced by `release-cut.sh gate diff`; the api.txt baseline waits for every pre-freeze waiver row (`gate prefreeze`); 11-06 and 11-08 pause at checkpoints relayed through the master)
+
+**Wave 1**
+
+- [ ] 11-01-PLAN.md — tracer: limits precondition re-proven fresh for both looping strategies; D-04/D-02/suppression/cause-mapping audit; `11-WAIVER-PACKET.md` with the §11/A12 reading, a machine-readable Category column (pre-freeze rows) and a parseable answer block
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 11-02-PLAN.md — last API changes: public `KeystoreCauseCodes` (getter-only, detekt-clean) with UX KDoc, ToolSpec frozen as one constructor; `api-dump-isolated.sh` and the written three-module interim API review
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 11-03-PLAN.md — last doc changes: the three wiring stumbles, keyAdvice on the public constants, tag-neutral status lines; API proven unchanged since the review
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 11-04-PLAN.md — D-01 `scripts/release-cut.sh`: 15 gates (incl. create-tag guard, ledger-aware diff, waiver/prefreeze), preflight / cut / gate modes, sandbox happy path; `DRYRUN_VERSION` in the dry run
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 11-05-PLAN.md — release-cut.sh negative controls: 31 planted violations red for the right reason, 2 positive controls (ledger-only diff, pre-freeze-only answers), real repository untouched
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 11-06-PLAN.md — push the final-API SHA W, JitPack-probe it, isolated headless wiring rerun and waiver relay (pre-freeze rows first) via the master, record `11-WIRING-RERUN.md`
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 11-07-PLAN.md — pre-freeze rows answered (`gate prefreeze`), then the Metalava api.txt baseline on W's descendant, byte-identical to the reviewed surface; push and JitPack-probe by SHA
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 11-08-PLAN.md — `release-cut.sh preflight v1.0.0` → CUT/HOLD decision via the master → cut and push the annotated `v1.0.0` (the one-way door)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 11-09-PLAN.md — JitPack builds v1.0.0, three coordinates resolve from an empty cache; §11 row drafted and messaged to the orchestrator (never committed to §11)
 
 ## Progress
 
@@ -541,4 +577,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
 | 9. Agentic Loop Strategy | 9/9 | Complete    | 2026-10-01 |
 | 10. Sample Harness, Gate-1 & Docs | 10/10 | Complete    | 2026-10-01 |
-| 11. Cut v1.0.0 | 0/TBD | Not started | - |
+| 11. Cut v1.0.0 | 0/9 | Planned | - |
