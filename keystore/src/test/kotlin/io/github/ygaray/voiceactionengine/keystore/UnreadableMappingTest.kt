@@ -265,6 +265,48 @@ class UnreadableMappingTest {
         assertEquals("key_missing", KeystoreCauses.keyMissingLookup.cause)
     }
 
+    @Test
+    fun thePublicCauseCodesCarryTheFiveFrozenValues() {
+        assertEquals("key_missing", KeystoreCauseCodes.KEY_MISSING)
+        assertEquals("decrypt_failed", KeystoreCauseCodes.DECRYPT_FAILED)
+        assertEquals("stored_value_malformed", KeystoreCauseCodes.STORED_VALUE_MALFORMED)
+        assertEquals("keystore_unavailable", KeystoreCauseCodes.KEYSTORE_UNAVAILABLE)
+        assertEquals("storage_unreadable", KeystoreCauseCodes.STORAGE_UNREADABLE)
+    }
+
+    @Test
+    fun theInternalVocabularyIsExactlyThePublicSetAndEveryCodeIsDistinct() {
+        val publicCodes = listOf(
+            KeystoreCauseCodes.KEY_MISSING,
+            KeystoreCauseCodes.DECRYPT_FAILED,
+            KeystoreCauseCodes.STORED_VALUE_MALFORMED,
+            KeystoreCauseCodes.KEYSTORE_UNAVAILABLE,
+            KeystoreCauseCodes.STORAGE_UNREADABLE,
+        )
+
+        assertEquals(publicCodes.size, publicCodes.toSet().size)
+        assertEquals(publicCodes.toSet(), KeystoreCauses.vocabulary)
+    }
+
+    @Test
+    fun theInternalStatesCarryTheMatchingPublicCodes() {
+        assertEquals(KeystoreCauseCodes.KEY_MISSING, KeystoreCauses.keyMissingLookup.cause)
+        assertEquals(KeystoreCauseCodes.KEYSTORE_UNAVAILABLE, KeystoreCauses.keystoreUnavailable.cause)
+        assertEquals(KeystoreCauseCodes.DECRYPT_FAILED, KeystoreCauses.decryptFailed.cause)
+        assertEquals(KeystoreCauseCodes.STORED_VALUE_MALFORMED, KeystoreCauses.storedValueMalformed.cause)
+        assertEquals(KeystoreCauseCodes.STORAGE_UNREADABLE, KeystoreCauses.storageUnreadable.cause)
+    }
+
+    @Test
+    fun theCauseCodesObjectDeclaresExactlyFivePublicStringGettersAndNoBackingField() {
+        val getters = KeystoreCauseCodes::class.java.declaredMethods
+            .filter { java.lang.reflect.Modifier.isPublic(it.modifiers) && it.name.startsWith("get") }
+
+        assertEquals(5, getters.size)
+        assertTrue(getters.all { it.returnType == String::class.java && it.parameterCount == 0 })
+        assertEquals(listOf("INSTANCE"), KeystoreCauseCodes::class.java.declaredFields.map { it.name })
+    }
+
     private suspend fun failureOf(block: suspend () -> Unit): IllegalStateException {
         try {
             block()

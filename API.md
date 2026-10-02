@@ -38,7 +38,7 @@ core.transcript         AssistantMessage, AssistantPart, CacheDirective, Message
 providers.anthropic     AnthropicAttempt, AnthropicAttemptKind, AnthropicAttemptObserver, AnthropicProvider
 providers.chat          ChatCompletionsAttempt, ChatCompletionsAttemptKind, ChatCompletionsAttemptObserver,
                         ChatCompletionsProvider (openAi { } and openRouter { } are on its companion)
-keystore                ApiKeyStore, KeySlot, KeyState, KeystoreCredentialSource
+keystore                ApiKeyStore, KeySlot, KeyState, KeystoreCauseCodes, KeystoreCredentialSource
 ```
 
 For example `import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline` and
@@ -163,6 +163,7 @@ leaves), annotation class.
 | `ApiKeyStore` | class | | Stores one encrypted bring-your-own key per provider in your DataStore. |
 | `KeySlot` | class | | One row of your key table: provider, alias, ciphertext name, IV name. |
 | `KeyState` | abstract class | open | What the store knows: `NotConfigured`, `Ready`, `KeyMissing`, `Unreadable`. |
+| `KeystoreCauseCodes` | object | open | The stable cause codes of an unreadable key, each documented with the UX it calls for: re-enter the key, or transient, retry. |
 | `KeystoreCredentialSource` | class | | Adapts an `ApiKeyStore` to the engine's `CredentialSource`. |
 
 The one public function is `commandPipeline { }`, which composes a `CommandPipeline`.
@@ -242,7 +243,10 @@ class: construct it with parentheses) or `Unreadable(cause)`. `KeystoreCredentia
 the `DataStore` (one per file per process) and the `KeySlot` table. `ApiKeyStore` offers `save`, `delete`, `read` and
 `observe`; the plaintext key never leaves through a public member. `KeyState` is **open**. The unreadable causes are
 stable codes: `key_missing`, `decrypt_failed`, `stored_value_malformed` (re-enter the key) and `keystore_unavailable`,
-`storage_unreadable` (transient, retry); the engine reports them as `FailureReason.CredentialUnreadable`.
+`storage_unreadable` (transient, retry). `KeystoreCauseCodes` exposes them as constants to read at run time
+(`KEY_MISSING`, `DECRYPT_FAILED`, `STORED_VALUE_MALFORMED`, `KEYSTORE_UNAVAILABLE`, `STORAGE_UNREADABLE`), each with
+its UX in the KDoc; treat an unknown code as re-enter the key. The engine reports them as
+`FailureReason.CredentialUnreadable`.
 
 ## Telemetry and trace
 
