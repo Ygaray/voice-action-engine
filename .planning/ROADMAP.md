@@ -522,11 +522,11 @@ Plans:
   3. The full ledger row (repo, tag, commit, coordinates, contents, evidence path) is **messaged to `yahir-gsd-control-plane-f2`** (A14) and never committed to §11 here. The orchestrator writes the control-plane registry/deps-index entries (LE-5).
   4. `git.create_tag` is false, so GSD's milestone close never creates a stray `v1.0` marker tag next to `v1.0.0` (INC-2026-09-30-01).
 
-**Plans**: 9 plans (one per wave, strictly sequential: 11-01 → 11-09; after 11-06's wiring SHA only the three api.txt files and .planning/ may change, plus §11 ledger rows reported as a ledger-only DIFF NOTE, enforced by `release-cut.sh gate diff`; the api.txt baseline waits for every pre-freeze waiver row (`gate prefreeze`); 11-06 and 11-08 pause at checkpoints relayed through the master)
+**Plans**: 1/9 plans executed (one per wave, strictly sequential: 11-01 → 11-09; after 11-06's wiring SHA only the three api.txt files and .planning/ may change, plus §11 ledger rows reported as a ledger-only DIFF NOTE, enforced by `release-cut.sh gate diff`; the api.txt baseline waits for every pre-freeze waiver row (`gate prefreeze`); 11-06 and 11-08 pause at checkpoints relayed through the master)
 
 **Wave 1**
 
-- [ ] 11-01-PLAN.md — tracer: limits precondition re-proven fresh for both looping strategies; D-04/D-02/suppression/cause-mapping audit; `11-WAIVER-PACKET.md` with the §11/A12 reading, a machine-readable Category column (pre-freeze rows) and a parseable answer block
+- [x] 11-01-PLAN.md — tracer: limits precondition re-proven fresh for both looping strategies; D-04/D-02/suppression/cause-mapping audit; `11-WAIVER-PACKET.md` with the §11/A12 reading, a machine-readable Category column (pre-freeze rows) and a parseable answer block
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -577,4 +577,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Multi-turn Mappers | 9/9 | Complete    | 2026-10-01 |
 | 9. Agentic Loop Strategy | 9/9 | Complete    | 2026-10-01 |
 | 10. Sample Harness, Gate-1 & Docs | 10/10 | Complete    | 2026-10-01 |
-| 11. Cut v1.0.0 | 0/9 | Planned | - |
+| 11. Cut v1.0.0 | 1/9 | In Progress|  |
