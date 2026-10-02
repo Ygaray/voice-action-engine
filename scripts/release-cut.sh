@@ -568,14 +568,24 @@ PY
 # So when every POM, .module and the providers/keystore -> core dependency in the dry run's maven-local carry <tag>, the
 # coordinates JitPack serves for the tag build carry exactly that string. engineVersion's 0.0.0-local default is a local
 # placeholder that never reaches a publication.
-gate_version() {
-  local tag="$1" group
-  [ -n "$DRY_M2" ] && [ -d "$DRY_M2" ] || gate_fail version "no dry-run maven-local to inspect (run the dry-run gate first)"
-  git show HEAD:build.gradle.kts | grep -q 'providers.environmentVariable("VERSION")' \
-    || gate_fail version "the root build.gradle.kts does not read the VERSION environment variable for engineVersion"
+# The static half of the version gate: HEAD's build files must let JitPack's VERSION decide the coordinates. It needs no build
+# output, so `gate version` runs it BEFORE the (long) dry run: a build that ignores VERSION would otherwise fail the dry run
+# first, on missing <tag> file names, and the reason would not name the version it publishes instead.
+version_static_checks() {
+  local tag="$1" local_default
+  if ! git show HEAD:build.gradle.kts | grep -q 'providers.environmentVariable("VERSION")'; then
+    local_default="$(git show HEAD:gradle.properties | awk -F= '/^engineVersion=/ { print $2; exit }')"
+    gate_fail version "the root build.gradle.kts does not read the VERSION environment variable, so the published coordinates would carry '${local_default:-unknown}' (the local engineVersion default) instead of $tag"
+  fi
   if git show HEAD:jitpack.yml | grep -Ev '^[[:space:]]*#' | grep -q 'VERSION'; then
     gate_fail version "jitpack.yml sets VERSION itself; JitPack must supply it"
   fi
+}
+
+gate_version() {
+  local tag="$1" group
+  [ -n "$DRY_M2" ] && [ -d "$DRY_M2" ] || gate_fail version "no dry-run maven-local to inspect (run the dry-run gate first)"
+  version_static_checks "$tag"
   group="$(git show HEAD:gradle.properties | awk -F= '/^engineGroup=/ { print $2; exit }')"
   [ -n "$group" ] || gate_fail version "engineGroup is missing from gradle.properties"
   python3 - "$DRY_M2" "$group" "$tag" <<'PY' || gate_fail version "a published artifact does not carry version $tag (reason above)"
@@ -657,7 +667,7 @@ run_gate() {
     wiring) [ $# -eq 1 ] || usage; gate_wiring "$1" ;;
     diff) [ $# -eq 1 ] || usage; gate_diff "$1" ;;
     dry-run) [ $# -eq 1 ] || usage; gate_dry_run "$1" ;;
-    version) [ $# -eq 1 ] || usage; gate_dry_run "$1"; gate_version "$1" ;;
+    version) [ $# -eq 1 ] || usage; version_static_checks "$1"; gate_dry_run "$1"; gate_version "$1" ;;
     create-tag | clean | pushed | waiver | prefreeze | check | api-dump | hygiene | api-check | leak)
       [ $# -eq 0 ] || usage
       call_gate "$name" "" ""
@@ -1270,6 +1280,93 @@ ctl_cut-approved-not-head() {
   ctl_done red cut
 }
 
+# --- the six ROADMAP SC1 release gates (hygiene, api-dump, leak, dry-run, version, check) ---
+ctl_hygiene-api-txt-removed() {
+  ctl_clone "$CTL_LABEL"
+  git -C "$C" rm --quiet -- keystore/api.txt
+  git -C "$C" commit --quiet -m "sandbox: keystore/api.txt removed"
+  run_case red hygiene "keystore/api.txt" -- "$SELF" gate hygiene
+  ctl_done red hygiene
+}
+
+ctl_api-dump-core-line-deleted() {
+  ctl_clone "$CTL_LABEL"
+  plant_path core/api.txt
+  sed -i '0,/^ *method /{/^ *method /d}' "$PP"
+  assert_planted core/api.txt
+  ccommit "sandbox: one signature line deleted from core/api.txt" core/api.txt
+  run_case red api-dump "core: a fresh apiDump of HEAD differs" -- "$SELF" gate api-dump
+  ctl_done red api-dump
+}
+
+# A key-shaped string, assembled at run time from fragments, committed in a tracked file.
+ctl_leak-key-shape() {
+  local k
+  k="s""k-ant-""Qm7Zt2Lw9Rb4Vn8Hc3Xk"
+  ctl_clone "$CTL_LABEL"
+  plant_path plant-notes.txt
+  printf 'credential = %s\n' "$k" >"$PP"
+  git -C "$C" add -f -- plant-notes.txt
+  git -C "$C" commit --quiet -m "sandbox: tracked file with a key-shaped string"
+  run_case red leak "provider-key shape" -- "$SELF" gate leak
+  ctl_done red leak
+}
+
+ctl_leak-fixture-filename() {
+  local fx
+  fx="sb-a10""-fixture"
+  ctl_clone "$CTL_LABEL"
+  plant_path "plant-$fx.txt"
+  printf 'SANDBOX plant\n' >"$PP"
+  git -C "$C" add -f -- "plant-$fx.txt"
+  git -C "$C" commit --quiet -m "sandbox: tracked file named after the fixture"
+  run_case red leak "a tracked path contains the fixture name" -- "$SELF" gate leak
+  ctl_done red leak
+}
+
+ctl_leak-fixture-mention() {
+  local fx
+  fx="sb-a10""-fixture"
+  ctl_clone "$CTL_LABEL"
+  plant_path plant-notes.md
+  printf 'This note mentions %s outside the allow-list.\n' "$fx" >"$PP"
+  git -C "$C" add -f -- plant-notes.md
+  git -C "$C" commit --quiet -m "sandbox: tracked file that names the fixture"
+  run_case red leak "names the fixture outside the allow-list" -- "$SELF" gate leak
+  ctl_done red leak
+}
+
+ctl_dry-run-sample-install() {
+  ctl_clone "$CTL_LABEL"
+  plant_path jitpack.yml
+  sed -i 's|^\(  - \./gradlew .*\)$|\1 :sample:assembleDebug|' "$PP"
+  assert_planted jitpack.yml
+  ccommit "sandbox: jitpack.yml install line names :sample" jitpack.yml
+  run_case red dry-run "names :sample" -- "$SELF" gate dry-run "$RELEASE_TAG"
+  ctl_done red dry-run
+}
+
+# The root build reads a variable that is never set, so engineVersion falls back to the local default.
+ctl_version-not-read() {
+  ctl_clone "$CTL_LABEL"
+  plant_path build.gradle.kts
+  sed -i 's/environmentVariable("VERSION")/environmentVariable("VERSION_SANDBOX_UNSET")/' "$PP"
+  assert_planted build.gradle.kts
+  ccommit "sandbox: the root build no longer reads VERSION" build.gradle.kts
+  run_case red version "0.0.0-local" -- "$SELF" gate version "$RELEASE_TAG"
+  ctl_done red version
+}
+
+ctl_check-print-call() {
+  ctl_clone "$CTL_LABEL"
+  plant_path core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/ZzPlant.kt
+  printf 'package io.github.ygaray.voiceactionengine.core\n\ninternal fun plant() {\n    println("x")\n}\n' >"$PP"
+  [ -s "$PP" ] || sf "[$CTL_LABEL] the plant file is empty"
+  ccommit "sandbox: a print call in core main source" core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/ZzPlant.kt
+  run_case red check "Banned constructs" -- "$SELF" gate check
+  ctl_done red check
+}
+
 CONTROL_ORDER=(
   tag-format-args tag-local-lightweight tag-remote-only tag-unrelated-v0.9.0 create-tag-not-false
   clean-tracked-modified clean-staged pushed-ahead
@@ -1279,6 +1376,9 @@ CONTROL_ORDER=(
   waiver-not-accepted waiver-needs-fix waiver-id-missing
   prefreeze-c-row-open prefreeze-c-rows-answered
   cut-dirty-tree cut-approved-not-head
+  hygiene-api-txt-removed api-dump-core-line-deleted
+  leak-key-shape leak-fixture-filename leak-fixture-mention
+  dry-run-sample-install version-not-read check-print-call
 )
 
 # SELFTEST_ONLY="label label" runs just those controls while developing the selftest; the run then ends in
