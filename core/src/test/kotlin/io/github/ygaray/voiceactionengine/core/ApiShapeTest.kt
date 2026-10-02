@@ -6,6 +6,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -94,20 +95,22 @@ class ApiShapeTest {
     }
 
     @Test
-    fun toolSpecKeepsItsFiveArgumentConstructorAndAddsTheOtherShapes() {
+    fun toolSpecDeclaresExactlyOnePublicConstructor() {
         val cls = ToolSpec::class.java
         val string = String::class.java
         val schema = JsonObject::class.java
         val bool = Boolean::class.javaPrimitiveType
         val boxed = java.lang.Boolean::class.java
-        assertTrue(cls.getConstructor(string, string, schema).isTypeOf(cls))
-        assertTrue(cls.getConstructor(string, string, schema, bool).isTypeOf(cls))
-        assertTrue(cls.getConstructor(string, string, schema, bool, bool).isTypeOf(cls))
-        assertTrue(cls.getConstructor(string, string, schema, bool, bool, boxed).isTypeOf(cls))
-    }
+        val publicConstructors = cls.declaredConstructors.filter { !it.isSynthetic && Modifier.isPublic(it.modifiers) }
 
-    private fun java.lang.reflect.Constructor<*>.isTypeOf(cls: Class<*>): Boolean =
-        Modifier.isPublic(modifiers) && declaringClass == cls
+        assertEquals(1, publicConstructors.size)
+        val parameterTypes = publicConstructors.single().parameterTypes.toList()
+        assertEquals(listOf(string, string, schema, bool, bool, boxed), parameterTypes)
+        assertThrows(NoSuchMethodException::class.java) { cls.getConstructor(string, string, schema) }
+        assertThrows(NoSuchMethodException::class.java) { cls.getConstructor(string, string, schema, bool) }
+        assertThrows(NoSuchMethodException::class.java) { cls.getConstructor(string, string, schema, bool, bool) }
+        assertTrue(hasDefaultArgumentStub(cls))
+    }
 
     /**
      * True when [cls] declares a default-argument constructor stub: a synthetic constructor ending in int and

@@ -31,7 +31,8 @@ private const val DEFAULT_CLARIFICATION_DESCRIPTION =
  *
  * The constructor keeps Kotlin default arguments so a call site can name any one optional argument. That freezes its
  * parameter list: later versions add attributes as separate members (a `with...` function), never as a seventh
- * constructor parameter.
+ * constructor parameter. Java callers pass all six arguments, and no shorter overloads are generated, so the frozen
+ * JVM surface is this one constructor plus Kotlin's default-argument stub.
  *
  * @property name the tool name the model calls.
  * @property description what the tool does, shown to the model.
@@ -42,7 +43,7 @@ private const val DEFAULT_CLARIFICATION_DESCRIPTION =
  * decide per provider and model.
  * @throws IllegalArgumentException when [name] is blank, or when the tool is both terminal and mutating.
  */
-public class ToolSpec @JvmOverloads constructor(
+public class ToolSpec(
     public val name: String,
     public val description: String,
     public val inputSchema: JsonObject,
