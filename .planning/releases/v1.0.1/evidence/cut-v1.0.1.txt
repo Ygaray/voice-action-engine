@@ -1,0 +1,23 @@
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+WAIVER NOTE: no-waiver statement for patch release v1.0.1 (.planning/releases/v1.0.1/NO-WAIVERS.md); the waiver packet is not consulted
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+API NOTE: api.txt compared with the baseline released in v1.0.0 (identical)
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.0.1 commit=b32840e7ebe7066bfe8432b71ddb9e0eaca8e5f3 wiring=5f0a6b03b41d97df143e1badc59db18bed49b41e gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+GATE OK tags-absent
+To https://github.com/Ygaray/voice-action-engine.git
+ * [new tag]         v1.0.1 -> v1.0.1
+CUT OK tag=v1.0.1 commit=b32840e7ebe7066bfe8432b71ddb9e0eaca8e5f3 tag_object=5d8dde4b0115c8907a457fd2d21d294db270b5f5 pushed=refs/tags/v1.0.1
