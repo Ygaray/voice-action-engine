@@ -63,8 +63,12 @@ class AnthropicDecoderTest {
     }
 
     @Test
+    fun aStopSequenceIsAnEndOfTurn() {
+        assertEquals(StopReason.END_TURN, stopOf("stop_sequence"))
+    }
+
+    @Test
     fun otherUnknownOrMissingStopReasonsMapToOther() {
-        assertEquals(StopReason.OTHER, stopOf("stop_sequence"))
         assertEquals(StopReason.OTHER, stopOf("something_new"))
         assertEquals(StopReason.OTHER, stopOf(null))
     }

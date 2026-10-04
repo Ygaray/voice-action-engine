@@ -267,6 +267,19 @@ class AgenticLoopWireTest {
     }
 
     @Test(timeout = 30_000)
+    fun anthropicStopSequenceFinalAnswerCompletesNormally() {
+        val stopped = successBody(listOf(textBlock(FINAL_TEXT)), "stop_sequence")
+
+        val exchange = throughAnthropic(listOf(toolUseAnswer("toolu_1" to "milk"), stopped))
+
+        assertEquals(2, exchange.bodies.size)
+        val outcome = exchange.outcome
+        assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+        assertEquals(FINAL_TEXT, (outcome as CommandOutcome.Completed).reply)
+        assertEquals(listOf(ActionKind.COMMITTED), exchange.committed)
+    }
+
+    @Test(timeout = 30_000)
     fun anthropicParallelToolUseIsAnsweredInOneMessageInOrder() {
         val exchange = throughAnthropic(
             listOf(toolUseAnswer("toolu_a" to "milk", "toolu_b" to "eggs"), finalAnswer()),
