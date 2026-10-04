@@ -1,15 +1,38 @@
 ---
 status: pass
-tested_sha: be49ea8fc5036f0cb3c8203a0d3accb19146480a
-tested_sha10: be49ea8fc5
+tested_sha: 5f0a6b03b41d97df143e1badc59db18bed49b41e
+tested_sha10: 5f0a6b03b4
 verify_line: "WIRING TEST: PASS checks=9"
 isolation: headless claude -p --model sonnet --no-session-persistence, throwaway CLAUDE_CONFIG_DIR (credentials only), removed
 consulted_only_workspace: true
 cfg_removed: yes
 ancestors_clean: yes
-date: 2026-10-02
-dispatched_by: milestone master (relayed resume message p11-wiring-answer.txt; isolated run performed 2026-10-01)
+date: 2026-10-03
+release: v1.0.1
+dispatched_by: milestone master (isolated run performed 2026-10-03)
 ---
+
+# 11-WIRING-RERUN: isolated fresh-agent wiring test (tag-gating record), current = v1.0.1 on W'
+
+W' = `5f0a6b03b41d97df143e1badc59db18bed49b41e` (short `5f0a6b03b4`): the v1.0.1 patch head (XR-171-01, XR-171-03 ruling a, doc patch, tag-agnostic release tooling). `scripts/jitpack-live-probe.sh 5f0a6b03b4` gave LIVE PROBE PASS.
+
+## Verify output (verbatim, empty Gradle cache, JitPack)
+
+Command: `scripts/agent-wiring-test.sh verify /home/yahir/.cache/vae-wiring-test/5f0a6b03b4 5f0a6b03b4`
+
+```text
+WIRING TEST: PASS checks=9
+```
+
+## Isolation audit
+
+- Process: a separate headless `claude -p --model sonnet --permission-mode bypassPermissions --no-session-persistence`, with cwd = the workspace and `CLAUDE_CONFIG_DIR` = a throwaway directory holding only `.credentials.json` (removed afterwards: cfg_removed=yes). The prompt was TASK.md verbatim plus one working-directory line.
+- No ancestor of the workspace has a CLAUDE.md (ancestors_clean=yes). CONSULTED.md lists only workspace files (docs/README|INTEGRATION|API|ECOSYSTEM.md, TASK.md, the Gradle files, the app manifest): `.planning/releases/v1.0.1/evidence/wiring-consulted.txt`.
+- The agent reported `./gradlew :jvmconsumer:test :app:compileDebugKotlin` green with both tests passing. It hit 4 minor stumbles, recorded as v1.0.x/v1.1 doc follow-ups and NOT fixed before the tag: `.planning/releases/v1.0.1/evidence/wiring-stumbles.txt`.
+
+---
+
+# Previous record: v1.0.0 (W = be49ea8fc5), kept for history
 
 # 11-WIRING-RERUN: isolated fresh-agent wiring test on W (tag-gating record)
 
