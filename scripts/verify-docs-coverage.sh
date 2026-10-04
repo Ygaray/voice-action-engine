@@ -15,6 +15,8 @@
 #   C11 partial rendering                                     C21 domain-free wording
 #   C12 clarification and follow-up                           C22 README links INTEGRATION.md and API.md
 #   C23 no concrete v1 coordinate while the tag does not exist
+#   C24 README names the version to pin once, between the pin-version markers, as vX.Y.Z
+#   C25 no private local path (~/..., /home/...) in the public docs
 # Usage: scripts/verify-docs-coverage.sh [--only C01,C02,...]
 # Prints every failure as "DOC COVERAGE FAIL: <id>: <detail>" (exit 1) or "DOC COVERAGE OK checks=<n> types=<n>".
 set -uo pipefail
@@ -299,7 +301,27 @@ check_C23() {
   done
 }
 
-for id in C01 C02 C03 C04 C05 C06 C07 C08 C09 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23; do
+# The pinned version lives in one replaceable spot: README, between <!-- pin-version:begin --> and <!-- pin-version:end -->.
+check_C24() {
+  local spot
+  exists "$README" || return 0
+  spot="$(sed -n 's/.*<!-- pin-version:begin -->\(.*\)<!-- pin-version:end -->.*/\1/p' "$README")"
+  if ! printf '%s' "$spot" | grep -Eq '^`v[0-9]+\.[0-9]+\.[0-9]+`$'; then
+    fail C24 "$README does not name the version to pin as \`vX.Y.Z\` between the pin-version markers (found: '$spot')"
+  fi
+}
+
+check_C25() {
+  local f
+  for f in "$README" "$INTEGRATION" "$API" "$ECOSYSTEM"; do
+    [ -f "$f" ] || continue
+    if grep -nE '(^|[^A-Za-z0-9_.])(~/(Projects|\.claude|\.gsd)|/home/[a-z]|/Users/[A-Za-z])' "$f" > "$WORK/paths.txt"; then
+      fail C25 "$f contains a private local path: $(head -1 "$WORK/paths.txt" | cut -c1-120)"
+    fi
+  done
+}
+
+for id in C01 C02 C03 C04 C05 C06 C07 C08 C09 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C24 C25; do
   run "$id"
 done
 

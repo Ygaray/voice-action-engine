@@ -27,8 +27,9 @@ dependencyResolutionManagement {
 
 ## 2. Depend on the modules you need
 
-Per-module coordinates, never one aggregate. `<version>` is an immutable release tag or a commit SHA, never a branch
-snapshot (JitPack builds a commit SHA directly):
+Per-module coordinates, never one aggregate. `<version>` is the immutable release tag named under "Version to pin" in
+[`README.md`](README.md), or a commit SHA when you must test an unreleased fix, never a branch snapshot (JitPack builds
+a commit SHA directly):
 
 ```kts
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-core:<version>")
@@ -46,18 +47,26 @@ implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keysto
   your `DataStore<Preferences>`), so step 7 needs no extra dependency line in the app.
 - What you get transitively: `core` exposes `kotlinx-serialization-json` (tool schemas and arguments are
   `JsonObject`s) and `kotlinx-coroutines-core`; `providers` exposes OkHttp. You do not declare these yourself.
+- **Your `:app` module's Kotlin and Android Gradle Plugin.** The engine is built with Kotlin 2.3.20 and AGP 9.2.1 and
+  emits JVM 11 bytecode. Use Kotlin 2.3.x (a compiler more than one minor version older cannot read the engine's
+  metadata) and a JVM target of 11 or higher. AGP 9 has built-in Kotlin, so do **not** apply
+  `org.jetbrains.kotlin.android` in the app module; with an older AGP, apply it as usual. You need no serialization
+  compiler plugin to use the engine's `JsonObject`s, because `kotlinx-serialization-json` arrives transitively with
+  `core`. Declare the plugin only if you write your own `@Serializable` classes.
 - For tests (step 10) you add your own `junit:junit` and `org.jetbrains.kotlinx:kotlinx-coroutines-test` (for
   `runTest`) as test dependencies; the engine does not publish them.
 
 ## 3. Permissions
 
-The provider transports use the network, so the app manifest needs:
+The provider transports use the network, so an app that depends on `providers` needs this in its manifest:
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-The engine itself never asks for any other permission.
+It is needed only when you use `providers`: an app that depends on `core` (and `keystore`) alone, with its own
+`AiProvider`, makes no network call through the engine and needs no permission for it. The engine itself never asks for
+any other permission.
 
 ## 4. Describe your tools
 
@@ -223,7 +232,10 @@ and `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/tools/Cann
 
 There is no default gate and no default sink: you choose how changes are approved and where they are reported, so
 nothing is ever committed by accident. A `PreApplyGate` decides about the changes a tier submits; only
-`GateDecision.Admit` lets them run, and a gate that throws holds. There are two modes.
+`GateDecision.Admit` lets them run, and a gate that throws holds (nothing is written, the trace records `gate_error`).
+In the agentic loop a thrown gate is told to the model as an error, not as a hold: it gets
+`{"status":"error","reason":"internal_error"}` with the error flag set, and a tool that errors twice ends the run as
+a tool failure. A `GateDecision.Hold` that your gate returns is a real hold and is never an error. There are two modes.
 
 **Suspend mode** waits inside the gate for the user. `AwaitingConfirmGate` takes a `ConfirmationPolicy` (return a
 subject for your confirmation UI, or null to admit without asking) and a timeout. Observe `pending`, show the
@@ -300,7 +312,7 @@ a change run twice. Use it for an undo journal.
 | `ActionKind.IS_ERROR` | false | false | A call rejected before the gate (`FinishedKind.ERROR`); nothing could be written. |
 
 `ActionKind` is an open set: keep an `else`. In the agentic loop a held change gives the model exactly
-`{"applied":false,"status":"held_for_confirmation"}` as the tool result, and the model must not retry it. Read
+`{"applied":false,"status":"held_for_confirmation"}` as the tool result (not an error), and the model must not retry it. Read
 `outcome.commits` and `outcome.executed` to learn what was written, never the outcome type alone: a failure can follow
 real writes.
 
@@ -400,12 +412,16 @@ fun keyAdvice(cause: String): String = when (cause) {
 }
 ```
 
-An unreadable key reaches you as `FailureReason.CredentialUnreadable(provider, cause)` (and `KeyState.Unreadable` from
-the store). The causes are stable codes, also public constants on `KeystoreCauseCodes`: `key_missing`
+An unreadable key reaches you as `FailureReason.CredentialUnreadable(provider, cause)` (and, from the store itself, as
+`KeyState.Unreadable` for the four causes other than `key_missing`). The causes are stable codes, also public values on
+`KeystoreCauseCodes` (getter-only values, so not usable in annotations): `key_missing`
 (`KeystoreCauseCodes.KEY_MISSING`), `decrypt_failed` (`KeystoreCauseCodes.DECRYPT_FAILED`) and `stored_value_malformed`
 (`KeystoreCauseCodes.STORED_VALUE_MALFORMED`) mean **re-enter the key**; `keystore_unavailable`
 (`KeystoreCauseCodes.KEYSTORE_UNAVAILABLE`) and `storage_unreadable` (`KeystoreCauseCodes.STORAGE_UNREADABLE`) mean
-**transient, retry**. The set is open, so treat an unknown cause as re-enter.
+**transient, retry**. `key_missing` (the device key is gone, for example after a backup restore) reaches you only through
+`FailureReason.CredentialUnreadable` and `CredentialLookup.Unreadable`; the store reports the same situation as the
+separate `KeyState.KeyMissing` state, so a `when` over `KeyState` must handle that leaf too. The set is open, so treat
+an unknown cause as re-enter.
 
 - **Capability overrides.** `capabilities(provider, model) { ... }` patches what the engine believes about one exact
   model id (never a prefix or family); it wins over the provider's built-in table. Read the result with
@@ -472,7 +488,22 @@ when a case is missing. The reasons inside are open sets and always need an `els
   `UserTurnRenderer` write the choice into the user turn (the renderer reads it from `input.context`), so the model
   sees the original transcript, the question and the answer. The outcome and the sink both carry the link.
 
-The snippet below calls `keyAdvice` from step 7 (the `keystore-wiring` block); copy that function with it.
+The snippet below calls `keyAdvice` from step 7 (the `keystore-wiring` block); copy that function with it. It needs
+these imports, on top of the ones step 7 lists for `keyAdvice`:
+
+```text
+import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
+import io.github.ygaray.voiceactionengine.core.strategy.Clarification
+import io.github.ygaray.voiceactionengine.core.strategy.ClarificationOption
+```
+
+What the snippet reads: `CommandOutcome.Completed.reply` is the tier's text answer or null (a `String?`);
+`FailureReason.code` and `EscalationReason.code` are the stable machine-readable codes of any reason (every
+reason has one); `FailureReason.NotConfigured.provider` is the `ProviderId?` that has no usable key or configuration (null when
+the failure is not specific to one provider); `EscalationReason.NoToolCall` means the model answered in words and called no tool (a class:
+match it with `is`). [`API.md`](API.md) ("Shapes you construct or read") lists these members.
 
 <!-- doc-snippet: render-outcome -->
 ```kotlin
@@ -558,7 +589,24 @@ Sample: `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/Out
 
 Write a small `AiProvider` that plays canned `ModelResult`s and records the requests. The engine's own
 `FakeAiProvider` lives in its test sources and is not published, so every consumer owns this twenty-line class. Give it
-the id your app selects (so your tier declarations and selection apply unchanged) and `requiresCredential = false`:
+the id your app selects (so your tier declarations and selection apply unchanged) and `requiresCredential = false`.
+The snippet needs these imports (`ArrayDeque` is Kotlin's own); the constructor shapes it uses
+(`ModelResult.Success(ModelResponse(...))`, `ModelResult.Failure(reason)`, `FailureReason.Other(code)`,
+`AssistantMessage(parts)`) are listed in [`API.md`](API.md) ("Shapes you construct or read"):
+
+```text
+import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.provider.AiProvider
+import io.github.ygaray.voiceactionengine.core.provider.ModelResult
+import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
+import io.github.ygaray.voiceactionengine.core.telemetry.Usage
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
+import io.github.ygaray.voiceactionengine.core.transcript.StopReason
+import kotlinx.serialization.json.JsonObject
+```
 
 <!-- doc-snippet: scripted-provider -->
 ```kotlin

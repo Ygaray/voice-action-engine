@@ -4,7 +4,8 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.StrategyId
 
 /**
- * One tier of an app's ladder: a way of turning a spoken command into an outcome.
+ * One tier of an app's ladder: a way of turning a spoken command into an outcome. The cross-repo contract calls this
+ * concept a `CommandTier`; there is no type of that name, a tier is a [CommandStrategy] identified by its [StrategyId].
  *
  * Strategies never write. Every write is a [io.github.ygaray.voiceactionengine.core.commit.ToolStep] passed to
  * [CommandSession.submit], so the pipeline's gate and commit sink always see it.

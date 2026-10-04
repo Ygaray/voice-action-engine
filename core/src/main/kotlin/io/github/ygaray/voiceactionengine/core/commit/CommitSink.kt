@@ -11,7 +11,7 @@ public interface CommitSink {
     /** Called after [event]'s action was recorded. */
     public suspend fun onAction(event: ActionEvent)
 
-    /** Called once when the run ends, with how it ended. */
+    /** Called once when the run ends, with a [RunTermination] saying how it ended. */
     public suspend fun onRunClosed(runId: String, termination: RunTermination)
 }
 

@@ -2,8 +2,8 @@
 
 > **Audience: coding agents (and humans) working in this hub or in any app that consumes it.**
 > The authoritative pin is always each consumer's manifest + Gradle resolution; this doc is a
-> best-effort cache. This hub uses **Mechanism B (Android / Gradle / JitPack)**. Repin procedure:
-> `~/.claude/context/workflows/repin.md`; ecosystem map: `~/.claude/context/deps/_index.md`.
+> best-effort cache. This hub uses **Mechanism B (Android / Gradle / JitPack)**: a consumer repins by changing the
+> version in its own dependency declaration to a new immutable release tag, in its own repository.
 
 ## The shape: hub + spokes
 
@@ -35,17 +35,26 @@ The `:sample` app module is never published.
 `7f9db2294461d76832116e33cc0a724f05f445e8`; the final phase-gate SHA is recorded alongside it in
 `.planning/phases/01-scaffold-publishing-proof/evidence/jitpack-probe.txt`).
 
-| Consumer | Dev checkout | Pins hub at | Pin file |
-|----------|--------------|-------------|----------|
-| SecondBrain | `~/Projects/AndroidApps/Personal/SecondBrain` | *(not yet: Wave 1)* | `gradle/libs.versions.toml` |
-| CalTracker | `~/Projects/AndroidApps/Personal/CalTracker_Android` | *(not yet: Wave 1)* | `app/build.gradle.kts` |
+### Machine-reconciled pin matrix
+
+> The rows between the markers are maintained by the repin tooling; do not hand-edit them. Pin files:
+> SecondBrain `gradle/libs.versions.toml`, CalTracker `app/build.gradle.kts`.
+
+<!-- repin-matrix:begin -->
+| Consumer | Pinned | Latest | Status |
+|---|---|---|---|
+| SecondBrain | v1.0.0 | v1.0.0 | current |
+| CalTracker | v1.0.0 | v1.0.0 | current |
+<!-- repin-matrix:end -->
 
 **Repo:** public at `github.com/Ygaray/voice-action-engine` (created 2026-09-29).
 
-**Status:** the v1.0 core engine; v1.1 is planned.
+**Status:** the v1.0 core engine is released; v1.1 is planned.
 
-**Published tags:** see the repository's git tags; the control plane's §11 ledger in `CROSS-REPO-SCOPE-CONTRACT.md` is the authoritative list consumers repin from. Staged plan (two milestones, A4): `v1.0.0` (contract + pipeline + providers + keystore +
-2 ported strategies), `v1.1.0` (grammar / plan / router / on-device spike). See the contract, L8.
+**Published tags:** `v1.0.0` (contract + pipeline + providers + keystore + 2 ported strategies, 2026-10-02) and the
+`v1.0.x` patch releases after it; the version to pin is named once, in the README ("Version to pin"). The repository's git
+tags are the list of releases, and the §11 ledger in `CROSS-REPO-SCOPE-CONTRACT.md` records each one. Staged plan (two
+milestones, A4): `v1.0.0`, then `v1.1.0` (grammar / plan / router / on-device spike). See the contract, L8.
 
 ## The doc set an integrating agent receives
 

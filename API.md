@@ -5,8 +5,8 @@
 > [`README.md`](README.md). The package root is `io.github.ygaray.voiceactionengine`; the types are in sub-packages,
 > listed in "Packages and imports" below (`.core` and its sub-packages, `.providers.anthropic` and `.providers.chat`,
 > `.keystore`). The engine is domain-free; no
-> example here names an app's data. No concrete version appears in these docs: pin an immutable release tag or a commit
-> SHA.
+> example here names an app's data. The release to pin is named once, in [`README.md`](README.md) ("Version to pin");
+> pin that immutable release tag (a commit SHA only to test an unreleased fix).
 
 The public API grows strictly additively once tagged. Open sets (marked **open** below) gain members in later
 versions, so always keep an `else` branch when you switch over one; closed sets (**closed**, the sealed classes) are
@@ -69,7 +69,7 @@ leaves), annotation class.
 | `TierPolicy` | class | | The limits one command runs under (`TierPolicy { }` builder). |
 | `TierPolicySource` | fun interface | | Supplies the policy for each command (`fixed(policy)`). |
 | `TierSelector` | abstract class | open | Which tier a command starts at: `Linear` (default) or `Fixed(tier)`. |
-| `CommandStrategy` | interface | | One tier of the ladder; implement it to write your own. |
+| `CommandStrategy` | interface | | One tier of the ladder; implement it to write your own. (The cross-repo contract calls this concept `CommandTier`; there is no type of that name, so a tier is a `CommandStrategy` and is identified by its `StrategyId`.) |
 | `StrategyCapabilities` | class | | The providers a tier declares it may use (`ANY_PROVIDER`, `NO_PROVIDER`). |
 | `StrategyOutcome` | sealed class | closed | What a tier returns: `Completed`, `Escalate`, `NoMatch` or `Failed`. |
 | `CommandSession` | abstract class | | What the engine hands a tier: run id, policy, carry, the one write path (`submit`), `model()`. |
@@ -90,7 +90,7 @@ leaves), annotation class.
 | `ToolStep` | sealed class | closed | A strategy's request to the engine: `Finished` (no gate) or `Mutation` (gated). |
 | `PendingMutation` | interface | | One change waiting for the gate; its `apply()` makes the change. |
 | `StepResult` | class | | What a tool call or an apply produced for the model and the sink. |
-| `DispatchResult` | class | | What the engine tells a strategy after a step (`held`, `isError`, `actions`). |
+| `DispatchResult` | class | | What the engine tells a strategy after a step (`held`, `isError`, `actions`). A gate that threw is `held` with `isError` true and a fixed internal-error notice. |
 | `FinishedKind` | value class | open | How a finished call is classified: `READ`, `PREVIEW`, `ERROR`. |
 | `PreApplyGate` | fun interface | | The decision point before any change is written. |
 | `GateDecision` | sealed class | closed | The gate's answer: `Admit` or `Hold`. |
@@ -204,7 +204,8 @@ is no default gate and no default sink. Suspend mode: `AwaitingConfirmGate` (obs
 `resolve(id, confirmed)`). Defer mode: return `Hold`, then `CommandPipeline.commitHeld(held)` or
 `commitHeld(held, amended)`; a proposal commits at most once and lives in memory only.
 
-`CommitSink.onAction` hears every `ExecutedAction`; `onRunClosed` hears a `RunTermination` (**closed**) exactly once.
+`CommitSink.onAction(event: ActionEvent)` hears every `ExecutedAction`; `onRunClosed(runId: String, termination:
+RunTermination)` hears a `RunTermination` (**closed**) exactly once. Both are `suspend`.
 An action's `kind` is an `ActionKind` (**open**):
 
 | Kind | `applied` | `mutating` | Meaning |
@@ -215,7 +216,9 @@ An action's `kind` is an `ActionKind` (**open**):
 | `ActionKind.IS_ERROR` | true or false | true or false | `apply` reported an error (true, true), or the call was rejected before the gate (false, false). |
 
 In the agentic loop a held change gives the model exactly `{"applied":false,"status":"held_for_confirmation"}` as the
-tool result; the model must not retry it. Read `commits` and `executed`, not the outcome type, to learn what was
+tool result (not an error); the model must not retry it. A gate that throws is held closed (nothing is written, the
+trace records `gate_error`) but is told to the model as an error, `{"status":"error","reason":"internal_error"}`, which
+counts toward the same-tool failure limit. Read `commits` and `executed`, not the outcome type, to learn what was
 written.
 
 ## Providers, capabilities and selection
@@ -245,10 +248,34 @@ another provider, and `Credential.toString()` never shows the key. `KeystoreCred
 the `DataStore` (one per file per process) and the `KeySlot` table. `ApiKeyStore` offers `save`, `delete`, `read` and
 `observe`; the plaintext key never leaves through a public member. `KeyState` is **open**. The unreadable causes are
 stable codes: `key_missing`, `decrypt_failed`, `stored_value_malformed` (re-enter the key) and `keystore_unavailable`,
-`storage_unreadable` (transient, retry). `KeystoreCauseCodes` exposes them as constants to read at run time
-(`KEY_MISSING`, `DECRYPT_FAILED`, `STORED_VALUE_MALFORMED`, `KEYSTORE_UNAVAILABLE`, `STORAGE_UNREADABLE`), each with
-its UX in the KDoc; treat an unknown code as re-enter the key. The engine reports them as
-`FailureReason.CredentialUnreadable`.
+`storage_unreadable` (transient, retry). `KeystoreCauseCodes` exposes them as getter-only values to read at run time
+(`KEY_MISSING`, `DECRYPT_FAILED`, `STORED_VALUE_MALFORMED`, `KEYSTORE_UNAVAILABLE`, `STORAGE_UNREADABLE`; they are not
+`const`, so they cannot be used in annotations), each with its UX in the KDoc; treat an unknown code as re-enter the
+key. The engine reports them as `FailureReason.CredentialUnreadable`. `key_missing` arrives only through
+`CredentialLookup.Unreadable` (and so `FailureReason.CredentialUnreadable`); the store reports a gone device key as the
+separate `KeyState.KeyMissing` state, while `KeyState.Unreadable` carries the other four.
+
+## Shapes you construct or read
+
+The constructors and members that integrators write or read most often, in one place (all import from the packages in
+"Packages and imports"):
+
+| Shape | Package | What it is |
+|---|---|---|
+| `FailureReason.Other(code: String)` | `core.failure` | An open-set reason with your own stable code, for example from a scripted provider. |
+| `FailureReason.code`, `EscalationReason.code` | `core.failure` | The stable machine-readable code every reason has (`String`). |
+| `FailureReason.NotConfigured(provider: ProviderId?)` | `core.failure` | Read `provider`: the provider with no usable key or configuration, or null when not provider-specific. |
+| `EscalationReason.NoToolCall()` | `core.failure` | The model answered in words and called no tool; a class, match with `is`. |
+| `ModelResult.Success(response: ModelResponse)` | `core.provider` | A provider's successful answer. |
+| `ModelResult.Failure(reason: FailureReason, details: FailureDetails? = null)` | `core.provider` | A provider's failed answer; build it as `ModelResult.Failure(FailureReason.Other("..."))`. |
+| `ModelResponse(message: AssistantMessage, stopReason: StopReason, usage: Usage, requestId: String? = null)` | `core.transcript` | What a model answered. |
+| `AssistantMessage(parts: List<AssistantPart>, nativeReplay: NativeReplay? = null)` | `core.transcript` | One model turn; read `toolCalls` for the tool calls. |
+| `AssistantPart.Text(text: String)`, `AssistantPart.ToolCall(id: String, name: String, arguments: JsonObject)` | `core.transcript` | The two kinds of part in an assistant turn. |
+| `StopReason.END_TURN`, `TOOL_USE`, `MAX_TOKENS`, `REFUSAL`, `PAUSE_TURN`, `CONTEXT_WINDOW_EXCEEDED`, `OTHER` | `core.transcript` | Why a model stopped (**open**). |
+| `Usage(inputUncached: Long, cacheRead: Long, cacheWrite: Long, output: Long)` | `core.telemetry` | Tokens in four buckets, in this order. |
+| `CommandOutcome.Completed.reply` (`String?`), `.terminalCall`, `.partial` | `core.pipeline` | The tier's text answer, a terminal call, and the partial flag. |
+| `CommandOutcome.Failed.reason`, `CommandOutcome.Unhandled.lastReason` | `core.pipeline` | The `FailureReason`, or the last `EscalationReason?`. |
+| `CommitSink.onRunClosed(runId: String, termination: RunTermination)` | `core.commit` | Called once when a run closes (`suspend`). |
 
 ## Telemetry and trace
 

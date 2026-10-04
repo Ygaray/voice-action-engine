@@ -1,8 +1,11 @@
 package io.github.ygaray.voiceactionengine.keystore
 
 /**
- * The stable cause codes a `CredentialLookup.Unreadable` or a [KeyState.Unreadable] from this library carries, each
- * with the user experience it calls for: re-enter the key, or treat it as transient and retry.
+ * The stable cause codes this library reports for a stored key it cannot read, each with the user experience it calls
+ * for: re-enter the key, or treat it as transient and retry. A `CredentialLookup.Unreadable` can carry any of the five.
+ * A [KeyState.Unreadable] carries only the other four: a gone device key ([KEY_MISSING]) is reported by the store as
+ * the separate [KeyState.KeyMissing] state, and only the credential source turns it into
+ * `CredentialLookup.Unreadable(KEY_MISSING)`.
  *
  * These are values read from the library at run time, never inlined into the app, and they work as `when` branch
  * conditions (`when (cause) { KeystoreCauseCodes.KEY_MISSING -> ... }`). The set is open: later versions may add

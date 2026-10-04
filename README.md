@@ -18,7 +18,7 @@ bring the tools, the resolver, the gate and the sink.
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/legs/LegRunner.kt` and
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/OutcomeText.kt`.
 
-**Status:** v1.0 releases are immutable git tags, listed in the repository's tags; a commit SHA also works as `<version>`.
+**Status:** v1.0 releases are immutable git tags, listed in the repository's tags.
 
 ## Install (JitPack)
 
@@ -34,8 +34,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Depend on the modules you use, per module, never as one aggregate. `<version>` is an immutable release tag or a
-commit SHA, never a branch snapshot:
+**Version to pin:** <!-- pin-version:begin -->`v1.0.1`<!-- pin-version:end --> (this is the one place the docs name it; use it
+wherever a snippet says `<version>`).
+
+Depend on the modules you use, per module, never as one aggregate. `<version>` is an immutable release tag (the one
+above), or a commit SHA when you must test an unreleased fix, never a branch snapshot:
 
 ```kts
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-core:<version>")
@@ -186,3 +189,9 @@ in [`INTEGRATION.md`](INTEGRATION.md) cover the rest.
 ## Requirements
 
 Kotlin 2.3.20, JVM 11 bytecode, Android `minSdk 35` for `keystore`. The `:sample` app is never published.
+
+For your own `:app` module: the engine is built with Kotlin 2.3.20 and Android Gradle Plugin 9.2.1, so use Kotlin 2.3.x
+(a compiler more than one minor version older cannot read the engine's metadata) and target JVM 11 or higher. With AGP 9
+Kotlin support is built in, so do **not** apply `org.jetbrains.kotlin.android`; with an older AGP apply it as usual.
+You need no serialization plugin: `kotlinx-serialization-json` and `kotlinx-coroutines-core` come in transitively with
+`core`. [`INTEGRATION.md`](INTEGRATION.md) step 2 has the details.
