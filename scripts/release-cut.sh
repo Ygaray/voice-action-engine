@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# release-cut.sh - the gated release script for the v1.0.0 tag (Phase 11, D-01). Modelled on stt-engine's
-# release-android.sh: every check that can run before the tag runs before the tag, and the irreversible act (pushing the
+# release-cut.sh - the gated release script for any vMAJOR.MINOR.PATCH release tag, passed as an argument (Phase 11, D-01;
+# made tag-agnostic for the v1.0.x patch line, WR-02). Modelled on stt-engine's release-android.sh: every check that can run before the tag runs before the tag, and the irreversible act (pushing the
 # tag) is a separate mode that re-runs every check first.
 #
 # WHY THE GATES EXIST: A TAG IS IMMUTABLE. JitPack resolves a coordinate to a git tag once and caches the built artifact
@@ -22,21 +22,27 @@
 # and stops before the irreversible step; `cut` runs the same gates again itself.
 #
 # GATES, in the order preflight runs them. Entry guards first (cheap, fail fast), then the six ROADMAP SC1 release gates.
-#   1  tag-format   the tag is exactly RELEASE_TAG in strict vMAJOR.MINOR.PATCH form; the wiring SHA resolves to a commit
-#   2  tags-absent  at v1.0.0 the repository holds no tag at all, locally or on origin (D-02)
+#   1  tag-format   the tag is in strict vMAJOR.MINOR.PATCH form; the wiring SHA resolves to a commit
+#   2  tags-absent  THAT tag exists neither locally nor on origin, and it is strictly newer than every existing release tag
+#                   (a release tag is a vMAJOR.MINOR.PATCH tag; other tags are ignored)
 #   3  create-tag   .planning/config.json git.create_tag is exactly false (D-02: GSD's milestone close must not tag)
 #   4  clean        nothing staged; no uncommitted or untracked file outside the orchestrator bookkeeping paths
 #   5  pushed       HEAD equals origin/main exactly
 #   6  wiring       the wiring SHA is an ancestor of HEAD and 11-WIRING-RERUN.md (read from HEAD) passes for exactly it
 #   7  diff         since the wiring SHA only the three api.txt files, paths under .planning/ and (ledger rows only) the
 #                   contract's section 11 table changed
-#   8  waiver       the waiver packet in HEAD is accepted with no pending row and every pre-freeze (category C) row
-#                   answered ok, accept or waive (Yahir's answers are a hard tag precondition)
+#   8  waiver       a PATCH release may carry, in HEAD, a no-waiver statement .planning/releases/<tag>/NO-WAIVERS.md (the
+#                   lines "tag: <tag>" and "no waivers: patch release"): then there is nothing to answer. Otherwise the
+#                   waiver packet in HEAD is accepted with no pending row, at least one pre-freeze (category C) row exists
+#                   and every one is answered ok, accept or waive (Yahir's answers are a hard tag precondition)
 #   -- the six ROADMAP SC1 release gates, all on the content of HEAD --
 #   9  check        ./gradlew check green in a clean archive of HEAD
-#   10 api-dump     a fresh apiDump of HEAD equals the three api.txt committed in HEAD, byte for byte
+#   10 api-dump     a fresh apiDump of HEAD (made in an isolated copy, so no tracked file is ever rewritten) equals the
+#                   three api.txt committed in HEAD, byte for byte
 #   11 hygiene      PRE_RELEASE=0 repository hygiene (api.txt tracked, no fixture, no baseline)
-#   12 api-check    ./gradlew apiCheck green AND every module's compatibility task actually executed
+#   12 api-check    the committed api.txt is checked against the one released in the previous release tag (a patch release
+#                   must be byte-identical to it, a minor or major release may only add lines), then ./gradlew apiCheck is
+#                   green AND every module's compatibility task actually executed
 #   13 dry-run      clean-clone JitPack dry run from jitpack.yml's install list (never :sample), VERSION=<tag>
 #   14 leak         tracked-content scan for the A10 fixture name and key-shaped strings
 #   15 version      the published coordinates carry the tag version (POM, .module, providers/keystore -> core)
@@ -47,7 +53,8 @@
 #
 # GATE ARGUMENTS (pinned; a wrong count or an unknown gate is a usage error, exit 2, never a gate verdict):
 #   gate tag-format <tag> [<wiringSHA>]   gate tags-absent <tag>        gate wiring <wiringSHA>   gate diff <wiringSHA>
-#   gate dry-run <tag>                    gate version <tag>            every other gate takes no argument
+#   gate dry-run <tag>                    gate version <tag>            gate waiver <tag>         gate api-check <tag>
+#   every other gate takes no argument
 #
 # The script only READS the repository's .planning/config.json and CROSS-REPO-SCOPE-CONTRACT.md. The helper scripts it
 # calls are taken from the repository under test ($REPO/scripts/), so the tree being released supplies its own tooling.
@@ -58,13 +65,20 @@ SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "RELEASE USAGE: run inside the repository" >&2; exit 2; }
 cd "$REPO"
 
-# The only tag this milestone cuts. The next release edits it in a reviewed commit.
-RELEASE_TAG="v1.0.0"
-# The record 11-06 writes after the isolated wiring rerun: frontmatter status, tested_sha, consulted_only_workspace.
+# A release tag: strict vMAJOR.MINOR.PATCH, no leading zeros, no suffix.
+SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+# The selftest sandbox cuts SELFTEST_TAG on top of a synthetic previous release SELFTEST_PRIOR_TAG (a patch release).
+SELFTEST_PRIOR_TAG="v1.0.0"
+SELFTEST_TAG="v1.0.1"
+# A patch release with no waivers states it here, in HEAD, one directory per tag.
+NO_WAIVER_DIR=".planning/releases"
+NO_WAIVER_LINE="no waivers: patch release"
+# The record 11-06 writes after the isolated wiring rerun: frontmatter status, tested_sha, consulted_only_workspace. A new
+# release rewrites it for its own wiring SHA (the previous release's record stays in git history at that release's tag).
 WIRING_RECORD=".planning/phases/11-cut-v1-0-0/11-WIRING-RERUN.md"
-# The waiver packet and its answer block (grammar from 11-01).
+# The waiver packet and its answer block (grammar from 11-01). Used when a release has no no-waiver statement.
 WAIVER_PACKET=".planning/phases/11-cut-v1-0-0/11-WAIVER-PACKET.md"
-# The three Metalava dumps committed with the tag.
+# The three Metalava dumps committed with the first release and kept from then on as the released-API baseline.
 MODULES="core providers keystore"
 CONTRACT="CROSS-REPO-SCOPE-CONTRACT.md"
 # Paths excluded from the clean gate. Each is orchestrator bookkeeping that never reaches an artifact, because every
@@ -103,7 +117,9 @@ usage() {
     echo "  gate diff <wiringSHA>"
     echo "  gate dry-run <tag>"
     echo "  gate version <tag>"
-    echo "  gate create-tag | clean | pushed | waiver | prefreeze | check | api-dump | hygiene | api-check | leak   (no argument)"
+    echo "  gate waiver <tag>"
+    echo "  gate api-check <tag>"
+    echo "  gate create-tag | clean | pushed | prefreeze | check | api-dump | hygiene | leak   (no argument)"
   } >&2
   exit 2
 }
@@ -139,25 +155,50 @@ archive_head() {
 # ---------------------------------------------------------------------------------------------------------------------
 # Entry guards
 # ---------------------------------------------------------------------------------------------------------------------
+# Release tags (vMAJOR.MINOR.PATCH only) known locally or on origin, one per line, unsorted and deduplicated. Fails when
+# origin cannot be listed, so a network problem is never read as "no tags".
+release_tags() {
+  local remote
+  remote="$(git ls-remote --tags origin 2>/dev/null)" || return 1
+  { git tag --list; printf '%s\n' "$remote" | awk 'NF == 2 { print $2 }' | sed -e 's|^refs/tags/||' -e 's|\^{}$||'; } \
+    | grep -E "$SEMVER_RE" | sort -u || true
+}
+
+# Stdin: release tags. Prints the greatest one that is strictly older than $1 (version order), or nothing.
+greatest_below() {
+  local tag="$1" t best=""
+  while IFS= read -r t; do
+    [ -n "$t" ] && [ "$t" != "$tag" ] || continue
+    [ "$(printf '%s\n%s\n' "$t" "$tag" | sort -V | head -1)" = "$t" ] || continue
+    if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$best" "$t" | sort -V | tail -1)" = "$t" ]; then best="$t"; fi
+  done
+  printf '%s' "$best"
+}
+
 gate_tag_format() {
   local tag="$1" sha="${2:-}"
-  [ "$tag" = "$RELEASE_TAG" ] || gate_fail tag-format "tag '$tag' is not the release tag $RELEASE_TAG"
-  [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
-    || gate_fail tag-format "tag '$tag' is not in strict vMAJOR.MINOR.PATCH form"
+  [[ "$tag" =~ $SEMVER_RE ]] || gate_fail tag-format "tag '$tag' is not in strict vMAJOR.MINOR.PATCH form"
   if [ -n "$sha" ]; then
     full_sha "$sha" >/dev/null || gate_fail tag-format "wiring SHA '$sha' does not resolve to a commit"
   fi
   gate_ok tag-format
 }
 
+# The tag being cut must not exist yet, here or on origin (a tag is immutable: JitPack caches the build for good), and it
+# must be strictly newer than every release tag that does exist, so a later number can never be cut before an earlier one.
 gate_tags_absent() {
-  local tag="$1" local_tags remote_tags
-  local_tags="$(git tag --list)"
-  [ -z "$local_tags" ] || gate_fail tags-absent "local tag(s) already exist ($(echo "$local_tags" | tr '\n' ' ')); v1.0.0 must be the first tag (D-02)"
-  if ! remote_tags="$(git ls-remote --tags origin 2>/dev/null)"; then
+  local tag="$1" remote_tags known newest
+  if git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null; then
+    gate_fail tags-absent "tag $tag already exists locally; a tag is immutable, so the fix is a new patch tag"
+  fi
+  if ! remote_tags="$(git ls-remote --tags origin "refs/tags/$tag" 2>/dev/null)"; then
     gate_fail tags-absent "cannot list the tags on origin (network or remote problem)"
   fi
   [ -z "$remote_tags" ] || gate_fail tags-absent "origin already has tag ref(s) (first: $(echo "$remote_tags" | head -1 | cut -f2)); refusing to cut $tag"
+  known="$(release_tags)" || gate_fail tags-absent "cannot list the tags on origin (network or remote problem)"
+  newest="$(printf '%s\n%s\n' "$known" "$tag" | grep -E "$SEMVER_RE" | sort -V | tail -1)"
+  [ "$newest" = "$tag" ] \
+    || gate_fail tags-absent "$tag is not newer than the existing release tag $newest; tags only move forward"
   gate_ok tags-absent
 }
 
@@ -334,8 +375,28 @@ gate_prefreeze() {
   gate_ok prefreeze
 }
 
+# A patch release (PATCH > 0) changes no pre-freeze API decision and needs no waiver packet, but "no waivers" must be a
+# reviewed statement in HEAD, never an omission: .planning/releases/<tag>/NO-WAIVERS.md carries the lines "tag: <tag>" and
+# "no waivers: patch release". A major or minor release (PATCH is 0) never qualifies. Returns 0 only when the statement
+# exists and is valid; returns 1 when there is no statement (the caller falls back to the packet).
+waiver_statement() {
+  local tag="$1" stmt body patch
+  stmt="$NO_WAIVER_DIR/$tag/NO-WAIVERS.md"
+  git cat-file -e "HEAD:$stmt" 2>/dev/null || return 1
+  [[ "$tag" =~ $SEMVER_RE ]] || gate_fail waiver "tag '$tag' is not a vMAJOR.MINOR.PATCH release tag"
+  patch="${BASH_REMATCH[3]}"
+  [ "$patch" != 0 ] \
+    || gate_fail waiver "$stmt exists but $tag is a major or minor release (PATCH is 0): a no-waiver statement is valid only for a patch release, which needs no new decision; this release needs a waiver packet"
+  body="$(git show "HEAD:$stmt")"
+  grep -qxF "tag: $tag" <<<"$body" || gate_fail waiver "$stmt does not carry the line 'tag: $tag'"
+  grep -qxF "$NO_WAIVER_LINE" <<<"$body" || gate_fail waiver "$stmt does not carry the line '$NO_WAIVER_LINE'"
+  echo "WAIVER NOTE: no-waiver statement for patch release $tag ($stmt); the waiver packet is not consulted"
+  return 0
+}
+
 gate_waiver() {
-  local status by at ids_ans ids_tab id ans
+  local tag="$1" status by at ids_ans ids_tab id ans c_ids
+  if waiver_statement "$tag"; then gate_ok waiver; return 0; fi
   load_packet waiver
   status="$(block_field packet_status)"
   by="$(block_field answered_by)"
@@ -353,8 +414,11 @@ gate_waiver() {
       *) gate_fail waiver "$id is answered '$ans'; every row must be waive, accept, carry-to-gate-2 or ok" ;;
     esac
   done < <(awk '/^- W[0-9][0-9]:/ { id = $2; sub(/:$/, "", id); a = $3; sub(/\r$/, "", a); print id, a }' <<<"$BLOCK")
-  # A pre-freeze row cannot be carried past the freeze: the public API is frozen into api.txt before Gate-2 runs.
-  for id in $(category_c_ids); do
+  # A pre-freeze row cannot be carried past the freeze: the public API is frozen into api.txt before Gate-2 runs. An empty
+  # id list means the packet table format drifted (WR-01), which would silently skip this check, so it fails closed.
+  c_ids="$(category_c_ids)"
+  [ -n "$c_ids" ] || gate_fail waiver "no category C (pre-freeze) rows found in the packet table: the table format changed, so the pre-freeze check cannot run"
+  for id in $c_ids; do
     ans="$(answer_of "$id")"
     case "$ans" in
       ok | accept | waive) ;;
@@ -409,8 +473,40 @@ gate_hygiene() {
   gate_ok hygiene
 }
 
+# The committed api.txt files are the released-API baseline, so they are compared with the ones the previous release tag
+# carries before any build runs. Identical is the pass for a patch release (same MAJOR.MINOR as the previous tag); a minor
+# or major release may only ADD lines (no line of the previous baseline disappears). Without any previous release tag there
+# is no baseline to compare with (the first release dumps it).
+api_baseline_check() {
+  local tag="$1" known prior pmm tmm m
+  known="$(release_tags)" || gate_fail api-check "cannot list the tags on origin (network or remote problem)"
+  prior="$(greatest_below "$tag" <<<"$known")"
+  if [ -z "$prior" ]; then
+    echo "API NOTE: no previous release tag, so there is no released api.txt to compare with"
+    return 0
+  fi
+  git rev-parse --quiet --verify "refs/tags/$prior^{commit}" >/dev/null \
+    || gate_fail api-check "the previous release tag $prior is not in this clone: run git fetch --tags origin"
+  pmm="${prior%.*}"
+  tmm="${tag%.*}"
+  for m in $MODULES; do
+    git cat-file -e "$prior:$m/api.txt" 2>/dev/null || gate_fail api-check "$m/api.txt is not in the previous release $prior, so there is no baseline"
+    git cat-file -e "HEAD:$m/api.txt" 2>/dev/null || gate_fail api-check "$m/api.txt is not tracked in HEAD"
+    if [ "$pmm" = "$tmm" ]; then
+      [ "$(git rev-parse "$prior:$m/api.txt")" = "$(git rev-parse "HEAD:$m/api.txt")" ] \
+        || gate_fail api-check "$m/api.txt differs from the baseline released in $prior: a patch release ($tag) changes no public API"
+    else
+      if [ -n "$(comm -23 <(git show "$prior:$m/api.txt" | sort -u) <(git show "HEAD:$m/api.txt" | sort -u))" ]; then
+        gate_fail api-check "$m/api.txt removes or changes a line the released baseline in $prior has: public API grows only by addition"
+      fi
+    fi
+  done
+  echo "API NOTE: api.txt compared with the baseline released in $prior ($([ "$pmm" = "$tmm" ] && echo identical || echo additive only))"
+}
+
 gate_api_check() {
-  local d m log
+  local tag="$1" d m log
+  api_baseline_check "$tag"
   mk_tmp
   d="$TMPROOT/apicheck-src"
   log="$TMPROOT/apicheck.log"
@@ -646,11 +742,11 @@ call_gate() {
     pushed) gate_pushed ;;
     wiring) gate_wiring "$wiring" ;;
     diff) gate_diff "$wiring" ;;
-    waiver) gate_waiver ;;
+    waiver) gate_waiver "$tag" ;;
     check) gate_check ;;
     api-dump) gate_api_dump ;;
     hygiene) gate_hygiene ;;
-    api-check) gate_api_check ;;
+    api-check) gate_api_check "$tag" ;;
     dry-run) gate_dry_run "$tag" ;;
     leak) gate_leak ;;
     version) gate_version "$tag" ;;
@@ -668,7 +764,9 @@ run_gate() {
     diff) [ $# -eq 1 ] || usage; gate_diff "$1" ;;
     dry-run) [ $# -eq 1 ] || usage; gate_dry_run "$1" ;;
     version) [ $# -eq 1 ] || usage; version_static_checks "$1"; gate_dry_run "$1"; gate_version "$1" ;;
-    create-tag | clean | pushed | waiver | prefreeze | check | api-dump | hygiene | api-check | leak)
+    waiver) [ $# -eq 1 ] || usage; gate_waiver "$1" ;;
+    api-check) [ $# -eq 1 ] || usage; gate_api_check "$1" ;;
+    create-tag | clean | pushed | prefreeze | check | api-dump | hygiene | leak)
       [ $# -eq 0 ] || usage
       call_gate "$name" "" ""
       ;;
@@ -686,7 +784,7 @@ run_preflight() {
 cut_fail() { printf 'RELEASE CUT FAIL: %s\n' "$1" >&2; exit 1; }
 
 run_cut() {
-  local tag="$1" wiring="$2" approved="$3" full head group msg tagobj peeled remote expect
+  local tag="$1" wiring="$2" approved="$3" full head group msg tagobj peeled remote expect before_remote
   [[ "$approved" =~ ^[0-9a-f]{10,40}$ ]] || cut_fail "approvedCommit must be a full SHA or a unique prefix of at least 10 hex digits"
   full="$(full_sha "$approved")" || cut_fail "approvedCommit '$approved' does not resolve to a single commit"
   head="$(git rev-parse HEAD)"
@@ -703,26 +801,29 @@ Coordinates (JitPack, per module):
   $group:voice-action-engine-providers:$tag
   $group:voice-action-engine-keystore:$tag
 Wiring-tested SHA: $(full_sha "$wiring")
-Contract: CROSS-REPO-SCOPE-CONTRACT.md section 6.2 steps 1-7.
+Contract: CROSS-REPO-SCOPE-CONTRACT.md (the section 11 ledger row for $tag lists what this release contains).
 Section 11 ledger row: messaged to the orchestrator, the sole ledger writer (A14)."
   git tag -a "$tag" -m "$msg" "$full"
   [ "$(git cat-file -t "refs/tags/$tag")" = "tag" ] || cut_fail "refs/tags/$tag is not an annotated tag object"
   peeled="$(git rev-parse "refs/tags/$tag^{commit}")"
   [ "$peeled" = "$full" ] || cut_fail "the tag peels to ${peeled:0:10}, not the approved commit ${full:0:10}"
   tagobj="$(git rev-parse "refs/tags/$tag")"
+  before_remote="$(git ls-remote --tags origin | sort)"
   if ! git push origin "refs/tags/$tag"; then
     echo "CUT PUSH FAILED: local annotated tag $tag exists at $full; it was not deleted or moved; retry exactly: git push origin refs/tags/$tag" >&2
     exit 3
   fi
   remote="$(git ls-remote --tags origin | sort)"
-  expect="$(printf '%s\trefs/tags/%s\n%s\trefs/tags/%s^{}\n' "$tagobj" "$tag" "$full" "$tag" | sort)"
-  [ "$remote" = "$expect" ] || cut_fail "origin does not list exactly the tag and its peeled commit after the push (got: $(echo "$remote" | tr '\n' ' '))"
+  # Origin must list exactly the tag refs it listed before, plus this tag and its peeled commit, and nothing else.
+  expect="$({ printf '%s\n' "$before_remote"; printf '%s\trefs/tags/%s\n%s\trefs/tags/%s^{}\n' "$tagobj" "$tag" "$full" "$tag"; } | sed '/^$/d' | sort)"
+  [ "$remote" = "$expect" ] || cut_fail "origin does not list exactly its earlier tags plus the new tag and its peeled commit after the push (got: $(echo "$remote" | tr '\n' ' '))"
   echo "CUT OK tag=$tag commit=$full tag_object=$tagobj pushed=refs/tags/$tag"
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
 # selftest: a temp clone and a LOCAL bare remote; the real repository is only read
-#   happy      green sandbox -> preflight -> cut -> exactly one annotated tag in the sandbox remote
+#   happy      green sandbox (a synthetic previous release tag, then patch work) -> preflight -> cut -> the sandbox remote
+#              holds the previous tag plus exactly one new annotated tag
 #   negative   one planted violation per control, each in its own throwaway clone of the green bare repository; a control
 #              passes only when its gate went red (or stayed green, for a positive control) for the RIGHT reason
 #   all        happy, then negative, on one green sandbox
@@ -781,8 +882,10 @@ build_green_sandbox() { # <dir>
   sandbox_git_config "$SB_CLONE"
 
   # 2. Overlay the real working-tree scripts/ and the phase directory, so uncommitted script edits are what gets tested.
+  #    The real release statements (.planning/releases) are dropped: each control plants the statement it needs.
   tar -C "$REPO" --exclude='*.done.json' -cf - scripts .planning/phases/11-cut-v1-0-0 | tar -C "$SB_CLONE" -xf -
   git -C "$SB_CLONE" add -- scripts .planning/phases/11-cut-v1-0-0
+  git -C "$SB_CLONE" rm --quiet -r --ignore-unmatch -- "$NO_WAIVER_DIR"
   if ! git -C "$SB_CLONE" diff --cached --quiet; then git -C "$SB_CLONE" commit --quiet -m "selftest: overlay working-tree scripts and phase directory"; fi
   GREEN_W="$(git -C "$SB_CLONE" rev-parse HEAD)"
 
@@ -807,38 +910,46 @@ EOF
   git -C "$SB_CLONE" add -- "$WIRING_RECORD" "$WAIVER_PACKET"
   git -C "$SB_CLONE" commit --quiet -m "selftest: synthetic wiring record and accepted packet"
 
-  # 4. The three api.txt dumps (the freeze), committed and pushed to the sandbox remote.
+  # 4. The three api.txt dumps. Once a release exists they are tracked in HEAD and a fresh dump must not change them; a
+  #    HEAD that predates the first release has none yet, and the dump becomes the freeze (committed here).
   if [ -f "$REPO/local.properties" ]; then cp "$REPO/local.properties" "$SB_CLONE/"; fi
   (cd "$SB_CLONE" && ./gradlew apiDump --console=plain) >"$sb/apidump.log" 2>&1 || { tail -20 "$sb/apidump.log" >&2; sf "apiDump failed in the sandbox clone"; }
-  git -C "$SB_CLONE" add -- core/api.txt providers/api.txt keystore/api.txt
-  git -C "$SB_CLONE" commit --quiet -m "selftest: commit the api.txt baseline"
+  if git -C "$SB_CLONE" ls-files --error-unmatch -- core/api.txt providers/api.txt keystore/api.txt >/dev/null 2>&1; then
+    git -C "$SB_CLONE" diff --quiet -- core/api.txt providers/api.txt keystore/api.txt \
+      || sf "apiDump changed an api.txt that is already tracked: the released baseline must not move"
+  else
+    git -C "$SB_CLONE" add -- core/api.txt providers/api.txt keystore/api.txt
+    git -C "$SB_CLONE" commit --quiet -m "selftest: commit the api.txt baseline"
+  fi
 
-  # 5. Never push or cut before the clone's remote is proven to be the local bare path.
+  # 5. Never push or cut before the clone's remote is proven to be the local bare path. The previous release is a synthetic
+  #    annotated tag on this commit (it holds the released api.txt baseline), pushed with main; one commit of patch work
+  #    follows it, and that commit is HEAD.
   assert_local_remote "$SB_CLONE" "$SB_BARE"
-  git -C "$SB_CLONE" push --quiet origin main
+  git -C "$SB_CLONE" tag -a "$SELFTEST_PRIOR_TAG" -m "selftest: the previous release" HEAD
+  git -C "$SB_CLONE" commit --quiet --allow-empty -m "selftest: patch work after the previous release"
+  git -C "$SB_CLONE" push --quiet origin main "refs/tags/$SELFTEST_PRIOR_TAG"
   GREEN_HEAD="$(git -C "$SB_CLONE" rev-parse HEAD)"
 }
 
 # Steps 6-7 of the happy path: preflight, then cut, then the bare repository holds exactly one annotated tag.
 sandbox_preflight_and_cut() {
-  local sb n rec_tag
+  local sb tags
   sb="$(dirname "$SB_BARE")"
   echo "--- sandbox preflight (W=$GREEN_W)"
-  (cd "$SB_CLONE" && "$SELF" preflight "$RELEASE_TAG" "$GREEN_W") >"$sb/preflight.log" 2>&1 || { tail -30 "$sb/preflight.log" >&2; sf "sandbox preflight failed"; }
+  (cd "$SB_CLONE" && "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W") >"$sb/preflight.log" 2>&1 || { tail -30 "$sb/preflight.log" >&2; sf "sandbox preflight failed"; }
   cat "$sb/preflight.log"
-  grep -q "^PREFLIGHT OK tag=$RELEASE_TAG commit=$GREEN_HEAD wiring=$GREEN_W gates=" "$sb/preflight.log" || sf "no PREFLIGHT OK line for the sandbox HEAD"
+  grep -q "^PREFLIGHT OK tag=$SELFTEST_TAG commit=$GREEN_HEAD wiring=$GREEN_W gates=" "$sb/preflight.log" || sf "no PREFLIGHT OK line for the sandbox HEAD"
   echo "--- sandbox cut"
-  (cd "$SB_CLONE" && "$SELF" cut "$RELEASE_TAG" "$GREEN_W" "$GREEN_HEAD") >"$sb/cut.log" 2>&1 || { tail -30 "$sb/cut.log" >&2; sf "sandbox cut failed"; }
+  (cd "$SB_CLONE" && "$SELF" cut "$SELFTEST_TAG" "$GREEN_W" "$GREEN_HEAD") >"$sb/cut.log" 2>&1 || { tail -30 "$sb/cut.log" >&2; sf "sandbox cut failed"; }
   cat "$sb/cut.log"
-  grep -q "^CUT OK tag=$RELEASE_TAG commit=$GREEN_HEAD " "$sb/cut.log" || sf "no CUT OK line"
+  grep -q "^CUT OK tag=$SELFTEST_TAG commit=$GREEN_HEAD " "$sb/cut.log" || sf "no CUT OK line"
 
-  n="$(git -C "$SB_BARE" tag --list | wc -l | tr -d ' ')"
-  [ "$n" = 1 ] || sf "the sandbox remote holds $n tags, expected exactly one"
-  rec_tag="$(git -C "$SB_BARE" tag --list)"
-  [ "$rec_tag" = "$RELEASE_TAG" ] || sf "the sandbox remote tag is '$rec_tag'"
-  [ "$(git -C "$SB_BARE" cat-file -t "refs/tags/$RELEASE_TAG")" = tag ] || sf "the sandbox tag is not annotated"
-  [ "$(git -C "$SB_BARE" rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$GREEN_HEAD" ] || sf "the sandbox tag does not peel to the clone's HEAD"
-  echo "sandbox remote: exactly one annotated tag $RELEASE_TAG peeling to ${GREEN_HEAD:0:10}"
+  tags="$(git -C "$SB_BARE" tag --list | sort | tr '\n' ' ')"
+  [ "$tags" = "$SELFTEST_PRIOR_TAG $SELFTEST_TAG " ] || sf "the sandbox remote holds '$tags', expected exactly '$SELFTEST_PRIOR_TAG $SELFTEST_TAG '"
+  [ "$(git -C "$SB_BARE" cat-file -t "refs/tags/$SELFTEST_TAG")" = tag ] || sf "the sandbox tag is not annotated"
+  [ "$(git -C "$SB_BARE" rev-parse "refs/tags/$SELFTEST_TAG^{commit}")" = "$GREEN_HEAD" ] || sf "the sandbox tag does not peel to the clone's HEAD"
+  echo "sandbox remote: the previous tag $SELFTEST_PRIOR_TAG plus exactly one new annotated tag $SELFTEST_TAG peeling to ${GREEN_HEAD:0:10}"
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -963,12 +1074,14 @@ ctl_done() { # <red|green> <gate>
   fi
 }
 
-# After a refused cut: no tag in the clone and none in its bare remote.
+# After a refused cut: the tag that was to be cut exists neither in the clone nor in its bare remote, and the previous
+# release tag is still the only one.
 assert_no_tag() {
-  if [ -n "$(git -C "$C" tag --list)" ] || [ -n "$(git -C "$CB" tag --list)" ]; then
-    CTL_BAD+=("a tag exists after the refused cut (clone: '$(git -C "$C" tag --list | tr '\n' ' ')', bare: '$(git -C "$CB" tag --list | tr '\n' ' ')')")
+  if [ "$(git -C "$C" tag --list | tr '\n' ' ')" != "$SELFTEST_PRIOR_TAG " ] \
+    || [ "$(git -C "$CB" tag --list | tr '\n' ' ')" != "$SELFTEST_PRIOR_TAG " ]; then
+    CTL_BAD+=("a tag was created by the refused cut (clone: '$(git -C "$C" tag --list | tr '\n' ' ')', bare: '$(git -C "$CB" tag --list | tr '\n' ' ')')")
   else
-    CTL_NOTE="no tag exists afterwards in the clone or in its bare remote"
+    CTL_NOTE="no new tag exists afterwards in the clone or in its bare remote (only $SELFTEST_PRIOR_TAG)"
   fi
 }
 
@@ -1027,42 +1140,55 @@ contract_edit_section10() {
 ctl_tag-format-args() {
   local t
   ctl_clone "$CTL_LABEL"
-  for t in v1.0.1 1.0.0 v1.0; do
-    run_case red tag-format "is not the release tag" -- "$SELF" preflight "$t" "$GREEN_W"
+  for t in 1.0.1 v1.0 v1.0.1-rc1 v01.0.1 V1.0.1; do
+    run_case red tag-format "is not in strict vMAJOR.MINOR.PATCH form" -- "$SELF" preflight "$t" "$GREEN_W"
   done
   ctl_done red tag-format
 }
 
 ctl_tag-local-lightweight() {
   ctl_clone "$CTL_LABEL"
-  git -C "$C" tag v1.0.0
-  run_case red tags-absent "local tag(s) already exist" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  git -C "$C" tag "$SELFTEST_TAG"
+  run_case red tags-absent "already exists locally" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red tags-absent
 }
 
 ctl_tag-remote-only() {
   ctl_clone "$CTL_LABEL"
-  git -C "$CB" tag v1.0.0 refs/heads/main
-  run_case red tags-absent "origin already has tag ref(s)" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  git -C "$CB" tag "$SELFTEST_TAG" refs/heads/main
+  run_case red tags-absent "origin already has tag ref(s)" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red tags-absent
 }
 
-ctl_tag-unrelated-v0.9.0() {
+# The previous release tag itself, and an older number, can never be cut again.
+ctl_tag-not-newer() {
+  ctl_clone "$CTL_LABEL"
+  run_case red tags-absent "already exists locally" -- "$SELF" preflight "$SELFTEST_PRIOR_TAG" "$GREEN_W"
+  run_case red tags-absent "is not newer than the existing release tag $SELFTEST_PRIOR_TAG" -- "$SELF" preflight v0.9.0 "$GREEN_W"
+  git -C "$C" tag v1.0.2
+  run_case red tags-absent "is not newer than the existing release tag v1.0.2" -- "$SELF" gate tags-absent "$SELFTEST_TAG"
+  ctl_done red tags-absent
+}
+
+# The tag being cut is checked on its own: an older unrelated tag, or a non-release tag, does not block it.
+ctl_tag-patch-after-older-tags() {
   ctl_clone "$CTL_LABEL"
   git -C "$C" tag v0.9.0
-  run_case red tags-absent "v0.9.0" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
-  ctl_done red tags-absent
+  git -C "$C" tag not-a-release-tag
+  run_case green tags-absent "GATE OK tags-absent" -- "$SELF" gate tags-absent "$SELFTEST_TAG"
+  run_case green tags-absent "GATE OK tags-absent" -- "$SELF" gate tags-absent v2.0.0
+  ctl_done green tags-absent
 }
 
 ctl_create-tag-not-false() {
   ctl_clone "$CTL_LABEL-true"
   plant_path .planning/config.json
   printf '{"git":{"create_tag":true}}\n' >"$PP"
-  run_case red create-tag "must be false" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red create-tag "must be false" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_clone "$CTL_LABEL-absent"
   plant_path .planning/config.json
   printf '{"git":{"branching_strategy":"none"}}\n' >"$PP"
-  run_case red create-tag "must be false" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red create-tag "must be false" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red create-tag
 }
 
@@ -1071,7 +1197,7 @@ ctl_clean-tracked-modified() {
   plant_path README.md
   printf '\nSANDBOX uncommitted plant\n' >>"$PP"
   assert_planted README.md
-  run_case red clean "working tree is not clean" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red clean "working tree is not clean" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red clean
 }
 
@@ -1080,14 +1206,14 @@ ctl_clean-staged() {
   plant_path README.md
   printf '\nSANDBOX staged plant\n' >>"$PP"
   git -C "$C" add -- README.md
-  run_case red clean "files are staged" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red clean "files are staged" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red clean
 }
 
 ctl_pushed-ahead() {
   ctl_clone "$CTL_LABEL"
   git -C "$C" commit --quiet --allow-empty -m "sandbox: local commit that was never pushed"
-  run_case red pushed "is not origin/main" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red pushed "is not origin/main" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red pushed
 }
 
@@ -1129,7 +1255,7 @@ ctl_diff-readme() {
   assert_planted README.md
   ccommit "sandbox: README edit after W" README.md
   cpush
-  run_case red diff "README.md" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red diff "README.md" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red diff
 }
 
@@ -1201,12 +1327,12 @@ ctl_waiver-not-accepted() {
   packet_set pending - - ok ok
   ccommit "sandbox: packet pending" "$WAIVER_PACKET"
   cpush
-  run_case red waiver "must be accepted" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red waiver "must be accepted" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_clone "$CTL_LABEL-partial"
   packet_set partial SANDBOX 2000-01-01 ok pending W03=waive
   ccommit "sandbox: packet partial" "$WAIVER_PACKET"
   cpush
-  run_case red waiver "must be accepted" -- "$SELF" preflight "$RELEASE_TAG" "$GREEN_W"
+  run_case red waiver "must be accepted" -- "$SELF" preflight "$SELFTEST_TAG" "$GREEN_W"
   ctl_done red waiver
 }
 
@@ -1215,13 +1341,13 @@ ctl_waiver-needs-fix() {
   ctl_clone "$CTL_LABEL-other"
   packet_set accepted SANDBOX 2000-01-01 ok ok W01=needs-fix
   ccommit "sandbox: a non-C row needs-fix" "$WAIVER_PACKET"
-  run_case red waiver "needs-fix" -- "$SELF" gate waiver
+  run_case red waiver "needs-fix" -- "$SELF" gate waiver "$SELFTEST_TAG"
   ctl_clone "$CTL_LABEL-carry"
   cid="$(first_c_id)"
   [ -n "$cid" ] || sf "[$CTL_LABEL] no category C row in the packet"
   packet_set accepted SANDBOX 2000-01-01 ok ok "$cid=carry-to-gate-2"
   ccommit "sandbox: a category C row carried to Gate-2" "$WAIVER_PACKET"
-  run_case red waiver "carry-to-gate-2" -- "$SELF" gate waiver
+  run_case red waiver "carry-to-gate-2" -- "$SELF" gate waiver "$SELFTEST_TAG"
   ctl_done red waiver
 }
 
@@ -1231,7 +1357,67 @@ ctl_waiver-id-missing() {
   sed -i '/^- W07:/d' "$PP"
   assert_planted "$WAIVER_PACKET"
   ccommit "sandbox: answer W07 removed" "$WAIVER_PACKET"
-  run_case red waiver "differ from the table ids" -- "$SELF" gate waiver
+  run_case red waiver "differ from the table ids" -- "$SELF" gate waiver "$SELFTEST_TAG"
+  ctl_done red waiver
+}
+
+# WR-01: a packet table whose category column no longer says C must fail closed, never skip the pre-freeze check.
+ctl_waiver-c-rows-vanished() {
+  ctl_clone "$CTL_LABEL"
+  plant_path "$WAIVER_PACKET"
+  sed -i -E 's/^(\| W[0-9][0-9] \| )C( \|)/\1Z\2/' "$PP"
+  assert_planted "$WAIVER_PACKET"
+  ccommit "sandbox: the category column no longer says C" "$WAIVER_PACKET"
+  run_case red waiver "no category C (pre-freeze) rows found" -- "$SELF" gate waiver "$SELFTEST_TAG"
+  ctl_done red waiver
+}
+
+# A patch release with no waivers says so in a statement in HEAD; the packet is then not consulted (here it is pending).
+ctl_waiver-no-waiver-statement() {
+  ctl_clone "$CTL_LABEL"
+  packet_set pending - - pending pending
+  ccommit "sandbox: packet pending" "$WAIVER_PACKET"
+  run_case red waiver "must be accepted" -- "$SELF" gate waiver "$SELFTEST_TAG"
+  plant_path "$NO_WAIVER_DIR/$SELFTEST_TAG/NO-WAIVERS.md"
+  mkdir -p "$(dirname "$PP")"
+  printf 'tag: %s\n%s\n' "$SELFTEST_TAG" "$NO_WAIVER_LINE" >"$PP"
+  ccommit "sandbox: no-waiver statement for the patch release" "$NO_WAIVER_DIR/$SELFTEST_TAG/NO-WAIVERS.md"
+  run_case green waiver "WAIVER NOTE: no-waiver statement" -- "$SELF" gate waiver "$SELFTEST_TAG"
+  ctl_done green waiver
+}
+
+ctl_waiver-statement-invalid() {
+  local f="$NO_WAIVER_DIR/$SELFTEST_TAG/NO-WAIVERS.md"
+  ctl_clone "$CTL_LABEL-wrong-tag-line"
+  plant_path "$f"
+  mkdir -p "$(dirname "$PP")"
+  printf 'tag: v9.9.9\n%s\n' "$NO_WAIVER_LINE" >"$PP"
+  ccommit "sandbox: statement names another tag" "$f"
+  run_case red waiver "does not carry the line 'tag: $SELFTEST_TAG'" -- "$SELF" gate waiver "$SELFTEST_TAG"
+  ctl_clone "$CTL_LABEL-no-statement-line"
+  plant_path "$f"
+  mkdir -p "$(dirname "$PP")"
+  printf 'tag: %s\nwaivers: none, trust me\n' "$SELFTEST_TAG" >"$PP"
+  ccommit "sandbox: statement lacks the fixed sentence" "$f"
+  run_case red waiver "does not carry the line '$NO_WAIVER_LINE'" -- "$SELF" gate waiver "$SELFTEST_TAG"
+  ctl_clone "$CTL_LABEL-minor-release"
+  plant_path "$NO_WAIVER_DIR/v1.1.0/NO-WAIVERS.md"
+  mkdir -p "$(dirname "$PP")"
+  printf 'tag: v1.1.0\n%s\n' "$NO_WAIVER_LINE" >"$PP"
+  ccommit "sandbox: statement for a minor release" "$NO_WAIVER_DIR/v1.1.0/NO-WAIVERS.md"
+  run_case red waiver "major or minor release" -- "$SELF" gate waiver v1.1.0
+  ctl_done red waiver
+}
+
+# The statement is per tag: a statement for another tag never covers this one.
+ctl_waiver-statement-other-tag() {
+  ctl_clone "$CTL_LABEL"
+  packet_set pending - - pending pending
+  plant_path "$NO_WAIVER_DIR/v1.0.9/NO-WAIVERS.md"
+  mkdir -p "$(dirname "$PP")"
+  printf 'tag: v1.0.9\n%s\n' "$NO_WAIVER_LINE" >"$PP"
+  ccommit "sandbox: packet pending, statement for another tag" "$WAIVER_PACKET" "$NO_WAIVER_DIR/v1.0.9/NO-WAIVERS.md"
+  run_case red waiver "must be accepted" -- "$SELF" gate waiver "$SELFTEST_TAG"
   ctl_done red waiver
 }
 
@@ -1267,14 +1453,14 @@ ctl_cut-dirty-tree() {
   plant_path README.md
   printf '\nSANDBOX uncommitted plant\n' >>"$PP"
   assert_planted README.md
-  run_case red clean "working tree is not clean" -- "$SELF" cut "$RELEASE_TAG" "$GREEN_W" "$(git -C "$C" rev-parse HEAD)"
+  run_case red clean "working tree is not clean" -- "$SELF" cut "$SELFTEST_TAG" "$GREEN_W" "$(git -C "$C" rev-parse HEAD)"
   assert_no_tag
   ctl_done red clean
 }
 
 ctl_cut-approved-not-head() {
   ctl_clone "$CTL_LABEL"
-  run_case red cut "is not HEAD" -- "$SELF" cut "$RELEASE_TAG" "$GREEN_W" "$GREEN_W"
+  run_case red cut "is not HEAD" -- "$SELF" cut "$SELFTEST_TAG" "$GREEN_W" "$GREEN_W"
   if grep -q '^GATE OK' "$CASE_OUT"; then CTL_BAD+=("a gate ran before the approvedCommit check (GATE OK line present)"); fi
   assert_no_tag
   ctl_done red cut
@@ -1287,6 +1473,29 @@ ctl_hygiene-api-txt-removed() {
   git -C "$C" commit --quiet -m "sandbox: keystore/api.txt removed"
   run_case red hygiene "keystore/api.txt" -- "$SELF" gate hygiene
   ctl_done red hygiene
+}
+
+# The committed api.txt is the released baseline: a patch release must carry the previous release's api.txt unchanged.
+ctl_api-check-patch-changed() {
+  ctl_clone "$CTL_LABEL"
+  plant_path core/api.txt
+  printf '  public final class SandboxAddition {\n  }\n' >>"$PP"
+  assert_planted core/api.txt
+  ccommit "sandbox: an addition in core/api.txt for a patch release" core/api.txt
+  run_case red api-check "core/api.txt differs from the baseline released in $SELFTEST_PRIOR_TAG" -- "$SELF" gate api-check "$SELFTEST_TAG"
+  ctl_done red api-check
+}
+
+# A minor release may add lines, never remove one of the released baseline.
+ctl_api-check-minor-removed() {
+  ctl_clone "$CTL_LABEL"
+  plant_path core/api.txt
+  # A line that appears exactly once in the dump, so the removal cannot hide behind an identical line elsewhere.
+  sed -i '/pipeline\.TierPolicy getDEFAULT();/d' "$PP"
+  assert_planted core/api.txt
+  ccommit "sandbox: a released signature line deleted" core/api.txt
+  run_case red api-check "removes or changes a line the released baseline in $SELFTEST_PRIOR_TAG has" -- "$SELF" gate api-check v1.1.0
+  ctl_done red api-check
 }
 
 ctl_api-dump-core-line-deleted() {
@@ -1342,7 +1551,7 @@ ctl_dry-run-sample-install() {
   sed -i 's|^\(  - \./gradlew .*\)$|\1 :sample:assembleDebug|' "$PP"
   assert_planted jitpack.yml
   ccommit "sandbox: jitpack.yml install line names :sample" jitpack.yml
-  run_case red dry-run "names :sample" -- "$SELF" gate dry-run "$RELEASE_TAG"
+  run_case red dry-run "names :sample" -- "$SELF" gate dry-run "$SELFTEST_TAG"
   ctl_done red dry-run
 }
 
@@ -1353,7 +1562,7 @@ ctl_version-not-read() {
   sed -i 's/environmentVariable("VERSION")/environmentVariable("VERSION_SANDBOX_UNSET")/' "$PP"
   assert_planted build.gradle.kts
   ccommit "sandbox: the root build no longer reads VERSION" build.gradle.kts
-  run_case red version "0.0.0-local" -- "$SELF" gate version "$RELEASE_TAG"
+  run_case red version "0.0.0-local" -- "$SELF" gate version "$SELFTEST_TAG"
   ctl_done red version
 }
 
@@ -1368,15 +1577,16 @@ ctl_check-print-call() {
 }
 
 CONTROL_ORDER=(
-  tag-format-args tag-local-lightweight tag-remote-only tag-unrelated-v0.9.0 create-tag-not-false
+  tag-format-args tag-local-lightweight tag-remote-only tag-not-newer tag-patch-after-older-tags create-tag-not-false
   clean-tracked-modified clean-staged pushed-ahead
   wiring-status-fail wiring-sha-mismatch wiring-not-ancestor
   diff-readme diff-core-main diff-jitpack-yml
   contract-non-ledger contract-mixed contract-row-outside-11 contract-ledger-only
-  waiver-not-accepted waiver-needs-fix waiver-id-missing
+  waiver-not-accepted waiver-needs-fix waiver-id-missing waiver-c-rows-vanished waiver-no-waiver-statement
+  waiver-statement-invalid waiver-statement-other-tag
   prefreeze-c-row-open prefreeze-c-rows-answered
   cut-dirty-tree cut-approved-not-head
-  hygiene-api-txt-removed api-dump-core-line-deleted
+  hygiene-api-txt-removed api-check-patch-changed api-check-minor-removed api-dump-core-line-deleted
   leak-key-shape leak-fixture-filename leak-fixture-mention
   dry-run-sample-install version-not-read check-print-call
 )

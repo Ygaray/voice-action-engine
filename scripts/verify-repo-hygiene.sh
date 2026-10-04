@@ -10,11 +10,12 @@
 #   h. nothing STAGED under .planning/graphs/ or graphify-out/ (staged set only: unstaged pre-existing edits are not ours)
 # Prints every violation, then HYGIENE OK only when there are none. Usage: scripts/verify-repo-hygiene.sh
 #
-# (c) api.txt and (d) tags are PRE-RELEASE assertions (PRE_RELEASE=1, the default). The v1.0.0 cut needs both, so the
-# cut step runs this with PRE_RELEASE=0, which inverts them: every published module must then track its api.txt, and
-# tags are no longer forbidden. The fixture/baseline prohibitions in (c) hold in both modes.
+# (c) api.txt and (d) tags are PRE-RELEASE assertions, and PRE_RELEASE=1 selects them. The first release (v1.0.0) needed
+# both inverted, and the repository has been past it since 2026-10-02, so the default is now PRE_RELEASE=0: every
+# published module must track its api.txt, and tags are no longer forbidden. The release cut runs it with PRE_RELEASE=0
+# explicitly. The fixture/baseline prohibitions in (c) hold in both modes.
 set -euo pipefail
-PRE_RELEASE="${PRE_RELEASE:-1}"
+PRE_RELEASE="${PRE_RELEASE:-0}"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 violations=()
