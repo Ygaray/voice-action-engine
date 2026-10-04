@@ -100,9 +100,13 @@ public class StepResult(
  * What the engine tells a strategy after a step.
  *
  * @property contentForModel the text to give the model. For one mutation this is that mutation's content; for
- * several it is their contents joined with a newline in the order applied; for a held step it is the held notice.
- * @property isError true when any applied change reported an error.
- * @property held true when nothing was done because the change is waiting for confirmation. The model must not retry.
+ * several it is their contents joined with a newline in the order applied; for a held step it is the held notice;
+ * when the gate itself failed it is a fixed internal-error notice, never the exception text.
+ * @property isError true when any applied change reported an error, or when the gate failed (the change was held, not
+ * applied, and the failure is an error for the model).
+ * @property held true when nothing was done because the change is waiting for confirmation, or because the gate failed
+ * and the engine held it closed. After a real hold the model must not retry; after a gate failure [isError] is also
+ * true and the model may retry.
  * @property actions the actions this step recorded, in order.
  */
 public class DispatchResult internal constructor(

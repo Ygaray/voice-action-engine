@@ -5,8 +5,10 @@ import io.github.ygaray.voiceactionengine.core.commit.FinishedKind
 import io.github.ygaray.voiceactionengine.core.commit.GateDecision
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.provider.ModelCapabilities
+import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.strategy.agentic.AgenticLoopStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
@@ -36,6 +38,8 @@ private const val HELD_NOTICE = """{"applied":false,"status":"held_for_confirmat
 private const val TOOL_ERROR = """{"status":"error","reason":"tool_error"}"""
 private const val APPLY_ERROR = """{"status":"error"}"""
 private const val PREPARE_CANARY = "PREPARE-CANARY-7"
+private const val GATE_CANARY = "GATE-CANARY-9"
+private const val GATE_FAULT_ERROR = """{"status":"error","reason":"internal_error"}"""
 
 /** The loop's gate path: read tools can never write; held, rejected, previewed and faulty calls answer the model. */
 class AgenticLoopGateTest {
@@ -124,6 +128,107 @@ class AgenticLoopGateTest {
             assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
             assertEquals(1, outcome.held.size)
             assertEquals(listOf(ActionKind.HELD), sink.actions.map { it.action.kind })
+        }
+    }
+
+    // XR-171-03: a gate that throws fails closed, and the model hears an error, not the held notice.
+    private fun faultingGate(faults: Int = Int.MAX_VALUE): ScriptedGate {
+        val asked = AtomicInteger()
+        return ScriptedGate {
+            if (asked.incrementAndGet() <= faults) throw IllegalStateException(GATE_CANARY)
+            GateDecision.Admit()
+        }
+    }
+
+    private fun saveTurnsThenProse(vararg ids: String): Array<ModelResult> =
+        (ids.map { toolTurn(1, callOf(it, SAVE_TOOL, loopArguments())) } + FakeAiProvider.reply(FINAL_REPLY, usage(1)))
+            .toTypedArray()
+
+    @Test
+    fun aGateFaultIsAnsweredWithTheFixedInternalErrorAndNeverTheExceptionText() = runTest {
+        NoNetworkGuard.during {
+            val write = FakeMutation(SAVE_TOOL, StepResult("saved"))
+            val executor = ScriptedToolExecutor.sequence(null, ToolStep.Mutation(write))
+            val sink = RecordingCommitSink()
+            val fake = oneCallThenProse()
+
+            val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool())), faultingGate(), sink)
+
+            val result = resultsAt(fake, 1).results.single()
+            assertEquals(GATE_FAULT_ERROR, result.content)
+            assertTrue(result.isError)
+            assertEquals(0, write.applyCount)
+            assertTrue(outcome.trace.codes.contains(TraceCode.GATE_ERROR))
+            val everything = outcome.toString() + outcome.trace + outcome.executed + result.content
+            assertFalse(everything, everything.contains(GATE_CANARY))
+            // The fail-closed hold is still recorded and delivered exactly as before.
+            assertEquals(1, outcome.held.size)
+            assertEquals(listOf(ActionKind.HELD), sink.actions.map { it.action.kind })
+        }
+    }
+
+    @Test
+    fun twoGateFaultsOnTheSameToolEndFailedToolFailureAfterTwoRequests() = runTest {
+        NoNetworkGuard.during {
+            val executor = ScriptedToolExecutor.sequence(null, mutation(), mutation(), mutation())
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                *saveTurnsThenProse("c1", "c2", "c3"),
+            )
+
+            val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool())), faultingGate())
+
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Failed)
+            assertEquals(FailureReason.ToolFailure(), (outcome as CommandOutcome.Failed).reason)
+            assertEquals(2, fake.callCount)
+        }
+    }
+
+    @Test
+    fun aRealHoldKeepsTheNoticeBytesIsNotAnErrorAndNeverStrikes() = runTest {
+        NoNetworkGuard.during {
+            // A bare Hold() has the same shape the engine's own fail-closed hold has, but it is the app's decision.
+            val holds = listOf(ScriptedGate { GateDecision.Hold() }, ScriptedGate.holdAll("why", "tok"))
+            holds.forEach { gate ->
+                val executor = ScriptedToolExecutor.sequence(null, mutation(), mutation(), mutation())
+                val fake = FakeAiProvider(
+                    ProviderId.ANTHROPIC,
+                    *saveTurnsThenProse("c1", "c2", "c3"),
+                )
+
+                val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool())), gate)
+
+                assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+                assertEquals(4, fake.callCount)
+                (1..3).forEach { request ->
+                    val result = resultsAt(fake, request).results.single()
+                    assertEquals(HELD_NOTICE, result.content)
+                    assertFalse(result.isError)
+                }
+                assertFalse(outcome.trace.codes.contains(TraceCode.GATE_ERROR))
+            }
+        }
+    }
+
+    @Test
+    fun oneGateFaultFollowedBySuccessCompletes() = runTest {
+        NoNetworkGuard.during {
+            val second = FakeMutation(SAVE_TOOL, StepResult("saved"))
+            val executor = ScriptedToolExecutor.sequence(null, mutation(), ToolStep.Mutation(second))
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                *saveTurnsThenProse("c1", "c2"),
+            )
+
+            val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool())), faultingGate(faults = 1))
+
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+            assertEquals(FINAL_REPLY, (outcome as CommandOutcome.Completed).reply)
+            assertEquals(3, fake.callCount)
+            assertEquals(1, second.applyCount)
+            assertEquals(GATE_FAULT_ERROR, resultsAt(fake, 1).results.single().content)
+            assertTrue(resultsAt(fake, 1).results.single().isError)
+            assertFalse(resultsAt(fake, 2).results.single().isError)
         }
     }
 

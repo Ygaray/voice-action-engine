@@ -102,8 +102,11 @@ class HeldReportingTest {
             val outcome = pipeline.execute(CommandInput("add a note"))
 
             assertEquals(0, write.applyCount)
-            assertEquals(heldJson, seen!!.contentForModel)
+            // XR-171-03: the recording is the fail-closed hold, but the strategy is told the call failed.
+            assertEquals("""{"status":"error","reason":"internal_error"}""", seen!!.contentForModel)
+            assertTrue(seen!!.isError)
             assertTrue(seen!!.held)
+            assertFalse(seen!!.contentForModel.contains("gate exploded"))
             val action = sink.actions.single().action
             assertEquals(ActionKind.HELD, action.kind)
             assertFalse(action.applied)

@@ -13,6 +13,12 @@ private const val CONTENT_SEPARATOR = "\n"
 /** The bytes a strategy receives when a change is held. */
 internal fun heldForConfirmationContent(): String = HELD_FOR_CONFIRMATION
 
+// The bytes a strategy receives when the gate itself failed: a fixed internal-error notice, never the exception text.
+private const val GATE_FAULT = """{"status":"error","reason":"internal_error"}"""
+
+/** The bytes a strategy receives when the gate threw. */
+internal fun gateFaultContent(): String = GATE_FAULT
+
 /**
  * The engine's single write path: the gate decides, an admitted change is applied by [PendingMutation.apply], and the
  * sink observes each action before the next change starts. A strategy never reaches `apply` any other way.
@@ -108,12 +114,15 @@ internal class CommitCoordinator(
     }
 
     private suspend fun submitMutation(step: ToolStep.Mutation): DispatchResult {
-        val decision = gateStep.decide(CommitProposal(runId, parentRunId, step.mutations))
+        val answer = gateStep.decide(CommitProposal(runId, parentRunId, step.mutations))
         // The gate may have waited a long time for the user; the run or the caller may have ended meanwhile.
         admitCaller()
-        return when (decision) {
-            is GateDecision.Admit -> applyAll(decision.amended ?: step.mutations)
-            is GateDecision.Hold -> hold(step, decision)
+        return when (answer) {
+            is GateAnswer.Faulted -> hold(step, GateDecision.Hold(), faulted = true)
+            is GateAnswer.Decided -> when (val decision = answer.decision) {
+                is GateDecision.Admit -> applyAll(decision.amended ?: step.mutations)
+                is GateDecision.Hold -> hold(step, decision, faulted = false)
+            }
         }
     }
 
@@ -121,8 +130,12 @@ internal class CommitCoordinator(
      * Nothing is written. Every mutation is reported as a held action carrying the gate's own token, one proposal
      * lists them with the gate's reason object, and the strategy gets the fixed not-applied notice. A held change is
      * not done and the model must not retry it.
+     *
+     * When the gate itself [faulted] the recording is the same (a bare hold, the same actions, the same proposal), but
+     * the strategy is told the call failed: the fixed internal-error content with the error flag set, never the
+     * exception text. The model may then retry, and a loop counts the failure as a strike like any other error.
      */
-    private suspend fun hold(step: ToolStep.Mutation, decision: GateDecision.Hold): DispatchResult {
+    private suspend fun hold(step: ToolStep.Mutation, decision: GateDecision.Hold, faulted: Boolean): DispatchResult {
         // Read every descriptor before anything is recorded, so a throwing getter cannot leave a half-reported hold.
         val facts = step.mutations.map { factsOf(it, recorder) }
         ledger.addHeld(HeldProposal(runId, parentRunId, step.mutations, decision.reason, decision.appOutcomeToken))
@@ -130,7 +143,11 @@ internal class CommitCoordinator(
             val details = ActionDetails(fact.toolName, decision.appOutcomeToken, fact.targetIds, fact.context)
             ledger.record(ActionKind.HELD, applied = false, details = details).also { delivery.deliver(it) }
         }
-        return DispatchResult(heldForConfirmationContent(), false, true, actions)
+        return if (faulted) {
+            DispatchResult(gateFaultContent(), true, true, actions)
+        } else {
+            DispatchResult(heldForConfirmationContent(), false, true, actions)
+        }
     }
 
     /**

@@ -2,10 +2,12 @@ package io.github.ygaray.voiceactionengine.core
 
 import io.github.ygaray.voiceactionengine.core.commit.ActionKind
 import io.github.ygaray.voiceactionengine.core.commit.FinishedKind
+import io.github.ygaray.voiceactionengine.core.commit.GateDecision
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
@@ -162,6 +164,39 @@ class SingleShotResolveTest {
             val completed = run.outcome as CommandOutcome.Completed
             assertNull(completed.reply)
             assertEquals(listOf(ActionKind.IS_ERROR), completed.executed.map { it.kind })
+        }
+    }
+
+    // XR-171-03 (d): the faulting gate settles as an error, the same bug as in the loop, so the reply is withheld. The
+    // held proposal and the gate_error trace code are still reported, and nothing was written.
+    @Test
+    fun aThrowingGateWithholdsTheReplyAndStillReportsTheFailClosedHold() = runTest {
+        NoNetworkGuard.during {
+            val mutation = write()
+            val run = run(ScriptedGate { throw IllegalStateException("gate broke") }) {
+                Resolution.Steps(listOf(ToolStep.Mutation(mutation)), "done")
+            }
+
+            val completed = run.outcome as CommandOutcome.Completed
+            assertNull(completed.reply)
+            assertEquals(0, mutation.applyCount)
+            assertEquals(1, completed.held.size)
+            assertEquals(listOf(ActionKind.HELD), completed.executed.map { it.kind })
+            assertTrue(completed.trace.codes.contains(TraceCode.GATE_ERROR))
+        }
+    }
+
+    @Test
+    fun aBareHoldReturnedByTheGateIsNotAFaultAndKeepsTheReply() = runTest {
+        NoNetworkGuard.during {
+            val run = run(ScriptedGate { GateDecision.Hold() }) {
+                Resolution.Steps(listOf(ToolStep.Mutation(write())), "done")
+            }
+
+            val completed = run.outcome as CommandOutcome.Completed
+            assertEquals("done", completed.reply)
+            assertEquals(1, completed.held.size)
+            assertTrue(!completed.trace.codes.contains(TraceCode.GATE_ERROR))
         }
     }
 

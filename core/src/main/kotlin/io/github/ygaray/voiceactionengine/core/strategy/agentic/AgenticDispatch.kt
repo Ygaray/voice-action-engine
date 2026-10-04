@@ -29,7 +29,8 @@ internal class DispatchContext(
     val snapshot: ToolingSnapshot,
     val executor: ToolExecutor,
 ) {
-    // Errors per tool name for the whole command. A held result is not an error and never counts.
+    // Errors per tool name for the whole command. A held result is not an error and never counts; a gate fault is an
+    // error result, so it counts.
     private val strikes = mutableMapOf<String, Int>()
 
     /** Counts one error result for the tool called [toolName]. */

@@ -3,9 +3,10 @@ package io.github.ygaray.voiceactionengine.core.commit
 /**
  * The app's decision point before any change is written.
  *
- * Only an [GateDecision.Admit] lets a change be applied. If this throws, the engine treats it as a hold and records
- * a trace code. In suspend mode an implementation waits for the user inside [admit]; in defer mode it returns
- * [GateDecision.Hold] at once and the change is committed later.
+ * Only an [GateDecision.Admit] lets a change be applied. If this throws, the engine treats it as a hold, records a
+ * trace code, and tells the strategy the call failed with a fixed internal-error notice. That is an error result,
+ * unlike the held notice a real [GateDecision.Hold] produces. In suspend mode an implementation waits for the user
+ * inside [admit]; in defer mode it returns [GateDecision.Hold] at once and the change is committed later.
  */
 public fun interface PreApplyGate {
     /** Decides about [proposal]. */
