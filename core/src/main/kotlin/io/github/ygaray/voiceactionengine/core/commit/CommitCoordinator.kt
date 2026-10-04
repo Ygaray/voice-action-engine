@@ -118,10 +118,10 @@ internal class CommitCoordinator(
         // The gate may have waited a long time for the user; the run or the caller may have ended meanwhile.
         admitCaller()
         return when (answer) {
-            is GateAnswer.Faulted -> hold(step, GateDecision.Hold(), faulted = true)
+            is GateAnswer.Faulted -> gateFault(step)
             is GateAnswer.Decided -> when (val decision = answer.decision) {
                 is GateDecision.Admit -> applyAll(decision.amended ?: step.mutations)
-                is GateDecision.Hold -> hold(step, decision, faulted = false)
+                is GateDecision.Hold -> hold(step, decision)
             }
         }
     }
@@ -130,12 +130,8 @@ internal class CommitCoordinator(
      * Nothing is written. Every mutation is reported as a held action carrying the gate's own token, one proposal
      * lists them with the gate's reason object, and the strategy gets the fixed not-applied notice. A held change is
      * not done and the model must not retry it.
-     *
-     * When the gate itself [faulted] the recording is the same (a bare hold, the same actions, the same proposal), but
-     * the strategy is told the call failed: the fixed internal-error content with the error flag set, never the
-     * exception text. The model may then retry, and a loop counts the failure as a strike like any other error.
      */
-    private suspend fun hold(step: ToolStep.Mutation, decision: GateDecision.Hold, faulted: Boolean): DispatchResult {
+    private suspend fun hold(step: ToolStep.Mutation, decision: GateDecision.Hold): DispatchResult {
         // Read every descriptor before anything is recorded, so a throwing getter cannot leave a half-reported hold.
         val facts = step.mutations.map { factsOf(it, recorder) }
         ledger.addHeld(HeldProposal(runId, parentRunId, step.mutations, decision.reason, decision.appOutcomeToken))
@@ -143,11 +139,24 @@ internal class CommitCoordinator(
             val details = ActionDetails(fact.toolName, decision.appOutcomeToken, fact.targetIds, fact.context)
             ledger.record(ActionKind.HELD, applied = false, details = details).also { delivery.deliver(it) }
         }
-        return if (faulted) {
-            DispatchResult(gateFaultContent(), true, true, actions)
-        } else {
-            DispatchResult(heldForConfirmationContent(), false, true, actions)
+        return DispatchResult(heldForConfirmationContent(), false, true, actions)
+    }
+
+    /**
+     * The gate itself failed, so nothing is written and nothing is held: a gate fault is an error, never a hold. Every
+     * mutation is reported as an is_error action (not applied, no token, the `gate_error` code is already in the
+     * trace), no [HeldProposal] exists to commit later, and the strategy gets the fixed internal-error content with
+     * the error flag set, never the exception text. The model may retry, and a loop counts the failure as a strike
+     * like any other error.
+     */
+    private suspend fun gateFault(step: ToolStep.Mutation): DispatchResult {
+        // Read every descriptor before anything is recorded, so a throwing getter cannot leave a half-reported fault.
+        val facts = step.mutations.map { factsOf(it, recorder) }
+        val actions = facts.map { fact ->
+            val details = ActionDetails(fact.toolName, null, fact.targetIds, fact.context)
+            ledger.record(ActionKind.IS_ERROR, applied = false, details = details).also { delivery.deliver(it) }
         }
+        return DispatchResult(gateFaultContent(), true, false, actions)
     }
 
     /**

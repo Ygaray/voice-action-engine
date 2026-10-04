@@ -82,7 +82,7 @@ class HeldReportingTest {
     }
 
     @Test
-    fun aGateThatThrowsFailsClosedWithATraceCodeAndNoInventedReason() = runTest {
+    fun aGateThatThrowsIsAnErrorNeverAHoldAndLeavesNothingToCommit() = runTest {
         NoNetworkGuard.during {
             val write = FakeMutation("write_note", StepResult("saved"))
             var seen: DispatchResult? = null
@@ -102,18 +102,21 @@ class HeldReportingTest {
             val outcome = pipeline.execute(CommandInput("add a note"))
 
             assertEquals(0, write.applyCount)
-            // XR-171-03: the recording is the fail-closed hold, but the strategy is told the call failed.
+            // XR-171-03 (ruling a): a gate fault is an error, never a hold. The strategy is told the call failed, the
+            // action is an is_error one, and no proposal exists to commit later.
             assertEquals("""{"status":"error","reason":"internal_error"}""", seen!!.contentForModel)
             assertTrue(seen!!.isError)
-            assertTrue(seen!!.held)
+            assertFalse(seen!!.held)
             assertFalse(seen!!.contentForModel.contains("gate exploded"))
             val action = sink.actions.single().action
-            assertEquals(ActionKind.HELD, action.kind)
+            assertEquals(ActionKind.IS_ERROR, action.kind)
             assertFalse(action.applied)
             assertNull(action.appOutcomeToken)
-            val proposal = outcome.held.single()
-            assertNull(proposal.reason)
-            assertNull(proposal.appOutcomeToken)
+            assertEquals(listOf(action), outcome.executed)
+            assertTrue(outcome.held.isEmpty())
+            assertTrue(sink.actions.none { it.action.kind == ActionKind.HELD })
+            assertTrue(sink.actions.none { it.action.kind == ActionKind.COMMITTED })
+            assertTrue(sink.closes.single().commits.isEmpty())
             assertTrue(outcome.trace.codes.contains(TraceCode.GATE_ERROR))
             assertTrue(outcome is CommandOutcome.Completed)
             assertTrue(outcome.commits.isEmpty())

@@ -6,6 +6,10 @@ package io.github.ygaray.voiceactionengine.core.commit
  * [onAction] is called once per action, in order, and awaited before the next change is applied. [onRunClosed] is
  * called exactly once per run on every exit path, including cancellation. A throw from either is caught and recorded;
  * it never causes a change to be applied again.
+ *
+ * A gate fault is an error, never a hold: it is reported as an is_error action with code gate_error, and there is
+ * nothing to commitHeld. It is never reported as committed either: it is not in [RunTermination.commits], and no
+ * action of kind [ActionKind.COMMITTED] stands for it.
  */
 public interface CommitSink {
     /** Called after [event]'s action was recorded. */

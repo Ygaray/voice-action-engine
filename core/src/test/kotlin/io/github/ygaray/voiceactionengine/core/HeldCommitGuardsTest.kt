@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.commit.ActionKind
 import io.github.ygaray.voiceactionengine.core.commit.GateDecision
 import io.github.ygaray.voiceactionengine.core.commit.PendingMutation
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
@@ -39,6 +40,33 @@ class HeldCommitGuardsTest {
             commitSink = sink
             this.runIds = runIds
         }
+
+    @Test
+    fun aGateFaultLeavesNoHeldProposalToCommit() = runTest {
+        NoNetworkGuard.during {
+            val sink = RecordingCommitSink()
+            val write = ok("write")
+            val pipeline = commandPipeline {
+                tier(
+                    ScriptedStrategy(StrategyId("only"), { _, session ->
+                        session.submit(ToolStep.Mutation(write))
+                        StrategyOutcome.Completed("asked")
+                    }),
+                )
+                gate = ScriptedGate { error("gate exploded") }
+                commitSink = sink
+                runIds = { "run-1" }
+            }
+
+            val outcome = pipeline.execute(CommandInput("save it"))
+
+            // A gate fault is an error, never a hold: there is nothing to pass to commitHeld, and nothing was written.
+            assertTrue(outcome.held.isEmpty())
+            assertTrue(sink.closes.single().held.isEmpty())
+            assertEquals(0, write.applyCount)
+            assertEquals(listOf(ActionKind.IS_ERROR), outcome.executed.map { it.kind })
+        }
+    }
 
     @Test
     fun aThrowingRunIdMakerFailsTheCommitAndNeverLeavesTheProposalClaimedForEver() = runTest {

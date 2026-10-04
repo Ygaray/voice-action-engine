@@ -9,6 +9,10 @@ import io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace
 /**
  * How a run ended, as told to [CommitSink.onRunClosed]. The set is closed. Running out of budget and a provider error
  * are both [Failed], told apart by their reason.
+ *
+ * A gate fault is an error, never a hold: it is reported as an is_error action with code gate_error, and there is
+ * nothing to commitHeld. It is never reported as committed either: it is not in [commits], and no action of kind
+ * [ActionKind.COMMITTED] stands for it.
  */
 public sealed class RunTermination {
     internal abstract val effects: RunEffects
@@ -32,7 +36,7 @@ public sealed class RunTermination {
     public val commits: List<ExecutedAction>
         get() = effects.commits
 
-    /** Changes held instead of applied. */
+    /** Changes held instead of applied. A gate fault is never listed here; it is an is_error action. */
     public val held: List<HeldProposal>
         get() = effects.held
 

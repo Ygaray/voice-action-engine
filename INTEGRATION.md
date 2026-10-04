@@ -232,10 +232,10 @@ and `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/tools/Cann
 
 There is no default gate and no default sink: you choose how changes are approved and where they are reported, so
 nothing is ever committed by accident. A `PreApplyGate` decides about the changes a tier submits; only
-`GateDecision.Admit` lets them run, and a gate that throws holds (nothing is written, the trace records `gate_error`).
-In the agentic loop a thrown gate is told to the model as an error, not as a hold: it gets
-`{"status":"error","reason":"internal_error"}` with the error flag set, and a tool that errors twice ends the run as
-a tool failure. A `GateDecision.Hold` that your gate returns is a real hold and is never an error. There are two modes.
+`GateDecision.Admit` lets them run, and a gate that throws is an error, never a hold (nothing is written, the trace records `gate_error`, each change is
+reported to the sink as an `is_error` action, and there is no held change to `commitHeld`). In the agentic loop a
+thrown gate is told to the model as `{"status":"error","reason":"internal_error"}` with the error flag set, and a tool
+that errors twice ends the run as a tool failure. A `GateDecision.Hold` that your gate returns is a real hold and is never an error. There are two modes.
 
 **Suspend mode** waits inside the gate for the user. `AwaitingConfirmGate` takes a `ConfirmationPolicy` (return a
 subject for your confirmation UI, or null to admit without asking) and a timeout. Observe `pending`, show the
@@ -673,7 +673,7 @@ provider in an app.
 - **Closed taxonomies are matched exhaustively, with no `else`:** `CommandOutcome`, `GateDecision`, `RunTermination`,
   `ToolStep`, `StrategyOutcome`, `Message` and `AssistantPart`.
 - **The engine never throws** out of `execute` or `commitHeld`, except for your own coroutine's cancellation or a JVM
-  `Error`. A provider, strategy, gate or hook that throws becomes a typed failure or a hold. The one refusal is
+  `Error`. A provider, strategy, gate or hook that throws becomes a typed failure, a hold or an error action. The one refusal is
   `commitHeld(held, amended)` with an empty `amended` list: it throws `IllegalArgumentException` before the proposal is
   used up.
 - **One DataStore per file per process.** `:keystore` takes the DataStore you own and never creates one; a second

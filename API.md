@@ -213,12 +213,13 @@ An action's `kind` is an `ActionKind` (**open**):
 | `ActionKind.COMMITTED` | true | true | The change ran. |
 | `ActionKind.HELD` | false | true | The gate held it. |
 | `ActionKind.PREVIEW` | false | false | Shown as a preview only. |
-| `ActionKind.IS_ERROR` | true or false | true or false | `apply` reported an error (true, true), or the call was rejected before the gate (false, false). |
+| `ActionKind.IS_ERROR` | true or false | true or false | `apply` reported an error (true, true), the call was rejected before the gate (false, false), or the gate itself threw (false, true; code `gate_error`). |
 
 In the agentic loop a held change gives the model exactly `{"applied":false,"status":"held_for_confirmation"}` as the
-tool result (not an error); the model must not retry it. A gate that throws is held closed (nothing is written, the
-trace records `gate_error`) but is told to the model as an error, `{"status":"error","reason":"internal_error"}`, which
-counts toward the same-tool failure limit. Read `commits` and `executed`, not the outcome type, to learn what was
+tool result (not an error); the model must not retry it. A gate that throws is an error, never a hold: nothing is written
+and nothing is held (there is no `HeldProposal` and nothing to `commitHeld`). Each change is reported as an `IS_ERROR`
+action and the trace records `gate_error`. The model is told `{"status":"error","reason":"internal_error"}` with the
+error flag set, which counts toward the same-tool failure limit. Read `commits` and `executed`, not the outcome type, to learn what was
 written.
 
 ## Providers, capabilities and selection
@@ -345,7 +346,7 @@ Everything you implement or pass; each seam is a small interface you give the en
 ## Safety model
 
 - **Never-throw collapse.** A strategy, gate, sink, listener, policy source, selection source or credential source that
-  throws becomes a typed failure, a hold or a recorded trace code; the run still closes exactly once. Only your own
+  throws becomes a typed failure, a hold, an error action or a recorded trace code; the run still closes exactly once. Only your own
   coroutine's cancellation and a JVM `Error` escape.
 - **No logging inside the library.** It has no logging dependency and no `println`; events and traces hold no content.
 - **Secrets stay out.** API keys, transcripts, tool arguments and results never reach logs, telemetry, exceptions or

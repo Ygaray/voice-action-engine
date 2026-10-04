@@ -16,10 +16,11 @@ internal sealed interface GateAnswer {
 /**
  * Asks the app's gate about a proposal and fails closed.
  *
- * If the gate throws, nothing is applied: the answer is [GateAnswer.Faulted], which the coordinator records as a hold
- * with no reason and no token, and the engine says why only through a trace code. The engine never invents a reason
- * object; that belongs to the app. The fault is a distinct answer rather than a bare [GateDecision.Hold] because a
- * gate may legitimately return a bare hold, and only the fault is an error for the model. Cancellation of the caller
+ * If the gate throws, nothing is applied: the answer is [GateAnswer.Faulted], which the coordinator records as an
+ * errored action and not as a hold: there is no held proposal, and the engine says why only through the `gate_error`
+ * trace code. The engine never invents a reason object; that belongs to the app. The fault is a distinct answer
+ * rather than a bare [GateDecision.Hold] because a gate may legitimately return a bare hold, and only the fault is an
+ * error for the model. Cancellation of the caller
  * is not a fault and propagates before anything is recorded.
  */
 internal class GateStep(

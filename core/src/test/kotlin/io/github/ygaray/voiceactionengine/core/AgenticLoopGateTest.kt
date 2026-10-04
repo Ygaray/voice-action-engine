@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
@@ -145,7 +146,7 @@ class AgenticLoopGateTest {
             .toTypedArray()
 
     @Test
-    fun aGateFaultIsAnsweredWithTheFixedInternalErrorAndNeverTheExceptionText() = runTest {
+    fun aGateFaultIsAnErrorActionNeverAHoldAndTheModelHearsTheFixedInternalError() = runTest {
         NoNetworkGuard.during {
             val write = FakeMutation(SAVE_TOOL, StepResult("saved"))
             val executor = ScriptedToolExecutor.sequence(null, ToolStep.Mutation(write))
@@ -161,9 +162,20 @@ class AgenticLoopGateTest {
             assertTrue(outcome.trace.codes.contains(TraceCode.GATE_ERROR))
             val everything = outcome.toString() + outcome.trace + outcome.executed + result.content
             assertFalse(everything, everything.contains(GATE_CANARY))
-            // The fail-closed hold is still recorded and delivered exactly as before.
-            assertEquals(1, outcome.held.size)
-            assertEquals(listOf(ActionKind.HELD), sink.actions.map { it.action.kind })
+            // XR-171-03 (ruling a): an error, never a hold. No proposal, no HELD action, one is_error action.
+            assertTrue(outcome.held.isEmpty())
+            assertEquals(listOf(ActionKind.IS_ERROR), outcome.executed.map { it.kind })
+            // A fault is never a success: not in commits, and no COMMITTED action (so no populated result) for it.
+            assertTrue(outcome.commits.isEmpty())
+            assertTrue(outcome.executed.none { it.kind == ActionKind.COMMITTED })
+            assertTrue(sink.actions.none { it.action.kind == ActionKind.COMMITTED })
+            assertFalse(outcome.executed.single().applied)
+            assertNull(outcome.executed.single().appOutcomeToken)
+            assertEquals(listOf(ActionKind.IS_ERROR), sink.actions.map { it.action.kind })
+            assertEquals(1, outcome.trace.codes.count { it == TraceCode.GATE_ERROR })
+            val closed = sink.closes.single()
+            assertTrue(closed.held.isEmpty())
+            assertEquals(listOf(ActionKind.IS_ERROR), closed.executed.map { it.kind })
         }
     }
 
@@ -181,6 +193,10 @@ class AgenticLoopGateTest {
             assertTrue(outcome.toString(), outcome is CommandOutcome.Failed)
             assertEquals(FailureReason.ToolFailure(), (outcome as CommandOutcome.Failed).reason)
             assertEquals(2, fake.callCount)
+            // Each fault is an is_error action; neither is a hold.
+            assertTrue(outcome.held.isEmpty())
+            assertEquals(List(2) { ActionKind.IS_ERROR }, outcome.executed.map { it.kind })
+            assertTrue(outcome.commits.isEmpty())
         }
     }
 
@@ -190,13 +206,14 @@ class AgenticLoopGateTest {
             // A bare Hold() has the same shape the engine's own fail-closed hold has, but it is the app's decision.
             val holds = listOf(ScriptedGate { GateDecision.Hold() }, ScriptedGate.holdAll("why", "tok"))
             holds.forEach { gate ->
+                val sink = RecordingCommitSink()
                 val executor = ScriptedToolExecutor.sequence(null, mutation(), mutation(), mutation())
                 val fake = FakeAiProvider(
                     ProviderId.ANTHROPIC,
                     *saveTurnsThenProse("c1", "c2", "c3"),
                 )
 
-                val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool())), gate)
+                val outcome = run(fake, agenticLoop(executor, loopSnapshotOf(writeTool())), gate, sink)
 
                 assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
                 assertEquals(4, fake.callCount)
@@ -206,6 +223,10 @@ class AgenticLoopGateTest {
                     assertFalse(result.isError)
                 }
                 assertFalse(outcome.trace.codes.contains(TraceCode.GATE_ERROR))
+                // A real hold is recorded as before: one proposal and one HELD action per call, none is_error.
+                assertEquals(3, outcome.held.size)
+                assertEquals(List(3) { ActionKind.HELD }, outcome.executed.map { it.kind })
+                assertEquals(List(3) { ActionKind.HELD }, sink.actions.map { it.action.kind })
             }
         }
     }

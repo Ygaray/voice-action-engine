@@ -210,6 +210,10 @@ class EventsTest {
             assertEquals("gate_error", codes.single().code.value)
             assertEquals(0, write.applyCount)
             assertEquals(listOf(TraceCode.GATE_ERROR), outcome.trace.codes)
+            // XR-171-03 (ruling a): the recorded action is an error, never a hold.
+            val recorded = listener.events.filterIsInstance<PipelineEvent.ActionRecorded>()
+            assertEquals(listOf(ActionKind.IS_ERROR), recorded.map { it.kind })
+            assertTrue(outcome.held.isEmpty())
             val kinds = kinds(listener.events)
             val codeAt = kinds.indexOf(PipelineEvent.EngineCode::class)
             assertTrue(codeAt in 0 until kinds.indexOf(PipelineEvent.ActionRecorded::class))

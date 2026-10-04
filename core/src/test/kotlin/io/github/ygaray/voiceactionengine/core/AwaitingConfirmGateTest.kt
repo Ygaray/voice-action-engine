@@ -206,8 +206,8 @@ class AwaitingConfirmGateTest {
             val outcome = pipelineFor(gate, sink, write).execute(CommandInput("save it"))
 
             assertEquals(0, write.applyCount)
-            assertEquals(ActionKind.HELD, sink.actions.single().action.kind)
-            assertEquals(1, outcome.held.size)
+            assertEquals(ActionKind.IS_ERROR, sink.actions.single().action.kind)
+            assertTrue(outcome.held.isEmpty())
             assertTrue(outcome.trace.codes.map { it.value }.contains("gate_error"))
         }
     }
@@ -298,7 +298,8 @@ class AwaitingConfirmGateTest {
 
             val outcome = outcomeOf()!!
             assertEquals(0, write.applyCount)
-            assertEquals(1, outcome.held.size)
+            assertTrue(outcome.held.isEmpty())
+            assertEquals(ActionKind.IS_ERROR, sink.actions.single().action.kind)
             assertTrue(outcome.trace.codes.map { it.value }.contains("gate_error"))
             assertNull(gate.pending.value)
         }

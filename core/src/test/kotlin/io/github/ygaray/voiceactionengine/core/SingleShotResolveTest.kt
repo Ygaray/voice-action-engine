@@ -167,10 +167,11 @@ class SingleShotResolveTest {
         }
     }
 
-    // XR-171-03 (d): the faulting gate settles as an error, the same bug as in the loop, so the reply is withheld. The
-    // held proposal and the gate_error trace code are still reported, and nothing was written.
+    // XR-171-03 (ruling a): the faulting gate settles as an error, never a hold, so the reply is withheld, exactly as
+    // for a failed apply. No held proposal exists; an is_error action and the gate_error trace code are reported, and
+    // nothing was written.
     @Test
-    fun aThrowingGateWithholdsTheReplyAndStillReportsTheFailClosedHold() = runTest {
+    fun aThrowingGateWithholdsTheReplyAndReportsAnErrorActionNeverAHold() = runTest {
         NoNetworkGuard.during {
             val mutation = write()
             val run = run(ScriptedGate { throw IllegalStateException("gate broke") }) {
@@ -180,8 +181,15 @@ class SingleShotResolveTest {
             val completed = run.outcome as CommandOutcome.Completed
             assertNull(completed.reply)
             assertEquals(0, mutation.applyCount)
-            assertEquals(1, completed.held.size)
-            assertEquals(listOf(ActionKind.HELD), completed.executed.map { it.kind })
+            assertTrue(completed.held.isEmpty())
+            assertEquals(listOf(ActionKind.IS_ERROR), completed.executed.map { it.kind })
+            // A fault is never a success: not in commits, and no COMMITTED action (so no populated result) for it.
+            assertTrue(completed.commits.isEmpty())
+            assertTrue(run.sink.actions.none { it.action.kind == ActionKind.COMMITTED })
+            assertTrue(run.sink.closes.single().commits.isEmpty())
+            assertNull(completed.executed.single().appOutcomeToken)
+            assertEquals(listOf(ActionKind.IS_ERROR), run.sink.actions.map { it.action.kind })
+            assertTrue(run.sink.closes.single().held.isEmpty())
             assertTrue(completed.trace.codes.contains(TraceCode.GATE_ERROR))
         }
     }
