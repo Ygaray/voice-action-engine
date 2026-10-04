@@ -98,11 +98,20 @@ Session names can change after a restart. If one doesn't resolve, ask the orches
 (hubs: what tag and roughly when; consumers: which tags you need, for which phases)
 ```
 
-## Current state (2026-10-04)
+## Current state (2026-10-04, PARKED)
 
-- **Releases:** `v1.0.0` (efc060f8fe, 2026-10-02) and **`v1.0.1` (b32840e7eb, tag object 5d8dde4b01, 2026-10-04)** are both cut, JitPack ok, and §11 rows messaged to the orchestrator (`.planning/releases/v1.0.1/LEDGER-ROW.md`). v1.0.1 = XR-171-01 + XR-171-03 ruling (a) + the doc patch (ECOSYSTEM repin matrix, private paths removed, KDoc drift) + tag-agnostic release-cut.sh. Public API is unchanged since v1.0.0.
-- **Next action:** wait for the orchestrator. Milestone close (`/gsd-certify-milestone` then `/gsd-verify-milestone`, Gate-2) is orchestrator-dispatched; do not self-start it. At close: re-verify against the tag (clears the manager's "stale" flags), run Gate-2 including **W04** (C3, the Responses-only 400 wording), and drain `.planning/uat-pending/`.
-- **R-v1.1 (logged by the orchestrator 2026-10-03):** expose the provider tool-call id on `Extraction` (additive; wanted by SB Phase 178).
-- **v1.0.x/v1.1 doc follow-ups:** the 4 v1.0.1 wiring stumbles in `.planning/releases/v1.0.1/evidence/` (`wiring-stumbles.txt`: ProviderId.toString, test imports in §10, SingleShot can't serve reads, ECOSYSTEM "latest" vs pinned). Any doc change needs an ISOLATED wiring rerun (headless `claude -p`, throwaway CLAUDE_CONFIG_DIR) before its tag.
-- **Host gotcha (release cuts):** the clean-archive `check` peaks above earlyoom's limit when swap is full. Cut with `GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m"`, ask the orchestrator for a quiet host, and have Yahir reset swap first if it's full. Never `./gradlew --stop` while another project's daemon is live.
-- **Wave-1:** SB/CT are at v1.0.0; v1.0.1 repins are queued on their side (SB 171.1, CT after Phase 74).
+- **Ledgered:** `v1.0.0` (efc060f8fe, 2026-10-02) and `v1.0.1` (b32840e7eb, tag object 5d8dde4b01, 2026-10-04) are both in §11. v1.0.1 was ledgered at contract 651605b; its evidence path is `.planning/releases/v1.0.1/evidence/cut-v1.0.1.txt`. JitPack is ok for core/providers/keystore. v1.0.1 = XR-171-01 + XR-171-03 ruling (a) + the doc patch, with no public API change.
+- **Next: the v1.1 milestone**, dispatched by the orchestrator only; do not self-start it. Also pending, and orchestrator-dispatched: v1.0 milestone close (certify + verify-milestone/Gate-2). **R-v1.1 agenda:**
+  1. SingleShot failure hook;
+  2. thinking knob;
+  3. claude-sonnet-5 capability-table id;
+  4. TierAttempt carry flag;
+  5. Extraction provider tool-call id (SB Phase 178);
+  6. `:keystore` test fixtures / KeyAccess seam;
+  7. W04 Gate-2: Responses-only 400 wording vs `RESPONSES_ENDPOINT_MARKER`;
+  8. plus the 4 v1.0.1 wiring doc stumbles (`.planning/releases/v1.0.1/evidence/wiring-stumbles.txt`) and the contract's v1.1 on-device spike.
+- **INC-2026-09-08-02 note (stage-marker barrier):** in Phases 10 and 11, an execute-stage marker (`.gsd-stage-execute.done.json`) was written at a NON-final needs_human exit and persisted across the re-dispatch, so `stage-barrier` read `clear` while the stage was still mid-flight. The master advanced only on the final `advance` JSON plus final VERIFICATION/SELF-UAT. In v1.1, treat the barrier as advisory after any needs_human pause, and reset the marker on re-entry if the tooling doesn't.
+- **Release-cut host gotcha:** the clean-archive `check` OOMs under earlyoom when swap is full (5 killed attempts for v1.0.1). Quiet window + swap headroom + single-use daemon GRADLE_OPTS; never `./gradlew --stop` with another repo's daemon live.
+- **Wiring tests:** isolated only (headless `claude -p` + throwaway CLAUDE_CONFIG_DIR). The tag SHA must be API- and doc-identical to the wiring-pass SHA.
+- **Wave-1:** SB/CT are at v1.0.0; their v1.0.1 repins are queued on their side.
+- **Pause files:** `.planning/.continue-here.md`, `.planning/HANDOFF.json`.

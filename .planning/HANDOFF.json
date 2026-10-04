@@ -1,43 +1,42 @@
 {
   "version": "1.0",
-  "timestamp": "2026-09-30T04:59:13.660Z",
-  "phase": "1",
-  "phase_name": "Scaffold & Publishing Proof",
-  "phase_dir": ".planning/phases/01-scaffold-publishing-proof",
+  "timestamp": "2026-10-04T23:37:00.940Z",
+  "phase": "none",
+  "phase_name": "v1.0 complete (v1.0.0 + v1.0.1 ledgered); parked before v1.1",
+  "phase_dir": "",
   "plan": null,
   "task": null,
-  "total_tasks": null,
+  "total_tasks": 0,
   "status": "paused",
   "completed_tasks": [
     {
       "id": 1,
-      "name": "/gsd-new-project (PROJECT, config, research, REQUIREMENTS 63, ROADMAP 11 phases)",
+      "name": "v1.0 milestone phases 1-11 executed",
       "status": "done",
-      "commit": "f216f87"
+      "commit": "6073e61/efc060f"
     },
     {
       "id": 2,
-      "name": "/gsd-research-milestone (v1.0-DECISION-MAP, 125 gray areas)",
+      "name": "v1.0.0 cut + \u00a711 ledgered",
       "status": "done",
-      "commit": "e9b078f"
+      "commit": "efc060f8fe"
     },
     {
       "id": 3,
-      "name": "/gsd-discuss-milestone mixed, orchestrator as operator (11 CONTEXT.md, Phase 11 tag split, create_tag false)",
+      "name": "v1.0.1 patch (XR-171-01, XR-171-03 ruling a, doc patch) cut + \u00a711 ledgered (contract 651605b)",
       "status": "done",
-      "commit": "1ccf794"
-    },
-    {
-      "id": 4,
-      "name": "R1 reconvene brief + 'R1 ready' sent to orchestrator (A13 STOP)",
-      "status": "done",
-      "commit": "8716d0f"
+      "commit": "b32840e7eb"
     }
   ],
   "remaining_tasks": [
     {
+      "id": 4,
+      "name": "v1.0 milestone close (certify + verify-milestone, Gate-2 incl. W04) \u2014 orchestrator-dispatched",
+      "status": "not_started"
+    },
+    {
       "id": 5,
-      "name": "R1 GO-WITH-CHANGES folded in. Next: wait for orchestrator dispatch of /gsd-execute-milestone --subagent-driven",
+      "name": "v1.1 milestone (R-v1.1 agenda) \u2014 orchestrator-dispatched",
       "status": "not_started"
     }
   ],
@@ -45,42 +44,24 @@
   "async_jobs": [],
   "human_actions_pending": [
     {
-      "action": "Yahir installs test keys via with-test-keys / push-test-key",
-      "context": "Key-gated tasks (Phase 5/8 golden captures, Phase 10 live legs) unblock once Yahir installs keys via the live test-keys infra (with-test-keys / push-test-key, ~/.claude/context/workflows/test-keys.md); the orchestrator will say when.",
+      "action": "Gate-2 W04: decide/perform host-side check of the OpenAI Responses-only 400 wording vs RESPONSES_ENDPOINT_MARKER",
+      "context": "carried by Yahir 2026-10-02; part of milestone close / R-v1.1",
       "blocking": false
     }
   ],
   "decisions": [
     {
-      "decision": "Prefixed artifactIds voice-action-engine-{core,providers,keystore} (E5/E7)",
-      "rationale": "orchestrator ruling; stt-engine pattern",
-      "phase": "1"
+      "decision": "XR-171-03 ruling (a): gate fault = is_error action (gate_error), never a hold, never committed",
+      "rationale": "orchestrator + SB/CT confirmed; avoids double-apply via commitHeld",
+      "phase": "v1.0.1"
     },
     {
-      "decision": "Tag cut is its own Phase 11; git.create_tag false",
-      "rationale": "execute-phase runs plans before Gate-1; avoid stray v1.0 marker tag",
-      "phase": "11"
-    },
-    {
-      "decision": "Completed.partial public non-defaultable; HOLD makes a tier terminal",
-      "rationale": "orchestrator ruling / A17 clarification",
-      "phase": "2"
-    },
-    {
-      "decision": "ON_DEVICE unavailable without declared fallback = loud Failed",
-      "rationale": "orchestrator ruling",
-      "phase": "3"
-    },
-    {
-      "decision": "Approvals route to the orchestrator, not Yahir",
-      "rationale": "Yahir: 'dont ask me, ask the orchestrator'",
-      "phase": "all"
+      "decision": "Wiring tests run isolated (headless claude -p, throwaway CLAUDE_CONFIG_DIR)",
+      "rationale": "in-session subagent was contaminated by project CLAUDE.md",
+      "phase": "10/11"
     }
   ],
-  "uncommitted_files": [
-    " M .planning/graphs/* (graphify auto-rebuild noise)",
-    "?? graphify-out/ (to be gitignored in Phase 1, BLD-08)"
-  ],
-  "next_action": "Wait for the orchestrator (yahir-gsd-control-plane-f2) to dispatch /gsd-execute-milestone --subagent-driven in this session; do NOT hand-run /gsd-plan-phase or /gsd-execute-phase (Yahir process change, 2026-09-30). Key-gated tasks (Phase 5/8 golden captures, Phase 10 live legs) unblock once Yahir installs keys via the live test-keys infra (with-test-keys / push-test-key, ~/.claude/context/workflows/test-keys.md); the orchestrator will say when.",
-  "context_notes": "Multi-repo effort vae-bilingual. Orchestrator yahir-gsd-control-plane-f2 is the operator for approvals and sole \u00a711 ledger writer. Peers: secondbrain-2c, caltracker-android-9a, stt-engine-46, yahirandroidtaste-99. Always git pull --rebase before committing (orchestrator commits contract changes here). Push/tag authority confirmed by Yahir for this effort. Device work only on the wired TESTER \u2026-s22-ultra-2."
+  "uncommitted_files": [],
+  "next_action": "Wait for the orchestrator (yahir-gsd-control-plane-f2). Do NOT self-start milestone close or v1.1. Read .planning/cross-repo/HANDOFF.md 'Current state' first.",
+  "context_notes": "Parked. All uncommitted files are orchestrator/GSD bookkeeping (graphs, config.json, MILESTONE-RUN, .gsd, intel, milestone.lock, stage markers, state.json) plus untracked 10-REVIEW.md \u2014 never commit them blindly. Release cuts on this host need swap headroom (see memory vae-release-cut-host-oom)."
 }
