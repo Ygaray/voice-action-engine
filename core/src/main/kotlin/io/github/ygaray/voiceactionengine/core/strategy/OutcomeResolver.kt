@@ -20,20 +20,28 @@ public fun interface OutcomeResolver {
 }
 
 /**
- * What the model extracted: the tool it called and that call's arguments.
+ * What the model extracted: the tool it called, that call's arguments and the provider's id for the call.
  *
- * Later versions add members (for example an intent and slots from a grammar tier) without changing this constructor.
+ * Later versions add members (for example an intent and slots from a grammar tier) with a new constructor, so this one
+ * keeps working.
  *
  * @property toolName the tool the model called.
  * @property arguments the call's arguments, untouched.
- * @throws IllegalArgumentException when [toolName] is blank.
+ * @property callId the provider's id for this tool call, byte for byte, or null when no provider call produced it
+ * (for example a grammar tier).
+ * @throws IllegalArgumentException when [toolName] is blank, or [callId] is present but blank.
  */
 public class Extraction(
     public val toolName: String,
     public val arguments: JsonObject,
+    public val callId: String?,
 ) {
+    /** An extraction no provider call produced: [callId] is null. */
+    public constructor(toolName: String, arguments: JsonObject) : this(toolName, arguments, null)
+
     init {
         require(toolName.isNotBlank()) { "an extraction's tool name must not be blank" }
+        require(callId == null || callId.isNotBlank()) { "an extraction's call id must not be blank" }
     }
 
     /** Prints the tool name and the number of arguments, never the argument values. */

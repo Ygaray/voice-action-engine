@@ -52,22 +52,30 @@ internal class CommitCoordinator(
      * closed, before anything is recorded, asked of the gate, applied or delivered, and the caller's
      * `CancellationException` when the calling coroutine is cancelled.
      */
-    suspend fun submit(step: ToolStep): DispatchResult = mutex.withLock {
+    suspend fun submit(step: ToolStep): DispatchResult = submit(step, null)
+
+    /**
+     * As [submit], and every action the step records carries [providerCallId], the provider's id for the tool call
+     * that produced the step (null when no provider call did).
+     */
+    suspend fun submit(step: ToolStep, providerCallId: String?): DispatchResult = mutex.withLock {
         admitCaller()
         when (step) {
-            is ToolStep.Mutation -> submitMutation(step)
-            is ToolStep.Finished -> finished(step)
+            is ToolStep.Mutation -> submitMutation(step, providerCallId)
+            is ToolStep.Finished -> finished(step, providerCallId)
         }
     }
 
     /**
      * Applies [mutations] one at a time without asking the gate, with the same recording and delivery as an admitted
-     * change. Used to commit held changes later; throws [IllegalStateException] once the run is closed.
+     * change. Used to commit held changes later; throws [IllegalStateException] once the run is closed. Every action
+     * carries [providerCallId], the id of the call that produced the held proposal.
      */
-    suspend fun applyWithoutGate(mutations: List<PendingMutation>): DispatchResult = mutex.withLock {
-        admitCaller()
-        applyAll(mutations)
-    }
+    suspend fun applyWithoutGate(mutations: List<PendingMutation>, providerCallId: String?): DispatchResult =
+        mutex.withLock {
+            admitCaller()
+            applyAll(mutations, providerCallId)
+        }
 
     /** Refuses a caller that was cancelled while it waited for the lock, or a run that is closed. */
     private suspend fun admitCaller() {
@@ -98,7 +106,7 @@ internal class CommitCoordinator(
      * A call the strategy already finished. A read is never reported. A preview is reported as a preview and a
      * rejection as an error, both with `applied` false and without asking the gate, because nothing can be written.
      */
-    private suspend fun finished(step: ToolStep.Finished): DispatchResult {
+    private suspend fun finished(step: ToolStep.Finished, providerCallId: String?): DispatchResult {
         val result = step.result
         val kind = when (step.kind) {
             FinishedKind.PREVIEW -> ActionKind.PREVIEW
@@ -106,22 +114,24 @@ internal class CommitCoordinator(
             else -> null
         }
         if (kind == null) return DispatchResult(result.contentForModel, result.isError, false, emptyList())
-        val details = ActionDetails(step.toolName, result.appOutcomeToken, result.targetIds, step.context, false)
+        val details = ActionDetails(
+            step.toolName, result.appOutcomeToken, result.targetIds, step.context, providerCallId, false,
+        )
         val action = ledger.record(kind, applied = false, details = details)
         delivery.deliver(action)
         val isError = result.isError || kind == ActionKind.IS_ERROR
         return DispatchResult(result.contentForModel, isError, false, listOf(action))
     }
 
-    private suspend fun submitMutation(step: ToolStep.Mutation): DispatchResult {
+    private suspend fun submitMutation(step: ToolStep.Mutation, providerCallId: String?): DispatchResult {
         val answer = gateStep.decide(CommitProposal(runId, parentRunId, step.mutations))
         // The gate may have waited a long time for the user; the run or the caller may have ended meanwhile.
         admitCaller()
         return when (answer) {
-            is GateAnswer.Faulted -> gateFault(step)
+            is GateAnswer.Faulted -> gateFault(step, providerCallId)
             is GateAnswer.Decided -> when (val decision = answer.decision) {
-                is GateDecision.Admit -> applyAll(decision.amended ?: step.mutations)
-                is GateDecision.Hold -> hold(step, decision)
+                is GateDecision.Admit -> applyAll(decision.amended ?: step.mutations, providerCallId)
+                is GateDecision.Hold -> hold(step, decision, providerCallId)
             }
         }
     }
@@ -131,12 +141,18 @@ internal class CommitCoordinator(
      * lists them with the gate's reason object, and the strategy gets the fixed not-applied notice. A held change is
      * not done and the model must not retry it.
      */
-    private suspend fun hold(step: ToolStep.Mutation, decision: GateDecision.Hold): DispatchResult {
+    private suspend fun hold(
+        step: ToolStep.Mutation,
+        decision: GateDecision.Hold,
+        providerCallId: String?,
+    ): DispatchResult {
         // Read every descriptor before anything is recorded, so a throwing getter cannot leave a half-reported hold.
         val facts = step.mutations.map { factsOf(it, recorder) }
-        ledger.addHeld(HeldProposal(runId, parentRunId, step.mutations, decision.reason, decision.appOutcomeToken))
+        ledger.addHeld(
+            HeldProposal(runId, parentRunId, step.mutations, decision.reason, decision.appOutcomeToken, providerCallId),
+        )
         val actions = facts.map { fact ->
-            val details = ActionDetails(fact.toolName, decision.appOutcomeToken, fact.targetIds, fact.context)
+            val details = ActionDetails(fact.toolName, decision.appOutcomeToken, fact.targetIds, fact.context, providerCallId)
             ledger.record(ActionKind.HELD, applied = false, details = details).also { delivery.deliver(it) }
         }
         return DispatchResult(heldForConfirmationContent(), false, true, actions)
@@ -149,11 +165,11 @@ internal class CommitCoordinator(
      * the error flag set, never the exception text. The model may retry, and a loop counts the failure as a strike
      * like any other error.
      */
-    private suspend fun gateFault(step: ToolStep.Mutation): DispatchResult {
+    private suspend fun gateFault(step: ToolStep.Mutation, providerCallId: String?): DispatchResult {
         // Read every descriptor before anything is recorded, so a throwing getter cannot leave a half-reported fault.
         val facts = step.mutations.map { factsOf(it, recorder) }
         val actions = facts.map { fact ->
-            val details = ActionDetails(fact.toolName, null, fact.targetIds, fact.context)
+            val details = ActionDetails(fact.toolName, null, fact.targetIds, fact.context, providerCallId)
             ledger.record(ActionKind.IS_ERROR, applied = false, details = details).also { delivery.deliver(it) }
         }
         return DispatchResult(gateFaultContent(), true, false, actions)
@@ -164,10 +180,10 @@ internal class CommitCoordinator(
      * the batch before the next item: an item that has not started leaves no record and the sink never hears of it,
      * while the items already applied stay recorded and reported.
      */
-    private suspend fun applyAll(mutations: List<PendingMutation>): DispatchResult {
+    private suspend fun applyAll(mutations: List<PendingMutation>, providerCallId: String?): DispatchResult {
         val changes = mutations.map {
             currentCoroutineContext().ensureActive()
-            applyStep.run(it)
+            applyStep.run(it, providerCallId)
         }
         return DispatchResult(
             contentForModel = changes.joinToString(CONTENT_SEPARATOR) { it.content },

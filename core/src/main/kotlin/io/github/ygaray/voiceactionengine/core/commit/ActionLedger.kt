@@ -10,6 +10,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * @property appOutcomeToken the app's own outcome string, passed on byte for byte.
  * @property targetIds the ids of the things touched.
  * @property context the app's opaque object, passed on by identity.
+ * @property providerCallId the provider's tool-call id of the call that produced the action, or null.
  * @property mutating false for an action that only previews or rejects a change.
  */
 internal class ActionDetails(
@@ -17,6 +18,7 @@ internal class ActionDetails(
     val appOutcomeToken: String?,
     val targetIds: Map<String, String>,
     val context: Any?,
+    val providerCallId: String?,
     val mutating: Boolean = true,
 )
 
@@ -46,6 +48,7 @@ internal class ActionLedger(private val recorder: RunRecorder) {
                 toolName = details.toolName,
                 targetIds = details.targetIds,
                 context = details.context,
+                providerCallId = details.providerCallId,
                 mutating = details.mutating,
             )
             actions.add(made)

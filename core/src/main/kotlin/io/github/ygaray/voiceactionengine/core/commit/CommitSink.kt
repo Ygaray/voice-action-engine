@@ -46,6 +46,9 @@ public class ActionEvent internal constructor(
  * @property toolName the tool's name.
  * @property targetIds ids of the things touched.
  * @property context the app's opaque object from the pending mutation, by identity.
+ * @property providerCallId the provider's tool-call id of the call that produced this action, byte for byte, or null
+ * for a tier that made no provider tool call. It says which model call asked for the change; [position] is still the
+ * action's identity.
  * @property mutating false for an action that only previews or rejects a change.
  */
 public class ExecutedAction internal constructor(
@@ -56,6 +59,7 @@ public class ExecutedAction internal constructor(
     public val toolName: String,
     public val targetIds: Map<String, String>,
     public val context: Any?,
+    public val providerCallId: String?,
     public val mutating: Boolean = true,
 ) {
     /** Prints position, kind, tool name and the context's class name; never tokens or content. */

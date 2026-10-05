@@ -77,16 +77,19 @@ internal class ApplyStep(
     private val delivery: ActionDelivery,
     private val recorder: RunRecorder,
 ) {
-    /** Applies [mutation], records and delivers its action, and returns both. */
-    suspend fun run(mutation: PendingMutation): AppliedChange {
+    /**
+     * Applies [mutation], records and delivers its action, and returns both. The action carries [providerCallId], the
+     * id of the provider call that produced the change.
+     */
+    suspend fun run(mutation: PendingMutation, providerCallId: String?): AppliedChange {
         val facts = factsOf(mutation, recorder)
         val result = try {
             attempt(mutation)
         } catch (e: CancellationException) {
-            journalCancelled(facts)
+            journalCancelled(facts, providerCallId)
             throw e
         }
-        val change = recordOutcome(facts, result)
+        val change = recordOutcome(facts, result, providerCallId)
         delivery.deliver(change.action)
         return change
     }
@@ -96,23 +99,28 @@ internal class ApplyStep(
         null
     }) { mutation.apply() }
 
-    private suspend fun recordOutcome(facts: MutationFacts, result: StepResult?): AppliedChange {
+    private suspend fun recordOutcome(
+        facts: MutationFacts,
+        result: StepResult?,
+        providerCallId: String?,
+    ): AppliedChange {
         val failed = result == null || result.isError
         val details = ActionDetails(
             toolName = facts.toolName,
             appOutcomeToken = result?.appOutcomeToken,
             targetIds = facts.targetIds + (result?.targetIds ?: emptyMap()),
             context = facts.context,
+            providerCallId = providerCallId,
         )
         val kind = if (failed) ActionKind.IS_ERROR else ActionKind.COMMITTED
         val action = ledger.record(kind, applied = true, details = details)
         return AppliedChange(action, result?.contentForModel ?: APPLY_ERROR_CONTENT)
     }
 
-    private suspend fun journalCancelled(facts: MutationFacts) {
+    private suspend fun journalCancelled(facts: MutationFacts, providerCallId: String?) {
         withContext(NonCancellable) {
             recorder.recordCode(TraceCode.APPLY_CANCELLED)
-            val details = ActionDetails(facts.toolName, null, facts.targetIds, facts.context)
+            val details = ActionDetails(facts.toolName, null, facts.targetIds, facts.context, providerCallId)
             delivery.deliver(ledger.record(ActionKind.IS_ERROR, applied = true, details = details))
         }
     }

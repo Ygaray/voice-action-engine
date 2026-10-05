@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @property mutations the held changes in submission order.
  * @property reason the gate's opaque reason object, by identity, or null.
  * @property appOutcomeToken the gate's own outcome string, or null.
+ * @property providerCallId the provider's tool-call id of the call that proposed them, or null. Internal: a later
+ * `commitHeld` stamps it on the committed actions.
  */
 public class HeldProposal internal constructor(
     public val runId: String,
@@ -23,6 +25,7 @@ public class HeldProposal internal constructor(
     public val mutations: List<PendingMutation>,
     public val reason: Any?,
     public val appOutcomeToken: String?,
+    internal val providerCallId: String?,
 ) {
     /** Set by the one caller that wins the right to commit this proposal. */
     internal val claimed: AtomicBoolean = AtomicBoolean(false)

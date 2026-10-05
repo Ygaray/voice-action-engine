@@ -11,8 +11,12 @@ import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
+import io.github.ygaray.voiceactionengine.core.strategy.Extraction
+import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
+import io.github.ygaray.voiceactionengine.core.telemetry.Usage
+import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
@@ -28,6 +32,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.coroutines.Continuation
@@ -218,5 +223,40 @@ class CommitPathTest {
                 assertFalse("${method.name} takes $type", type in forbidden)
             }
         }
+    }
+
+    @Test
+    fun aSingleShotProviderCallIdReachesTheResolverAndTheCommittedAction() = runTest {
+        NoNetworkGuard.during {
+            val write = FakeMutation(ENTRIES_TOOL, StepResult("saved", false, "ok", emptyMap()))
+            val resolver = RecordingResolver { _, _ -> Resolution.Steps(listOf(ToolStep.Mutation(write))) }
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                FakeAiProvider.toolCall("call_7", ENTRIES_TOOL, entriesArguments("m"), Usage(1, 0, 0, 1)),
+            )
+            val sink = RecordingCommitSink()
+            val pipeline = pipelineOf(
+                listOf(singleShot(resolver, snapshotOf(entriesTool()))),
+                fake,
+                ScriptedGate.admitAll(),
+                sink,
+            )
+
+            val outcome = pipeline.execute(CommandInput("add", "en", null))
+
+            assertEquals("call_7", resolver.extractions.single().callId)
+            assertEquals(ActionKind.COMMITTED, outcome.executed.single().kind)
+            assertEquals("call_7", outcome.executed.single().providerCallId)
+            assertEquals("call_7", sink.actions.single().action.providerCallId)
+        }
+    }
+
+    @Test
+    fun theTwoArgumentExtractionHasNoCallIdAndABlankOneIsRejected() {
+        val arguments = entriesArguments("m")
+
+        assertNull(Extraction(ENTRIES_TOOL, arguments).callId)
+        assertEquals("call_7", Extraction(ENTRIES_TOOL, arguments, "call_7").callId)
+        assertThrows(IllegalArgumentException::class.java) { Extraction(ENTRIES_TOOL, arguments, " ") }
     }
 }

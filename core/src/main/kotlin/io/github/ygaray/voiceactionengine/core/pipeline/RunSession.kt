@@ -56,7 +56,10 @@ internal class RunSession(
     override val tokensUsed: Long
         get() = scope.recorder.tokensUsed
 
-    override suspend fun submit(step: ToolStep): DispatchResult = scope.coordinator.submit(step)
+    override suspend fun submit(step: ToolStep): DispatchResult = submit(step, null)
+
+    override suspend fun submit(step: ToolStep, providerCallId: String?): DispatchResult =
+        scope.coordinator.submit(step, providerCallId)
 
     override suspend fun recordTurn(turn: TurnRecord) {
         scope.recorder.turnRecorded(strategy, turn)

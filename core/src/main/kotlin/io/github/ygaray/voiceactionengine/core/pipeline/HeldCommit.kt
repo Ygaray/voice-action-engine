@@ -68,7 +68,7 @@ internal class HeldCommit(
         try {
             recorder.commandStarted()
             outcome = guarded(onFault = { child.failed(it) }) {
-                child.coordinator.applyWithoutGate(mutations)
+                child.coordinator.applyWithoutGate(mutations, child.held.providerCallId)
                 CommandOutcome.Completed(child.effects(), null, null, partial = false)
             }
             return outcome

@@ -35,6 +35,12 @@ public abstract class CommandSession internal constructor() {
     public abstract suspend fun submit(step: ToolStep): DispatchResult
 
     /**
+     * Like [submit], and the actions the step records carry [providerCallId], the provider's id for the tool call that
+     * produced the step. Used by the engine's own strategies; the public [submit] records null.
+     */
+    internal abstract suspend fun submit(step: ToolStep, providerCallId: String?): DispatchResult
+
+    /**
      * The tokens used so far in this run: the total of every turn's usage reported with [recordTurn], across tiers.
      * A strategy that loops compares it with `policy.tokenCeiling`; it also enforces `policy.maxIterations` and
      * `policy.maxTokensPerTurn` itself.
