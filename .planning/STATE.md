@@ -2,39 +2,37 @@
 gsd_state_version: "1.0"
 milestone: v1.0
 milestone_name: Core Engine
-current_phase: 11
-current_phase_name: cut-v1-0-0
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 11 complete — all phases complete
-last_updated: "2026-10-02T18:09:31.263Z"
-last_activity: 2026-10-02
-last_activity_desc: Phase 11 complete
-state_head: d8b050ae33d9d324c62ec720b2ff5be80305451f
+last_updated: "2026-10-05T07:52:05.603Z"
+last_activity: 2026-10-05
+last_activity_desc: Milestone v1.0 completed and archived
+state_head: cdd9dab949ded9bb80fc31f445c9181de18322ae
 progress:
   total_phases: 11
-  completed_phases: 11
+  completed_phases: 0
   total_plans: 97
   completed_plans: 97
-  percent: 100
+  percent: 0
+current_phase: 11
+current_phase_name: cut-v1-0-0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-09-29) · Roadmap: .planning/ROADMAP.md · Requirements: .planning/REQUIREMENTS.md (v1.0, 60 reqs)
+See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 11 — cut v1 0 0
+**Current focus:** Planning next milestone: v1.1 (R-v1.1 GO 2026-10-05, `.planning/cross-repo/RECONVENE-BRIEF-R-v1.1.md`)
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
-Status: All phases complete
-Last activity: 2026-10-02 — Phase 11 complete
-
-Progress: [██████████] 100% (completed 11 of 11 phases)
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-10-05 — Milestone v1.0 completed and archived
 
 ## Performance Metrics
 
@@ -146,10 +144,15 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 | Category | Item | Status | Deferred At | Milestone |
 |----------|------|--------|-------------|-----------|
-| *(none)* | | | | |
+| uat_gaps | 10/10-SELF-UAT.md (G1-09 C5 OpenRouter omit-optionals INCONCLUSIVE; accepted by evidence W02) | partial (acknowledged) | 2026-10-05 | v1.0 |
+| verification_gaps | phases 1-11 VERIFICATION.md fingerprint-stale (post-verification edits incl. v1.0.1 patch + REQUIREMENTS.md ticks); superseded by v1.0.1 cut gate @b32840e; override_closeout by Yahir | stale (override) | 2026-10-05 | v1.0 |
 
 ## Session Continuity
 
 Last session: 2026-10-01T03:58:49.053Z
 Stopped at: Phase 11 complete — all phases complete
 Resume file: None
+
+## Operator Next Steps
+
+- Start v1.1 with /gsd-new-milestone, then research-milestone, then discuss-milestone; message the orchestrator "VAE v1.1 discussed" once CONTEXT is written

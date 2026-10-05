@@ -9,6 +9,10 @@ source: [ROADMAP Phase 10 SC1-SC4]
 device: yahirs-s22-ultra-2 R5CT10XNKQN SM-S908U
 apk: sample-debug.apk (md5 4c6fc98c64485ce878e11e60fdf92559 @ 4a586ed7b8)
 run: 2026-10-01T22:35Z-22:43Z @ 4a586ed7b8
+audit_acknowledged:
+  milestone: v1.0
+  at: 2026-10-05
+  gap_snapshot: "partial::scenarios=0"
 ---
 
 # Self-UAT Log: Phase 10 (sample harness, Gate-1 live legs)
@@ -32,7 +36,9 @@ run: 2026-10-01T22:35Z-22:43Z @ 4a586ed7b8
 ## Criteria
 
 ### 1. G1-01 fixture absent is loud at run time (VER-01 / D-05)
+
 result: passed
+
 - **Rung:** 5 (one downscaled crop for the red colour) on top of 4 and 3
 - **Target:** device
 - **Expected:** red `FIXTURE ABSENT`; `status_ver02` `REFUSED reason=fixture_absent`; evidence shows a loud `VAE_FIXTURE kind=absent` and the REFUSED verdict; no request spent.
@@ -42,7 +48,9 @@ result: passed
 - **Evidence:** `evidence/gate1-ver02.txt` (first two blocks).
 
 ### 2. G1-02 fixture present and verified (VER-01 / D-05)
+
 result: passed
+
 - **Rung:** 4
 - **Target:** device
 - **Expected:** green `Fixture OK`, sha prefix `ebd3ef4a`, `tools=<n>` equals the host count.
@@ -52,7 +60,9 @@ result: passed
 - **Evidence:** the push-fixture `SAMPLE_GATE1` line above; screen text of `fixture_state`.
 
 ### 3. G1-03 OkHttp pin runs on the device (VER-01)
+
 result: passed
+
 - **Rung:** 4
 - **Target:** device
 - **Expected:** `okhttp 5.2.1` on screen and `okhttp=5.2.1` in `VAE_ENV`.
@@ -62,7 +72,9 @@ result: passed
 - **Evidence:** `evidence/gate1-ver02.txt` (`VAE_ENV` lines).
 
 ### 4. G1-04 bring-your-own key through :keystore with a dummy value (VER-01 / D-04)
+
 result: passed
+
 - **Rung:** 4
 - **Target:** device
 - **Expected:** Ready after Save; still Ready after relaunch; Not configured after Delete; dummy deleted before G1-05.
@@ -72,7 +84,9 @@ result: passed
 - **Evidence:** state words above (no last 4 recorded).
 
 ### 5. G1-05 test keys travel through :keystore (VER-01 / D-04 / D-13)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** `import_status` Ready deleted=true in_datastore=false for all three; `verify-keys-gone` prints the dir empty; all three Ready after relaunch.
@@ -82,7 +96,9 @@ result: passed
 - **Evidence:** `SAMPLE_GATE1: OK sub=push-keys providers=anthropic,openai,openrouter target=R5CT10XNKQN` and `SAMPLE_GATE1: OK sub=verify-keys-gone keys_gone=yes`.
 
 ### 6. G1-06 VER-02 Anthropic agentic cold run, L1 (VER-02 / D-03)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** PASS with >= 2 turns; turn-1 write > 0 and within 7,016 +-5%; later reads equal the write within 1%; every attempt 200; `min_cacheable=4096` and `prefix_chars` in `VAE_ENV`; model claude-haiku-4-5.
@@ -92,7 +108,9 @@ result: passed
 - **Evidence:** `evidence/gate1-ver02.txt` (third block).
 
 ### 7. G1-07 VER-03 Anthropic single-shot smoke, L2 (VER-03, carry C6)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** PASS with exactly one attempt kind=initial http=200, no reshape or retry, tool=edit_item, optional_absent=true.
@@ -102,7 +120,9 @@ result: passed
 - **Evidence:** `evidence/gate1-smoke_anthropic.txt`.
 
 ### 8. G1-08 VER-03 OpenAI single-shot smoke, L3 (VER-03)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** PASS, optional_absent=true, model gpt-5.4-mini.
@@ -112,7 +132,9 @@ result: passed
 - **Evidence:** `evidence/gate1-smoke_openai.txt`.
 
 ### 9. G1-09 VER-03 OpenRouter single-shot smoke, L4 (VER-03, carry C5)
+
 result: partial
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** PASS (C5 closes) or INCONCLUSIVE `model_filled_optional` with one rerun; still INCONCLUSIVE means partial and C5 stays carried.
@@ -123,7 +145,9 @@ result: partial
 - **Evidence:** `evidence/gate1-smoke_openrouter.txt` (two blocks).
 
 ### 10. G1-10 VER-03 extended multi-turn on OpenAI Chat, L5 (VER-03)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** PASS: at least 2 calls, find_items on turn 1, tool result replayed, final answer, all attempts 200.
@@ -133,7 +157,9 @@ result: passed
 - **Evidence:** `evidence/gate1-multi_openai.txt`.
 
 ### 11. G1-11 VER-03 extended multi-turn on OpenRouter, L6 (VER-03)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** PASS; record `turn2_cache_read` (observed, not asserted). Cache-write accounting through OpenRouter (carry C4) is not exercised.
@@ -143,7 +169,9 @@ result: passed
 - **Evidence:** `evidence/gate1-multi_openrouter.txt`.
 
 ### 12. G1-12 VER-04 clarification and partial on device, offline (VER-04 / D-14)
+
 result: passed
+
 - **Rung:** 4
 - **Target:** device
 - **Expected:** `clarify_question` and two `clarify_option_*` buttons; after choosing `list-b` the follow-up completes; the partial demo reads "Did 1 action(s), couldn't finish"; no request spent.
@@ -153,7 +181,9 @@ result: passed
 - **Evidence:** `evidence/gate1-demo_clarify.txt`, `evidence/gate1-demo_partial.txt`.
 
 ### 13. G1-13 bounded spend (Runtime Decision)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** core requests <= 33 and optional <= 1; one spend line reported.
@@ -163,7 +193,9 @@ result: passed
 - **Evidence:** `VAE_BUDGET` line in `evidence/gate1-responses_probe.txt`.
 
 ### 14. G1-14 cleanup (D-04)
+
 result: passed
+
 - **Rung:** 3
 - **Target:** device
 - **Expected:** keys directory empty; `cleanup` prints `sample package removed`; `git status --short` shows only the expected new files; no fixture left behind.
@@ -173,6 +205,7 @@ result: passed
 - **Evidence:** the two `SAMPLE_GATE1` lines above.
 
 ## Optional L7 (not a criterion): Responses-only probe
+
 - Ran after G1-11 with optional budget 0. `status_responses_probe` = `CAPTURED reason=http_error`; evidence `VAE_ATTEMPT ... provider=openai ... http=400`, `VAE_VERDICT verdict=CAPTURED reason=http_error http=400`, model gpt-6-astra, no tokens billed. Carry C3 disposition: captured with http=400 and reason=http_error recorded. The 400 body text is not captured (LE-7), so the exact RESPONSES_ENDPOINT_MARKER wording is not visible on device; the reason code shows the generic `http_error` path.
 - **Evidence:** `evidence/gate1-responses_probe.txt`.
 
