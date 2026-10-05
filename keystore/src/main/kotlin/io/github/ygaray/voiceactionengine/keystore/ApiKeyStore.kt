@@ -53,6 +53,14 @@ public class ApiKeyStore internal constructor(
         this(dataStore, slots, ioDispatcher, AndroidKeyStoreKeyAccess)
 
     /**
+     * As the two-argument constructor, but reaching device keys through [keyAccess] (tests only, see
+     * [DelicateKeyAccess]).
+     */
+    @DelicateKeyAccess
+    public constructor(dataStore: DataStore<Preferences>, slots: List<KeySlot>, keyAccess: KeyAccess) :
+        this(dataStore, slots, Dispatchers.IO, keyAccess)
+
+    /**
      * Encrypts [apiKey] (trimmed) and stores it for [provider], replacing any previous one.
      *
      * Saving fails loudly rather than storing a key it cannot protect, so a caller should surface "could not store the

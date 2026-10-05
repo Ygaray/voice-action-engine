@@ -29,6 +29,8 @@ kotlin {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
         // Restrict the JDK API surface to 11 (see :core); the build JDK is 17.
         freeCompilerArgs.add("-Xjdk-release=11")
+        // The keystore implements and stores the seam itself; consumers must opt in.
+        optIn.add("io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess")
     }
 }
 
