@@ -1,0 +1,32 @@
+== JitPack live probe  ref=v1.0.0  repo=Ygaray/voice-action-engine  2026-10-02T17:56:03Z
+   status=none
+   status=ok
+   api: {"version":"v1.0.0","status":"ok","commit":"efc060f8fe462b71af2e4586b75a97db119ebabd","isTag":true,"modules":["voice-action-engine-core","voice-action-engine-keystore","voice-action-engine-providers"]}
+   log: Running install command:
+   log: ./gradlew :core:publishReleasePublicationToMavenLocal :providers:publishReleasePublicationToMavenLocal :keystore:publishReleasePublicationToMavenLocal
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.0.0
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.0.0
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.0
+   served coordinates:
+     com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.0.0
+     com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.0.0
+     com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.0
+   voice-action-engine-core: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers -> core dependency version line: <version>v1.0.0</version>
+   voice-action-engine-keystore: pom 200, module 200 <packaging>aar</packaging>
+   voice-action-engine-keystore -> core dependency version line: <version>v1.0.0</version>
+   aggregator pom: 200, lists all expected modules, no forbidden artifact
+   running consumer probe (empty Gradle cache)...
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.0.0
+   consumer:      +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.0
+   consumer: +--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.0.0
+   consumer: |    +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.0
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.0.0
+   consumer:      +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.0 (*)
+   consumer: PROBE OK (com.github.Ygaray.voice-action-engine:*:v1.0.0 from https://jitpack.io) workdir removed on exit
+LIVE PROBE PASS ref=v1.0.0  (workdir removed on exit)
+POM voice-action-engine-core project version=v1.0.0
+POM voice-action-engine-providers project version=v1.0.0
+POM voice-action-engine-keystore project version=v1.0.0
+JITPACK v1.0.0: VERIFIED commit=efc060f8fe462b71af2e4586b75a97db119ebabd
