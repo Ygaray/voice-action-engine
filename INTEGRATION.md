@@ -423,6 +423,41 @@ An unreadable key reaches you as `FailureReason.CredentialUnreadable(provider, c
 separate `KeyState.KeyMissing` state, so a `when` over `KeyState` must handle that leaf too. The set is open, so treat
 an unknown cause as re-enter.
 
+- **Tests: software keys.** A unit test on the JVM has no AndroidKeyStore. `:keystore` lets a test replace the device
+  key store with software keys through `ApiKeyStore(dataStore, slots, keyAccess)`, which needs
+  `@OptIn(DelicateKeyAccess::class)`. This is for tests only; production keeps the two-argument constructor. A fake
+  must keep read-never-creates: `existingKey` returns null for an absent alias and never creates a key, and
+  `getOrCreateKey` is the only creator. The fake below is not fit for key custody, because its keys live only in memory.
+  It needs these imports on top of the ones above:
+
+```text
+import io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess
+import io.github.ygaray.voiceactionengine.keystore.KeyAccess
+import java.util.concurrent.ConcurrentHashMap
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+```
+
+<!-- doc-snippet: keystore-fake -->
+```kotlin
+// For unit tests only: software keys in place of the device key store. A fake must keep the contract that reading
+// never creates a key; existingKey returns null for an absent alias, and getOrCreateKey is the only creator.
+@OptIn(DelicateKeyAccess::class)
+class MySoftwareKeys : KeyAccess {
+    private val keys = ConcurrentHashMap<String, SecretKey>()
+
+    override fun existingKey(alias: String): SecretKey? = keys[alias]
+
+    override fun getOrCreateKey(alias: String): SecretKey = keys.computeIfAbsent(alias) {
+        KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+    }
+}
+
+@OptIn(DelicateKeyAccess::class)
+fun testKeyStore(dataStore: DataStore<Preferences>, slots: List<KeySlot>): ApiKeyStore =
+    ApiKeyStore(dataStore, slots, MySoftwareKeys())
+```
+
 - **Capability overrides.** `capabilities(provider, model) { ... }` patches what the engine believes about one exact
   model id (never a prefix or family); it wins over the provider's built-in table. Read the result with
   `pipeline.capabilityTable.lookup(provider, model)`.

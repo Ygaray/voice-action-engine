@@ -8,7 +8,7 @@
 #   C04 JitPack repository block                              C16 "never log"
 #   C05 INTERNET permission                                   C17 OkHttp 4.12 floor, the app keeps its own OkHttp
 #   C06 every marked block equals its test region; no unmarked kotlin fence
-#   C07 regions are all used; the ten required regions exist; README uses minimal-pipeline
+#   C07 regions are all used; the eleven required regions exist; README uses minimal-pipeline
 #   C08 every seam in INTEGRATION and API                     C18 own scripted AiProvider; fakes not published
 #   C09 both gate modes                                       C19 the :sample pointer; every sample/ path exists
 #   C10 open and closed taxonomies, an else branch            C20 API.md names every public top-level type
@@ -29,7 +29,7 @@ INTEGRATION=INTEGRATION.md
 API=API.md
 ECOSYSTEM=ECOSYSTEM.md
 SNIPPETS=sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/docs/DocSnippetsTest.kt
-REQUIRED_REGIONS="minimal-pipeline scripted-provider register-providers agentic-tier gate-suspend gate-defer render-outcome clarification-follow-up keystore-wiring telemetry"
+REQUIRED_REGIONS="minimal-pipeline scripted-provider register-providers agentic-tier gate-suspend gate-defer render-outcome clarification-follow-up keystore-wiring keystore-fake telemetry"
 COORD_PREFIX='com.github.Ygaray.voice-action-engine:voice-action-engine-'
 
 ONLY=""

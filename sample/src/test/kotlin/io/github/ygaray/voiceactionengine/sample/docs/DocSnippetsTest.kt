@@ -2,6 +2,7 @@ package io.github.ygaray.voiceactionengine.sample.docs
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.ygaray.voiceactionengine.core.CommandInput
@@ -63,13 +64,19 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import io.github.ygaray.voiceactionengine.keystore.ApiKeyStore
+import io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess
+import io.github.ygaray.voiceactionengine.keystore.KeyAccess
 import io.github.ygaray.voiceactionengine.keystore.KeySlot
 import io.github.ygaray.voiceactionengine.keystore.KeystoreCauseCodes
+import io.github.ygaray.voiceactionengine.keystore.KeyState
 import io.github.ygaray.voiceactionengine.keystore.KeystoreCredentialSource
 import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicProvider
 import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsProvider
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -87,7 +94,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.util.concurrent.ConcurrentHashMap
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
 
 // The docs (README.md, INTEGRATION.md, API.md) quote the regions below byte for byte after removing their common
 // indentation; scripts/verify-docs-coverage.sh compares them. A region holds only what a consumer would write: the
@@ -340,6 +352,25 @@ fun keyAdvice(cause: String): String = when (cause) {
     else -> "Key unreadable ($cause): re-enter key"
 }
 // doc-snippet:end keystore-wiring
+
+// doc-snippet:start keystore-fake
+// For unit tests only: software keys in place of the device key store. A fake must keep the contract that reading
+// never creates a key; existingKey returns null for an absent alias, and getOrCreateKey is the only creator.
+@OptIn(DelicateKeyAccess::class)
+class MySoftwareKeys : KeyAccess {
+    private val keys = ConcurrentHashMap<String, SecretKey>()
+
+    override fun existingKey(alias: String): SecretKey? = keys[alias]
+
+    override fun getOrCreateKey(alias: String): SecretKey = keys.computeIfAbsent(alias) {
+        KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+    }
+}
+
+@OptIn(DelicateKeyAccess::class)
+fun testKeyStore(dataStore: DataStore<Preferences>, slots: List<KeySlot>): ApiKeyStore =
+    ApiKeyStore(dataStore, slots, MySoftwareKeys())
+// doc-snippet:end keystore-fake
 
 // doc-snippet:start fixed-credentials
 // Serves the one key the app already holds (read from its own secure storage); the key is a parameter, never a literal.
@@ -730,6 +761,28 @@ class DocSnippetsTest {
             val table = registered.capabilityTable
             assertEquals(false, table.lookup(ProviderId.ANTHROPIC, "claude-opus-5-5-20261001").supportsForcedToolChoice)
             assertEquals(true, table.lookup(ProviderId.ANTHROPIC, "claude-haiku-4-5").supportsForcedToolChoice)
+        }
+    }
+
+    @get:Rule
+    val folder = TemporaryFolder()
+
+    @Test
+    fun theKeystoreFakeRoundTripsAKeyOnTheJvm() = runTest {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            val file = folder.newFile("fake.preferences_pb").also { it.delete() }
+            val dataStore = PreferenceDataStoreFactory.create(scope = scope, produceFile = { file })
+            val store = testKeyStore(dataStore, MyKeySlots)
+
+            assertEquals(KeyState.NotConfigured(), store.read(ProviderId.OPENAI))
+
+            store.save(ProviderId.ANTHROPIC, "doc-test-key-wxyz") // secret-scan: allow (fixed non-secret test string)
+
+            assertEquals(KeyState.Ready("wxyz"), store.read(ProviderId.ANTHROPIC))
+            assertEquals(KeyState.NotConfigured(), store.read(ProviderId.OPENAI))
+        } finally {
+            scope.cancel()
         }
     }
 
