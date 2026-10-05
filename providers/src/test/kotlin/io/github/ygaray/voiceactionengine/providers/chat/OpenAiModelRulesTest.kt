@@ -53,6 +53,45 @@ class OpenAiModelRulesTest {
     }
 
     @Test
+    fun everyDirectIdThatRejectsEffortNoneSendsNoEffort() {
+        val ids = listOf(
+            "gpt-6-astra", "gpt-6-astra-2026-09-01", "gpt-6.1-sol", "gpt-5.5-pro", "gpt-5.4-pro", "gpt-5.2-pro",
+            "gpt-5-pro", "gpt-6-pro", "gpt-5.3-codex", "gpt-5.2-codex",
+        )
+        for (id in ids) assertRules(id, viaRouter = false, null, "max_completion_tokens", 1)
+    }
+
+    @Test
+    fun everyIdThatWorkedBeforeKeepsEffortNone() {
+        val ids = listOf("gpt-6", "gpt-6-sol", "gpt-6-luna", "gpt-5.4", "gpt-5.5", "gpt-5.4-mini", "gpt-6-astral")
+        for (id in ids) assertRules(id, viaRouter = false, "none", "max_completion_tokens", 1)
+    }
+
+    @Test
+    fun aBlankOrUnknownIdKeepsTheDefaultRules() {
+        for (id in listOf("", " ", "example-model", "openai/gpt-6-astra")) {
+            assertRules(id, viaRouter = false, null, "max_completion_tokens", 1)
+        }
+    }
+
+    @Test
+    fun aRoutedProIdKeepsTodaysRules() {
+        assertRules("gpt-5.5-pro", viaRouter = true, "none", "max_completion_tokens", 1)
+        assertRules("gpt-6.1-sol", viaRouter = true, "low", "max_completion_tokens", 1)
+    }
+
+    @Test
+    fun directProAndCodexIdsAreRefusedForToolsBeforeAnyCall() {
+        for (id in listOf("gpt-5.5-pro", "gpt-5.3-codex", "gpt-6-astra", "gpt-6.1-sol")) {
+            assertFalse(id, OpenAiModelRules.toolsOnChat(id, viaRouter = false))
+            assertTrue("$id routed", OpenAiModelRules.toolsOnChat(id, viaRouter = true))
+        }
+        for (id in listOf("gpt-5.5", "gpt-6-sol", "gpt-5.5-professor")) {
+            assertTrue(id, OpenAiModelRules.toolsOnChat(id, viaRouter = false))
+        }
+    }
+
+    @Test
     fun theRouterRaisesTheFloorOnlyForTheLegacyTokenParameter() {
         assertRules("gpt-4o-mini", viaRouter = true, null, "max_tokens", 16)
         assertRules("gpt-3.5-turbo", viaRouter = true, null, "max_tokens", 16)

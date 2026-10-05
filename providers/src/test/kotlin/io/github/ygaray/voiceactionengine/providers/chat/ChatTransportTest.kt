@@ -235,6 +235,21 @@ class ChatTransportTest {
         }
     }
 
+    @Test
+    fun aToolsCommandOnADirectProModelIsRefusedWithZeroRequests() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val provider = ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+
+            val run = route(server, provider, ChatVendor.OPENAI, "gpt-5.5-pro", forcedRequest())
+
+            val failure = run.results.single() as ModelResult.Failure
+            assertEquals("model_unsupported", failure.reason.code)
+            assertTrue(run.outcome.trace.codes.contains(TraceCode.CAPABILITY_REFUSED))
+            assertEquals(0, run.requestCount)
+        }
+    }
+
     // Assembled from the recorded fields of the captured answer, not its raw bytes.
     private val w04Body = """{"error":{"message":"Unsupported value: 'reasoning_effort' does not support 'none' """ +
         """with this model. Supported values are: 'low', 'medium', 'high', and 'xhigh'.",""" +

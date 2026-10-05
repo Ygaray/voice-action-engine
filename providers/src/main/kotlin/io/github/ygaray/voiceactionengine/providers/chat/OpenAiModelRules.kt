@@ -14,6 +14,9 @@ private const val FIRST_NONE_EFFORT_MINOR = 4
 // The two models that answer only on the Responses endpoint. The name must end or continue with a dash, so
 // "gpt-6-astral" is a different model, and the pattern is anchored so a prefixed id is not matched.
 private val RESPONSES_ONLY = Regex("""^gpt-6(?:-astra|\.1-sol)(?:-.*)?$""")
+// The -pro and -codex models of the gpt-5 and gpt-6 generations take neither Chat Completions with tools nor effort
+// none; the optional dash suffix covers dated ids, and the anchors keep gpt-5.5 and gpt-6-sol out.
+private val PRO_OR_CODEX = Regex("""^gpt-[56](?:\.\d+)?-(?:pro|codex)(?:-.*)?$""")
 private val GPT_PREFIX = Regex("""^gpt-.*$""")
 private val O_SERIES = Regex("""^o\d.*$""")
 
@@ -50,7 +53,7 @@ internal class ChatWireRules(
 /**
  * What the engine believes about OpenAI model families on the Chat Completions endpoint, matched by pattern because
  * OpenAI ids carry date suffixes. The facts come from OpenAI's latest-model and function-calling guides, checked on
- * 2026-10-01.
+ * 2026-10-05.
  *
  * Every value is only a default: the app patches any capability for an exact model id through
  * `PipelineBuilder.capabilities`, and the patch wins over this table.
@@ -58,21 +61,25 @@ internal class ChatWireRules(
 internal object OpenAiModelRules {
     /**
      * False when [id] cannot take tools on Chat Completions. The Astra and 6.1 Sol family accepts tools only on the
-     * Responses endpoint, so on OpenAI itself a request with tools is refused before any call. Through a router
-     * ([viaRouter] true) the router advertises tools for both and translates, so the answer is true.
+     * Responses endpoint, and OpenAI documents no Chat Completions support for the -pro and -codex models, so on
+     * OpenAI itself a request with tools to any of them is refused before any call. Through a router ([viaRouter]
+     * true) the router advertises tools and translates, so the answer is true.
      */
-    fun toolsOnChat(id: String, viaRouter: Boolean): Boolean = viaRouter || !RESPONSES_ONLY.matches(id)
+    fun toolsOnChat(id: String, viaRouter: Boolean): Boolean =
+        viaRouter || !(RESPONSES_ONLY.matches(id) || PRO_OR_CODEX.matches(id))
 
     /** The shortest prefix OpenAI caches automatically, or null for an id outside the GPT and o-series families. */
     fun minCacheablePrefixTokens(id: String): Int? =
         if (GPT_PREFIX.matches(id) || O_SERIES.matches(id)) OPENAI_MIN_CACHEABLE_PREFIX_TOKENS else null
 
     /**
-     * The wire rules for [id], matched in this order: the Astra and 6.1 Sol family (only through a router, where it
-     * takes tools at effort low); other gpt-6 ids and gpt-5.N from the fourth minor on (effort none, so the endpoint
-     * accepts tools); the original gpt-5 family, the earlier gpt-5.N and the o-series (no effort, reasoning is
-     * allowed with tools); gpt-4 and gpt-3.5 (no effort, the legacy `max_tokens`); anything else (no effort,
-     * `max_completion_tokens`, which OpenAI prefers over the deprecated name).
+     * The wire rules for [id], matched in this fixed order: the Astra and 6.1 Sol family through a router (takes
+     * tools at effort low); the same family on OpenAI itself (no effort, which the endpoint answers with its own
+     * pointer to the Responses endpoint); other gpt-6 ids and gpt-5.N from the fourth minor on (effort none, so the
+     * endpoint accepts tools), except direct -pro and -codex ids, which reject none and fall to the next rows; the
+     * original gpt-5 family, the earlier gpt-5.N and the o-series (no effort, reasoning is allowed with tools);
+     * gpt-4 and gpt-3.5 (no effort, the legacy `max_tokens`); anything else (no effort, `max_completion_tokens`,
+     * which OpenAI prefers over the deprecated name).
      *
      * A router enforces a floor of 16 on the legacy `max_tokens`, so the minimum rises only for that pair. Every row
      * takes the parallel tool-call switch except the o-series, which rejects it.
@@ -84,7 +91,7 @@ internal object OpenAiModelRules {
             viaRouter && RESPONSES_ONLY.matches(id) ->
                 rules(EFFORT_LOW, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS, parallel)
             RESPONSES_ONLY.matches(id) -> completion
-            GPT_6_FAMILY.matches(id) || isLaterGpt5(id) ->
+            takesEffortNone(id, viaRouter) ->
                 rules(EFFORT_NONE, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS, parallel)
             GPT_5_BASE.matches(id) || GPT_5_MINOR.matches(id) || O_SERIES.matches(id) -> completion
             GPT_4_FAMILY.matches(id) || GPT_3_5_FAMILY.matches(id) ->
@@ -98,6 +105,10 @@ internal object OpenAiModelRules {
 
     private fun rules(effort: String?, tokenParam: String, minTokens: Int, parallel: Boolean) =
         ChatWireRules(effort, tokenParam, minTokens, parallel)
+
+    // The later generations need effort none to take tools, except a direct -pro or -codex id, which rejects it.
+    private fun takesEffortNone(id: String, viaRouter: Boolean): Boolean =
+        (GPT_6_FAMILY.matches(id) || isLaterGpt5(id)) && (viaRouter || !PRO_OR_CODEX.matches(id))
 
     private fun isLaterGpt5(id: String): Boolean {
         val minor = GPT_5_MINOR.matchEntire(id)?.groupValues?.get(1)?.toIntOrNull() ?: return false

@@ -266,5 +266,77 @@
       }
     ],
     "max_completion_tokens": 1024
+  },
+  "astra_direct": {
+    "model": "gpt-6-astra",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You turn short spoken notes into tool calls. Keep every answer brief."
+      },
+      {
+        "role": "user",
+        "content": "add two eggs and a coffee"
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "log_food",
+          "description": "Logs the foods the user ate.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "quantity": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "unit": {
+                      "type": ["string", "null"]
+                    },
+                    "confidence": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  },
+                  "required": ["name", "quantity", "unit", "confidence"],
+                  "additionalProperties": false
+                }
+              },
+              "target_date": {
+                "type": ["string", "null"],
+                "format": "date"
+              },
+              "source": {
+                "type": ["string", "null"]
+              }
+            },
+            "required": ["items", "target_date", "source"],
+            "additionalProperties": false
+          },
+          "strict": true
+        }
+      }
+    ],
+    "tool_choice": {
+      "type": "function",
+      "function": {
+        "name": "log_food"
+      }
+    },
+    "parallel_tool_calls": false,
+    "max_completion_tokens": 1024
   }
 }

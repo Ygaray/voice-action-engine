@@ -129,9 +129,28 @@ class ChatEncoderTest {
     }
 
     @Test
+    fun aDirectResponsesOnlyModelEncodesToTheGoldenBodyWithNoReasoningEffort() {
+        val body = encoded(ChatVendor.OPENAI, "gpt-6-astra", request(singleToolCall = true))
+
+        assertEquals(goldenRequest("openai", "astra_direct"), body)
+        val parsed = decoded(body)
+        assertFalse(parsed.containsKey("reasoning_effort"))
+        val choice = parsed.getValue("tool_choice").jsonObject.getValue("function").jsonObject
+        assertEquals(JsonPrimitive("log_food"), choice["name"])
+        assertEquals(JsonPrimitive(false), parsed["parallel_tool_calls"])
+    }
+
+    @Test
+    fun aDirectProModelSendsNoReasoningEffort() {
+        val body = decoded(encoded(ChatVendor.OPENAI, "gpt-5.5-pro", request(singleToolCall = true)))
+
+        assertFalse(body.containsKey("reasoning_effort"))
+    }
+
+    @Test
     fun goldenFilesHoldExactlyTheNamedCases() {
         assertEquals(
-            listOf("forced_log_food_strict", "auto_two_tools", "legacy_forced", "no_tools"),
+            listOf("forced_log_food_strict", "auto_two_tools", "legacy_forced", "no_tools", "astra_direct"),
             goldenCaseNames("openai"),
         )
         assertEquals(

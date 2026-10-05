@@ -147,6 +147,19 @@ class ChatModelsTest {
     }
 
     @Test
+    fun directProAndCodexIdsReadAsToolIncapableButTheRoutedProIdDoesNot() {
+        for (id in listOf("gpt-5.5-pro", "gpt-5.3-codex")) {
+            assertFalse(id, ChatModels.capabilities(ChatVendor.OPENAI, id).supportsTools)
+        }
+        assertTrue(ChatModels.capabilities(ChatVendor.OPENROUTER, "openai/gpt-5.5-pro").supportsTools)
+    }
+
+    @Test
+    fun theDirectAstraWireRulesCarryNoReasoningEffort() {
+        assertNull(ChatModels.wireRules(ChatVendor.OPENAI, "gpt-6-astra").reasoningEffortWithTools)
+    }
+
+    @Test
     fun theTwoVendorInstancesCarryTheirDifferencesAsData() {
         val openAi = ChatVendor.OPENAI
         assertEquals(ProviderId.OPENAI, openAi.providerId)
