@@ -9,8 +9,8 @@ complexity:
     # RunRecorder is the run's one trace and event sink: one method per kind of happening, none of them long.
     thresholdInClasses: 12
   LongParameterList:
-    # Request and policy value classes carry many defaulted parameters; defaults are not call-site burden.
-    constructorThreshold: 8
+    # One value per neutral request or ledger fact (ModelRequest has eight); the shorter shapes are explicit overloads, never defaults.
+    constructorThreshold: 9
     ignoreDefaultParameters: true
 
 naming:

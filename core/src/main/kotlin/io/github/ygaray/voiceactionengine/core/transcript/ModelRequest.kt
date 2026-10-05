@@ -18,6 +18,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
  * [toolChoice] requires a tool). A provider whose wire format cannot express this sends the request without it, and
  * the strategy still uses only the first call and marks a completed outcome partial. It has no effect when [tools]
  * is empty.
+ * @property reasoning how much reasoning the engine asks the model for; [ReasoningMode.OFF] when a shorter constructor
+ * is used.
  * @throws IllegalArgumentException when [messages] is empty, [maxTokens] is below 1, two tools share a name, or
  * [toolChoice] requires a tool that is not in [tools].
  */
@@ -29,7 +31,19 @@ public class ModelRequest(
     public val maxTokens: Int,
     public val cache: CacheDirective,
     public val singleToolCall: Boolean,
+    public val reasoning: ReasoningMode,
 ) {
+    /** A request that sends no engine-added reasoning request. */
+    public constructor(
+        system: String,
+        messages: List<Message>,
+        tools: List<ToolSpec>,
+        toolChoice: ToolChoice,
+        maxTokens: Int,
+        cache: CacheDirective,
+        singleToolCall: Boolean,
+    ) : this(system, messages, tools, toolChoice, maxTokens, cache, singleToolCall, ReasoningMode.OFF)
+
     /** A request that leaves the number of tool calls to the model. */
     public constructor(
         system: String,
@@ -38,15 +52,16 @@ public class ModelRequest(
         toolChoice: ToolChoice,
         maxTokens: Int,
         cache: CacheDirective,
-    ) : this(system, messages, tools, toolChoice, maxTokens, cache, false)
+    ) : this(system, messages, tools, toolChoice, maxTokens, cache, false, ReasoningMode.OFF)
 
     /** A request with no tools, automatic tool choice and the static prefix cached. */
-    public constructor(system: String, messages: List<Message>, maxTokens: Int) :
-        this(system, messages, emptyList(), ToolChoice.Auto(), maxTokens, CacheDirective(true), false)
+    public constructor(system: String, messages: List<Message>, maxTokens: Int) : this(
+        system, messages, emptyList(), ToolChoice.Auto(), maxTokens, CacheDirective(true), false, ReasoningMode.OFF,
+    )
 
     /** A request with [tools], automatic tool choice and the static prefix cached. */
     public constructor(system: String, messages: List<Message>, tools: List<ToolSpec>, maxTokens: Int) :
-        this(system, messages, tools, ToolChoice.Auto(), maxTokens, CacheDirective(true), false)
+        this(system, messages, tools, ToolChoice.Auto(), maxTokens, CacheDirective(true), false, ReasoningMode.OFF)
 
     /** A copy of the messages. */
     public val messages: List<Message> = messages.toList()
@@ -68,7 +83,8 @@ public class ModelRequest(
     /** Prints the system prompt length, counts and tool names only, never prompt or message content. */
     override fun toString(): String =
         "ModelRequest(systemLength=${system.length}, messages=${messages.size}, tools=${tools.map { it.name }}, " +
-            "toolChoice=$toolChoice, maxTokens=$maxTokens, cache=$cache, singleToolCall=$singleToolCall)"
+            "toolChoice=$toolChoice, maxTokens=$maxTokens, cache=$cache, singleToolCall=$singleToolCall, " +
+            "reasoning=$reasoning)"
 }
 
 /**

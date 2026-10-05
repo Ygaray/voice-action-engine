@@ -27,6 +27,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
+import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import java.time.Clock
@@ -69,6 +70,7 @@ public class SingleShotStrategy internal constructor(
     private val userTurn: UserTurnRenderer = settings.userTurn
     private val clock: Clock = settings.clock
     private val forceTool: Boolean = settings.forceTool
+    private val reasoning: ReasoningMode = settings.reasoning
     private val hooks = OutcomeHooks(settings.onNoToolCall, settings.onRefusal)
 
     override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome =
@@ -104,6 +106,7 @@ public class SingleShotStrategy internal constructor(
             attempt.session.policy.maxTokensPerTurn,
             CacheDirective(true),
             true,
+            reasoning,
         )
     }
 
@@ -193,6 +196,12 @@ public class SingleShotStrategy internal constructor(
          * for example a terminal clarification tool, and does not need the snapshot to name a single-shot tool.
          */
         public var forceTool: Boolean = true
+
+        /**
+         * The reasoning request every call of this tier carries. Defaults to [ReasoningMode.OFF]: the engine adds no
+         * reasoning request of its own.
+         */
+        public var reasoning: ReasoningMode = ReasoningMode.OFF
 
         /**
          * Decides the outcome when the model answered without a tool call. It receives the response, or null when

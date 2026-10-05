@@ -21,6 +21,7 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.test.runTest
@@ -104,6 +105,24 @@ class SingleShotRequestTest {
 
             assertSame(entries, run.sent.tools[0])
             assertSame(ask, run.sent.tools[1])
+        }
+    }
+
+    @Test
+    fun aTierBuiltWithoutReasoningSendsOff() = runTest {
+        NoNetworkGuard.during {
+            val run = runShot()
+
+            assertEquals(ReasoningMode.OFF, run.sent.reasoning)
+        }
+    }
+
+    @Test
+    fun theBuildersReasoningIsTheReasoningOfTheRequest() = runTest {
+        NoNetworkGuard.during {
+            val run = runShot { reasoning = ReasoningMode.PROVIDER_DEFAULT }
+
+            assertEquals(ReasoningMode.PROVIDER_DEFAULT, run.sent.reasoning)
         }
     }
 
