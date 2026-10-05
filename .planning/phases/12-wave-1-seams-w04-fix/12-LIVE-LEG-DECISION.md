@@ -1,6 +1,8 @@
 # Phase 12 live-leg request (PROV-16)
 
-decision: pending
+decision: approved
+relayed_by: orchestrator yahir-gsd-control-plane-3b via the coordinator (control-plane 4146165), spend approval only
+date: 2026-10-05
 
 requested_by: executor of plan 12-05, for the orchestrator relay that plan 12-08 waits on
 date: 2026-10-05
@@ -14,6 +16,8 @@ GO on 12-08: the live gpt-6-astra W04 smoke, ceiling 4 requests / USD 0.05, usin
 
 Scope note: this is the spend approval only. The TESTER DEVICE WINDOW is a separate grant and is NOT yet granted; no device step
 may start until it is. The decision line above stays `pending` until plan 12-08 flips it under that window.
+
+The TESTER device window is a SEPARATE grant that is still pending, and no device step may start before it is granted (the decision line now reads `approved` for the spend only).
 
 ## Budget (bounded)
 
