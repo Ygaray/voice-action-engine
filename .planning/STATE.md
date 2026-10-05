@@ -1,21 +1,16 @@
 ---
 gsd_state_version: "1.0"
-milestone: v1.0
-milestone_name: Core Engine
-status: Awaiting next milestone
-stopped_at: Phase 11 complete — all phases complete
-last_updated: "2026-10-05T07:52:05.603Z"
+milestone: v1.1
+milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
+status: planning
+last_updated: "2026-10-05T08:03:09.488Z"
 last_activity: 2026-10-05
-last_activity_desc: Milestone v1.0 completed and archived
-state_head: cdd9dab949ded9bb80fc31f445c9181de18322ae
 progress:
-  total_phases: 11
+  total_phases: 0
   completed_phases: 0
-  total_plans: 97
-  completed_plans: 97
+  total_plans: 0
+  completed_plans: 0
   percent: 0
-current_phase: 11
-current_phase_name: cut-v1-0-0
 ---
 
 # Project State
@@ -29,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 
 ## Current Position
 
-Phase: Milestone v1.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-10-05 — Milestone v1.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-10-05 — Milestone v1.1 started
 
 ## Performance Metrics
 

@@ -16,6 +16,20 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 
 **`CROSS-REPO-SCOPE-CONTRACT.md`** (repo root) — FROZEN v1.0 + amendments A1–A14 and errata E1–E6. This slice is **§6.2** (v1.0 = steps 1–7); the engine seams are **§5.1–5.2**; the tag protocol and ledger are **§11**. It is never edited by this session: changes are proposed to the control plane (yahir-gsd-control-plane-f2, orchestrator) and recorded as numbered §10 amendments / errata. Other sessions commit contract-only changes here, so always `git pull --rebase` before committing.
 
+## Current Milestone: v1.1 Grammar, Plan, Router, Undo, Spike, Adapter
+
+**Goal:** Give consumers the cheap and offline tiers (grammar, plan), app-controlled tier selection and run-level undo,
+and fold in the Wave-1 additive seams SB 176–179 and CT 75 are blocked on. Cuts one `v1.1.0` (A4).
+
+**Target features:**
+- Wave-1 additive seams + the W04 fix + the open doc stumbles
+- `LocalGrammarStrategy` + bilingual EN/ES `GrammarPack` (optional per-slot `normalize`)
+- `PlanThenExecuteStrategy` with write-output step binding
+- `TierSelector.Custom(StartTierPicker)` + `TierSelector.Router` (default off)
+- Bundled on-device model spike (verdict early, never blocks the tag)
+- `:undo` standalone module + pipeline integration
+- `:voice-adapter` (`:stt` v0.7.0 → `CommandInput`)
+
 ## Requirements
 
 ### Validated
