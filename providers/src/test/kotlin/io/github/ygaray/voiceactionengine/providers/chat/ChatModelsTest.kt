@@ -236,6 +236,15 @@ class ChatModelsTest {
     }
 
     @Test
+    fun aRoutedSonnetFiveReachesItsOwnRowAndSonnetFiveFiveDoesNot() {
+        val five = ChatModels.capabilities(ChatVendor.OPENROUTER, "anthropic/claude-sonnet-5")
+        assertTrue(five.supportsForcedToolChoice)
+        assertEquals(CachingMode.NONE, five.caching)
+        val fiveFive = ChatModels.capabilities(ChatVendor.OPENROUTER, "anthropic/claude-sonnet-5.5")
+        assertFalse(fiveFive.supportsForcedToolChoice)
+    }
+
+    @Test
     fun anyOtherRoutedVendorOrAnIdWithoutASlashIsUnknown() {
         assertEquals(ModelCapabilities.UNKNOWN, ChatModels.capabilities(ChatVendor.OPENROUTER, "example/tool-model"))
         assertEquals(ModelCapabilities.UNKNOWN, ChatModels.capabilities(ChatVendor.OPENROUTER, "no-slash-model"))

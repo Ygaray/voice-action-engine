@@ -102,6 +102,28 @@ class AnthropicModelsTest {
     }
 
     @Test
+    fun sonnetFiveHasItsOwnRowThatAllowsForcingAndCachesFromAThousandTwentyFourTokens() {
+        val caps = AnthropicModels.capabilities("claude-sonnet-5")
+
+        assertTrue(caps.supportsForcedToolChoice)
+        assertEquals(CachingMode.EXPLICIT_BREAKPOINTS, caps.caching)
+        assertEquals(1_024, caps.minCacheablePrefixTokens)
+        val neighbour = AnthropicModels.capabilities("claude-sonnet-5-5")
+        assertFalse(neighbour.supportsForcedToolChoice)
+        assertEquals(512, neighbour.minCacheablePrefixTokens)
+    }
+
+    @Test
+    fun aDatedOrDifferentlyCasedSonnetFiveIdGetsTheUnknownDefault() {
+        for (id in listOf("claude-sonnet-5-20261001", "CLAUDE-SONNET-5")) {
+            val caps = AnthropicModels.capabilities(id)
+            assertTrue(id, caps.supportsForcedToolChoice)
+            assertEquals(id, CachingMode.EXPLICIT_BREAKPOINTS, caps.caching)
+            assertNull(id, caps.minCacheablePrefixTokens)
+        }
+    }
+
+    @Test
     fun idsAreMatchedExactlyAndAnythingElseGetsTheUnknownDefault() {
         val unknownShaped = listOf("claude-opus-5-5-20260901", "claude-opus-5", "CLAUDE-OPUS-5-5", "some-new-model")
         for (id in unknownShaped) {

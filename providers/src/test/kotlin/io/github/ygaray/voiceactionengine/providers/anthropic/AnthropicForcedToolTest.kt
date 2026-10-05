@@ -160,6 +160,23 @@ class AnthropicForcedToolTest {
     }
 
     @Test(timeout = 30_000)
+    fun sonnetFiveIsForcedWithoutOverrideAndCarriesNoReshapeInstruction() {
+        val sent = throughPipeline("claude-sonnet-5", override = false)
+
+        assertEquals(1, sent.requestCount)
+        assertEquals(
+            buildJsonObject {
+                put("type", "tool")
+                put("name", "add_item")
+            },
+            sent.body["tool_choice"],
+        )
+        assertFalse(sent.bodyText.contains("Call the add_item tool"))
+        assertFalse(sent.bodyText.contains("\"strict\""))
+        assertToolCallReturned(sent.result)
+    }
+
+    @Test(timeout = 30_000)
     fun aSingleToolCallForcedRequestCarriesTheParallelOffSwitchInsideToolChoice() {
         val sent = throughPipeline("claude-opus-5-5", override = true, singleToolCall = true)
 
