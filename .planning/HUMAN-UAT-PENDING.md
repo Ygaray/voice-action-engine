@@ -4,7 +4,7 @@
 
 ### Phase 1 — scaffold-publishing-proof (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/01-scaffold-publishing-proof/01-SELF-UAT.md`](phases/01-scaffold-publishing-proof/01-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless CLI/build + live JitPack, no device; artifacts core.jar md5 `2080ab4a048088a3a2b89b4080463aba` @ `96c9c62`, live ref `a40f8319ca`, 2026-09-30). Live consumer resolution from an empty Gradle cache, green `check`, 69 negative controls, api-dump wiring proof, OkHttp matrix legs with runtime guard.
 - **Items covered (5 ROADMAP success criteria):**
@@ -21,7 +21,7 @@
 
 ### Phase 2 — core-contract-pipeline-commit-seam (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/02-core-contract-pipeline-commit-seam/02-SELF-UAT.md`](phases/02-core-contract-pipeline-commit-seam/02-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:core` harness, no device; core.jar md5 `81a4651c80e81317de42a112551a07ba` @ `baf6fcc`, 2026-10-01). Forced re-run of `:core:test`: 233 tests, 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK.
 - **Items covered (5 ROADMAP success criteria):**
@@ -38,7 +38,7 @@
 
 ### Phase 3 — transcript-types-providerrouter-on-device-gate (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/03-transcript-types-providerrouter-on-device-gate/03-SELF-UAT.md`](phases/03-transcript-types-providerrouter-on-device-gate/03-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:core` harness, no device; core.jar md5 `aebc2ac0f8a1593cd116c5e5e66c9715` @ `d0970a5`, 2026-10-01). Forced re-run of `:core:test`: 422 tests, 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK (seven sealed types); `:core` runtime classpath has no HTTP dependency.
 - **Items covered (5 ROADMAP success criteria):**
@@ -55,7 +55,7 @@
 
 ### Phase 4 — anthropic-transport-okhttp-matrix (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off-with-gap — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/04-anthropic-transport-okhttp-matrix/04-SELF-UAT.md`](phases/04-anthropic-transport-okhttp-matrix/04-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:providers` harness, no device; providers.jar md5 `6644cdcedd13e7cb458b1067a682dd16` @ `2088a8e`, 2026-10-01). Forced re-run on all three OkHttp legs (4.12.0, 5.2.1, 5.5.0): 144 tests each, 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK; guard negative control proves a wrong-runtime leg fails.
 - **Items covered (5 ROADMAP success criteria):**
@@ -72,7 +72,7 @@
 
 ### Phase 5 — openai-openrouter-transports (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off-with-gap — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/05-openai-openrouter-transports/05-SELF-UAT.md`](phases/05-openai-openrouter-transports/05-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:providers` harness, no device; providers.jar md5 `8e485979f64306ff703cf738b2c3203b` @ `bb2e85f`, 2026-10-01). Forced uncached re-run on all three OkHttp legs (4.12.0, 5.2.1, 5.5.0): 411 tests each (246 in `providers.chat`), 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK; three negative controls (request golden, captured EDIT body, derived bad-JSON body) each made the right test fail and were restored.
 - **Items covered (5 ROADMAP success criteria):**
@@ -90,7 +90,7 @@
 
 ### Phase 6 — keystore (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/06-keystore/06-07-SELF-UAT.md`](phases/06-keystore/06-07-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS** (device SM-S908U TESTER R5CT10XNKQN, androidTest APK md5 `6ba7a5a27c1bb3edc7b274197095390e` @ `8d9382d`, 2026-10-01). Guarded runner `scripts/run-keystore-instrumented.sh` -> `OK (7 tests)` on the real AndroidKeyStore with real AES/GCM and file DataStores, on the post-code-review HEAD; JVM `:keystore` suite 96 tests, 0 failures.
 - **Items covered (4 ROADMAP success criteria):**
@@ -106,7 +106,7 @@
 
 ### Phase 7 — singleshot-strategy (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/07-singleshot-strategy/07-SELF-UAT.md`](phases/07-singleshot-strategy/07-SELF-UAT.md) — Verdict: **ALL 3 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device; HEAD `bbf91a4`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 535 tests, providers 572 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green on all three OkHttp legs; API-surface review OK (seven sealed types, classes=177). Backfilled on 2026-10-01 by the milestone master after the orchestrator flagged the missing record (the execute stage ruled Gate-1 N/A, `has-uat-criteria=false`).
 - **Items covered (3 ROADMAP success criteria):**
@@ -121,7 +121,7 @@
 
 ### Phase 8 — multi-turn-mappers (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/08-multi-turn-mappers/08-SELF-UAT.md`](phases/08-multi-turn-mappers/08-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device, no live call by this run; HEAD `bbf91a4`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 535 tests, providers 572 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green with the conformance suite passing on OkHttp 4.12.0, 5.2.1 and 5.5.0. Backfilled on 2026-10-01 by the milestone master after the orchestrator flagged the missing record (the execute stage ruled Gate-1 N/A, `has-uat-criteria=false`).
 - **Items covered (4 ROADMAP success criteria):**
@@ -137,7 +137,7 @@
 
 ### Phase 9 — agentic-loop-strategy (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/09-agentic-loop-strategy/09-SELF-UAT.md`](phases/09-agentic-loop-strategy/09-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device, no live call by this run; HEAD `b9c776f`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 646 tests, providers 587 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green; `AgenticLoopWireTest` 15/15 on OkHttp 4.12.0, 5.2.1 and 5.5.0 (the two 5.x legs forced fresh, not from cache); keystore 96/96; the CLN-02 `scanBannedConstructs` is green on all three modules and a planted `log_food` was shown to fail it, then removed (tree clean).
 - **Items covered (4 ROADMAP success criteria):**
@@ -154,9 +154,9 @@
 
 ### Phase 10 - sample-harness-gate-1-docs (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off-with-gap — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
-- **Gate 1 self-UAT log:** [`.planning/phases/10-sample-harness-gate-1-docs/10-SELF-UAT.md`](phases/10-sample-harness-gate-1-docs/10-SELF-UAT.md) - Verdict: **13 of 14 criteria PASS, 1 PARTIAL (G1-09 INCONCLUSIVE after one rerun)** (device yahirs-s22-ultra-2 SM-S908U, APK md5 `4c6fc98c64485ce878e11e60fdf92559` @ `4a586ed7b8`, 2026-10-01). Live legs L1-L6 and the optional L7 ran on the TESTER through the `:sample` UI; spend: 11 requests (anthropic=3 openai=4 openrouter=4), est USD 0.014.
+- **Gate 1 self-UAT log:** [`.planning/phases/10-sample-harness-gate-1-docs/10-SELF-UAT.md`](phases/10-sample-harness-gate-1-docs/10-SELF-UAT.md) - Verdict: **13 of 14 criteria PASS + 1 ACCEPTED BY EVIDENCE (G1-09 INCONCLUSIVE `model_filled_optional` after one rerun, accepted by the orchestrator 2026-10-01, NOT a PASS)** (device yahirs-s22-ultra-2 SM-S908U, APK md5 `4c6fc98c64485ce878e11e60fdf92559` @ `4a586ed7b8`, 2026-10-01). Live legs L1-L6 and the optional L7 ran on the TESTER through the `:sample` UI; spend: 11 requests (anthropic=3 openai=4 openrouter=4), est USD 0.014.
 - **Items covered (4 ROADMAP success criteria, 14 runbook criteria):**
   - **VER-01 - on-device base (G1-01..G1-05).** Fixture absent is loud and refuses with no spend; fixture present and verified (prefix `ebd3ef4a`, tools=18 equals host); OkHttp 5.2.1 pin runs on the device; bring-your-own key save, relaunch and delete through `:keystore`; the three test keys imported through `:keystore` with the plaintext files deleted.
   - **VER-02 - Anthropic agentic cold run (G1-06).** PASS: 2 turns, write 7016, read 7016, both 200, `min_cacheable=4096`, claude-haiku-4-5.
@@ -168,12 +168,12 @@
   - **C2 key charset:** proven per provider by `key_charset=ok` after a 200 (Anthropic, OpenAI, OpenRouter). Closed.
   - **C3 Responses-only 400:** L7 CAPTURED http=400 reason=http_error. Captured per the register; the exact marker wording is not visible under LE-7, so Yahir may accept or ask for a host-side wording check.
   - **C4 OpenRouter cache-write accounting (uat-pending/05 item 3(c)):** not exercisable in v1.0 (LATER-02); needs Yahir waiver; P11 waiver packet. NOT closed. `turn2_cache_read=0` observed in L6.
-  - **C5 OpenRouter EDIT-shaped call omitting optionals:** NOT closed. INCONCLUSIVE `model_filled_optional` after one rerun (G1-09). Carried to Gate-2.
+  - **C5 OpenRouter EDIT-shaped call omitting optionals:** INCONCLUSIVE(`model_filled_optional`) after one rerun (G1-09), **ACCEPTED BY EVIDENCE by the orchestrator (2026-10-01), not a PASS**. Evidence: the shared `ChatCompletionsProvider`/`ChatVendor` decoder path passed the live OpenAI omitted-optional check, and host tests prove no default-filling. Listed in the Phase 11 waiver packet next to C4 so Yahir sees both open items together.
   - **C6 `disable_parallel_tool_use`:** host golden plus live 200 on the first attempt (L2), accepted by the orchestrator. Closed.
   - **C7 deferred live legs:** not applicable (decision approved).
 - **Owner how-to-verify (run at milestone completion):**
   1. Read the Gate-1 log above and the nine `evidence/gate1-*.txt` files.
-  2. Decide the C4 waiver (cache-write via router, LATER-02) and the C5 disposition (accept the INCONCLUSIVE result, or choose a different OpenRouter model for the optional-omission check).
+  2. Decide the C4 waiver (cache-write via router, LATER-02) and confirm the C5 acceptance (already accepted by the orchestrator; Yahir may instead choose a different OpenRouter model for the optional-omission check).
   3. Optionally re-run L4 from the `:sample` screen on the TESTER with `scripts/run-sample-gate1.sh` (needs `push-keys` and a fresh install) to see whether a different model omits the optionals.
-  4. Confirm `10-WIRING-TEST.md` is re-run on the final SHA before the Phase 11 tag.
+  4. `10-WIRING-TEST.md` is `status: pass` (isolated rerun on `36c578f464`, `WIRING TEST: PASS checks=9`). If Phase 11 edits README, INTEGRATION, API or ECOSYSTEM (the optional fix for the 3 minor stumbles), the isolated wiring test must be rerun on the new SHA before the tag.
 - **Note:** `scripts/run-sample-gate1.sh` `package_installed` returns 141 under `pipefail` (grep -q SIGPIPE), so `build-install` reports `install_failed` after a good install and `preflight` reports `installed=no`; routed to gap-closure as a tooling defect. The runbook G1-01 step order should be capture-start, then a cold relaunch. The TESTER is cleaned (no package, no keys).
