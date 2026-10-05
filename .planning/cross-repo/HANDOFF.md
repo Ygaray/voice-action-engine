@@ -58,6 +58,17 @@ contract. Your milestone is one slice of it. Do not scope, plan or tag this repo
 - **Devices:** resolve through `~/.claude/context/devices/common.md`. The TESTER is `…-s22-ultra-2`; the personal
   phone is `…-s22-ultra` (no suffix). Always use `adb -s`. Only the Gate-1 agentic tester drives devices.
 
+### Protocol notes (added after kickoff)
+
+- **Tooling defects → the gsd-technician, never `/incident`** (control-plane `templates/COMMON.md` @9355847, orchestrator
+  2026-10-05). `/incident` is technician-only (c0) and refuses writes from peers. On a GSD / xrepo / deps / install defect,
+  send a seed and keep going:
+  `python3 ~/Projects/yahir-agentic-tools/yahir-gsd-control-plane/.claude/skills/xrepo/xrepo.py tech "<one line>" --evidence <path|sha|file>`.
+  Don't wait for an ack and don't resend. If the defect BLOCKS the run, also message the orchestrator. This repo's own product bugs
+  still go to this repo's tracker.
+- **Orchestrator session name:** `yahir-gsd-control-plane-6e` since 2026-10-05 (f2 reset). The current name is always in
+  `~/Projects/yahir-agentic-tools/yahir-gsd-control-plane/xrepo/vae-bilingual/effort.json` → `"orchestrator"`.
+
 ### Peers
 
 | Repo | Role | Wave | Slice | Session |
