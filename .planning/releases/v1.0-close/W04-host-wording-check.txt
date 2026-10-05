@@ -1,0 +1,28 @@
+W04 host-side wording check (Gate-2 prep for the v1.0 milestone close), 2026-10-05
+Question: does a real OpenAI Responses-only 400 (gpt-6-astra) match RESPONSES_ENDPOINT_MARKER ("v1/responses",
+providers/.../chat/ChatErrors.kt:42) so it maps to FailureReason.ModelUnsupported?
+Method: 2 direct POSTs to api.openai.com/v1/chat/completions with the spend-capped OpenAI TEST key (with-test-keys
+--only openai; key redacted, never printed). Both answered 400, so nothing was billed. Scripts: session scratchpad w04.sh / w04b.sh.
+
+Probe A: tools, NO reasoning_effort
+  http=400 type=invalid_request_error param=reasoning_effort code=null
+  message: "Function tools with reasoning_effort are not supported for gpt-6-astra in /v1/chat/completions. To use
+  function tools, use /v1/responses or set reasoning_effort to 'none'."
+  -> contains "v1/responses": the marker WOULD match (ModelUnsupported).
+
+Probe B: the ENGINE'S wire for a direct gpt-6-astra SingleShot (OpenAiModelRules.wireRules: GPT_6_FAMILY ->
+reasoning_effort "none"; forced tool_choice; parallel_tool_calls false; strict tool; max_completion_tokens)
+  http=400 type=invalid_request_error param=reasoning_effort code=unsupported_value
+  message: "Unsupported value: 'reasoning_effort' does not support 'none' with this model. Supported values are:
+  'low', 'medium', 'high', and 'xhigh'."
+  -> NO marker: falls through to the generic HttpError. This reproduces the L7 device capture
+     (http=400 reason=http_error) and explains it.
+
+VERDICT: MISMATCH. The marker path is unreachable for the request the engine actually sends.
+Reachability: only when an app overrides supportsTools=true for a Responses-only id on OpenAI direct (as the :sample L7
+probe did). By default, toolsOnChat() is false for gpt-6-astra / gpt-6.1-sol, so the engine refuses BEFORE any call
+(capability_refused, loud). SecondBrain and CalTracker main sources reference neither model nor any supportsTools
+override (grep, 2026-10-05). Under the override the failure is still loud (HttpError 400), just less specific.
+Fix options: (1) wireRules: a Responses-only id on OpenAI direct sends no reasoning_effort, so the API answers with the
+/v1/responses text and the marker matches; and/or (2) classify param=reasoning_effort + code=unsupported_value as
+ModelUnsupported. Both are internal: no API change.
