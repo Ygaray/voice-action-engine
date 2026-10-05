@@ -13,7 +13,7 @@ research-complete message (decision map 2e9e349). They are inputs for Yahir's di
 | 6 | Picker StrategyId mapping | P16 [pickcontext] | SB OK | SB maps its picker StrategyId → `claude-haiku-4-5`. |
 | 7 | `normalize` null semantics | P14 [normalize] | CT OK: null = reject | `normalize` returns canonical English for in-map EN/ES tokens; null → NoMatch → cloud. |
 | 8 | :undo bridge placement (A18) | P17 [bridge] | **Final** (orchestrator + SB + CT): app glue + sample + doc snippet + additive `compositeSink`; no 6th module (E7's five modules) | **SB: `compositeSink` isolates a throwing child sink from its siblings and from the pipeline.** A18 is met if the engine exposes the `compositeSink` seam and the sample proves the bridge end to end. |
-| 9 | stt labels that can be fallbacks | P18 [stt-semantics] | pending (stt answers separately) | — |
+| 9 | stt labels that can be fallbacks | P18 [stt-semantics] | stt: a detected-vs-fallback signal (`languageSource`/`languageDetected`, defaulted, additive) is deferred to the stt v3.2 seed 7b1f660; nothing blocks v1.1 | At the minSdk-35 floor, native API 34+ already gives `language == null` when detection isn't confident → pass labels through, treat null as unknown. Only remaining gap: the server path's fallback-to-"en" (document it). |
 
 Also accepted by the orchestrator: brief corrections (a) KeyAccess is a plain `interface`, still opt-in `@DelicateKeyAccess`;
 (b) providerCallId via internal `submit()` plumbing; (c) W04 has two internal causes.
