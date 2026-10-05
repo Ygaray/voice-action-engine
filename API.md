@@ -34,11 +34,13 @@ core.strategy.agentic   AgenticLoopStrategy
 core.strategy.singleshot SingleShotStrategy
 core.telemetry          CommandTrace, PipelineEvent, PipelineEventListener, TierAttempt, TraceCode, TurnRecord, Usage
 core.transcript         AssistantMessage, AssistantPart, CacheDirective, Message, ModelRequest, ModelResponse,
-                        NativeReplay, StopReason, ToolChoice, ToolResult, ToolResultsMessage, UserMessage
+                        NativeReplay, ReasoningMode, StopReason, ToolChoice, ToolResult, ToolResultsMessage,
+                        UserMessage
 providers.anthropic     AnthropicAttempt, AnthropicAttemptKind, AnthropicAttemptObserver, AnthropicProvider
 providers.chat          ChatCompletionsAttempt, ChatCompletionsAttemptKind, ChatCompletionsAttemptObserver,
                         ChatCompletionsProvider (openAi { } and openRouter { } are on its companion)
-keystore                ApiKeyStore, KeySlot, KeyState, KeystoreCauseCodes, KeystoreCredentialSource
+keystore                ApiKeyStore, DelicateKeyAccess, KeyAccess, KeySlot, KeyState, KeystoreCauseCodes,
+                        KeystoreCredentialSource
 ```
 
 For example `import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline` and
@@ -76,7 +78,7 @@ leaves), annotation class.
 | `SingleShotStrategy` | class | | The one-call tier: force one tool, resolve it locally. |
 | `AgenticLoopStrategy` | class | | The bounded multi-turn tier over your tools. |
 | `OutcomeResolver` | fun interface | | Your local step that turns an `Extraction` into a `Resolution`. |
-| `Extraction` | class | | The tool name and untouched arguments the model called. |
+| `Extraction` | class | | The tool name and untouched arguments the model called, plus `callId`: the provider's tool-call id, or null. |
 | `Resolution` | abstract class | open | A resolver's verdict: `Steps`, `NoMatch`, `Escalate` or `Failed`. |
 | `ToolExecutor` | fun interface | | Your step for each tool call of an agentic run. |
 | `ToolSpec` | class | | A tool the model may call (`mutating`, `terminal`, `strict`); `ToolSpec.clarification(name)`. |
@@ -102,7 +104,7 @@ leaves), annotation class.
 | `HeldProposal` | class | | Changes the gate held; commit later with `commitHeld`. |
 | `CommitSink` | interface | | Hears every action and every run close (undo journal, audit). |
 | `ActionEvent` | class | | One action reaching the sink. |
-| `ExecutedAction` | class | | One recorded action: `kind`, `applied`, `mutating`, tool name, ids, context. |
+| `ExecutedAction` | class | | One recorded action: `kind`, `applied`, `mutating`, tool name, ids (including `providerCallId`, the provider's id for the call, or null), context. |
 | `ActionKind` | value class | open | `COMMITTED`, `HELD`, `PREVIEW`, `IS_ERROR`. |
 | `RunTermination` | sealed class | closed | How a run ended for the sink: `Done`, `Failed`, `Exhausted`, `Cancelled`. |
 | `AiProvider` | interface | | A model provider: one neutral request in, a `ModelResult` out. |
@@ -126,7 +128,7 @@ leaves), annotation class.
 | `PipelineEventListener` | fun interface | | Receives `PipelineEvent`s live. |
 | `PipelineEvent` | interface | open | Something that happened in a run (ids, codes, counts only). |
 | `CommandTrace` | class | | What a run did: tier attempts, codes, usage, duration. |
-| `TierAttempt` | class | | One tier's entry in the trace. |
+| `TierAttempt` | class | | One tier's entry in the trace, including `carryIn` (whether the tier started with the previous tier's carry; presence only). |
 | `TurnRecord` | class | | One model round trip in the trace. |
 | `TraceCode` | value class | open | A stable code the engine records in a trace. |
 | `Usage` | class | | Tokens in four buckets (uncached input, cache read, cache write, output). |
@@ -137,7 +139,8 @@ leaves), annotation class.
 | `ToolResultsMessage` | class | | The results of one assistant turn's tool calls, sent back together. |
 | `ToolResult` | class | | The app's answer to one tool call. |
 | `NativeReplay` | class | | A provider's own assistant turn, kept verbatim for replay. |
-| `ModelRequest` | class | | The neutral request: system, messages, tools, tool choice, limits. |
+| `ModelRequest` | class | | The neutral request: system, messages, tools, tool choice, limits, and `reasoning`. |
+| `ReasoningMode` | value class | open | How much reasoning a tier asks for: `OFF` (the default) or `PROVIDER_DEFAULT`; both are sent identically in this version. |
 | `ToolChoice` | abstract class | open | Whether the model may (`Auto`) or must (`Required`) call a tool. |
 | `CacheDirective` | class | | Where the provider should place cache breakpoints. |
 | `ModelResponse` | class | | What a model answered: message, stop reason, usage, request id. |
@@ -161,6 +164,8 @@ leaves), annotation class.
 | Type | Kind | Set | Purpose |
 |---|---|---|---|
 | `ApiKeyStore` | class | | Stores one encrypted bring-your-own key per provider in your DataStore. |
+| `KeyAccess` | interface | | Device-key access behind `ApiKeyStore`; tests only, and opt-in (see `DelicateKeyAccess`). |
+| `DelicateKeyAccess` | annotation class | | The opt-in marker that `KeyAccess` and `ApiKeyStore(dataStore, slots, keyAccess)` require. |
 | `KeySlot` | class | | One row of your key table: provider, alias, ciphertext name, IV name. |
 | `KeyState` | abstract class | open | What the store knows: `NotConfigured`, `Ready`, `KeyMissing`, `Unreadable`. |
 | `KeystoreCauseCodes` | object | open | The stable cause codes of an unreadable key, each documented with the UX it calls for: re-enter the key, or transient, retry. |
@@ -177,17 +182,20 @@ overrides, an `onDevice` capability, a `selector` and replaceable `clock` and `r
 
 `CommandPipeline.execute(input)` returns a `CommandOutcome` and does not throw, except for your own coroutine's
 cancellation or a JVM `Error`. **`CommandOutcome` is closed**: `Completed(reply, terminalCall, partial)`,
-`Failed(reason, details)` and `Unhandled(lastReason)`. Every outcome carries `runId`, `parentRunId`, `executed`,
+`Failed(reason, details)` and `Unhandled(lastReason, cappedByPolicy)`. `cappedByPolicy` is true when the command's policy
+skipped a tier (offline-only mode included) and no tier handled the command. Every outcome carries `runId`, `parentRunId`, `executed`,
 `commits`, `held` and `trace`. `Completed(partial = true)` means some work was done and the rest was not: render it
 as "did X, couldn't finish", never as full success. `FailureReason` and `EscalationReason` are **open**; every reason
 has a stable `code`.
 
 ## Strategies and tools
 
-- `SingleShotStrategy(id) { tooling, resolver, userTurn, forceTool, onNoToolCall, onRefusal, capabilities, clock }`:
-  one provider call, one local resolution. Only the first tool call of an answer is acted on.
-- `AgenticLoopStrategy(id) { tooling, executor, userTurn, capabilities, clock }`: a bounded conversation; limits come
-  from `TierPolicy`.
+- `SingleShotStrategy(id) { tooling, resolver, userTurn, forceTool, reasoning, onNoToolCall, onRefusal, onFailed,
+  capabilities, clock }`: one provider call, one local resolution. Only the first tool call of an answer is acted on.
+  `onFailed` fires only for provider failures other than `NoToolCall` and `Refusal`, and defaults to
+  `Failed(reason, details)`.
+- `AgenticLoopStrategy(id) { tooling, executor, userTurn, reasoning, capabilities, clock }`: a bounded conversation;
+  limits come from `TierPolicy`.
 - `CommandStrategy` is the interface behind both; a custom tier submits every write as a `ToolStep` through
   `CommandSession.submit`, so the gate and the sink always see it. `StrategyOutcome` (**closed**) is what a tier
   returns.
@@ -247,7 +255,9 @@ written.
 `Missing()` (a class: construct it with parentheses) or `Unreadable(cause)`. The engine refuses a credential stamped for
 another provider, and `Credential.toString()` never shows the key. `KeystoreCredentialSource(ApiKeyStore(dataStore, slots))` is the ready-made source: the app owns
 the `DataStore` (one per file per process) and the `KeySlot` table. `ApiKeyStore` offers `save`, `delete`, `read` and
-`observe`; the plaintext key never leaves through a public member. `KeyState` is **open**. The unreadable causes are
+`observe`; the plaintext key never leaves through a public member. A test can replace the device key store with
+`ApiKeyStore(dataStore, slots, keyAccess)`, which needs `@OptIn(DelicateKeyAccess::class)`; see
+[`INTEGRATION.md`](INTEGRATION.md) section 7 for the fake. `KeyState` is **open**. The unreadable causes are
 stable codes: `key_missing`, `decrypt_failed`, `stored_value_malformed` (re-enter the key) and `keystore_unavailable`,
 `storage_unreadable` (transient, retry). `KeystoreCauseCodes` exposes them as getter-only values to read at run time
 (`KEY_MISSING`, `DECRYPT_FAILED`, `STORED_VALUE_MALFORMED`, `KEYSTORE_UNAVAILABLE`, `STORAGE_UNREADABLE`; they are not
@@ -276,6 +286,7 @@ The constructors and members that integrators write or read most often, in one p
 | `Usage(inputUncached: Long, cacheRead: Long, cacheWrite: Long, output: Long)` | `core.telemetry` | Tokens in four buckets, in this order. |
 | `CommandOutcome.Completed.reply` (`String?`), `.terminalCall`, `.partial` | `core.pipeline` | The tier's text answer, a terminal call, and the partial flag. |
 | `CommandOutcome.Failed.reason`, `CommandOutcome.Unhandled.lastReason` | `core.pipeline` | The `FailureReason`, or the last `EscalationReason?`. |
+| `Extraction(toolName: String, arguments: JsonObject, callId: String?)` | `core.strategy` | What a resolver receives; `callId` is the provider's tool-call id, or null. |
 | `CommitSink.onRunClosed(runId: String, termination: RunTermination)` | `core.commit` | Called once when a run closes (`suspend`). |
 
 ## Telemetry and trace
