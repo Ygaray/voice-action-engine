@@ -15,6 +15,8 @@ LOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/vae-keystore-tester.lock"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 SCENARIOS=0
+# The phase directory the runner is pointed at (VAE_GATE1_PHASE_DIR); the one place to retarget when the phase changes.
+PHASE_REL=".planning/phases/12-wave-1-seams-w04-fix"
 PKG="io.github.ygaray.voiceactionengine.sample"
 # Key shapes are assembled from fragments so that no literal key-shaped text is committed (the git secret hook scans staged files).
 KEY_SHAPE="(^|[^A-Za-z0-9])s""k-[A-Za-z0-9_-]{20,}|bearer |x-api-key|authorization"
@@ -121,8 +123,8 @@ run_scenario() {
   # Skeleton inputs the runner reads on the host: the decision file, the fixture and its digest constant, the cold stamp.
   case "${DECISION:-}" in
     approved | deferred)
-      mkdir -p "$dir/repo/.planning/phases/12-wave-1-seams-w04-fix"
-      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" >"$dir/repo/.planning/phases/12-wave-1-seams-w04-fix/12-LIVE-LEG-DECISION.md"
+      mkdir -p "$dir/repo/$PHASE_REL"
+      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" >"$dir/repo/$PHASE_REL/12-LIVE-LEG-DECISION.md"
       ;;
   esac
   case "${FIXTURE:-}" in
@@ -148,11 +150,11 @@ run_scenario() {
   # silently overwrite the scenario's own value.
   if [ -n "${ANDROID_SERIAL_VALUE:-}" ]; then
     out="$(env -u BASH_ENV SCENARIO="$name" CALLS_LOG="$dir/calls.log" STATE_DIR="$dir/state" ADB="$dir/adb" \
-      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" \
+      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" VAE_GATE1_PHASE_DIR="$PHASE_REL" \
       ANDROID_SERIAL="$ANDROID_SERIAL_VALUE" "$dir/repo/scripts/run-sample-gate1.sh" "$@" 8>&- 2>&1)"; code=$?
   else
     out="$(env -u BASH_ENV -u ANDROID_SERIAL SCENARIO="$name" CALLS_LOG="$dir/calls.log" STATE_DIR="$dir/state" ADB="$dir/adb" \
-      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" \
+      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" VAE_GATE1_PHASE_DIR="$PHASE_REL" \
       "$dir/repo/scripts/run-sample-gate1.sh" "$@" 8>&- 2>&1)"; code=$?
   fi
   LAST_OUT="$out"
@@ -271,7 +273,7 @@ GOLDEN="$HERE/../sample/src/test/resources/evidence-lines.golden.txt"
 EVIDENCE_KT="$HERE/../sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/evidence/EvidenceLine.kt"
 [ -x "$FILTER_SRC" ] || die "setup: $FILTER_SRC is missing or not executable"
 [ -f "$GOLDEN" ] || die "setup: $GOLDEN is missing"
-EVID_REL=".planning/phases/12-wave-1-seams-w04-fix/evidence"
+EVID_REL="$PHASE_REL/evidence"
 
 # Planted key-shaped tokens, assembled at run time from fragments (never written as a literal).
 PLANT_A="s""k-ant-api03-abcdefghijklmnopqrstuvwxyz0123"

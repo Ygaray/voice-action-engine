@@ -36,7 +36,9 @@ ADB="${ADB:-adb}"
 # The key helper: it moves a key by file reference and refuses the personal phone itself. PUSH_TEST_KEY names a binary only.
 PUSH_TEST_KEY="${PUSH_TEST_KEY:-push-test-key}"
 
-PHASE_DIR=".planning/phases/12-wave-1-seams-w04-fix"
+# The phase whose decision file and evidence this run uses. Set VAE_GATE1_PHASE_DIR to retarget it (for example once the
+# phase directory is archived) without editing the script.
+PHASE_DIR="${VAE_GATE1_PHASE_DIR:-.planning/phases/12-wave-1-seams-w04-fix}"
 DECISION_FILE="$PHASE_DIR/12-LIVE-LEG-DECISION.md"
 EVIDENCE_DIR="$PHASE_DIR/evidence"
 HOST_FIXTURE="sample/src/debug/assets/sb-a10-fixture.json"
