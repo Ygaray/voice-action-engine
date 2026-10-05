@@ -1,0 +1,1 @@
+{"content":"Routing: classifier-before-call (RouteLLM, ~85% cost cut at 95% quality on MT Bench) vs cascade (FrugalGPT, cheap first + confidence check escalate).","source":"web","provider":"websearch","confidence":"LOW","fetched_at":"2026-10-05T08:20:51.486Z","ttl":86400000,"kind":"web"}

@@ -1,0 +1,1 @@
+{"content":"Plan-and-Execute: planner+executor+replanner, no binding; ReWOO: #E1 variable refs in plan; LLMCompiler: DAG of tasks with dependency substitution, parallel. All support replan/joiner.","source":"web","provider":"webfetch","confidence":"LOW","fetched_at":"2026-10-05T08:20:51.178Z","ttl":86400000,"kind":"web"}

@@ -1,0 +1,1 @@
+{"content":"Rhasspy/voice2json/hassil: JSGF-style templates; [optional], (a|b), {slot}, <rule>, $slot lists, number ranges {0..100:slot}, substitutions; offline deterministic intent recognition.","source":"web","provider":"webfetch","confidence":"LOW","fetched_at":"2026-10-05T08:20:50.892Z","ttl":86400000,"kind":"web"}

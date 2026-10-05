@@ -1,345 +1,282 @@
-# Project Research Summary
+# Research Summary: voice-action-engine v1.1
 
-**Project:** voice-action-engine
-**Milestone:** v1.0
-**Domain:** Android/Kotlin JitPack library. A multi-provider LLM "voice command → app action" engine (tier ladder, forced-tool SingleShot, provider-neutral agentic loop, confirm/commit/undo, BYO-key)
-**Researched:** 2026-09-29
-**Confidence:** HIGH for stack parity, module boundaries, seams and port behavior (read directly from SB/CT/sibling-hub sources and registries). MEDIUM for OpenAI/OpenRouter wire details and JitPack inter-module publishing. Those still have to be proven live.
+**Project:** voice-action-engine (Android/JitPack multi-module library)
+**Milestone:** v1.1
+**Researched:** 2026-10-05
+**Research period:** phases 12–20 (cuts `v1.1.0`)
+**Files synthesized:** STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md, ROADMAP.md
 
-> Authority: `CROSS-REPO-SCOPE-CONTRACT.md` §6.2 + §10 (A1–A14, errata E1–E6) wins over any research file. Coordinates are **settled by E5**: per-module `com.github.Ygaray.voice-action-engine:<artifactId>`. The A10 fixture is **kept out of git (LE-7)**.
+---
 
 ## Executive Summary
 
-This is a small, opinionated library with exactly two known Wave-1 consumers, SecondBrain (SB) and CalTracker (CT). It isn't a general LLM framework, and nearly every hard feature already exists in one of the two apps: SB's bounded Anthropic agentic loop with prompt caching and a suspend-until-tap confirm gate, and CT's 3-provider forced-tool extraction with deferred "Proposed" confirmation. The job is to lift both into one provider-neutral engine without losing their disciplines: never-throw typed outcomes, cancellation always propagating, keys never reaching any sink, verified undo, and a byte-stable cache prefix. None of the surveyed frameworks (LangChain4j, Koog, Spring AI, Vercel AI SDK, the vendor SDK runners) has the combination this engine needs: a cheap-first tier ladder, defer-mode confirmation, verified-undo commit sink, and typed never-thrown failures. So the design is ported, not copied.
+Voice-action-engine v1.1 adds a four-tier ladder (LocalGrammar → Plan-Then-Execute → Router → AgenticLoop) to the v1.0 engine, plus run-level undo and a speech adapter. The research validates a specific stack (LiteRT-LM 0.17.1 for the on-device spike, no new dependencies for grammar/plan/router, stdlib-only `:undo`, Android library `:voice-adapter` with `:stt` v0.7.0), concrete seam shapes for the new tiers, and a set of nine critical design rules that prevent silent failures and API-evolution hazards. The main risk is not algorithmic—it is **build plumbing** (15 scripts hard-code the three-module list, some fail loudly and some pass silently), **additive-API traps** (constructor defaults remove JVM overloads, Metalava does not catch them), and **undo timing** (capturing before-state at the wrong moment clobbers later work). All are resolvable with mechanical gates and explicit design choices recorded in each phase's CONTEXT.
 
-Recommended approach:
-- **Modules.** Four modules: `:core` and `:providers` as **pure Kotlin/JVM** modules, `:keystore` as the only Android library, and `:sample` as an unpublished debug app.
-- **Transport.** Raw OkHttp plus kotlinx.serialization `JsonObject`. No vendor SDKs, because they drag Jackson and kotlin-reflect onto consumer APKs.
-- **Versions.** Match consumers exactly: Kotlin 2.3.20, AGP 9.2.1, Gradle 9.4.1, **JVM 11 bytecode**, OkHttp **4.12.0 compile floor**.
-- **Keystone design.** One engine-owned write path, "prepare → gate → commit" (`ToolStep` → `CommitCoordinator` → `PreApplyGate` → `CommitSink`). It serves both SB's suspending gate and CT's deferred gate.
-- **Transcript.** A neutral transcript model whose assistant turns carry a **verbatim provider-native replay blob**. This keeps thinking blocks and the cache intact.
-
-The main risks all fail silently:
-1. **Silent cache miss.** Turn-2 `cache_read = 0` from prefix drift, a below-minimum prefix, or a model switch mid-loop. This kills the A10 Gate-1.
-2. **Stale forced-tool assumptions.** Opus 5.5, Sonnet 5.5, Fable 5.1 and Mythos 5.1 return 400 on forced `tool_choice`. CT's guard list is already missing `claude-sonnet-5-5`.
-3. **Lossy neutral transcript.** Dropping thinking blocks causes 400s on current Claude models.
-4. **A1 matrix that proves nothing.** Recompiling the 5.x leg, or letting it silently run 4.12 again, gives a false green.
-5. **Unproven JitPack publishing.** This is the first repo in the ecosystem with published inter-module dependencies.
-6. **Sealed/enum growth after the tag.** It breaks consumers' exhaustive `when` even though the ABI check passes.
-
-Every one of these has a concrete mechanical guard. The roadmap should front-load the build and publishing proof in step 1 and the outcome/gate type design in step 2, because both harden into the immutable, strictly additive `v1.0.0` API.
+---
 
 ## Key Findings
 
-### Recommended Stack
+### From STACK.md
 
-Match the consumers and don't chase the latest versions. SB, CT and YAT build today on Kotlin 2.3.20 / AGP 9.2.1 / Gradle 9.4.1 / coroutines 1.11.0 / serialization 1.11.0 / DataStore 1.2.1, so the library forces zero upgrades on them. Upstream is at Kotlin 2.4.20, AGP 9.4.1 and Gradle 9.8.0, but nothing in v1.0 needs those.
+**Core decision (HIGH confidence):**
+- **Phase 12:** Add `claude-sonnet-5` capability row with **1,024-token minimum cacheable prefix** (not 512 like Sonnet 5.5). Anthropic docs fetched 2026-10-05 confirm this; the cache diagnostic must use a separate constant, not conflate it with the 512 value.
+- **Phase 12:** W04 fix has **two independent causes**. (a) `OpenAiModelRules.wireRules` tests `GPT_6_FAMILY` before the Responses-only case, so direct `gpt-6-astra` gets `"none"` (incorrect). (b) ChatErrors classifier only recognizes the `v1/responses` marker, not the exact captured 400 shape (`param=reasoning_effort`, `code=unsupported_value`). Full list of ids rejecting `"none"`: `gpt-6-astra`, `gpt-6.1-sol`, `gpt-5.4-pro`, `gpt-5.5-pro`, `gpt-5.2-codex`, `gpt-5.3-codex`. Allow-table must be positive (ids that *do* accept `"none"`) so future ids default to "omit" rather than "try `"none"`".
+- **Phase 13:** LiteRT-LM 0.17.1 (not MediaPipe), Gemma 4 E2B `.litertlm` (Apache-2.0, ungated, ~2.6 GB). **Compatibility risk:** runtime built with Kotlin 2.4.0 metadata and Java 21 class major version; S22 running Kotlin 2.3.20 is at the edge of the supported metadata-read window. Measure `:ondevice` compilation in Phase 13 plan step 1.
+- **Phase 14:** No new dependencies. Hand-roll EN/ES number-word parser and matcher in `:core`, stays within the allowlist (stdlib + annotations + coroutines-core + serialization-json).
+- **Phase 17:** `:undo` is stdlib-only (no `:core`, no coroutines). Use `suspend` as a language feature, `synchronized` for short critical sections.
+- **Phase 18:** `:voice-adapter` **must be an Android library (AAR)** because `:stt` v0.7.0 is an AAR with minSdk 33. Add content-filtered JitPack repo to `settings.gradle.kts`: `maven("https://jitpack.io") { content { includeGroup("com.github.Ygaray.voice-engine-android") } }`. Use `compileOnly` scope for `:stt` to avoid transitive pull of OkHttp 5.2.1 and other deps.
 
-**Core technologies:**
-- **Kotlin 2.3.20 + AGP 9.2.1 (built-in Kotlin; never apply `kotlin.android`) + Gradle 9.4.1, JDK 17 build:** exact consumer parity. YAT proves the AGP 9.2.1 + JitPack `openjdk17` combination.
-- **JVM 11 bytecode on all published modules:** SB and YAT compile at 11. A JVM-17 library that exposes a public `inline`/DSL function (`commandPipeline { }`) fails to compile in SB.
-- **OkHttp 4.12.0 as a plain `api` requirement** (no `strictly`, no BOM), tested at runtime against 4.12.0 / 5.2.1 / 5.5.0: this is A1. Consumers' 5.2.1 wins normal conflict resolution.
-- **kotlinx.serialization-json 1.11.0 `JsonObject`:** used for tool schemas, arguments and wire bodies. Both ports already use it. It's an `api` dependency of `:core`, which is an accepted coupling.
-- **kotlinx-coroutines-core 1.11.0** only (never `-android`) in `:core`/`:providers`.
-- **AndroidKeyStore AES/GCM + DataStore 1.2.1** in `:keystore`. Not `EncryptedSharedPreferences`, which is deprecated.
-- **Tooling:**
-  - detekt 1.23.8, **syntax-only** (plain `detekt`, never `detektMain`), `buildUponDefaultConfig = true`, `maxIssues: 0`, **no baseline file**.
-  - Metalava 0.5.1 on all three published modules.
-  - `explicitApi()` everywhere.
-  - Legacy `okhttp3.mockwebserver` + JUnit 4.13.2.
-  - Hand-written fakes. No MockK, no Robolectric, no Turbine.
+**Confidence: HIGH** for all stack decisions (vendor docs, local source reads).
 
-### Expected Features
+### From FEATURES.md
 
-**Must have (table stakes; a Wave-1 consumer can't migrate without these):**
-- Pipeline spine: `CommandInput` → `CommandPipeline` → `StrategyOutcome` (Completed / Escalate(reason, carry?) / NoMatch / Failed). Also `TierSelector.Linear` (+`Fixed`) and `TierPolicy` (offlineOnly, maxTier, allowedProviders, iteration/token ceilings as **policy defaults**: 6 / 60k / 4096).
-- Never-throw collapse with cancellation always rethrown. Committed work is reported on **every** outcome variant.
-- Typed `FailureReason` at SB granularity or finer: auth / billing / rate-limit / overloaded / timeout / network / malformed / malformed-args / refusal / max-tokens / no-tool-call / budget / tool-failure / not-configured / provider-unavailable. It must also handle OpenRouter's errors that arrive with HTTP 200.
-- `PreApplyGate` with **both** suspend mode (SB) and defer mode (CT, with an amended batch), plus `CommitSink` with verified undo. Held never counts as success. Fail-closed. The held `tool_result` must stay byte-compatible with SB (`{"applied":false,"status":"held_for_confirmation"}`).
-- Two-phase `ToolExecutor` (`prepare` → `Finished | Mutation`) so the gate is engine-enforced inside the loop.
-- Neutral `ToolSpec` with per-dialect encoders, OpenAI strict-mode keyword stripping, and deterministic name-sorted byte-identical serialization.
-- Forced tool choice **with a reactive fallback**: on the specific 400, retry once with `auto` + `strict` + an instruction, then treat "no call" as `NoToolCall`.
-- Anthropic/OpenAI/OpenRouter transports:
-  - Caching as a provider capability. Anthropic gets one `cache_control` on the last system block (A10 parity). OpenAI caches automatically. OpenRouter passes it through.
-  - Usage normalized to `{inputUncached, cacheRead, cacheWrite, output}`.
-  - OpenRouter uses `provider.require_parameters: true` when forcing a tool.
-- A neutral multi-turn transcript with verbatim raw replay, plus SB's loop guards: whole-turn validation, final-iteration guard, token ceiling, 2-strike tool-failure abort, unknown tool → `is_error`.
-- A per-call provider/model/key seam. `NotConfigured` short-circuits before any network call. A provider's key is never substituted for another's. `ON_DEVICE` slot + capability gate.
-- Trace on every result, plus an optional typed callback, with no secrets. `:keystore` with the typed `NotConfigured / Ready / KeyMissing / Unreadable` states.
+**Table-stakes features by tier (HIGH confidence from source review):**
 
-**Should have (cheap enough to include in v1.0):**
-- Transient retry at `maxRetries = 1`, for HTTP only and never tool execution.
-- **Commit-time `CommitSink` notification.** This closes a real SB hole: undo is currently lost on cancel after a commit.
-- A `CacheNotEngaged` diagnostic event.
-- `requestId` on failures.
-- An idempotent confirmation handle.
+1. **LocalGrammar (Phase 14):** Exact whole-utterance match, no substring or fuzzy. Template DSL with literals, `[optional]`, `(alt|alt)`, `{slot}`, reusable rules. Per-slot `normalize: (raw, language) -> String?` hook. Language handling: `language` given → that pack only; `language == null` → try both packs; both match with different results → NoMatch (never guess). Typed slots (integer, decimal, closed list, bounded free text). **Number-word spec is the research flag.** Bilingual number parsing for integer spans 0–999,999, fractions (medio/media, cuarto, decimals), mixed digit/word forms, gender and apocope in Spanish (veintiuno / veintiún / veintiuna). No fuzzy matching, no built-in domain vocabularies.
 
-**Defer:**
-- v1.x: a moving/top-level cache breakpoint, OpenAI `prompt_cache_key`, OpenRouter `anthropic/*` cache_control, model catalog (it stays in CT), and a schema-builder DSL.
-- v2+: streaming, the Nano/AICore implementation, and more providers.
-- Explicit anti-features: streaming, parallel tool execution, dollar-cost tables (ceilings are in tokens), reflection `@Tool`, cross-command memory, auto cross-provider failover, DI integration, library UI, logging interceptors, and retrying tool execution.
+2. **PlanThenExecute (Phase 15):** One planning call, steps returned as forced-tool JSON, validated before execution (unknown tools, read steps, empty plan → escalate with zero side effects). Binding syntax: whole-value string references to earlier **committed** step's `targetIds` (e.g., `"$a.noteId"`). Held step blocks dependents; **decide in phase discuss: stop at first hold vs continue independent steps** (recommend stop). One replan maximum, never after commit. Trace shows exactly how many model calls ran.
 
-### Architecture Approach
+3. **TierSelector.Custom (Phase 16):** App provides `StartTierPicker` interface (suspend, sees input and eligible tier ids). Grammar runs free as pre-pass. **Skip the engine Router entirely when fewer than two LLM tiers are eligible** (free saving). Picker failure → Linear + `router_fallback` code (never failing the command). **Optional `TierSelector.Router`** off by default, built on same seam, picks a tier via a forced-tool classifier. Telemetry reports **`tiersSkipped`** (upper bound on avoided attempts), not "saved" (counterfactual claim).
 
-Dependencies point one way: `:sample → {:providers, :keystore} → :core`. `:core` has no HTTP, no Android and no other hub. It holds the pipeline, both strategies, the neutral transcript, the router, the commit coordinator, telemetry and a small `testing/` package (`FakeAiProvider`, recording sinks) so SB and CT can test their own wiring. `:providers` holds the internal wire mappers behind a `WireDialect` seam. OpenAI **and** OpenRouter both use Chat Completions in v1.0, with the Responses API as a later additive option. The app supplies everything domain-specific through seams, bound by plain constructors and DSL, with no DI.
+4. **Run-level Undo (Phase 17):** Entity adapters (read before-state, write back, re-insert if deleted). Reverse-order restore within a run. Unchanged-since-commit atomic check (entity fingerprint vs live state). Refuse loudly rather than clobber. Footprint-based grouping (entangled actions undo together). Compensators for out-of-DB effects (idempotent re-run). Result is complete or exact refusal list.
 
-**Major components:**
-1. **`CommandPipeline`** (core): per-call policy read, tier walk, escalation rules, and the **no-escalation-after-commit invariant**. Everything collapses to a typed outcome plus `CommandTrace`.
-2. **`SingleShotStrategy` / `AgenticLoopStrategy`** (core): talk only to `AiProvider` through the router, and never write directly.
-3. **`CommitCoordinator`** (core): the only write path, proposal → `PreApplyGate.admit` → `CommitSink.commit`, or a `HeldProposal`. It ships an `AwaitingConfirmGate` helper that ports SB's `VoiceConfirmGate` (mutex, 120 s, fail-closed).
-4. **`ProviderRouter`** (core): per-call `ProviderSelectionSource.select()` → `credential(thatProvider)` → capability check → ON_DEVICE availability → declared fallback only.
-5. **`AnthropicProvider` / `ChatCompletionsProvider.openAi()/.openRouter()`** (providers): clean client derived via `newBuilder()` with interceptors stripped, cancellation-safe `Call.await()`, HTTP → `FailureReason`, usage normalization, `NativeReplay`.
-6. **`:keystore`**: `ApiKeyStore` over an **app-supplied explicit `KeySlot` table and the app's existing `DataStore`**, plus a `KeystoreCredentialSource` adapter.
+5. **Voice Adapter (Phase 18):** `FinalSegment(text, segmentId, language: String?)` → `CommandInput(transcript, language, context, parentRunId)`. Language **normalization to en/es/null strictly, never a guess** including from the text. `segmentId` dropped (opaque, per-session, resets on server-to-native handoff). **No confidence field** (stt v0.7.0 has none). `language` is null for every non-auto stt session and for any low-confidence detection; **null is the normal case**.
 
-Public API rules:
-- Growing types are regular classes, not `data class`.
-- Sealed is used only for contract-closed shapes (`StrategyOutcome`, `GateDecision`, `Message`, `ToolStep`).
-- Growing taxonomies (`FailureReason`, `HoldReason`, `PipelineEvent`, `StopReason.Other`) are open or have an `Other` leaf.
-- `ProviderId` is a value class with constants (see the open questions).
+**Confidence: MEDIUM to HIGH** (source-verified for stt contract; design recommendations for tier shapes based on prior art and trade-off analysis).
 
-### Critical Pitfalls
+### From ARCHITECTURE.md
 
-1. **Silent cache invalidation (A10 Gate-1 false fail).**
-   - Freeze tools and system once per command, in an ordered list.
-   - Keep date, language and transcript only in the first user message.
-   - Snapshot provider/model/key/effort **per command, not per iteration**.
-   - Add a byte-identity unit test.
-   - At Gate-1, assert turn-1 creation > 0 and turn-2 read > 0 with a prefix above the model minimum (Haiku 4.5 = 4,096).
-   - Keep confirm gates in canned-admit mode, since the 5-minute TTL would otherwise expire.
-2. **Forced tool_choice 400 on current Claude models.** Use a per-model capability table that apps can override, a reactive 400 → auto+strict retry, and "no tool call" → `Escalate(NoToolCall)`. Never port CT's `AnthropicKnownTool400Ids` verbatim.
-3. **Lossy neutral transcript.** Replay `NativeReplay` verbatim for the same provider and model. Transcripts never cross providers, so `carry` is semantic only. Anthropic batches tool results in one user message; OpenAI sends one `role:tool` message per id. Add golden fixtures that include thinking blocks.
-4. **Fake A1 matrix.**
-   - Compile once against 4.12, then run the same test classes on 5.2.1 and 5.5.0 runtime classpaths.
-   - Move okhttp and mockwebserver together.
-   - Add a reflective `OkHttp.VERSION` guard test.
-   - Use detekt `ForbiddenImport` for `okhttp3.internal.*` / `mockwebserver3.*`.
-   - Always write `body?.string()`.
-5. **Mutation correctness.**
-   - A tier that committed can't escalate. It becomes terminal: `Completed` or `Failed` with its commits.
-   - Held actions are first-class in the outcome.
-   - One gate contract with two call sites, marked so nothing gets asked twice.
-   - Validate `maxIterations >= 2`.
-   - Ban `runCatching`. Rethrow `CancellationException` before any broad catch. Engine timeouts use `withTimeoutOrNull` → `TIMEOUT` (distinct from `NETWORK`). Close any `Response` delivered after cancel.
-6. **Keystore stranding and secret leaks.**
-   - No alias formula. SB and CT schemas are asymmetric, so slots come from an explicit table.
-   - Never create a second DataStore on the app's file.
-   - The decrypt path never creates keys (`KeyMissing`, not "corrupt").
-   - Use `java.util.Base64` (NO_WRAP-compatible).
-   - Add a reflective canary test proving that no key, transcript, argument or tool_result appears in the trace, events, `toString()` or failures.
-   - Failures carry status and `error.type` only, never the body.
+**Integration points (all verified in source code at HEAD, HIGH confidence):**
 
-## Conflicts Reconciled
+1. **`providerCallId` threading (headline 1):** Not a simple passthrough. The id must ride `session.submit(step, providerCallId)` as an **internal overload** (no public API change beyond the new `ExecutedAction.providerCallId` property). Path flows: `ToolCall.id` → `Extraction.callId` → `session.submit(step, id)` → `ActionDetails` → `ActionLedger` → `ExecutedAction`. For held proposals, id stays on `HeldProposal` (internal field) and is stamped on the later `commitHeld` action too.
 
-| Topic | Positions | Decision | Why |
-|---|---|---|---|
-| **AGP version** | ARCHITECTURE cites backup-engine's AGP 8.13 (and "match backup-engine" Kotlin). STACK says AGP 9.2.1. | **AGP 9.2.1 / Gradle 9.4.1** | Consumers (SB, CT, YAT) are on 9.2.1. AGP only affects `:keystore`/`:sample`, and matching the consumers is what matters. backup-engine is the *publishing* reference, not the version reference. YAT proves 9.2.1 on JitPack. |
-| **Bytecode target** | PITFALLS 3 says JVM 17 (backup-engine style). STACK says JVM 11. | **JVM 11** | SB/YAT compile at 11, and the engine exposes a DSL/inline surface. JDK 17 still *runs* the build. No toolchain auto-provisioning. |
-| **API-compat tool** | ARCHITECTURE: KGP `abiValidation` (+BCV fallback). PITFALLS 12: BCV/abiValidation for JVM + Metalava for `:keystore`. STACK: Metalava on all three. | **Metalava 0.5.1 on all three modules** | One tool, and YAT-proven on AGP 9. Its `--check-compatibility:api:released` allows additions and fails breaks, while BCV fails on *any* diff. KGP validation doesn't support Android library modules. Commit `api.txt` at the `v1.0.0` cut. Verify Metalava on JVM modules in step 1. |
-| **JitPack install task** | ARCHITECTURE: `publishToMavenLocal`. STACK: `publishReleasePublicationToMavenLocal`. | **Name every publication `release`** (JVM: `from(components["java"])`; AAR: `singleVariant("release")`), with an explicit per-module install list | Uniform task names, and `:sample` is never in the list. |
-| **Coordinates** | STACK F1 / PITFALLS 1 flagged the aggregator trap. | **Settled by E5**: `com.github.Ygaray.voice-action-engine:voice-action-engine-{core,providers,keystore}` | Set group/artifact/version explicitly at build time (`VERSION` env). Prove inter-module POM resolution by **commit SHA** from a clean cache, not with a throwaway tag. STACK prefers SHA; PITFALLS suggested a probe tag. PROJECT.md mentions a probe tag, and a SHA avoids burning an immutable tag. |
-| **A10 fixture in git** | PITFALLS 2 says commit it. | **Out of git (LE-7)** at a gitignored `:sample` path | SB is private and this repo is public. PITFALLS 2 still applies, though: the absence check must be **lazy** (a debug build task or runtime error), **never at Gradle configuration time**, because JitPack configures `:sample`. |
-| **OkHttp matrix mechanism** | ARCHITECTURE/PITFALLS: `-P` property switch. STACK: in-build `Test` tasks under `check`. | **In-build legs** (fallback: the `-P` switch + script) | There's no GitHub CI in this ecosystem. `./gradlew check` is the gate, so the matrix must live inside it. The guard test is mandatory either way. |
-| **Where transcript types land** | ARCHITECTURE: the full multi-turn types in 3a. PITFALLS: the raw-replay decision in 6a. | **Types, including `NativeReplay`, in 3a; mappers and multi-turn conformance in 6a** | SingleShot is a 1-message transcript, so single-turn-only types would force a redesign at 6a. |
-| **Package root** | STACK: `io.github.ygaray.voiceactionengine`. ARCHITECTURE: `io.github.ygaray.voiceaction`. | Recommend **`io.github.ygaray.voiceactionengine.*`** | Mirrors the artifact names. Decide in step 1, because changing it later is breaking. |
-| **Tool count** | FEATURES/ARCHITECTURE say "17 tools". | **18** (E4) | Never hard-code a count anywhere. |
+2. **Picker in the trace (headline 2):** A `PickContext` model call must run inside a pseudo-attempt (`tierStarted(pickerId)` ... `tierFinished(pickerId, "picked" | "router_fallback")`), so the picker's turns land in `trace.attempts` and tokens count toward the run budget. Otherwise they vanish from the trace (tokens still counted, but trace requirement fails).
+
+3. **`KeyAccess` as a plain interface (headline 3):** The brief said `fun interface KeyAccess`, but the source code shows two abstract members (`existingKey`, `getOrCreateKey`), so it must be a plain `interface`. Annotation is `@DelicateKeyAccess @RequiresOptIn(level = ERROR)`, and the new `@DelicateKeyAccess public constructor(dataStore, slots, keyAccess)` is the only entry point (existing 2- and 3-arg ctors point to the internal `AndroidKeyStoreKeyAccess` default).
+
+4. **`carryIn` recording (section 3.5):** Record at tier *start*, not finish. `TierWalk.kt:75` calls `recorder.tierStarted(strategy.id, carryIn = carry != null)`. Store in `TierBook` and read on `close()`. This also covers the `flushInFlight` timeout path.
+
+5. **`cappedByPolicy` semantics (section 3.6):** Set to true exactly when policy skipped at least one tier AND no tier handled the command. The `offline_unavailable` code (device offline) is different from `tier_skipped_policy` (policy removed tiers), so offline-only does not auto-set the flag unless policy also capped. SB condition: `Unhandled(cappedByPolicy = true)` covers every `tier_skipped_policy` case, including offline-only.
+
+**New modules and their edges (section 9):**
+- `:undo` (stdlib only) → no edges, module-graph gate proves it.
+- `:voice-adapter` (Android lib) → `:core` (api), `:stt` (api, external).
+- `:ondevice` (if green) → `:core` only (litertlm stays `implementation`, no public LiteRT types).
+
+**Confidence: HIGH** for all integration points (source line citations).
+
+### From PITFALLS.md
+
+**Four critical findings that appear in every phase's checklist:**
+
+1. **Pitfall 1 & 2: Constructor defaults and baseline rewriting.** Adding a parameter with a default value to an existing public class removes the old JVM constructor; Metalava does not catch it because `$default` synthetics are not in `api.txt`. Solution: explicit new overload, no defaults; existing constructor kept body-for-body intact. `apiDump` is never a "make green" button; per-phase verification must show zero `-` lines in baseline diffs.
+
+2. **Pitfall 9: Hard-coded module list.** The literal strings `core providers keystore` appear in ~15 scripts. Some fail loudly (`jitpack-dry-run.sh` exact-set check, `allowedEdges.getValue` throws). Others stay silent: the API dump, hygiene scan, docs-coverage symbol scan, negative controls, agent wiring test simply skip new modules and stay green. Solution (P17 owner): introduce a proposed scripts modules-list file (to be created in P17) with `name packaging artifactId`, read by every script; consistency gate on the list.
+
+3. **Pitfall 16 & 20: Timing and semantics of new seams.** `CommitSink.onAction` runs **after** apply is recorded, but `PendingMutation.context` is documented as "before the change". A held proposal can be committed much later (against state that moved), so capturing before-state at prepare time makes undo restore a stale version. Solution: capture inside `apply()` immediately before the write, persist write-ahead, then flip to COMMITTED on `onAction`. `carryIn`, `cappedByPolicy`, `providerCallId` semantics must be pinned via truth-table tests per seam.
+
+4. **Pitfall 12 & 13: Grammar never guesses, bilingual STT text is messy.** Template grammars must match the *entire* normalized transcript (no substring, no score, no threshold). Ambiguity (two rules match, or EN and ES conflict) returns NoMatch, never a best-guess. Bilingual text has accents (ñ vs n), punctuation (commas in numbers), different number formats per language (1.000 EN vs ES), Spanish irregulars (quinientos, veintiuno/veintiun/veintiuna). Solution: build-time pack validation, nearest-miss test corpus, number-word round-trip for 0–999,999 both languages, no fuzzy matching.
+
+**Confidence: HIGH** (direct repo reads, design principles for prevention).
+
+### From ROADMAP.md
+
+**Phase dependencies and success criteria summary:**
+
+- Phase 12 is the foundation: every later tier depends on `onFailed`, `ReasoningMode`, `ExecutedAction.providerCallId`, `cappedByPolicy`. Start here, serially inside `:core`.
+- Phase 13 (spike) runs in parallel with 12, TESTER-only, verdict early to orchestrator.
+- Phases 14–18 are independent (with plumbing exception below) and can parallelize. Phase 14 unblocks 16's real-grammar proof.
+- Phase 17 owns "add a published module" plumbing; phases 18 and (if green) 13 rebase onto it.
+- Phase 19 is the gate: ends only when 12, 14–18 and 13's verdict are all ready, Gate-1 runs green on TESTER.
+- Phase 20 cuts the tag only if 19 is green.
+
+**Consumer milestones:**
+- SB 176–178: `onFailed`, `carryIn`, `cappedByPolicy`, `providerCallId` cleanup + grammar tier.
+- SB 177: PlanThenExecute + step binding.
+- SB 177–178: Router seam for SB's own picker; run-undo with `:undo` adapters.
+- SB 179: on-device verdict.
+- CT 75: all above + grammar, plan, on-device conditional, optional adapter.
+
+---
 
 ## Implications for Roadmap
 
-The phases map 1:1 to contract §6.2 steps. Critical path: **1 → 2 → 3a → 6a → 6b → 7**. **4** runs in parallel after 2. **3b** runs in parallel with 3a and is needed before 6a. **5** runs after 3a, in parallel with 6a.
+### Phase-by-Phase Roadmap Structure and Critical Decisions
 
-### Phase 1 (step 1): Scaffold, publishing proof and quality gates
-**Rationale:** Every genuinely unproven stack piece lives here. Module types, the package root and artifactIds become one-way decisions once tagged.
-**Delivers:**
-- 4 modules: `:core`/`:providers` as `kotlin.jvm`, `:keystore` as an AGP-9 library, `:sample` as an app.
-- JVM 11, `explicitApi()`, detekt zero-baseline with invariant rules (`ForbiddenImport` for okhttp internals / mockwebserver3 / `android.util.Log` / DI annotations; ban `runCatching`/`println`/`printStackTrace`).
-- Metalava wired (enforcing only from the v1.0.0 cut).
-- `jitpack.yml` with an explicit per-module install list.
-- **The OkHttp matrix harness + guard test**, green with a trivial `Call.await` test.
-- A JitPack clean-cache resolve of `:providers` → transitive `:core` **by commit SHA**.
-- `core/testing` `FakeAiProvider` stub.
-- Registry/`ECOSYSTEM.md` entries.
-- A gitignored fixture path with a lazy absence check.
+**Phase 12: Wave-1 Seams & W04 Fix**
+- **What it delivers:** Consumer seams (onFailed, ReasoningMode, carryIn, cappedByPolicy, providerCallId, KeyAccess opt-in), three v1.0.1 doc fixes, W04 fix.
+- **Research flags:** Anthropic `claude-sonnet-5` minimum cacheable prefix (open item: must fetch from docs at plan time); full OpenAI id list for allow-table (optional, but completeness matters for future models).
+- **Plumbing touches:** None that are new; this phase just settles the shapes.
+- **Gate requirement:** W04 proven on JVM (MockWebServer replay) + live smoke on the TESTER with spend-capped key, model-call count bounded.
 
-**Avoids:** Pitfalls 1, 2, 3, 4 (harness), 12 (tooling), 15.
+**Phase 13: On-Device Model Spike**
+- **What it delivers:** Go/no-go verdict for bundled ~2B model (LiteRT-LM 0.17.1 + Gemma 4 E2B) on S22 TESTER. If green: `@Experimental` module ships. If red: nothing shipped, `:core` untouched, v1.1.0 is not blocked.
+- **Research flags (HIGH impact):** (1) Kotlin 2.4.0 metadata + Java 21 class format compatibility with compiler 2.3.20 (test in plan step 1); (2) S22 RAM headroom (1.7 GB on S26 per Google's card, measured cold/warm/sustained); (3) semantic accuracy with real prompts (not just schema-valid JSON); (4) APK/AAR size delta (runtime alone ~9.5 MB; weights are app-downloaded).
+- **Critical success criterion:** Verdict message to orchestrator **before** SB 179 / CT 75 plan (the verdict itself is the v1.1 value; shipping code is secondary).
 
-### Phase 2 (step 2): Core contract, pipeline and commit seam (keystone)
-**Rationale:** Everything later only exercises these types, and after `v1.0.0` they can only grow additively. This phase gets its own deep test suite using **scripted fake strategies with no LLM**.
-**Delivers:**
-- The §5.1 types, `commandPipeline {}` DSL, `TierSelector`, `TierPolicy(+Source)`, `CommandOutcome` with `commits` + `held` on every variant.
-- An open `FailureReason`/`EscalationReason`/`HoldReason` taxonomy.
-- `CommandTrace` + typed events.
-- The **whole commit package**: `ToolStep`, `PendingMutation`, `PreApplyGate`/`GateDecision(Admit(amended?) | Hold)`, `CommitCoordinator`, `CommitSink`, `HeldProposal`, `commitHeld`/`undoAll`, `AwaitingConfirmGate`, commit-time sink notification.
-- The no-escalate-after-commit invariant, policy resolved before routing (offlineOnly never leaks to cloud), the single outcome-collapse helper, cancellation tests, and the redaction canary test.
+**Phase 14: LocalGrammar & Bilingual GrammarPack**
+- **What it delivers:** Free, offline EN/ES grammar tier with anchored matching, typed slots, number words, normalize hook. Reuses OutcomeResolver / Resolution / gate path.
+- **Research flags (MEDIUM):** ES number compound forms (veintiuno/veintiun, ciento y, quinientos irregulars); nearest-miss corpus from real S22 STT transcripts (accent/punctuation/number format variants).
+- **Plumbing:** Phase 4.1 refactor (extract submitSteps / prepareGuarded) must land first or 14 and 15 will conflict.
+- **Gate requirement:** Full-utterance matching test (no substring), ambiguity → NoMatch, number round-trip 0–999,999 both languages, app-supplied synonym `normalize` hook works.
 
-**Avoids:** Pitfalls 9, 10, 12 (design), 13, 14.
+**Phase 15: PlanThenExecute Strategy**
+- **What it delivers:** One planning call, ordered gated steps, write-output binding to earlier committed `targetIds`, one replan maximum, escalation suppression after first commit.
+- **Research flags (MEDIUM):** Plan schema and binding syntax (whole-value reference syntax must survive strict-mode schema validation); deterministic lookup detection (what makes a step "need a read", §4 rule).
+- **Plumbing:** Needs Phase 4.1 refactor (shared helpers).
+- **Decision needed:** Hold handling—stop at first hold (simpler, partial Completed with escalation_suppressed) or continue independent steps? Recommend stopping.
+- **Gate requirement:** Model-call counts asserted (exactly 1 for success, exactly 2 on pre-commit failure + replan). Post-commit failure makes no replan call. `onFailed` fires for provider failures only.
 
-### Phase 3 (step 3a): Neutral transcript types, router, ON_DEVICE gate and Anthropic transport (A1 must-pass)
-**Rationale:** This is the largest step. ARCHITECTURE suggests splitting it into **3a-i** (transcript types + router + capabilities + ON_DEVICE gate, all pure JVM) and **3a-ii** (Anthropic transport + A1 matrix green). The split is recommended.
-**Delivers:**
-- The full multi-turn `transcript/` package incl. `NativeReplay`, `Usage`, `StopReason`, `CacheDirective`.
-- `AiProvider`, `ProviderRouter`, `ProviderSelectionSource`/`Credential`, and an overridable capabilities table.
-- `UnavailableOnDeviceProvider` + declared fallback.
-- `AnthropicProvider`:
-  - clean derived client and per-strategy timeouts
-  - `Call.await` that closes the response on cancel
-  - system-block `cache_control`
-  - usage normalization
-  - forced-tool 400 classification
-  - HTTP-only retry
-- **A1 green on 4.12.0 / 5.2.1 / 5.5.0.**
+**Phase 16: Start-Tier Selection (Custom + Router)**
+- **What it delivers:** `TierSelector.Custom(StartTierPicker)` seam + opt-in `TierSelector.Router` (off by default, closes the v1.0 sealed `TierSelector`). Grammar pre-pass always free. No picker call when <2 LLM tiers eligible or offline-only.
+- **Research flags (MEDIUM):** Router classifier prompt (app-supplied tier descriptions, EN/ES examples). Default cheap model (from policy/selection seam, never hard-coded). "Tiers bypassed" telemetry naming (not "saved"; Linear is never run).
+- **Critical decision (D-ROUTER-SKIP):** Skip the router when only one LLM tier is eligible. Validate v1.0.1 Linear walk (characterization test) **before** touching `TierWalk.run` so any regression is caught immediately.
+- **Gate requirement:** Picker error → Linear + `router_fallback` (command never fails because of picker). Offline-only never calls picker.
 
-**Avoids:** Pitfalls 4, 5 (classification), 6 (usage/caching), 8 (neutral types), 10, 13, 14.
+**Phase 17: Run-Level Undo (Module + Integration)**
+- **What it delivers:** Standalone `:undo` module (stdlib only, no `:core`) + pipeline integration (app-side bridge, the module is self-contained).
+- **Research flags (MEDIUM):** Journal/memento API shape (adapters per entity type, compensators for side effects, footprint grouping). Where the pipeline hook journals (beside `CommitSink`; recommendation: app-side glue in the sample + docs).
+- **Decision needed (D-UNDO):** Bridge location (a) app/sample code (recommended, simplest, documents the pattern) vs (b) a 6th published module (needs contract amendment, extra install-list/script entries). Decide in plan, record in CONTEXT.
+- **Plumbing (Phase 17 owns it):** `allowedEdges` add `:undo` + `:voice-adapter` + `:ondevice` (if green). `verifyUndoZeroDeps`, `verifyNoSttOutsideAdapter`, etc. (section 8 gates). Hard-coded module lists in jitpack.yml, release-cut.sh, scripts/.
+- **Gate requirement:** Zero external dependencies (module-graph gate proves stdlib-only). Entity changed between commit and undo → refuse loudly for that entity. Hold then confirm → restore correctly with correct before-state (ActionEvent.heldRunId needed for grouping).
 
-### Phase 4 (step 3b): OpenAI + OpenRouter (Chat Completions)
-**Rationale:** One dialect covers both providers. It's needed before 6a's conformance suite and can run in parallel with 3a-ii.
-**Delivers:**
-- `ChatCompletionsProvider.openAi()/.openRouter()` with the **nested** `function` tool shape. **Don't port CT's flat shape.**
-- Strict-mode keyword stripping.
-- `reasoning_effort:"none"` with tools on GPT-5.4+.
-- `max_completion_tokens` for reasoning models.
-- `arguments` double-decode → `MalformedToolArguments`.
-- `finish_reason`/`message.refusal` mapping, OpenRouter HTTP-200 errors, vendor-prefixed ids, `require_parameters`, and a stable `session_id`.
-- Golden tests on **recorded, sanitized real bodies**.
+**Phase 18: Voice Adapter**
+- **What it delivers:** `:voice-adapter` Android library (minSdk 33) mapping `:stt` v0.7.0 FinalSegment to `CommandInput` without `:core` depending on `:stt`.
+- **Research flags (MEDIUM):** FinalSegment.language value set (does it carry region tags like `en-US`?). AAR artifact type forces adapter to be Android library (confirmed by source read).
+- **Plumbing:** Needs Phase 17 plumbing first. Add JitPack repo to settings.gradle with content filter.
+- **Decision needed (D-VOICE-SCOPE):** `compileOnly` (recommended, keeps `:stt` transitive off) vs `api` (re-exports `:stt`, forces version on apps). Recommend `compileOnly`.
+- **Gate requirement:** `:core`/`:providers`/`:keystore` graphs contain no `voice-engine-android`. Adapter's POM does not either (compileOnly not published). Language mapping: `en`/`es` pass, `en-US` → `en`, unknown/`null` → `null`, never guess.
 
-**Avoids:** Pitfalls 8, 14.
+**Phase 19: Sample Gate-1 & Docs**
+- **What it delivers:** End-to-end proof of grammar (zero-provider offline), plan (with write-output binding), router (trace tier pick), undo-all (full command reversal). Docs covering every new tier/seam/module.
+- **Gate requirement:** Isolated wiring test (agent wires the new components from docs alone). Leak-scan clean on new types. Module graphs verified.
 
-### Phase 5 (step 4): `:keystore`
-**Rationale:** Depends only on `ProviderId`/`Credential` from step 2, so it's fully parallel.
-**Delivers:**
-- `KeystoreCrypto(+Seam)` generalized over an app-supplied `KeySlot` table and the app's `DataStore<Preferences>`.
-- Separate `getKeyOrNull` (decrypt) and `getOrCreateKey` (encrypt, synchronized) paths.
-- Typed read states and `java.util.Base64`.
-- JVM tests via the seam, plus one androidTest on the TESTER.
-- README guidance on Auto Backup.
+**Phase 20: Cut v1.1.0**
+- **What it delivers:** Immutable v1.1.0 tag with all published modules, gated release script, JitPack resolution proof, ledger row to orchestrator.
+- **Plumbing touches:** `apiDump` for new modules (undo, voice-adapter, ondevice-if-green). Verify additive only (zero `-` lines in diffs).
+- **Host requirement:** Quiet window, free swap (v1.0.1 had 5 earlyoom kills), single-use Gradle daemon.
 
-**Avoids:** Pitfall 11.
+### Specific Decisions Required (Organized by Phase)
 
-### Phase 6 (step 5): SingleShotStrategy (CT port)
-**Delivers:**
-- One extraction call with forced tool or auto+strict fallback.
-- `OutcomeResolver` → batch `CommitProposal` → coordinator.
-- Default outcome mapping: no-call → Escalate, refusal → Failed.
-- `parallel_tool_calls:false`.
-- The CT gate scenarios as acceptance tests: weak match, batch, amended confirm, deferred `commitHeld`.
+| Phase | Decision | Recommendation | Impact |
+|-------|----------|-----------------|--------|
+| 12 | D-REASON: `ReasoningMode.PROVIDER_DEFAULT` wire bytes | Both OFF and PROVIDER_DEFAULT emit identical wire bytes in v1.1 (knob for future); OpenAI needs `"none"` on gpt-5.4+, so omit only on unknown ids | Cache prefix alignment, no on-wire change v1.1 |
+| 12 | D-KEY4: publish 3-arg KeyAccess ctor only | Yes (smallest frozen surface); JVM test under `runTest` with `Dispatchers.IO` | API surface |
+| 15 | Hold handling: stop or continue? | **Stop at first hold** (simpler, reports clean partial Completed + escalation_suppressed) | Plan success criteria SC3/SC4 interaction |
+| 16 | D-ROUTER-SKIP: skip when <2 LLM tiers | **Yes** (free saving, cost of router is otherwise unpaid) | Router gate requirement |
+| 17 | D-UNDO: bridge location | **App/sample glue in INTEGRATION docs** (recommended; a 6th module needs contract amendment) | Undo integration shape |
+| 18 | D-VOICE-SCOPE: `:stt` scope | **`compileOnly`** (keeps transitive OkHttp/deps off engine consumers) | Adapter POM purity |
 
-**Avoids:** Pitfalls 5 and 9.
+---
 
-### Phase 7 (step 6a): Multi-turn mappers + dialect conformance
-**Delivers:**
-- Anthropic ↔ neutral ↔ Chat round-trips.
-- Verbatim native replay (fixture with thinking blocks).
-- Tool-result batching vs one `role:tool` per id, `is_error` encoding, parallel calls, empty args.
-- Per-dialect cache directive.
-- Byte-determinism across iterations.
-- One conformance suite run against both mappers.
+## Research Flags & Gaps
 
-**Avoids:** Pitfalls 6 and 7. Retrofitting after 6b is HIGH cost.
+| Flag | Phase | Research needed | Impact | Priority |
+|------|-------|-----------------|--------|----------|
+| Anthropic `claude-sonnet-5` cache minimum | 12 (plan) | Fetch from `platform.claude.com` docs at plan time (live value, not from memory) | Cache diagnostic accuracy | HIGH |
+| OpenAI ids rejecting `"none"` complete list | 12 (plan) | Enumerate every id the allow-table must cover (for completeness, not correctness—omit-unknown handles unknown ids safely) | Robustness against future models | MEDIUM |
+| Kotlin 2.4.0 metadata compatibility | 13 (plan step 1) | Compile `:ondevice` against litertlm-0.17.1 on the repo's Kotlin 2.3.20 toolchain; if it fails, pin 0.16.1 or defer the module | Spike go/no-go | HIGH |
+| S22 RAM, cold/warm/sustained latency | 13 (spike run) | Measure on SM-S908U (Snapdragon 8 Gen 1, not S26 benchmarks). Peak PSS, thermal status, battery impact | Verdict accuracy | HIGH |
+| ES number compound forms (STT reality) | 14 (corpus build) | Capture real STT output for "veintiuno", "ciento y", irregular hundreds. Test parser round-trip 0–999,999 | Pitch correctness | HIGH |
+| Plan binding syntax strictness | 15 (research) | Does a whole-value reference like `{"$ref": {"step": 0, "key": "x"}}` survive strict-mode schema validation on OpenAI? Test with real schema strip | Binding safety | MEDIUM |
+| Hold semantics in the flow | 15 (discuss/plan) | Decision on hold placement: stop at first hold (SC4 path) or continue independent steps? | Plan behavior contract | HIGH |
+| FinalSegment.language region tags | 18 (plan) | Confirm whether stt v0.7.0 can emit `en-US`/`es-MX`; mapping rule → primary subtag only | Adapter language contract | MEDIUM |
+| On-device cold start / thermal thresholds | 13 (plan) | Fix thresholds **before** the run (e.g., cold < N seconds, peak PSS < X MB, zero OOM); verdicts are numbers, not rationalizations | Spike success criteria | HIGH |
+| Router default cheap model | 16 (research) | Does policy always supply a model id for the picker? Or is "no model" a fallback? Confirm seam shape | Router implementation | MEDIUM |
+| :undo integration glue | 17 (discuss/plan) | Finalize whether the bridge is app code (simplest) or a 6th module (needs amendment) | Undo integration | HIGH |
+| Module plumbing `modules.list` | 17 (plan) | Design the `modules.list` source of truth (format: name, packaging, artifactId) and consistency gates | Build hygiene | HIGH |
 
-### Phase 8 (step 6b): AgenticLoopStrategy (SB port)
-**Delivers:**
-- The `AnthropicAgentLoop` port on 6a: whole-turn validation, token ceiling → final-iteration guard → dispatch order, sequential dispatch, 2-strike abort, the held `tool_result` byte-compatible with SB, effects on every outcome.
-- Bounds from policy; `maxIterations >= 2` is validated.
-- A per-command provider snapshot.
-- SB's invariants as named tests.
-
-**Avoids:** Pitfalls 6 (snapshot) and 9.
-
-### Phase 9 (step 7): `:sample`, Gate-1, README, tag `v1.0.0`
-**Delivers:**
-- `:sample`:
-  - loads the gitignored LE-1 fixture (sha256 `ebd3ef4a…af4ed3e`, 18 tools), with a loud error if it's absent
-  - fake `ToolExecutor`
-  - BYO key stored through `:keystore`, plus a legacy-format compat test
-  - OkHttp 5.2.1 pinned, so the Android 5.x variant runs 4.12-compiled bytecode
-- **Gate-1 on the TESTER** (`…-s22-ultra-2`): 2+ turns, turn-1 creation > 0, turn-2+ `cache_read_input_tokens > 0` around 7,016.
-- A README good enough for an agent to wire the engine from it alone, using per-module coordinates and showing `else` branches.
-- `api.txt` dumps committed.
-- A JitPack clean-cache resolve of every module under E5 coordinates.
-- The tag row messaged to the control plane (A14, single ledger writer).
-
-**Avoids:** Pitfalls 1, 2, 6, 11, 12, 14.
-
-### Phase Ordering Rationale
-
-- Step 1 front-loads the only real stack risks (mixed JVM/AAR publishing, JitPack inter-module POMs, the matrix plumbing) while they're cheap.
-- Step 2 is the keystone. Both gate modes, held-as-first-class and the closed/open hierarchy choices **must** be decided before any strategy exists, because retrofitting the second gate mode after the tag is a breaking change.
-- Transcript types land in 3a, so 5 and 6a/6b build on one model. 6a is then small and focused on conformance.
-- 4 (keystore) and 3b are off the critical path. Run them in parallel to shorten the milestone.
-- The fixture is already delivered (LE-1), so step 7 has no external blocker unless SB's prompt or tools change. In that case, ask the orchestrator to regenerate the fixture.
-
-### Research Flags
-
-Phases that need `--research-phase` during planning:
-- **Phase 1 (step 1):** Metalava on `kotlin.jvm` modules inside an AGP-9 build, JitPack's handling of inter-module POM/`.module` metadata (community reports only), and Gradle attribute plumbing for the OkHttp KMP variants.
-- **Phase 4 (step 3b):** OpenAI `finish_reason` under forced tools, OpenRouter `reasoning_details` echo, the GPT-5.4+ `reasoning_effort` rule, and whether routed providers report `stop` with tool_calls. All MEDIUM/LOW web-sourced.
-- **Phase 7 (step 6a):** preserved-thinking replay rules and OpenAI tool-message ordering edge cases. Build the golden fixtures from real responses.
-
-Phases with standard patterns (research can be skipped):
-- **Phase 2 (step 2):** a pure-Kotlin design fully derived from the SB/CT sources. It needs *discussion*, not research.
-- **Phase 5 (step 4):** a direct generalization of two working `KeystoreCrypto` implementations.
-- **Phase 6 (step 5)** and **Phase 8 (step 6b):** mechanical ports with named invariants.
-- **Phase 9 (step 7):** process is defined by A10/§11. Device steps follow `~/.claude/context/devices/common.md` and use the TESTER only.
-
-### Open Questions Requiring Yahir / Orchestrator Decisions
-
-For the orchestrator (control-plane-f2) or peers:
-1. **`ProviderId` as a value class instead of an enum.** The contract lists 4 ids but doesn't mandate an enum. Confirm that this needs no amendment.
-2. **`testing/` package inside the `:core` main artifact** vs a new `:testing` module. The latter would be an A7-style amendment. Recommendation: keep it in `:core` for v1.0.
-3. **Commit-time `CommitSink` notification** changes SB's end-of-run `executedTools` reconciliation. Confirm with secondbrain-2c that the Undo Center accepts per-action commits.
-4. **CT's OpenAI flat tool shape** posted to `/chat/completions`: was OpenAI (not OpenRouter) ever device-verified? Ask caltracker-android-9a. The engine uses the nested shape regardless.
-5. **CT's forced-tool list is missing `claude-sonnet-5-5`.** Tell caltracker-android-9a now, since it's a live bug in CT.
-6. **A11 premise:** stt-engine is compiled at OkHttp 5.2.1, so backup-engine is the only true 4.12→5.x precedent. Per PROJECT.md, E6 covers this; confirm there are no further implications.
-
-Discuss-phase decisions for Yahir (with recommendations):
-7. **Model-side NoToolCall/prose in SingleShot:** escalate to the next tier by default, overridable per tier. **Recommendation: escalate.** Refusal → `Failed`.
-8. **`offlineOnly` with ON_DEVICE absent:** `Failed(ProviderUnavailable/OFFLINE_UNAVAILABLE)`, loud, with zero HTTP calls. **Recommendation: Failed, not NoMatch.**
-9. **Transport failures escalating to a tier on a different provider** (`escalateOnTransportFailure`). **Recommendation: default false** (loud).
-10. **Token ceiling semantics:** keep SB's sum, where cache reads count at full weight, for parity. Add separate or weighted budgets later as an additive option. **Recommendation: parity default.**
-11. **Held-outcome shape:** `Completed(held = …)` vs a dedicated variant. `StrategyOutcome` is contract-closed at 4 variants, so **recommendation: a `held` list on `CommandOutcome`**, with no new variant.
-12. **`HeldProposal` expiry:** app-owned, or does the engine carry one? It ties into SB's Undo Center UX.
-13. **Anthropic tail caching** (`conversationTail`): off in v1.0 (A10 needs only the system breakpoint). Measure at Gate-1 before turning it on.
-14. **`JsonObject` in public seams** (a kotlinx.serialization 1.x coupling). **Recommendation: accept it**, since both consumers already use it.
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | Versions read from registries on 2026-09-29, and consumer pins read from local repos. MEDIUM only for the in-build matrix attributes and JitPack inter-module metadata, which must be proven in step 1. |
-| Features | HIGH (consumer needs) / MEDIUM (provider behavior) | Table stakes come straight from the SB/CT sources. The forced-tool 400 is corroborated by CT's live 2026-09-27 verification. OpenRouter/OpenAI quirks come from vendor docs and issue reports. |
-| Architecture | HIGH | Seams, gate/commit unification and build order are derived from the contract and port sources read in full. Chat-Completions-vs-Responses is MEDIUM. |
-| Pitfalls | HIGH | Mostly from sibling-repo evidence (stt-engine commit b8c9fdb (in the stt-engine repo) coordinates, YAT Metalava, backup-engine precedent) and port code. OkHttp/OpenAI details are MEDIUM. |
-
-**Overall confidence:** HIGH for the plan shape. MEDIUM for three things that only live probes settle.
-
-### Gaps to Address
-
-- **JitPack inter-module POM groupId under E5:** resolve `:providers` with a transitive `:core` from an empty `GRADLE_USER_HOME` by commit SHA in step 1. Fallback: disable `.module` metadata on JitPack.
-- **Metalava on JVM modules in an AGP-9 build:** verify in step 1. If it fails, fall back to BCV on the JVM modules only, with a documented additive-only review.
-- **The `Call.await` coroutines-1.11 three-argument `resume(onCancellation)` overload:** verify in 3a.
-- **OpenAI/OpenRouter live behavior:** A8 allows JVM-only testing, so fakes must replay recorded real bodies. Gather those in 3b, using a key only if Yahir provides one.
-- **Explicit API mode through AGP-9 built-in Kotlin in `:keystore`:** fall back to `-Xexplicit-api=strict` if needed.
-- **Cache minimum vs model at Gate-1:** Haiku 4.5 needs ≥ 4,096 tokens. The ~7k fixture clears it, but log the prefix size and `minCacheablePrefixTokens` in `:sample`.
-
-## Sources
-
-### Primary (HIGH confidence)
-- `CROSS-REPO-SCOPE-CONTRACT.md` (§5, §6.2, §10 A1–A14, E1–E6, §11) and `.planning/PROJECT.md`.
-- SB port sources: `AnthropicAgentLoop`, `AgentLoopResult`, `AnthropicToolRegistry`, `MutationGate`, `VoiceConfirmGate`, `MutationTierPolicy`, `MutationDispatchContext`, `PreMutationSnapshot`, `VoiceUndoOperations`, `KeystoreCrypto(Seam)`, `AnthropicApiKeyRepository`, `AgentModule`, manifest/backup rules.
-- CT port sources: `AiProvider`, `ProviderRouter`, `BaseAiProvider`, `AnthropicProvider`, `OpenRouterProvider`, `LogFoodRequestBuilder`/`OpenAiLogFoodRequestBuilder`, `AnthropicKnownTool400Ids`, `ApiKeyRepository`, `KeystoreCrypto`, `RepositoryToolFacade`, `VoiceLogViewModel`.
-- Sibling hubs: backup-engine (jitpack.yml, `singleVariant`, OkHttp 4.12), YAT (AGP 9.2.1 + JitPack + detekt 1.23.8 + Metalava, zero-ID baseline), stt-engine (multi-module install list, commit b8c9fdb (stt-engine repo) coordinate fix, OkHttp 5.2.1 pin).
-- Registries (Maven Central / Google Maven / Gradle Plugin Portal), queried 2026-09-29. OkHttp CHANGELOG and `okhttp-5.5.0.module`.
-- The bundled Claude API reference (cached 2026-09-25): caching minimums and breakpoints, forced tool_choice rejection, preserved thinking, usage fields.
-
-### Secondary (MEDIUM confidence)
-- OpenAI docs (Chat Completions, prompt caching) plus issue reports (LiteLLM, LibreChat, crush, Semantic Kernel, genkit, simonw/llm) on the `reasoning_effort` / nested-tool / `max_completion_tokens` rules.
-- OpenRouter docs: prompt caching, errors (HTTP-200 errors), provider routing (`require_parameters`), `session_id` stickiness.
-- JitPack `BUILDING.md` / docs (aggregator, env vars); metalava-gradle source; Kotlin ABI-validation docs; ML Kit GenAI Prompt API (beta).
-
-### Tertiary (LOW confidence)
-- jitpack#4112 / #4476 (inter-module POM rewriting, `.module` handling): the step-1 probe settles these.
-- detekt#8865 / #6198 (type-resolution vs Kotlin 2.3 metadata).
-- Competitor feature comparison (Vercel AI SDK, Koog, LangChain4j, Spring AI, OpenAI Agents SDK), used only for positioning.
+|------|-----------|-------|
+| Stack (tech choices) | HIGH | Vendor docs, Maven metadata, local source reads. Kotlin 2.4 metadata risk is known and testable. |
+| Features (tier shapes) | HIGH | Extracted directly from source code (`OutcomeResolver`, `ToolExecutor`, `TierWalk`). Prior art cross-checked (Rhasspy, ReWOO, RouteLLM). |
+| Architecture (seams & integration) | HIGH | Every integration point verified in source with line citations. Internal threading paths traced. |
+| Pitfalls (risks & prevention) | HIGH | Design rules based on v1.0 execution and current repo state. Mechanical gates enumerated (scripts to fix). |
+| On-device spike metrics | MEDIUM | Vendor docs read but not measured on S22. Numbers are estimates; spike itself produces truth. |
+| Grammar STT behavior | MEDIUM | Domain knowledge of Spanish morphology + prior STT projects, but not measured against this repo's recognizer. P14 corpus must capture real output. |
+| Plan prompt/schema shape | MEDIUM | High-level semantics firm (whole-value binding, pre-validation); exact prompt syntax and schema strictness requires testing. |
 
 ---
-*Research completed: 2026-09-29*
-*Ready for roadmap: yes*
+
+## Known Unknowns (Open Questions for Phase Discussions)
+
+1. **P15 hold semantics:** Does SB 177 need to gate the entire plan once (gate-per-plan) or gate per step (with hold potentially blocking the tail)? The roadmap recommends stopping at first hold, but confirm with orchestrator.
+2. **P17 bridge placement:** Will an app-side glue implementation in INTEGRATION.md and sample code suffice, or does Yahir prefer a published `voice-action-engine-undo-bridge` module? The latter needs a contract amendment.
+3. **P13 verdict decision:** Speed is more important than perfect numbers; thresholds should be set **before** the run starts, not rationalized from the numbers.
+4. **P18 `:stt` compatibility:** Confirm `FinalSegment` constructor visibility (can `:voice-adapter` tests construct it?) and exact minSdk to avoid manifest-merge failures.
+
+---
+
+## Build Plumbing Checklist (Phase 17 Owns, P18/P13 Rebase)
+
+Every item below is concrete and measurable. Missing one silently breaks the build or the cut:
+
+1. **settings.gradle.kts:25** – Add `:undo`, `:voice-adapter`, `:sample` includes + JitPack repo for `:voice-adapter`
+2. **Each new module's build script** (new) – Copy recipes (`:undo` from `:providers`, `:voice-adapter` from `:keystore`)
+3. **jitpack.yml:6** – Append to single `./gradlew` line: `<module>:publishReleasePublicationToMavenLocal` for each new module
+4. **gradle/invariants.gradle.kts:272** – `allowedEdges`: add `:undo` → `emptySet()`, `:voice-adapter` → `setOf(":core")`
+5. **gradle/invariants.gradle.kts:273** – `sampleAllowedEdges += ":undo"`
+6. **gradle/invariants.gradle.kts** (new tasks) – `verifyUndoZeroDeps`, `verifyNoSttOutsideAdapter`, `verifyAdapterHasStt`, `verifyApiDumpPresent` (new modules)
+7. **scripts/release-cut.sh** – Every hard-coded module list (MODULES, gate 7/12/15, sandbox adds/rms, allowed-paths)
+8. **scripts/jitpack-dry-run.sh** – Exact-set check (`core:jar`, `providers:jar`, `keystore:aar`, `undo:jar`, `voice-adapter:aar`)
+9. **scripts/verify-api-dump.sh, api-dump-isolated.sh, etc.** – Iterate over new modules
+10. **each new module's api.txt** – Commit seed `apiDump` output at phase scaffold time (regenerate at P20 cut)
+11. **ECOSYSTEM.md** – Add two rows (three if P13 green), update "Planned for v1.1" sentence at cut time
+12. **Metalava/detekt** – Auto-wired per module via `plugins` block; zero baseline on all
+
+---
+
+## Sources & Confidence Summary
+
+| Source Category | Files Read | Confidence |
+|-----------------|-----------|-----------|
+| Vendor documentation | Anthropic prompt-cache docs, OpenAI model pages, Google LiteRT-LM / MediaPipe, HuggingFace API, Gemma Terms | HIGH (fetched 2026-10-05) |
+| Repo source code | v1.0.1 HEAD (all `:core`, `:providers`, `:keystore` modules, build plumbing) | HIGH |
+| Repo docs & contracts | PROJECT.md, ROADMAP.md, REQUIREMENTS.md, CROSS-REPO-SCOPE-CONTRACT.md, R-v1.1 brief | HIGH |
+| External references | `:stt` source + jitpack.yml, OkHttp CHANGELOG, JitPack FAQ | HIGH |
+| Prior art & domain knowledge | Rhasspy/hassil grammars, ReWOO/RouteLLM papers, Spanish morphology, STT quirks | MEDIUM (not measured on this project) |
+| Spike measurements | On-device RAM, latency, APK size (on-device, not measured) | LOW until Phase 13 runs |
+
+---
+
+## Roadmap Implications Summary
+
+**Sequence.** Phase 12 (seams) + Phase 13 (spike parallel) → Phase 14–18 (tiers/modules, 17 plumbing-first) → Phase 19 (gate) → Phase 20 (cut).
+
+**Critical gates:**
+- Phase 12: W04 live smoke + seam shape tests (onFailed, ReasoningMode, carryIn, cappedByPolicy, providerCallId).
+- Phase 13: Verdict message (even if red) by day N, so SB 179 / CT 75 can plan.
+- Phase 17: Plumbing lands; phases 18 and 13-if-green rebase onto it.
+- Phase 19: Gate-1 on TESTER (grammar zero-provider, plan with binding, router trace, undo-all refusal case).
+- Phase 20: v1.1.0 immutable tag on JitPack.
+
+**Risks mitigated by design:**
+- API evolution: explicit old constructors kept, new types internal ctors + builders.
+- Module list: `modules.list` single source of truth, consistency gate, planted-module negative control.
+- Undo timing: before-state captured inside `apply()` before the write.
+- Grammar guessing: anchored match only, ambiguity → NoMatch, nearest-miss corpus.
+- Plan binding: whole-value only, pre-validation, committed-only outputs.
+- Router cost: skip when <2 LLM tiers, loud fallback, telemetry honest about upper bounds.
+
+---
+
+## Next Steps for Phases 12–20
+
+1. **P12 plan:** Fetch Anthropic `claude-sonnet-5` minimum cacheable prefix and OpenAI id allow-table from live docs. Set up W04 MockWebServer replay and live-key smoke.
+2. **P13 plan:** Lock Phase 13 spike thresholds (cold load < N s, peak PSS < X MB, semantic accuracy target). Book TESTER time before P12's live smoke (PROV-16).
+3. **P14 plan:** Build EN/ES number-word golden generator (round-trip 0–999,999). Capture real STT transcripts (anonymized) as the near-miss corpus.
+4. **P15/P16 plan:** Script the plan/replan prefix byte-comparison test. Router characterization test (v1.0.1 Linear trace equality).
+5. **P17 plan:** Design `modules.list` format and read-consistency gates. Finalize `:undo` bridge location (app code vs 6th module).
+6. **P18 plan:** Confirm FinalSegment API (constructor visibility, language type). Add JitPack repo to settings.gradle.
+7. **P19 plan:** Compile new doc regions per feature phase; update isolation wiring test for new modules.
+8. **P20 plan:** Verify `.gsd/` and `milestone.lock` handling in the cut's `clean` gate. Measure dry-run wall time (hedge against OOM).
+
+---
+
+*Research synthesis for: voice-action-engine v1.1 (Phases 12–20)*
+*Synthesized: 2026-10-05*
+*Research files: STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md, ROADMAP.md*

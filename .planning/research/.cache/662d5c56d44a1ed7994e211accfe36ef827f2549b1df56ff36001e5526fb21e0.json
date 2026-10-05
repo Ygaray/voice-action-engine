@@ -1,0 +1,1 @@
+{"content":"Saga: compensating transactions applied in reverse order; must be idempotent/retryable; end state is completed or compensated, not ACID rollback; pivot transaction concept.","source":"web","provider":"websearch","confidence":"LOW","fetched_at":"2026-10-05T08:20:51.664Z","ttl":86400000,"kind":"web"}
