@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
+import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.BoundModel
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
@@ -71,7 +72,7 @@ public class SingleShotStrategy internal constructor(
     private val clock: Clock = settings.clock
     private val forceTool: Boolean = settings.forceTool
     private val reasoning: ReasoningMode = settings.reasoning
-    private val hooks = OutcomeHooks(settings.onNoToolCall, settings.onRefusal)
+    private val hooks = OutcomeHooks(settings.onNoToolCall, settings.onRefusal, settings.onFailed)
 
     override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome =
         ceilingReached(session) ?: withTooling(input, session)
@@ -216,6 +217,17 @@ public class SingleShotStrategy internal constructor(
          */
         public var onRefusal: suspend (ModelResponse?) -> StrategyOutcome =
             { StrategyOutcome.Failed(FailureReason.Refusal()) }
+
+        /**
+         * Decides the outcome when the provider call failed for a reason other than a missing tool call or a refusal,
+         * for example an HTTP 400, a transport fault, or a request the bound model refused before any call because it
+         * cannot take it. It receives the reason and the transport details, or null. It is not called when no model
+         * could be bound, when a token or iteration limit stops the tier, for a gate decision, or when the tier
+         * throws. Defaults to failing with the same reason and details. A hook that throws ends the tier as a
+         * strategy error.
+         */
+        public var onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome =
+            { reason, details -> StrategyOutcome.Failed(reason, details) }
     }
 
     /** Ways to create a tier. */

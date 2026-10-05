@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core.strategy.singleshot
 
+import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
@@ -11,10 +12,14 @@ import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 private const val UNKNOWN_MODEL_RESULT_CODE = "unknown_model_result"
 private const val UNKNOWN_RESOLUTION_CODE = "unknown_resolution"
 
-/** The two outcomes a tier may override; each receives the response, or null when the provider reported a failure. */
+/**
+ * The outcomes a tier may override. [onNoToolCall] and [onRefusal] receive the response, or null when the provider
+ * reported the condition as a failure; [onFailed] receives the reason and details of any other provider failure.
+ */
 internal class OutcomeHooks(
     val onNoToolCall: suspend (ModelResponse?) -> StrategyOutcome,
     val onRefusal: suspend (ModelResponse?) -> StrategyOutcome,
+    val onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome,
 )
 
 /**
@@ -32,7 +37,7 @@ private suspend fun failureOutcome(failure: ModelResult.Failure, hooks: OutcomeH
     when (failure.reason) {
         is FailureReason.NoToolCall -> hooks.onNoToolCall(null)
         is FailureReason.Refusal -> hooks.onRefusal(null)
-        else -> StrategyOutcome.Failed(failure.reason, failure.details)
+        else -> hooks.onFailed(failure.reason, failure.details)
     }
 
 // The stop reason is decided first so a refused or truncated answer can never be resolved into a write.

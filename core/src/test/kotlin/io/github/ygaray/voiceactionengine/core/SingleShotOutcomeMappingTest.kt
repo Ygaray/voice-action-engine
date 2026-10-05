@@ -5,7 +5,9 @@ import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
+import io.github.ygaray.voiceactionengine.core.failure.BudgetBound
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
+import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
@@ -13,12 +15,14 @@ import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
+import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.ProviderStep
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
+import io.github.ygaray.voiceactionengine.core.testing.ScriptedCredentialSource
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
@@ -33,6 +37,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private const val APP_RULE = "app_rule"
+private const val HTTP_BAD_REQUEST = 400
+private const val CEILING = 100L
 
 /** Every provider result and every resolution has one specific default outcome, and a tier can override two of them. */
 class SingleShotOutcomeMappingTest {
@@ -389,6 +395,189 @@ class SingleShotOutcomeMappingTest {
 
             assertTrue(called)
             assertNull(seen)
+        }
+    }
+
+    // ---- onFailed: the else arm of the provider-failure mapping, and nothing else
+
+    private fun saving(): suspend (Extraction, CommandInput) -> Resolution = { _, _ ->
+        Resolution.Steps(listOf(ToolStep.Mutation(FakeMutation(ENTRIES_TOOL, StepResult("saved")))))
+    }
+
+    private fun httpError(): ModelResult =
+        ModelResult.Failure(FailureReason.HttpError(), FailureDetails(HTTP_BAD_REQUEST, "invalid_request", null))
+
+    @Test
+    fun anOnFailedHookTurnsAProviderHttpErrorIntoEscalateAndTheNextTierRuns() = runTest {
+        NoNetworkGuard.during {
+            val next = nextTier()
+
+            val run = ladderOf(httpError(), next = listOf(next)) {
+                onFailed = { _, _ -> StrategyOutcome.Escalate(EscalationReason.ModelDeclined()) }
+            }
+
+            assertEquals(1, next.executions)
+            assertTrue(run.outcome.toString(), run.outcome is CommandOutcome.Completed)
+        }
+    }
+
+    @Test
+    fun theOnFailedHookReceivesTheExactReasonAndDetailsOfTheFailure() = runTest {
+        NoNetworkGuard.during {
+            val reason = FailureReason.HttpError()
+            val details = FailureDetails(HTTP_BAD_REQUEST, "invalid_request", "req-9")
+            var seenReason: FailureReason? = null
+            var seenDetails: FailureDetails? = null
+
+            ladderOf(ModelResult.Failure(reason, details)) {
+                onFailed = { r, d ->
+                    seenReason = r
+                    seenDetails = d
+                    StrategyOutcome.Failed(r, d)
+                }
+            }
+
+            assertSame(reason, seenReason)
+            assertSame(details, seenDetails)
+        }
+    }
+
+    @Test
+    fun withoutAnOnFailedHookTheSameFailureStillEndsFailedWithReasonAndDetails() = runTest {
+        NoNetworkGuard.during {
+            val details = FailureDetails(HTTP_BAD_REQUEST, "invalid_request", null)
+
+            val run = ladderOf(ModelResult.Failure(FailureReason.HttpError(), details))
+
+            assertEquals(FailureReason.HttpError(), failedReason(run))
+            assertSame(details, (run.outcome as CommandOutcome.Failed).details)
+        }
+    }
+
+    @Test
+    fun theOnFailedHookIsNotCalledForNoToolCallOrRefusalFailuresOrAnswers() = runTest {
+        NoNetworkGuard.during {
+            var calls = 0
+            val counting: SingleShotStrategy.Builder.() -> Unit = {
+                onFailed = { r, d ->
+                    calls++
+                    StrategyOutcome.Failed(r, d)
+                }
+            }
+
+            ladderOf(ModelResult.Failure(FailureReason.NoToolCall()), configure = counting)
+            ladderOf(ModelResult.Failure(FailureReason.Refusal()), configure = counting)
+            ladderOf(FakeAiProvider.refusal(usage()), configure = counting)
+            ladderOf(FakeAiProvider.reply("prose", usage()), configure = counting)
+            ladderOf(answerOf(StopReason.MAX_TOKENS, toolCall()), configure = counting)
+
+            assertEquals(0, calls)
+        }
+    }
+
+    @Test
+    fun theOnFailedHookIsNotCalledForAMissingCredentialAndTheNextTierNeverRuns() = runTest {
+        NoNetworkGuard.during {
+            var calls = 0
+            val next = nextTier()
+            val tier = singleShot(RecordingResolver(noMatch()), snapshotOf(entriesTool())) {
+                onFailed = { _, _ ->
+                    calls++
+                    StrategyOutcome.Escalate(EscalationReason.ModelDeclined())
+                }
+            }
+            val fake = FakeAiProvider(ProviderId.ANTHROPIC)
+            val pipeline = pipelineOf(
+                listOf(tier, next),
+                fake,
+                ScriptedGate.admitAll(),
+                RecordingCommitSink(),
+                credentials = ScriptedCredentialSource.keys(),
+            )
+
+            val outcome = pipeline.execute(CommandInput("add two things", "en", null))
+
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Failed)
+            assertEquals(0, calls)
+            assertEquals(0, next.executions)
+            assertEquals(0, fake.callCount)
+        }
+    }
+
+    @Test
+    fun theOnFailedHookIsNotCalledWhenTheTokenCeilingStopsTheTier() = runTest {
+        NoNetworkGuard.during {
+            var calls = 0
+            val hook: suspend (FailureReason, FailureDetails?) -> StrategyOutcome = { r, d ->
+                calls++
+                StrategyOutcome.Failed(r, d)
+            }
+            val policy = TierPolicy { tokenCeiling = CEILING }
+            val tier = singleShot(RecordingResolver(saving()), snapshotOf(entriesTool())) { onFailed = hook }
+            val crossing = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                FakeAiProvider.toolCall("call-1", ENTRIES_TOOL, entriesArguments("a"), Usage(0, 0, 0, CEILING + 1)),
+            )
+            val crossedPipeline =
+                pipelineOf(listOf(tier), crossing, ScriptedGate.admitAll(), RecordingCommitSink(), policy = policy)
+            val crossed = crossedPipeline.execute(CommandInput("add two things", "en", null))
+            val reached = pipelineOf(
+                listOf(
+                    ScriptedStrategy(
+                        StrategyId("earlier"),
+                        { _, session ->
+                            session.recordTurn(
+                                TurnRecord(null, null, null, emptyList(), Usage(0, 0, 0, CEILING), 1L),
+                            )
+                            StrategyOutcome.Escalate(EscalationReason.NoToolCall())
+                        },
+                    ),
+                    tier,
+                ),
+                FakeAiProvider(ProviderId.ANTHROPIC),
+                ScriptedGate.admitAll(),
+                RecordingCommitSink(),
+                policy = policy,
+            ).execute(CommandInput("add two things", "en", null))
+
+            assertEquals(FailureReason.BudgetExceeded(BudgetBound.TOKENS), (crossed as CommandOutcome.Failed).reason)
+            assertEquals(FailureReason.BudgetExceeded(BudgetBound.TOKENS), (reached as CommandOutcome.Failed).reason)
+            assertEquals(0, calls)
+        }
+    }
+
+    @Test
+    fun theOnFailedHookIsNotCalledForAGateHoldOrAThrowingResolver() = runTest {
+        NoNetworkGuard.during {
+            var calls = 0
+            val counting: SingleShotStrategy.Builder.() -> Unit = {
+                onFailed = { r, d ->
+                    calls++
+                    StrategyOutcome.Failed(r, d)
+                }
+            }
+            val held = FakeAiProvider(ProviderId.ANTHROPIC, oneCall())
+            val holdingTier = singleShot(RecordingResolver(saving()), snapshotOf(entriesTool()), configure = counting)
+            val holdPipeline =
+                pipelineOf(listOf(holdingTier), held, ScriptedGate.holdAll("confirm"), RecordingCommitSink())
+            holdPipeline.execute(CommandInput("add two things", "en", null))
+
+            val threw = ladderOf(oneCall(), answer = { _, _ -> error("resolver blew up") }, configure = counting)
+
+            assertEquals(0, calls)
+            assertTrue(threw.outcome.trace.codes.contains(TraceCode.STRATEGY_ERROR))
+        }
+    }
+
+    @Test
+    fun anOnFailedHookThatThrowsEndsTheTierAsAStrategyError() = runTest {
+        NoNetworkGuard.during {
+            val run = ladderOf(httpError()) {
+                onFailed = { _, _ -> error("hook blew up") }
+            }
+
+            assertTrue(failedReason(run).toString(), failedReason(run) is FailureReason.Unexpected)
+            assertTrue(run.outcome.trace.codes.contains(TraceCode.STRATEGY_ERROR))
         }
     }
 
