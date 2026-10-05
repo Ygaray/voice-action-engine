@@ -2,9 +2,9 @@
 phase: "12"
 slug: "wave-1-seams-w04-fix"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-05"
 ---
 
@@ -41,17 +41,17 @@ Seeded from RESEARCH.md "Phase Requirements -> Test Map"; task IDs bound by the 
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 12-02-T3 | 12-02 | 1 | SEAM-01 | — | hook never fires for ceiling/gate/strategy_error | unit | `./gradlew :core:test --tests '*SingleShotOutcomeMappingTest*'` | ✅ extend | ⬜ pending |
-| 12-02-T1, 12-02-T2 | 12-02 | 1 | SEAM-02 | — | OFF default keeps wire bytes unchanged | unit/golden | `./gradlew :core:test --tests '*SingleShotRequestTest*' --tests '*TranscriptTypesTest*'`; `:providers:test --tests '*AnthropicEncoderTest*' --tests '*ChatEncoderTest*'` | ✅ extend | ⬜ pending |
-| 12-01-T3 | 12-01 | 1 | SEAM-03 | — | N/A | unit | `./gradlew :providers:test --tests '*AnthropicModelsTest*' --tests '*ChatModelsTest*'` | ✅ extend | ⬜ pending |
-| 12-03-T1, 12-03-T2 | 12-03 | 1 | SEAM-04 | — | carryIn is a boolean, never content | unit | `./gradlew :core:test --tests '*TierWalkTest*' --tests '*TraceTest*' --tests '*InFlightTierTraceTest*'` | ✅ extend | ⬜ pending |
-| 12-03-T3 | 12-03 | 1 | SEAM-05 | — | N/A | unit | `./gradlew :core:test --tests '*TierPolicyTest*' --tests '*TierWalkTest*'` | ✅ extend | ⬜ pending |
-| 12-06-T1..T3 | 12-06 | 2 | SEAM-06 | T: callId leaks | toString/redaction unchanged | unit | `./gradlew :core:test --tests '*CommitPathTest*' --tests '*HeldReportingTest*' --tests '*SingleShotResolveTest*' --tests '*AgenticLoopDispatchTest*' --tests '*RedactionCanaryTest*'` | ✅ extend | ⬜ pending |
-| 12-04-T1, 12-04-T2, 12-07-T1 | 12-04, 12-07 | 1, 3 | SEAM-07 | T: key access misuse | opt-in required; compile fails without it | unit + negative-compile | `./gradlew :keystore:testDebugUnitTest`; `scripts/verify-negative-controls.sh` | ❌ W0 | ⬜ pending |
-| 12-01-T1, 12-01-T2 | 12-01 | 1 | PROV-14 | — | Responses-only ids never get `reasoning_effort` | unit/golden | `./gradlew :providers:test --tests '*OpenAiModelRulesTest*' --tests '*ChatEncoderTest*'` | ✅ extend | ⬜ pending |
-| 12-01-T1 | 12-01 | 1 | PROV-15 | T: body leakage | W04 400 -> `model_unsupported`, no body in details | unit + MockWebServer | `./gradlew :providers:test --tests '*ChatErrorMapTest*' --tests '*ChatTransportTest*'` then `:providers:testOkhttp521` / `:providers:testOkhttp550` | ✅ extend | ⬜ pending |
-| 12-05-T1..T3, 12-08-T1..T3 | 12-05, 12-08 | 1, 4 | PROV-16 | T: key/spend | bounded request count, spend-capped key | JVM judge test + manual device | `./gradlew :sample:testDebugUnitTest --tests '*SmokeLegTest*'` | ✅ extend | ⬜ pending |
-| 12-07-T1..T3 | 12-07 | 3 | DOC-01 | — | N/A | gate | `scripts/verify-docs-coverage.sh`; `./gradlew :sample:testDebugUnitTest --tests '*DocSnippetsTest*'` | ✅ extend | ⬜ pending |
+| 12-02-T3 | 12-02 | 1 | SEAM-01 | — | hook never fires for ceiling/gate/strategy_error | unit | `./gradlew :core:test --tests '*SingleShotOutcomeMappingTest*'` | ✅ extend | ✅ green |
+| 12-02-T1, 12-02-T2 | 12-02 | 1 | SEAM-02 | — | OFF default keeps wire bytes unchanged | unit/golden | `./gradlew :core:test --tests '*SingleShotRequestTest*' --tests '*TranscriptTypesTest*'`; `:providers:test --tests '*AnthropicEncoderTest*' --tests '*ChatEncoderTest*'` | ✅ extend | ✅ green |
+| 12-01-T3 | 12-01 | 1 | SEAM-03 | — | N/A | unit | `./gradlew :providers:test --tests '*AnthropicModelsTest*' --tests '*ChatModelsTest*'` | ✅ extend | ✅ green |
+| 12-03-T1, 12-03-T2 | 12-03 | 1 | SEAM-04 | — | carryIn is a boolean, never content | unit | `./gradlew :core:test --tests '*TierWalkTest*' --tests '*TraceTest*' --tests '*InFlightTierTraceTest*'` | ✅ extend | ✅ green |
+| 12-03-T3 | 12-03 | 1 | SEAM-05 | — | N/A | unit | `./gradlew :core:test --tests '*TierPolicyTest*' --tests '*TierWalkTest*'` | ✅ extend | ✅ green |
+| 12-06-T1..T3 | 12-06 | 2 | SEAM-06 | T: callId leaks | toString/redaction unchanged | unit | `./gradlew :core:test --tests '*CommitPathTest*' --tests '*HeldReportingTest*' --tests '*SingleShotResolveTest*' --tests '*AgenticLoopDispatchTest*' --tests '*RedactionCanaryTest*'` | ✅ extend | ✅ green |
+| 12-04-T1, 12-04-T2, 12-07-T1 | 12-04, 12-07 | 1, 3 | SEAM-07 | T: key access misuse | opt-in required; compile fails without it | unit + negative-compile | `./gradlew :keystore:testDebugUnitTest`; `scripts/verify-negative-controls.sh` | ❌ W0 | ✅ green |
+| 12-01-T1, 12-01-T2 | 12-01 | 1 | PROV-14 | — | Responses-only ids never get `reasoning_effort` | unit/golden | `./gradlew :providers:test --tests '*OpenAiModelRulesTest*' --tests '*ChatEncoderTest*'` | ✅ extend | ✅ green |
+| 12-01-T1 | 12-01 | 1 | PROV-15 | T: body leakage | W04 400 -> `model_unsupported`, no body in details | unit + MockWebServer | `./gradlew :providers:test --tests '*ChatErrorMapTest*' --tests '*ChatTransportTest*'` then `:providers:testOkhttp521` / `:providers:testOkhttp550` | ✅ extend | ✅ green |
+| 12-05-T1..T3, 12-08-T1..T3 | 12-05, 12-08 | 1, 4 | PROV-16 | T: key/spend | bounded request count, spend-capped key | JVM judge test + manual device | `./gradlew :sample:testDebugUnitTest --tests '*SmokeLegTest*'` | ✅ extend | ✅ green |
+| 12-07-T1..T3 | 12-07 | 3 | DOC-01 | — | N/A | gate | `scripts/verify-docs-coverage.sh`; `./gradlew :sample:testDebugUnitTest --tests '*DocSnippetsTest*'` | ✅ extend | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -59,10 +59,10 @@ Seeded from RESEARCH.md "Phase Requirements -> Test Map"; task IDs bound by the 
 
 ## Wave 0 Requirements
 
-- [ ] Negative-compile plant for the `DelicateKeyAccess` opt-in in `scripts/verify-negative-controls.sh` (`:sample` consumer file) — SEAM-07
-- [ ] `DocSnippetsTest` region `keystore-fake` + JVM round-trip `@Test` — SEAM-07 / DOC-01
-- [ ] `ModelRequest` 7-arg-ctor-exists and `Extraction` 2-arg-ctor-exists reflection tests — SEAM-02 / SEAM-06 additivity
-- [ ] `12-LIVE-LEG-DECISION.md` (orchestrator relay) — blocks the PROV-16 device run only
+- [x] Negative-compile plant for the `DelicateKeyAccess` opt-in in `scripts/verify-negative-controls.sh` (`:sample` consumer file) — SEAM-07
+- [x] `DocSnippetsTest` region `keystore-fake` + JVM round-trip `@Test` — SEAM-07 / DOC-01
+- [x] `ModelRequest` 7-arg-ctor-exists and `Extraction` 2-arg-ctor-exists reflection tests — SEAM-02 / SEAM-06 additivity
+- [x] `12-LIVE-LEG-DECISION.md` (orchestrator relay) — blocks the PROV-16 device run only
 
 ---
 
@@ -76,14 +76,27 @@ Seeded from RESEARCH.md "Phase Requirements -> Test Map"; task IDs bound by the 
 
 ## Validation Sign-Off
 
-> **Plan-time state is a DRAFT.** Leave frontmatter `status: draft` and `nyquist_compliant: false`.
-> These are finalized ONLY post-execution by the Nyquist finalizer.
+> Finalized post-execution by the Nyquist finalizer (2026-10-05).
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` — leave `false` at plan time
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 120s
+- [x] _(finalizer-only, post-execution)_ `nyquist_compliant: true`
 
-**Approval:** pending
+**Approval:** validated 2026-10-05 (automated finalizer, --auto)
+
+---
+
+## Validation Audit 2026-10-05
+
+| Metric | Count |
+|--------|-------|
+| Requirements audited | 11 (SEAM-01..07, PROV-14..16, DOC-01) |
+| Gaps found (automatable) | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Evidence the mapped commands ran green this phase (12-VERIFICATION.md, 12-SELF-UAT.md): core 694, providers 609 per OkHttp leg (4.12.0, 5.2.1, 5.5.0), keystore 105, sample 147 tests, 0 failures; detekt, Metalava apiCheck, verify-docs-coverage (25 checks), verify-keyaccess-opt-in (Part 4) and verify-sample-device-guard (33 scenarios) green. PROV-16's live leg is Manual-Only and was run on the TESTER (evidence/gate1-responses_probe.txt: verdict=PASS reason=model_unsupported http=400), with its JVM judge (SmokeLegTest) green.
+Note: scripts/verify-negative-controls.sh Part 1 is stale since the v1.0.0 cut (not a Phase 12 gap; Part 4 passes).
