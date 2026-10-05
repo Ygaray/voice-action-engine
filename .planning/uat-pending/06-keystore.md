@@ -1,6 +1,6 @@
 ### Phase 6 — keystore (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/06-keystore/06-07-SELF-UAT.md`](phases/06-keystore/06-07-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS** (device SM-S908U TESTER R5CT10XNKQN, androidTest APK md5 `6ba7a5a27c1bb3edc7b274197095390e` @ `8d9382d`, 2026-10-01). Guarded runner `scripts/run-keystore-instrumented.sh` -> `OK (7 tests)` on the real AndroidKeyStore with real AES/GCM and file DataStores, on the post-code-review HEAD; JVM `:keystore` suite 96 tests, 0 failures.
 - **Items covered (4 ROADMAP success criteria):**

@@ -1,6 +1,6 @@
 ### Phase 3 — transcript-types-providerrouter-on-device-gate (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/03-transcript-types-providerrouter-on-device-gate/03-SELF-UAT.md`](phases/03-transcript-types-providerrouter-on-device-gate/03-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:core` harness, no device; core.jar md5 `aebc2ac0f8a1593cd116c5e5e66c9715` @ `d0970a5`, 2026-10-01). Forced re-run of `:core:test`: 422 tests, 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK (seven sealed types); `:core` runtime classpath has no HTTP dependency.
 - **Items covered (5 ROADMAP success criteria):**

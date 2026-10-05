@@ -1,6 +1,6 @@
 ### Phase 4 — anthropic-transport-okhttp-matrix (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off-with-gap — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/04-anthropic-transport-okhttp-matrix/04-SELF-UAT.md`](phases/04-anthropic-transport-okhttp-matrix/04-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:providers` harness, no device; providers.jar md5 `6644cdcedd13e7cb458b1067a682dd16` @ `2088a8e`, 2026-10-01). Forced re-run on all three OkHttp legs (4.12.0, 5.2.1, 5.5.0): 144 tests each, 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK; guard negative control proves a wrong-runtime leg fails.
 - **Items covered (5 ROADMAP success criteria):**

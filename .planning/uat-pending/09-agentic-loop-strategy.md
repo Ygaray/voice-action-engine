@@ -1,6 +1,6 @@
 ### Phase 9 — agentic-loop-strategy (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/09-agentic-loop-strategy/09-SELF-UAT.md`](phases/09-agentic-loop-strategy/09-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device, no live call by this run; HEAD `b9c776f`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 646 tests, providers 587 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green; `AgenticLoopWireTest` 15/15 on OkHttp 4.12.0, 5.2.1 and 5.5.0 (the two 5.x legs forced fresh, not from cache); keystore 96/96; the CLN-02 `scanBannedConstructs` is green on all three modules and a planted `log_food` was shown to fail it, then removed (tree clean).
 - **Items covered (4 ROADMAP success criteria):**

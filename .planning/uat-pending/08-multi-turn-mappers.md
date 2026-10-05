@@ -1,6 +1,6 @@
 ### Phase 8 — multi-turn-mappers (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/08-multi-turn-mappers/08-SELF-UAT.md`](phases/08-multi-turn-mappers/08-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device, no live call by this run; HEAD `bbf91a4`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 535 tests, providers 572 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green with the conformance suite passing on OkHttp 4.12.0, 5.2.1 and 5.5.0. Backfilled on 2026-10-01 by the milestone master after the orchestrator flagged the missing record (the execute stage ruled Gate-1 N/A, `has-uat-criteria=false`).
 - **Items covered (4 ROADMAP success criteria):**

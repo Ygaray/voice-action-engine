@@ -1,6 +1,6 @@
 ### Phase 2 — core-contract-pipeline-commit-seam (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/02-core-contract-pipeline-commit-seam/02-SELF-UAT.md`](phases/02-core-contract-pipeline-commit-seam/02-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:core` harness, no device; core.jar md5 `81a4651c80e81317de42a112551a07ba` @ `baf6fcc`, 2026-10-01). Forced re-run of `:core:test`: 233 tests, 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK.
 - **Items covered (5 ROADMAP success criteria):**

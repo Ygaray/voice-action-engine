@@ -1,6 +1,6 @@
 ### Phase 10 - sample-harness-gate-1-docs (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off-with-gap — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/10-sample-harness-gate-1-docs/10-SELF-UAT.md`](phases/10-sample-harness-gate-1-docs/10-SELF-UAT.md) - Verdict: **13 of 14 criteria PASS + 1 ACCEPTED BY EVIDENCE (G1-09 INCONCLUSIVE `model_filled_optional` after one rerun, accepted by the orchestrator 2026-10-01, NOT a PASS)** (device yahirs-s22-ultra-2 SM-S908U, APK md5 `4c6fc98c64485ce878e11e60fdf92559` @ `4a586ed7b8`, 2026-10-01). Live legs L1-L6 and the optional L7 ran on the TESTER through the `:sample` UI; spend: 11 requests (anthropic=3 openai=4 openrouter=4), est USD 0.014.
 - **Items covered (4 ROADMAP success criteria, 14 runbook criteria):**

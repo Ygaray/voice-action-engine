@@ -1,6 +1,6 @@
 ### Phase 5 — openai-openrouter-transports (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off-with-gap — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/05-openai-openrouter-transports/05-SELF-UAT.md`](phases/05-openai-openrouter-transports/05-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM `:providers` harness, no device; providers.jar md5 `8e485979f64306ff703cf738b2c3203b` @ `bb2e85f`, 2026-10-01). Forced uncached re-run on all three OkHttp legs (4.12.0, 5.2.1, 5.5.0): 411 tests each (246 in `providers.chat`), 0 failures, 0 skipped; `./gradlew check` green; API-surface review OK; three negative controls (request golden, captured EDIT body, derived bad-JSON body) each made the right test fail and were restored.
 - **Items covered (5 ROADMAP success criteria):**

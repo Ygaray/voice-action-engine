@@ -1,6 +1,6 @@
 ### Phase 1 — scaffold-publishing-proof (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/01-scaffold-publishing-proof/01-SELF-UAT.md`](phases/01-scaffold-publishing-proof/01-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless CLI/build + live JitPack, no device; artifacts core.jar md5 `2080ab4a048088a3a2b89b4080463aba` @ `96c9c62`, live ref `a40f8319ca`, 2026-09-30). Live consumer resolution from an empty Gradle cache, green `check`, 69 negative controls, api-dump wiring proof, OkHttp matrix legs with runtime guard.
 - **Items covered (5 ROADMAP success criteria):**

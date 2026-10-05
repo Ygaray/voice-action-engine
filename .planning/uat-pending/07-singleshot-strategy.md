@@ -1,6 +1,6 @@
 ### Phase 7 — singleshot-strategy (v1.0)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-05`
 - **Milestone:** v1.0 (Core Engine)
 - **Gate 1 self-UAT log:** [`.planning/phases/07-singleshot-strategy/07-SELF-UAT.md`](phases/07-singleshot-strategy/07-SELF-UAT.md) — Verdict: **ALL 3 criteria PASS** (headless pure-JVM `:core` + `:providers` harness, no device; HEAD `bbf91a4`, 2026-10-01). Forced re-run of `:core:test :providers:test`: core 535 tests, providers 572 tests, 0 failures, 0 errors, 0 skipped; `./gradlew check --offline` green on all three OkHttp legs; API-surface review OK (seven sealed types, classes=177). Backfilled on 2026-10-01 by the milestone master after the orchestrator flagged the missing record (the execute stage ruled Gate-1 N/A, `has-uat-criteria=false`).
 - **Items covered (3 ROADMAP success criteria):**
