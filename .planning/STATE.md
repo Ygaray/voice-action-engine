@@ -5,16 +5,16 @@ milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 12
 current_phase_name: Wave-1 Seams & W04 Fix
 status: executing
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-10-05T21:38:39.098Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-10-05T21:44:34.364Z"
 last_activity: 2026-10-05
 last_activity_desc: Phase 12 execution started
-state_head: d1bf4bda6cc4ee52721a4a839964f6a9403b339b
+state_head: ad44f3e7243699bdef3a867f377228040626393a
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 8
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 12 (Wave-1 Seams & W04 Fix) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-10-05 — Phase 12 execution started
 
@@ -96,6 +96,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P09 | 20 min | 3 tasks | 4 files |
 | Phase 03 P10 | 20 min | 3 tasks | 4 files |
 | Phase 12 P01 | 40min | 3 tasks | 11 files |
+| Phase 12 P02 | ~25min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,7 @@ Recent decisions affecting current work:
 - [Roadmap v1.1]: No phase carries a UI hint (library milestone; `:sample` is a debug harness).
 - [Phase 12]: [12-01] Deny-list only for OpenAI wire rules; pro/codex exclusion is direct-only, routed ids keep today's rules
 - [Phase 12]: [12-01] reasoning_effort 400 classifier keys on status 400 + param + code, never reads the message
+- [Phase 12]: 12-02: ReasoningMode OFF and PROVIDER_DEFAULT are both the v1.0 wire; onFailed fires from the provider-failure else arm only
 
 ### Pending Todos
 
@@ -140,8 +142,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-05T21:38:39.064Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-10-05T21:44:34.328Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

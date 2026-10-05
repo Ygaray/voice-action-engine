@@ -15,8 +15,8 @@ alone to keep one.
 
 ### Wave-1 additive seams (consumer asks)
 
-- [ ] **SEAM-01** (XR-173-01a): `SingleShotStrategy.Builder.onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome`, default `Failed(reason, details)`. It is called for provider failures only, never for a ceiling, gate or `strategy_error`. An app maps an HTTP 400 to `Escalate` without a decorator.
-- [ ] **SEAM-02** (XR-173-01b): there is an explicit per-strategy reasoning knob. `ModelRequest.reasoning: ReasoningMode` (open value class: `OFF`, `PROVIDER_DEFAULT`; the 7-arg ctor is kept, defaulting to `OFF`), plus `Builder.reasoning` on SingleShot and AgenticLoop, both defaulting to `OFF`. Today's wire defaults are pinned by goldens.
+- [x] **SEAM-01** (XR-173-01a): `SingleShotStrategy.Builder.onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome`, default `Failed(reason, details)`. It is called for provider failures only, never for a ceiling, gate or `strategy_error`. An app maps an HTTP 400 to `Escalate` without a decorator.
+- [x] **SEAM-02** (XR-173-01b): there is an explicit per-strategy reasoning knob. `ModelRequest.reasoning: ReasoningMode` (open value class: `OFF`, `PROVIDER_DEFAULT`; the 7-arg ctor is kept, defaulting to `OFF`), plus `Builder.reasoning` on SingleShot and AgenticLoop, both defaulting to `OFF`. Today's wire defaults are pinned by goldens.
 - [x] **SEAM-03** (XR-173-01c): the Anthropic capability table has an exact `claude-sonnet-5` row (forced tool choice allowed, explicit breakpoints, `minCacheablePrefixTokens` from Anthropic's docs). Internal only.
 - [ ] **SEAM-04** (XR-173-01e): `TierAttempt.carryIn: Boolean` reports whether the tier received a carry (presence only, never the content).
 - [ ] **SEAM-05** (XR-175-02f): `CommandOutcome.Unhandled.cappedByPolicy: Boolean` is true when policy skipped at least one tier (`tier_skipped_policy`, offline-only included) and no tier handled the command. Its KDoc states that coverage.
@@ -105,8 +105,8 @@ alone to keep one.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEAM-01 | Phase 12 | Pending |
-| SEAM-02 | Phase 12 | Pending |
+| SEAM-01 | Phase 12 | Complete |
+| SEAM-02 | Phase 12 | Complete |
 | SEAM-03 | Phase 12 | Complete |
 | SEAM-04 | Phase 12 | Pending |
 | SEAM-05 | Phase 12 | Pending |
