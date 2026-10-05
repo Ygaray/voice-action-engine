@@ -116,7 +116,7 @@ Gate:           19 needs 12, 14-18 and 13's verdict;  20 needs 19's green Gate-1
   4. W04 is fixed and proven on the JVM. (a) An encoder golden shows that `gpt-6-astra`, and every `OpenAiModelRules` model that rejects `"none"`, never receives `reasoning_effort: "none"`. (b) A MockWebServer replay of the captured W04 400 body (`param=reasoning_effort`, `code=unsupported_value`) maps to `FailureReason.ModelUnsupported`, not `http_error`, on all three OkHttp legs.
   5. W04 is proven live: (c) a `:sample` smoke call to `gpt-6-astra` under the `supportsTools` override returns the specific typed outcome (`ModelUnsupported`, never `http_error`). The evidence line is logged, the call uses the spend-capped OpenAI test key, and the request count is bounded.
 
-**Plans:** 6/8 plans executed (waves: 1 = 01-05, 2 = 06, 3 = 07, 4 = 08)
+**Plans:** 7/8 plans executed (waves: 1 = 01-05, 2 = 06, 3 = 07, 4 = 08)
 
 Plans:
 **Wave 1**
@@ -133,7 +133,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 12-07-PLAN.md — DOC-01 stumbles + cache note + tested `KeyAccess` fake + API.md names (DOC-01)
+- [x] 12-07-PLAN.md — DOC-01 stumbles + cache note + tested `KeyAccess` fake + API.md names (DOC-01)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -288,7 +288,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 12. Wave-1 Seams & W04 Fix | v1.1 | 6/8 | In Progress|  |
+| 12. Wave-1 Seams & W04 Fix | v1.1 | 7/8 | In Progress|  |
 | 13. On-Device Model Spike | v1.1 | 0/TBD | Not started | - |
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 0/TBD | Not started | - |
 | 15. PlanThenExecute Strategy | v1.1 | 0/TBD | Not started | - |

@@ -21,7 +21,7 @@ alone to keep one.
 - [x] **SEAM-04** (XR-173-01e): `TierAttempt.carryIn: Boolean` reports whether the tier received a carry (presence only, never the content).
 - [x] **SEAM-05** (XR-175-02f): `CommandOutcome.Unhandled.cappedByPolicy: Boolean` is true when policy skipped at least one tier (`tier_skipped_policy`, offline-only included) and no tier handled the command. Its KDoc states that coverage.
 - [x] **SEAM-06** (XR-171-03(1)): `Extraction.callId: String?` (new 3-arg ctor; the 2-arg ctor is kept) and `ExecutedAction.providerCallId: String?` carry the provider tool-call id. Both are null for zero-call tiers.
-- [ ] **SEAM-07** (XR-172-02): a public plain interface `KeyAccess` (two members: `existingKey` never creates; `getOrCreateKey` is the only creator) plus an `ApiKeyStore(dataStore, slots, keyAccess)` ctor, both gated by `@RequiresOptIn(level = ERROR) @DelicateKeyAccess`. INTEGRATION.md shows a ~10-line software fake. No new published module.
+- [x] **SEAM-07** (XR-172-02): a public plain interface `KeyAccess` (two members: `existingKey` never creates; `getOrCreateKey` is the only creator) plus an `ApiKeyStore(dataStore, slots, keyAccess)` ctor, both gated by `@RequiresOptIn(level = ERROR) @DelicateKeyAccess`. INTEGRATION.md shows a ~10-line software fake. No new published module.
 
 ### Provider fix (W04)
 
@@ -72,7 +72,7 @@ alone to keep one.
 
 ### Docs, sample and release
 
-- [ ] **DOC-01**: the 3 open v1.0.1 wiring stumbles are fixed: INTEGRATION §7 (what `ProviderId` prints), §10 (`runTest`/JUnit imports), §5/6 (SingleShot can't serve reads). Plus a note that a single-tool SingleShot prefix won't cache on Haiku/OpenAI.
+- [x] **DOC-01**: the 3 open v1.0.1 wiring stumbles are fixed: INTEGRATION §7 (what `ProviderId` prints), §10 (`runTest`/JUnit imports), §5/6 (SingleShot can't serve reads). Plus a note that a single-tool SingleShot prefix won't cache on Haiku/OpenAI.
 - [ ] **DOC-02**: README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every new tier, seam and module well enough that an agent can wire them from the docs alone (isolated wiring test PASS on the final SHA).
 - [ ] **VER-06**: a `:sample` Gate-1 on the TESTER exercises grammar (offline, zero calls), plan, the router and undo-all end to end.
 - [ ] **VER-07**: `v1.1.0` is cut only on green verification:
@@ -111,7 +111,7 @@ alone to keep one.
 | SEAM-04 | Phase 12 | Complete |
 | SEAM-05 | Phase 12 | Complete |
 | SEAM-06 | Phase 12 | Complete |
-| SEAM-07 | Phase 12 | Pending |
+| SEAM-07 | Phase 12 | Complete |
 | PROV-14 | Phase 12 | Complete |
 | PROV-15 | Phase 12 | Complete |
 | PROV-16 | Phase 12 | Pending |
@@ -138,7 +138,7 @@ alone to keep one.
 | UNDO-03 | Phase 17 | Pending |
 | UNDO-04 | Phase 17 | Pending |
 | ADPT-01 | Phase 18 | Pending |
-| DOC-01 | Phase 12 | Pending |
+| DOC-01 | Phase 12 | Complete |
 | DOC-02 | Phase 19 | Pending |
 | VER-06 | Phase 19 | Pending |
 | VER-07 | Phase 20 | Pending |
