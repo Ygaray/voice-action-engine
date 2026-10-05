@@ -83,6 +83,7 @@ internal object OpenAiModelRules {
         return when {
             viaRouter && RESPONSES_ONLY.matches(id) ->
                 rules(EFFORT_LOW, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS, parallel)
+            RESPONSES_ONLY.matches(id) -> completion
             GPT_6_FAMILY.matches(id) || isLaterGpt5(id) ->
                 rules(EFFORT_NONE, MAX_COMPLETION_TOKENS, NO_MIN_TOKENS, parallel)
             GPT_5_BASE.matches(id) || GPT_5_MINOR.matches(id) || O_SERIES.matches(id) -> completion

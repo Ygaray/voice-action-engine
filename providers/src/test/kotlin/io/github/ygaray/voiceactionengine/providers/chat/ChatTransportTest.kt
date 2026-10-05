@@ -103,6 +103,7 @@ class ChatTransportTest {
         request: ModelRequest,
         key: String? = "sk-test-key",
         keyedTo: ProviderId = vendor.providerId,
+        override: (ModelCapabilities.Builder.() -> Unit)? = null,
     ): Run = runBlocking {
         val results = RecordingSink<ModelResult>()
         val step: StrategyStep = { _, session ->
@@ -120,6 +121,7 @@ class ChatTransportTest {
             }
             gate = ScriptedGate.admitAll()
             commitSink = RecordingCommitSink()
+            if (override != null) capabilities(vendor.providerId, model, override)
         }
         val outcome = pipeline.execute(CommandInput(firstTurn, "en", null))
         Run(results.events, outcome, server.requestCount)
@@ -230,6 +232,38 @@ class ChatTransportTest {
             assertEquals("model_unsupported", failure.reason.code)
             assertTrue(run.outcome.trace.codes.contains(TraceCode.CAPABILITY_REFUSED))
             assertEquals(0, run.requestCount)
+        }
+    }
+
+    // Assembled from the recorded fields of the captured answer, not its raw bytes.
+    private val w04Body = """{"error":{"message":"Unsupported value: 'reasoning_effort' does not support 'none' """ +
+        """with this model. Supported values are: 'low', 'medium', 'high', and 'xhigh'.",""" +
+        """"type":"invalid_request_error","param":"reasoning_effort","code":"unsupported_value"}}"""
+
+    @Test
+    fun aDirectResponsesOnlyModelUnderAToolsOverrideSendsNoEffortAndTheW04AnswerIsModelUnsupported() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(400).setBody(w04Body))
+            server.start()
+            val provider = ChatCompletionsProvider.openAi { baseUrl = server.url("/") }
+            val request = ModelRequest(
+                FIXED_SYSTEM,
+                listOf(UserMessage(firstTurn)),
+                listOf(logFoodTool()),
+                ToolChoice.Required("log_food"),
+                1024,
+                CacheDirective(true),
+                true,
+            )
+
+            val run = route(server, provider, ChatVendor.OPENAI, "gpt-6-astra", request) { supportsTools = true }
+
+            assertEquals(1, run.requestCount)
+            val sent = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+            assertFalse(sent.containsKey("reasoning_effort"))
+            val failure = run.results.single() as ModelResult.Failure
+            assertEquals("model_unsupported", failure.reason.code)
+            assertEquals(400, failure.details!!.httpStatus)
         }
     }
 

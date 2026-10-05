@@ -106,6 +106,37 @@ class ChatErrorMapTest {
         assertEquals("http_error", withMessage(500, bare).reason().code)
     }
 
+    private fun effortBody(param: String?, code: String?, message: String = "m"): String {
+        val paramJson = if (param == null) "null" else "\"$param\""
+        val codeJson = if (code == null) "null" else "\"$code\""
+        return """{"error":{"message":"$message","type":"invalid_request_error","param":$paramJson,"code":$codeJson}}"""
+    }
+
+    @Test
+    fun anUnsupportedReasoningEffortValueIsModelUnsupportedOnlyForAllThreeFacts() {
+        val w04 = effortBody("reasoning_effort", "unsupported_value", "Unsupported value: 'reasoning_effort'")
+        assertEquals("model_unsupported", parseChatError(400, null, w04, false).reason().code)
+        assertEquals("http_error", parseChatError(500, null, w04, false).reason().code)
+        val otherParam = effortBody("temperature", "unsupported_value")
+        assertEquals("http_error", parseChatError(400, null, otherParam, false).reason().code)
+        val noCode = effortBody("reasoning_effort", null, "reasoning_effort is not accepted here")
+        assertEquals("http_error", parseChatError(400, null, noCode, false).reason().code)
+        val probeA = "Function tools with reasoning_effort are not supported for gpt-6-astra in " +
+            "/v1/chat/completions. To use function tools, use /v1/responses or set reasoning_effort to 'none'."
+        val probeABody = effortBody("reasoning_effort", null, probeA)
+        assertEquals("model_unsupported", parseChatError(400, null, probeABody, false).reason().code)
+    }
+
+    @Test
+    fun noServerTextSurfacesFromAnUnsupportedReasoningEffortAnswer() {
+        val body = effortBody("reasoning_effort", "unsupported_value", "CANARY-MSG")
+        val info = parseChatError(400, null, body, false)
+        assertEquals("model_unsupported", info.reason().code)
+        assertNoCanary(info.toString())
+        assertNoCanary(info.details().toString())
+        assertNoCanary(info.reason().toString())
+    }
+
     @Test
     fun noEndpointsForAParameterIsModelUnsupportedButOtherNotFoundIsNot() {
         val live = "No endpoints found that can handle the requested parameters."

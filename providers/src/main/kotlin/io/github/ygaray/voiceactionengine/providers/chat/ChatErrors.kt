@@ -29,6 +29,7 @@ private const val STATUS_MAX = 599
 private const val KEY_ERROR = "error"
 private const val KEY_ID = "id"
 private const val KEY_CODE = "code"
+private const val KEY_PARAM = "param"
 private const val KEY_TYPE = "type"
 private const val KEY_METADATA = "metadata"
 private const val KEY_ERROR_TYPE = "error_type"
@@ -36,6 +37,8 @@ private const val KEY_MESSAGE = "message"
 private const val KEY_REASONS = "reasons"
 
 private const val QUOTA_MARKER = "insufficient_quota"
+private const val PARAM_REASONING_EFFORT = "reasoning_effort"
+private const val CODE_UNSUPPORTED_VALUE = "unsupported_value"
 private const val CONTEXT_LENGTH_CODE = "context_length_exceeded"
 // No leading slash, so both "use /v1/responses" and "only supported in v1/responses and not in v1/chat/completions"
 // match; the 400/404 status guard keeps it from reading other answers.
@@ -133,11 +136,16 @@ private fun buildInfo(
     )
 }
 
-// Refinements read the error text into locals only; they win over the status table, in this order.
+// Refinements read the error text into locals only; they win over the status table, in this order: quota, context
+// length, endpoint marker, unsupported reasoning value, moderation refusal.
 private fun refine(status: Int, error: JsonObject?, quota: Boolean): FailureReason? = when {
     quota -> FailureReason.Billing()
     textField(error, KEY_CODE) == CONTEXT_LENGTH_CODE -> FailureReason.ContextWindowExceeded()
     isUnsupportedEndpoint(status, textField(error, KEY_MESSAGE)) -> FailureReason.ModelUnsupported()
+    // A model that rejects the reasoning effort the request carried: all three facts must match, and only the param
+    // and code identifiers are read, never the message.
+    status == STATUS_BAD_REQUEST && textField(error, KEY_PARAM) == PARAM_REASONING_EFFORT &&
+        textField(error, KEY_CODE) == CODE_UNSUPPORTED_VALUE -> FailureReason.ModelUnsupported()
     status == STATUS_FORBIDDEN && (error?.get(KEY_METADATA) as? JsonObject)?.get(KEY_REASONS) is JsonArray ->
         FailureReason.Refusal()
     else -> null
