@@ -153,4 +153,29 @@ class HeldReportingTest {
             assertTrue(outcome.commits.isEmpty())
         }
     }
+
+    @Test
+    fun aHoldFromThePublicSubmitHasNoCallIdAndNeitherDoesItsLaterCommit() = runTest {
+        NoNetworkGuard.during {
+            val pipeline = commandPipeline {
+                tier(
+                    ScriptedStrategy(tierId, { _, session ->
+                        session.submit(ToolStep.Mutation(FakeMutation("write_note", StepResult("saved"))))
+                        StrategyOutcome.Completed("asked")
+                    }),
+                )
+                gate = ScriptedGate.holdAll("confirm")
+                commitSink = RecordingCommitSink()
+                runIds = { runId }
+            }
+
+            val held = pipeline.execute(CommandInput("add a note"))
+            val committed = pipeline.commitHeld(held.held.single())
+
+            assertEquals(listOf(ActionKind.HELD), held.executed.map { it.kind })
+            assertNull(held.executed.single().providerCallId)
+            assertEquals(listOf(ActionKind.COMMITTED), committed.executed.map { it.kind })
+            assertNull(committed.executed.single().providerCallId)
+        }
+    }
 }

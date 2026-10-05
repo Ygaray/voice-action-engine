@@ -6,6 +6,7 @@ import io.github.ygaray.voiceactionengine.core.commit.GateDecision
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
+import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
@@ -14,6 +15,9 @@ import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -22,6 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private const val ARGUMENT_MARKER = "target-2026-10-02"
+private const val CALL_ID = "call_3"
 
 /** What the strategy does with the app resolver's answer: it submits, the gate decides, nothing is written directly. */
 class SingleShotResolveTest {
@@ -232,6 +237,99 @@ class SingleShotResolveTest {
             mutations.forEach { assertEquals(1, it.applyCount) }
             assertEquals(List(3) { ActionKind.COMMITTED }, run.sink.actions.map { it.action.kind })
             assertEquals(3, run.outcome.commits.size)
+        }
+    }
+
+    private fun callIdPipeline(gate: ScriptedGate, sink: RecordingCommitSink, answer: () -> Resolution): CommandPipeline {
+        val fake = FakeAiProvider(
+            ProviderId.ANTHROPIC,
+            FakeAiProvider.toolCall(CALL_ID, ENTRIES_TOOL, entriesArguments(ARGUMENT_MARKER), Usage(1, 0, 0, 1)),
+        )
+        val resolver = RecordingResolver { _, _ -> answer() }
+        return pipelineOf(listOf(singleShot(resolver, snapshotOf(entriesTool()))), fake, gate, sink)
+    }
+
+    private val command = CommandInput("add two things", "en", null)
+
+    @Test
+    fun oneCallStampsItsIdOnEveryPreviewErrorAndCommittedAction() = runTest {
+        NoNetworkGuard.during {
+            val preview = ToolStep.Finished("preview_entries", FinishedKind.PREVIEW, StepResult("preview"))
+            val rejected = ToolStep.Finished("reject_entries", FinishedKind.ERROR, StepResult("no", true))
+            val sink = RecordingCommitSink()
+            val pipeline = callIdPipeline(ScriptedGate.admitAll(), sink) {
+                Resolution.Steps(listOf(preview, rejected, ToolStep.Mutation(write("a")), ToolStep.Mutation(write("b"))))
+            }
+
+            val outcome = pipeline.execute(command)
+
+            assertEquals(
+                listOf(ActionKind.PREVIEW, ActionKind.IS_ERROR, ActionKind.COMMITTED, ActionKind.COMMITTED),
+                outcome.executed.map { it.kind },
+            )
+            assertEquals(List(4) { CALL_ID }, outcome.executed.map { it.providerCallId })
+            assertEquals(List(4) { CALL_ID }, sink.actions.map { it.action.providerCallId })
+        }
+    }
+
+    @Test
+    fun aHeldChangeKeepsTheIdThroughCommitHeldWithAndWithoutAmendedChanges() = runTest {
+        NoNetworkGuard.during {
+            val pipeline = callIdPipeline(ScriptedGate.holdAll("confirm"), RecordingCommitSink()) {
+                Resolution.Steps(listOf(ToolStep.Mutation(write("a")), ToolStep.Mutation(write("b"))))
+            }
+
+            val outcome = pipeline.execute(command)
+            val held = outcome.held.single()
+
+            assertEquals(List(2) { ActionKind.HELD }, outcome.executed.map { it.kind })
+            assertEquals(List(2) { CALL_ID }, outcome.executed.map { it.providerCallId })
+            val plain = pipeline.commitHeld(held)
+            assertEquals(List(2) { ActionKind.COMMITTED }, plain.executed.map { it.kind })
+            assertEquals(List(2) { CALL_ID }, plain.executed.map { it.providerCallId })
+
+            val second = callIdPipeline(ScriptedGate.holdAll("confirm"), RecordingCommitSink()) {
+                Resolution.Steps(listOf(ToolStep.Mutation(write("a"))))
+            }
+            val amended = second.commitHeld(second.execute(command).held.single(), listOf(write("changed")))
+            assertEquals(ActionKind.COMMITTED, amended.executed.single().kind)
+            assertEquals(CALL_ID, amended.executed.single().providerCallId)
+        }
+    }
+
+    @Test
+    fun aGateFaultStampsTheIdOnEveryErrorAction() = runTest {
+        NoNetworkGuard.during {
+            val gate = ScriptedGate { error("gate down") }
+            val pipeline = callIdPipeline(gate, RecordingCommitSink()) {
+                Resolution.Steps(listOf(ToolStep.Mutation(write("a")), ToolStep.Mutation(write("b"))))
+            }
+
+            val outcome = pipeline.execute(command)
+
+            assertEquals(List(2) { ActionKind.IS_ERROR }, outcome.executed.map { it.kind })
+            assertEquals(List(2) { CALL_ID }, outcome.executed.map { it.providerCallId })
+        }
+    }
+
+    @Test
+    fun aCancelledApplyJournalsItsErrorActionWithTheId() = runTest {
+        NoNetworkGuard.during {
+            val started = CompletableDeferred<Unit>()
+            val stuck = FakeMutation(ENTRIES_TOOL, { started.complete(Unit); awaitCancellation() })
+            val sink = RecordingCommitSink()
+            val pipeline = callIdPipeline(ScriptedGate.admitAll(), sink) {
+                Resolution.Steps(listOf(ToolStep.Mutation(stuck)))
+            }
+
+            val job = launch { pipeline.execute(command) }
+            started.await()
+            job.cancel()
+            job.join()
+
+            val action = sink.actions.single().action
+            assertEquals(ActionKind.IS_ERROR, action.kind)
+            assertEquals(CALL_ID, action.providerCallId)
         }
     }
 }

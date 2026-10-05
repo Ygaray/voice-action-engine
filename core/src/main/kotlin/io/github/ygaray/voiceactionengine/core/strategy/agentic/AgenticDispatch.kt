@@ -97,7 +97,7 @@ private suspend fun unknownTool(context: DispatchContext, call: AssistantPart.To
 // The one place a prepared step becomes a result for the model; every step is submitted, so the write path is single.
 private suspend fun settle(context: DispatchContext, spec: ToolSpec, call: AssistantPart.ToolCall): ToolResult {
     val step = guardWrites(context, spec, prepare(context, spec, call))
-    val dispatch = context.session.submit(step)
+    val dispatch = context.session.submit(step, call.id)
     return ToolResult(call.id, dispatch.contentForModel, dispatch.isError)
 }
 
@@ -128,7 +128,7 @@ private suspend fun prepare(context: DispatchContext, spec: ToolSpec, call: Assi
     guarded(onFault = {
         context.session.recordCode(TraceCode.TOOL_PREPARE_ERROR)
         faultStep(spec)
-    }) { context.executor.prepare(Extraction(call.name, call.arguments), context.input) }
+    }) { context.executor.prepare(Extraction(call.name, call.arguments, call.id), context.input) }
 
 private fun faultStep(spec: ToolSpec): ToolStep {
     val kind = if (spec.mutating) FinishedKind.ERROR else FinishedKind.READ

@@ -118,6 +118,32 @@ class AgenticLoopDispatchTest {
     }
 
     @Test
+    fun eachCallStampsItsOwnIdOnItsActionsAndTheExecutorSeesTheId() = runTest {
+        NoNetworkGuard.during {
+            val second = "update_entry"
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                toolTurn(
+                    1,
+                    callOf("a1", SAVE_TOOL, loopArguments()),
+                    callOf("r1", FIND_TOOL, loopArguments()),
+                    callOf("u1", "never_offered", loopArguments()),
+                    callOf("a2", second, loopArguments()),
+                ),
+                FakeAiProvider.reply(FINAL_REPLY, usage(1)),
+            )
+            val executor = ScriptedToolExecutor.sequence(null, mutation(SAVE_TOOL), readStep(), mutation(second))
+            val snapshot = loopSnapshotOf(writeTool(), readTool(), writeTool(second))
+
+            val outcome = run(fake, agenticLoop(executor, snapshot))
+
+            assertEquals(listOf("a1", "a2"), outcome.executed.map { it.providerCallId })
+            assertEquals(listOf(SAVE_TOOL, second), outcome.executed.map { it.toolName })
+            assertEquals(listOf("a1", "r1", "a2"), executor.calls.map { it.callId })
+        }
+    }
+
+    @Test
     fun callsAreDispatchedOneAtATimeInCallOrder() = runTest {
         NoNetworkGuard.during {
             val log = RecordingSink<String>()
