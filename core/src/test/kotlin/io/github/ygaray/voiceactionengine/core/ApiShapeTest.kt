@@ -1,6 +1,9 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.commit.ExecutedAction
+import io.github.ygaray.voiceactionengine.core.commit.HeldProposal
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
+import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
@@ -133,6 +136,22 @@ class ApiShapeTest {
         assertTrue(real.toString(), listOf(string, list, list, int) in real)
         assertTrue(!hasDefaultArgumentStub(ModelRequest::class.java))
         assertTrue(!hasDefaultArgumentStub(ReasoningMode::class.java))
+    }
+
+    @Test
+    fun extractionKeepsItsTwoArgumentConstructorAlongsideTheCallIdOne() {
+        val string = String::class.java
+        val json = JsonObject::class.java
+        val real = Extraction::class.java.declaredConstructors
+            .filter { !it.isSynthetic && Modifier.isPublic(it.modifiers) }
+            .map { it.parameterTypes.toList() }
+
+        assertTrue(real.toString(), listOf(string, json) in real)
+        assertTrue(real.toString(), listOf(string, json, string) in real)
+        assertTrue(!hasDefaultArgumentStub(Extraction::class.java))
+        assertTrue(!hasDefaultArgumentStub(HeldProposal::class.java))
+        assertTrue(hasDefaultArgumentStub(ExecutedAction::class.java))
+        assertTrue(hasDefaultArgumentStub(Class.forName("$ROOT_PACKAGE.commit.ActionDetails")))
     }
 
     /**

@@ -538,6 +538,40 @@ class RedactionCanaryTest {
         }
     }
 
+    /** The provider's call id is carried verbatim to the app, yet never printed by the engine's own types. */
+    @Test
+    fun aCanaryProviderCallIdNeverReachesAPrintedStringOrAnEvent() = runTest {
+        NoNetworkGuard.during {
+            val callId = "call_$CANARY-CALLID"
+            val resolver = RecordingResolver { _, _ ->
+                Resolution.Steps(listOf(ToolStep.Mutation(mutation(ENTRIES_TOOL))), null)
+            }
+            val fake = FakeAiProvider(
+                ProviderId.ANTHROPIC,
+                answerOf(StopReason.TOOL_USE, callOf(callId, ENTRIES_TOOL, entriesArguments("m"))),
+            )
+            val gate = ScriptedGate.holdAll(Canary("HOLD"), "held")
+            val sink = RecordingCommitSink()
+            val listener = RecordingEventListener()
+            val pipeline = pipelineOf(
+                listOf(singleShot(resolver, snapshotOf(entriesTool()))), fake, gate, sink, listener,
+            )
+
+            val outcome = pipeline.execute(CommandInput("add", "en", null))
+            val child = pipeline.commitHeld(outcome.held.single())
+
+            assertEquals(callId, resolver.extractions.single().callId)
+            assertEquals(callId, outcome.executed.single().providerCallId)
+            assertEquals(callId, child.executed.single().providerCallId)
+            sweepOutcome(outcome)
+            sweepOutcome(child)
+            resolver.extractions.forEach { see(it) }
+            sweepDelivered(gate, sink, listener.events)
+            val leaks = printed.filter { CANARY in it }
+            assertTrue("leaked: $leaks", leaks.isEmpty())
+        }
+    }
+
     // ---- an agentic run: the canary rides the transcript, system text, tool slots, results, reply and carry ----
 
     private fun agenticSnapshot(): ToolingSnapshot {

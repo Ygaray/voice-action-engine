@@ -50,13 +50,8 @@ internal class CommitCoordinator(
     /**
      * Applies, in order, whatever [step] asks for and the gate allows. Throws [IllegalStateException] once the run is
      * closed, before anything is recorded, asked of the gate, applied or delivered, and the caller's
-     * `CancellationException` when the calling coroutine is cancelled.
-     */
-    suspend fun submit(step: ToolStep): DispatchResult = submit(step, null)
-
-    /**
-     * As [submit], and every action the step records carries [providerCallId], the provider's id for the tool call
-     * that produced the step (null when no provider call did).
+     * `CancellationException` when the calling coroutine is cancelled. Every action the step records carries
+     * [providerCallId], the provider's id for the tool call that produced the step (null when no provider call did).
      */
     suspend fun submit(step: ToolStep, providerCallId: String?): DispatchResult = mutex.withLock {
         admitCaller()
@@ -152,7 +147,9 @@ internal class CommitCoordinator(
             HeldProposal(runId, parentRunId, step.mutations, decision.reason, decision.appOutcomeToken, providerCallId),
         )
         val actions = facts.map { fact ->
-            val details = ActionDetails(fact.toolName, decision.appOutcomeToken, fact.targetIds, fact.context, providerCallId)
+            val details = ActionDetails(
+                fact.toolName, decision.appOutcomeToken, fact.targetIds, fact.context, providerCallId,
+            )
             ledger.record(ActionKind.HELD, applied = false, details = details).also { delivery.deliver(it) }
         }
         return DispatchResult(heldForConfirmationContent(), false, true, actions)

@@ -240,7 +240,11 @@ class SingleShotResolveTest {
         }
     }
 
-    private fun callIdPipeline(gate: ScriptedGate, sink: RecordingCommitSink, answer: () -> Resolution): CommandPipeline {
+    private fun callIdPipeline(
+        gate: ScriptedGate,
+        sink: RecordingCommitSink,
+        answer: () -> Resolution,
+    ): CommandPipeline {
         val fake = FakeAiProvider(
             ProviderId.ANTHROPIC,
             FakeAiProvider.toolCall(CALL_ID, ENTRIES_TOOL, entriesArguments(ARGUMENT_MARKER), Usage(1, 0, 0, 1)),
@@ -258,7 +262,8 @@ class SingleShotResolveTest {
             val rejected = ToolStep.Finished("reject_entries", FinishedKind.ERROR, StepResult("no", true))
             val sink = RecordingCommitSink()
             val pipeline = callIdPipeline(ScriptedGate.admitAll(), sink) {
-                Resolution.Steps(listOf(preview, rejected, ToolStep.Mutation(write("a")), ToolStep.Mutation(write("b"))))
+                val writes = listOf(ToolStep.Mutation(write("a")), ToolStep.Mutation(write("b")))
+                Resolution.Steps(listOf(preview, rejected) + writes)
             }
 
             val outcome = pipeline.execute(command)

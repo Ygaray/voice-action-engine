@@ -252,6 +252,24 @@ class CommitPathTest {
     }
 
     @Test
+    fun aStrategyThatSubmitsThroughThePublicSubmitRecordsANullProviderCallId() = runTest {
+        NoNetworkGuard.during {
+            val write = FakeMutation("write", StepResult("saved"))
+            val sink = RecordingCommitSink()
+            val pipeline = pipelineOf(ScriptedGate.admitAll(), sink, { _, session ->
+                session.submit(ToolStep.Mutation(write))
+                StrategyOutcome.Completed("done")
+            })
+
+            val outcome = pipeline.execute(CommandInput("write"))
+
+            assertEquals(ActionKind.COMMITTED, outcome.executed.single().kind)
+            assertNull(outcome.executed.single().providerCallId)
+            assertNull(sink.actions.single().action.providerCallId)
+        }
+    }
+
+    @Test
     fun theTwoArgumentExtractionHasNoCallIdAndABlankOneIsRejected() {
         val arguments = entriesArguments("m")
 
