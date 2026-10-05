@@ -482,7 +482,7 @@ class CacheNotEngagedTest {
             val selection = ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.OPENAI, "model-o"))
             val credentials = ScriptedCredentialSource.keys(ProviderId.OPENAI to key)
             val router = ModelRouter(mapOf(ProviderId.OPENAI to fake), selection, credentials, table) { false }
-            recorder.tierStarted(tierId)
+            recorder.tierStarted(tierId, carryIn = false)
 
             val handle = router.bind(tierId, setOf(ProviderId.OPENAI), TierPolicy.DEFAULT, recorder)
             handle.complete(ModelRequest(textOf(LARGE_SYSTEM), listOf(UserMessage("hi")), 100))

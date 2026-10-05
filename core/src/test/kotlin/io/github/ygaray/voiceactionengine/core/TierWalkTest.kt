@@ -135,6 +135,43 @@ class TierWalkTest {
         }
     }
 
+    @Test
+    fun carryInIsTrueOnlyForATierThatReceivedANonNullCarry() = runTest {
+        NoNetworkGuard.during {
+            val a = scripted("a", StrategyOutcome.Escalate(EscalationReason.NoToolCall(), Any()))
+            val b = scripted("b", StrategyOutcome.Escalate(EscalationReason.ModelDeclined(), null))
+            val c = scripted("c", StrategyOutcome.Completed("c"))
+            assertEquals(listOf(false, true, false), run(a, b, c).trace.attempts.map { it.carryIn })
+        }
+    }
+
+    @Test
+    fun carryInIsFalseAfterANoMatchClearedTheCarry() = runTest {
+        NoNetworkGuard.during {
+            val a = scripted("a", StrategyOutcome.NoMatch())
+            val b = scripted("b", StrategyOutcome.Completed("b"))
+            assertEquals(listOf(false, false), run(a, b).trace.attempts.map { it.carryIn })
+        }
+    }
+
+    @Test
+    fun carryInIsFalseForATierAfterANoMatchThatFollowedACarry() = runTest {
+        NoNetworkGuard.during {
+            val a = scripted("a", StrategyOutcome.Escalate(EscalationReason.NoToolCall(), Any()))
+            val b = scripted("b", StrategyOutcome.NoMatch())
+            val c = scripted("c", StrategyOutcome.Completed("c"))
+            assertEquals(listOf(false, true, false), run(a, b, c).trace.attempts.map { it.carryIn })
+        }
+    }
+
+    @Test
+    fun carryInIsFalseForASingleTier() = runTest {
+        NoNetworkGuard.during {
+            val attempts = run(scripted("a", StrategyOutcome.Completed("a"))).trace.attempts
+            assertEquals(listOf(false), attempts.map { it.carryIn })
+        }
+    }
+
     private companion object {
         const val HTTP_RATE_LIMITED = 429
     }

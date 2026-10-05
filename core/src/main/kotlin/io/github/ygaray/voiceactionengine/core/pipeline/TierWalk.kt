@@ -72,7 +72,7 @@ internal class TierWalk(
             recorder.tierSkipped(strategy.id, TraceCode.ON_DEVICE_UNAVAILABLE)
             return CommandOutcome.Failed(effects(), ladder.onDeviceFailure(), null)
         }
-        recorder.tierStarted(strategy.id)
+        recorder.tierStarted(strategy.id, carry != null)
         val session = RunSession(scope, strategy.id, strategy.capabilities.providers, carry)
         return when (val outcome = executeGuarded(strategy, input, session)) {
             is StrategyOutcome.Completed -> {

@@ -48,6 +48,8 @@ public class CommandTrace internal constructor(
  * @property suppressedEscalation the escalation that was blocked because earlier work had been done, when one was.
  * @property failure why it failed, when it did.
  * @property latencyMillis how long the tier took, on the pipeline's clock.
+ * @property carryIn true when the tier started with the previous tier's carry (the opaque object an escalation
+ * handed up); only its presence is reported, never its content.
  * @property turns the model round trips the tier reported, in order.
  */
 public class TierAttempt internal constructor(
@@ -57,6 +59,7 @@ public class TierAttempt internal constructor(
     public val suppressedEscalation: EscalationReason?,
     public val failure: FailureReason?,
     public val latencyMillis: Long,
+    public val carryIn: Boolean,
     turns: List<TurnRecord> = emptyList(),
 ) {
     /** A copy of the round trips the tier reported. */
@@ -77,5 +80,6 @@ public class TierAttempt internal constructor(
     override fun toString(): String =
         "TierAttempt(strategy=$strategy, outcome=$outcome, escalationReason=$escalationReason, " +
             "suppressedEscalation=$suppressedEscalation, failure=$failure, latencyMillis=$latencyMillis, " +
+            "carryIn=$carryIn, " +
             "turns=${this.turns.size}, provider=$provider, model=$model, fallbackFrom=$fallbackFrom, usage=$usage)"
 }

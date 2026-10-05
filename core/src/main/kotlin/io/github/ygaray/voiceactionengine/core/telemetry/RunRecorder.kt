@@ -47,12 +47,15 @@ internal class RunRecorder(
         dispatch.send(PipelineEvent.CommandStarted(runId, parentRunId))
     }
 
-    /** Marks the moment [strategy] starts, for its latency, and starts collecting its turns. */
-    suspend fun tierStarted(strategy: StrategyId) {
+    /**
+     * Marks the moment [strategy] starts, for its latency, and starts collecting its turns. [carryIn] is whether the
+     * tier was handed the previous tier's carry; only that fact is kept, never the carry.
+     */
+    suspend fun tierStarted(strategy: StrategyId, carryIn: Boolean) {
         val now = runClock.read()
         synchronized(lock) {
             check(strategy !in skipped) { "tier $strategy was skipped and cannot start" }
-            book.start(strategy, now)
+            book.start(strategy, now, carryIn)
         }
         dispatch.send(PipelineEvent.TierStarted(runId, strategy))
     }
@@ -85,8 +88,8 @@ internal class RunRecorder(
     ) {
         val now = runClock.read()
         val attempt = synchronized(lock) {
-            book.close(now) { latency, turns ->
-                TierAttempt(strategy, outcome, escalation, suppressed, failure, latency, turns)
+            book.close(now) { latency, carry, turns ->
+                TierAttempt(strategy, outcome, escalation, suppressed, failure, latency, carry, turns)
             }
         }
         dispatch.send(PipelineEvent.TierFinished(runId, attempt))
@@ -102,8 +105,8 @@ internal class RunRecorder(
         val now = runClock.read()
         val attempt = synchronized(lock) {
             book.inFlight?.let { tier ->
-                book.close(now) { latency, turns ->
-                    TierAttempt(tier, outcome, null, null, failure, latency, turns)
+                book.close(now) { latency, carry, turns ->
+                    TierAttempt(tier, outcome, null, null, failure, latency, carry, turns)
                 }
             }
         }
@@ -165,17 +168,25 @@ private class TierBook(startedAt: Long) {
     val turns = mutableListOf<TurnRecord>()
     var inFlight: StrategyId? = null
     private var tierStartedAt = startedAt
+    private var tierCarryIn = false
 
-    /** Begins [strategy] at [now], with no turns yet. */
-    fun start(strategy: StrategyId, now: Long) {
+    /** Begins [strategy] at [now], with no turns yet; [carryIn] is whether it received a carry. */
+    fun start(strategy: StrategyId, now: Long, carryIn: Boolean) {
         tierStartedAt = now
+        tierCarryIn = carryIn
         turns.clear()
         inFlight = strategy
     }
 
-    /** Ends the tier running now at [now]; [build] makes its attempt from the latency and turns, which is then kept. */
-    fun close(now: Long, build: (latency: Long, turns: List<TurnRecord>) -> TierAttempt): TierAttempt {
-        val made = build(now - tierStartedAt, turns.toList())
+    /**
+     * Ends the tier running now at [now]; [build] makes its attempt from the latency, whether it received a carry and
+     * its turns, which is then kept.
+     */
+    fun close(
+        now: Long,
+        build: (latency: Long, carryIn: Boolean, turns: List<TurnRecord>) -> TierAttempt,
+    ): TierAttempt {
+        val made = build(now - tierStartedAt, tierCarryIn, turns.toList())
         turns.clear()
         attempts.add(made)
         inFlight = null

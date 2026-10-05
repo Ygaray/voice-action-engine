@@ -92,7 +92,7 @@ class ModelRouterTest {
             val selection = ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ANTHROPIC, "model-a"))
             val credentials = ScriptedCredentialSource.keys(ProviderId.ANTHROPIC to key)
             val recorder = recorder()
-            recorder.tierStarted(strategy)
+            recorder.tierStarted(strategy, carryIn = false)
 
             val handle = routerOf(listOf(fake), selection, credentials)
                 .bind(strategy, setOf(ProviderId.ANTHROPIC), TierPolicy.DEFAULT, recorder)
@@ -467,7 +467,7 @@ class ModelRouterTest {
             { _ -> FakeAiProvider.reply("plain", Usage.ZERO) },
         )
         val recorder = recorder()
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
 
         val refused = handle.complete(toolRequest) as ModelResult.Failure
@@ -528,7 +528,7 @@ class ModelRouterTest {
             { _ -> throw IllegalStateException("provider exploded with ${key}") },
         )
         val recorder = recorder()
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
 
         val failed = handle.complete(request) as ModelResult.Failure
@@ -557,7 +557,7 @@ class ModelRouterTest {
             { _ -> FakeAiProvider.reply("ok", Usage.ZERO) },
         )
         val recorder = RunRecorder("run-1", null, null, 0, flaky, listener)
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
 
         val result = handle.complete(request)
@@ -586,7 +586,7 @@ class ModelRouterTest {
         val scripted = ModelResult.Failure(FailureReason.RateLimited())
         val fake = FakeAiProvider(ProviderId.ANTHROPIC, scripted)
         val recorder = recorder()
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
 
         val result = handle.complete(request)
@@ -608,7 +608,7 @@ class ModelRouterTest {
             { _ -> parked.await(); FakeAiProvider.reply("never", Usage.ZERO) },
         )
         val recorder = recorder()
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
         var caught: Throwable? = null
 
@@ -653,7 +653,7 @@ class ModelRouterTest {
         val step: ProviderStep = { _ -> gate.await(); FakeAiProvider.reply("ok", Usage(3, 0, 0, 1)) }
         val fake = FakeAiProvider(ProviderId.ANTHROPIC, listOf(step, step))
         val recorder = recorder()
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
 
         val first = async { handle.complete(request) }
@@ -675,7 +675,7 @@ class ModelRouterTest {
         val steps = List(count) { step }
         val fake = FakeAiProvider(ProviderId.ANTHROPIC, steps)
         val recorder = recorder()
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
 
         withContext(Dispatchers.Default) {
@@ -696,7 +696,7 @@ class ModelRouterTest {
             { _ -> clock.advanceBy(2); FakeAiProvider.reply("b", Usage.ZERO) },
         )
         val recorder = recorder()
-        recorder.tierStarted(strategy)
+        recorder.tierStarted(strategy, carryIn = false)
         val handle = bindDefault(routerOf(listOf(fake)), recorder)
 
         handle.complete(request)
