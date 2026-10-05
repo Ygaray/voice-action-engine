@@ -91,3 +91,7 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 12-wave-1-seams-w04-fix*
+
+## Runtime Decisions
+
+- **RT-01 [tester-window] (2026-10-05):** GRANT, from orchestrator yahir-gsd-control-plane-3b. TESTER R5CT10XNKQN is granted for 12-08 Task 3 only, for one responses_probe leg. Bounds: about 15 min. The 4-request / USD 0.05 ceiling has 3 requests left after Probe C. `adb -s R5CT10XNKQN` only. No re-runs past the ceiling. Full cleanup, including uninstalling `:sample` and removing the test key. The master messages "device done tester" with the verdict and spend lines when the window ends.
