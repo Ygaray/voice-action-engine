@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 12
-current_phase_name: wave-1-seams-w04-fix
+current_phase_name: Wave-1 Seams & W04 Fix
 status: executing
-stopped_at: v1.1 roadmap created (Phases 12-20); ready for research-milestone
-last_updated: "2026-10-05T21:31:50.167Z"
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-10-05T21:38:39.098Z"
 last_activity: 2026-10-05
-last_activity_desc: v1.1 roadmap created (Phases 12-20, 37/37 requirements mapped)
-state_head: 354054ba24d5cce83210f0481f760de93a2ce47b
+last_activity_desc: Phase 12 execution started
+state_head: d1bf4bda6cc4ee52721a4a839964f6a9403b339b
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 8
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -25,14 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 12: Wave-1 Seams & W04 Fix (v1.1; R-v1.1 GO 2026-10-05, `.planning/cross-repo/RECONVENE-BRIEF-R-v1.1.md`)
+**Current focus:** Phase 12 — Wave-1 Seams & W04 Fix
 
 ## Current Position
 
-Phase: 12 (wave-1-seams-w04-fix) — READY TO EXECUTE
-Plan: Not started
+Phase: 12 (Wave-1 Seams & W04 Fix) — EXECUTING
+Plan: 2 of 8
 Status: Ready to execute
-Last activity: 2026-10-05 — v1.1 roadmap created (Phases 12-20, 37/37 requirements mapped)
+Last activity: 2026-10-05 — Phase 12 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -95,6 +95,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P08 | 5 min | 3 tasks | 4 files |
 | Phase 03 P09 | 20 min | 3 tasks | 4 files |
 | Phase 03 P10 | 20 min | 3 tasks | 4 files |
+| Phase 12 P01 | 40min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ Recent decisions affecting current work:
 - [Roadmap v1.1]: DOC-01 (the three v1.0.1 stumbles + the Haiku/OpenAI cache note) lands early in Phase 12; DOC-02 (full docs + wiring test) in Phase 19, re-run on the final SHA in Phase 20.
 - [Roadmap v1.1]: When 17, 18 and (green) 13 run in parallel, Phase 17 owns the shared "add a published module" plumbing (settings, `jitpack.yml`, module-graph and classpath gates, ECOSYSTEM coordinates).
 - [Roadmap v1.1]: No phase carries a UI hint (library milestone; `:sample` is a debug harness).
+- [Phase 12]: [12-01] Deny-list only for OpenAI wire rules; pro/codex exclusion is direct-only, routed ids keep today's rules
+- [Phase 12]: [12-01] reasoning_effort 400 classifier keys on status 400 + param + code, never reads the message
 
 ### Pending Todos
 
@@ -137,8 +140,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-05T08:12:31.000Z
-Stopped at: v1.1 roadmap created (Phases 12-20); ready for research-milestone
+Last session: 2026-10-05T21:38:39.064Z
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

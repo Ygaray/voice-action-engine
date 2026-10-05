@@ -17,7 +17,7 @@ alone to keep one.
 
 - [ ] **SEAM-01** (XR-173-01a): `SingleShotStrategy.Builder.onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome`, default `Failed(reason, details)`. It is called for provider failures only, never for a ceiling, gate or `strategy_error`. An app maps an HTTP 400 to `Escalate` without a decorator.
 - [ ] **SEAM-02** (XR-173-01b): there is an explicit per-strategy reasoning knob. `ModelRequest.reasoning: ReasoningMode` (open value class: `OFF`, `PROVIDER_DEFAULT`; the 7-arg ctor is kept, defaulting to `OFF`), plus `Builder.reasoning` on SingleShot and AgenticLoop, both defaulting to `OFF`. Today's wire defaults are pinned by goldens.
-- [ ] **SEAM-03** (XR-173-01c): the Anthropic capability table has an exact `claude-sonnet-5` row (forced tool choice allowed, explicit breakpoints, `minCacheablePrefixTokens` from Anthropic's docs). Internal only.
+- [x] **SEAM-03** (XR-173-01c): the Anthropic capability table has an exact `claude-sonnet-5` row (forced tool choice allowed, explicit breakpoints, `minCacheablePrefixTokens` from Anthropic's docs). Internal only.
 - [ ] **SEAM-04** (XR-173-01e): `TierAttempt.carryIn: Boolean` reports whether the tier received a carry (presence only, never the content).
 - [ ] **SEAM-05** (XR-175-02f): `CommandOutcome.Unhandled.cappedByPolicy: Boolean` is true when policy skipped at least one tier (`tier_skipped_policy`, offline-only included) and no tier handled the command. Its KDoc states that coverage.
 - [ ] **SEAM-06** (XR-171-03(1)): `Extraction.callId: String?` (new 3-arg ctor; the 2-arg ctor is kept) and `ExecutedAction.providerCallId: String?` carry the provider tool-call id. Both are null for zero-call tiers.
@@ -25,8 +25,8 @@ alone to keep one.
 
 ### Provider fix (W04)
 
-- [ ] **PROV-14**: a direct OpenAI Responses-only model (`gpt-6-astra`, `gpt-6.1-sol` families, and every `OpenAiModelRules` model that rejects `"none"`) is never sent `reasoning_effort: "none"`. Proven by an encoder golden.
-- [ ] **PROV-15**: a 400 with `param=reasoning_effort` and `code=unsupported_value` (the captured W04 body, replayed through MockWebServer) maps to `FailureReason.ModelUnsupported`, not `http_error`.
+- [x] **PROV-14**: a direct OpenAI Responses-only model (`gpt-6-astra`, `gpt-6.1-sol` families, and every `OpenAiModelRules` model that rejects `"none"`) is never sent `reasoning_effort: "none"`. Proven by an encoder golden.
+- [x] **PROV-15**: a 400 with `param=reasoning_effort` and `code=unsupported_value` (the captured W04 body, replayed through MockWebServer) maps to `FailureReason.ModelUnsupported`, not `http_error`.
 - [ ] **PROV-16**: a live `:sample` smoke call to `gpt-6-astra` under the `supportsTools` override returns the specific typed outcome (evidence logged, test key, bounded spend).
 
 ### LocalGrammar (§6.2 step 8, V11-01)
@@ -107,13 +107,13 @@ alone to keep one.
 |-------------|-------|--------|
 | SEAM-01 | Phase 12 | Pending |
 | SEAM-02 | Phase 12 | Pending |
-| SEAM-03 | Phase 12 | Pending |
+| SEAM-03 | Phase 12 | Complete |
 | SEAM-04 | Phase 12 | Pending |
 | SEAM-05 | Phase 12 | Pending |
 | SEAM-06 | Phase 12 | Pending |
 | SEAM-07 | Phase 12 | Pending |
-| PROV-14 | Phase 12 | Pending |
-| PROV-15 | Phase 12 | Pending |
+| PROV-14 | Phase 12 | Complete |
+| PROV-15 | Phase 12 | Complete |
 | PROV-16 | Phase 12 | Pending |
 | GRAM-01 | Phase 14 | Pending |
 | GRAM-02 | Phase 14 | Pending |
