@@ -27,7 +27,7 @@ alone to keep one.
 
 - [x] **PROV-14**: a direct OpenAI Responses-only model (`gpt-6-astra`, `gpt-6.1-sol` families, and every `OpenAiModelRules` model that rejects `"none"`) is never sent `reasoning_effort: "none"`. Proven by an encoder golden.
 - [x] **PROV-15**: a 400 with `param=reasoning_effort` and `code=unsupported_value` (the captured W04 body, replayed through MockWebServer) maps to `FailureReason.ModelUnsupported`, not `http_error`.
-- [ ] **PROV-16**: a live `:sample` smoke call to `gpt-6-astra` under the `supportsTools` override returns the specific typed outcome (evidence logged, test key, bounded spend).
+- [x] **PROV-16**: a live `:sample` smoke call to `gpt-6-astra` under the `supportsTools` override returns the specific typed outcome (evidence logged, test key, bounded spend).
 
 ### LocalGrammar (§6.2 step 8, V11-01)
 
@@ -114,7 +114,7 @@ alone to keep one.
 | SEAM-07 | Phase 12 | Complete |
 | PROV-14 | Phase 12 | Complete |
 | PROV-15 | Phase 12 | Complete |
-| PROV-16 | Phase 12 | Pending |
+| PROV-16 | Phase 12 | Complete |
 | GRAM-01 | Phase 14 | Pending |
 | GRAM-02 | Phase 14 | Pending |
 | GRAM-03 | Phase 14 | Pending |
