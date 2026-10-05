@@ -83,7 +83,30 @@ class KeystoreApiShapeTest {
             KeyState::class.java,
             KeyState.Ready::class.java,
             KeystoreCredentialSource::class.java,
+            KeyAccess::class.java,
+            Class.forName("$ROOT_PACKAGE.DelicateKeyAccess"),
         ).forEach { assertTrue("${it.name} must be among the swept classes", it.name in names) }
+    }
+
+    @Test
+    fun apiKeyStoreDeclaresTheThreePublicConstructors() {
+        val publicShapes = ApiKeyStore::class.java.constructors
+            .map { ctor -> ctor.parameterTypes.map { it.name } }
+            .toSet()
+        val expected = setOf(
+            listOf("androidx.datastore.core.DataStore", "java.util.List"),
+            listOf("androidx.datastore.core.DataStore", "java.util.List", "kotlinx.coroutines.CoroutineDispatcher"),
+            listOf("androidx.datastore.core.DataStore", "java.util.List", KeyAccess::class.java.name),
+        )
+        // The internal four-argument primary is public in bytecode, so this checks presence, not exclusivity.
+        assertTrue("missing constructors: ${expected - publicShapes}", publicShapes.containsAll(expected))
+    }
+
+    @Test
+    fun keyAccessIsAPublicPlainInterfaceWithTwoMembers() {
+        val cls = KeyAccess::class.java
+        assertTrue(cls.isInterface && Modifier.isPublic(cls.modifiers))
+        assertEquals(setOf("existingKey", "getOrCreateKey"), cls.declaredMethods.map { it.name }.toSet())
     }
 
     @Test
@@ -126,6 +149,8 @@ class KeystoreApiShapeTest {
             KeySlot::class.java,
             KeyState.Ready::class.java,
             KeystoreCredentialSource::class.java,
+            KeyAccess::class.java,
+            Class.forName("$ROOT_PACKAGE.DelicateKeyAccess"),
         ).forEach { cls ->
             assertTrue("${cls.name} must not be data shaped", !isDataShaped(cls))
             assertTrue("${cls.name} must not be an enum", !cls.isEnum)

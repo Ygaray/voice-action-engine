@@ -21,7 +21,7 @@ alone to keep one.
 - [x] **SEAM-04** (XR-173-01e): `TierAttempt.carryIn: Boolean` reports whether the tier received a carry (presence only, never the content).
 - [x] **SEAM-05** (XR-175-02f): `CommandOutcome.Unhandled.cappedByPolicy: Boolean` is true when policy skipped at least one tier (`tier_skipped_policy`, offline-only included) and no tier handled the command. Its KDoc states that coverage.
 - [ ] **SEAM-06** (XR-171-03(1)): `Extraction.callId: String?` (new 3-arg ctor; the 2-arg ctor is kept) and `ExecutedAction.providerCallId: String?` carry the provider tool-call id. Both are null for zero-call tiers.
-- [ ] **SEAM-07** (XR-172-02): a public `fun interface KeyAccess` plus an `ApiKeyStore(dataStore, slots, keyAccess)` ctor gated by `@RequiresOptIn(level = ERROR) @DelicateKeyAccess`. INTEGRATION.md shows a ~10-line software fake. No new published module.
+- [ ] **SEAM-07** (XR-172-02): a public plain interface `KeyAccess` (two members: `existingKey` never creates; `getOrCreateKey` is the only creator) plus an `ApiKeyStore(dataStore, slots, keyAccess)` ctor, both gated by `@RequiresOptIn(level = ERROR) @DelicateKeyAccess`. INTEGRATION.md shows a ~10-line software fake. No new published module.
 
 ### Provider fix (W04)
 

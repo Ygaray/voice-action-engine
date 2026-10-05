@@ -3,6 +3,7 @@
 #   Part 1  source plants: one construct per banned rule in each published module (base text tested on the research prototype)
 #   Part 2  build-file plants: each structural gate, with backup + restore of the touched build file
 #   Part 3  matrix guard: a wrong expected OkHttp version must fail each leg
+#   Part 4  opt-in seam: KeyAccess and its ApiKeyStore constructor need @OptIn from another module (scripts/verify-keyaccess-opt-in.sh)
 # Every plant is removed on exit (trap); the script then asserts the touched build files are byte-identical to their backups.
 # Never commit a plant. Run:  scripts/verify-negative-controls.sh   (a few minutes warm)
 set -uo pipefail
@@ -132,6 +133,9 @@ echo "== Part 3: matrix guard rejects a wrong expected OkHttp version (the marke
 VERBOSE=1 expect_task_red "guard, 4.12.0 leg" "OKHTTP_RUNTIME=4.12.0 expected=9.9.9" :providers:cleanTest :providers:test -PvaeExpectedOkhttp=9.9.9
 VERBOSE=1 expect_task_red "guard, 5.2.1 leg"  "OKHTTP_RUNTIME=5.2.1 expected=9.9.9"  :providers:cleanTestOkhttp521 :providers:testOkhttp521 -PvaeExpectedOkhttp=9.9.9
 VERBOSE=1 expect_task_red "guard, 5.5.0 leg"  "OKHTTP_RUNTIME=5.5.0 expected=9.9.9"  :providers:cleanTestOkhttp550 :providers:testOkhttp550 -PvaeExpectedOkhttp=9.9.9
+
+echo "== Part 4: opt-in seam (cross-module negative-compile proof with a positive control)"
+if scripts/verify-keyaccess-opt-in.sh; then echo "ok    [keyaccess opt-in]"; else echo "FAIL  [keyaccess opt-in]"; fails=$((fails+1)); fi
 
 for f in "${RESTORE[@]}"; do
   if ! cmp -s "$f" "$BAK/$(key "$f")"; then echo "FAIL  [restore] $f differs from its backup"; fails=$((fails+1)); fi
