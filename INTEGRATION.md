@@ -95,7 +95,9 @@ that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named
   model's first tool call to your `OutcomeResolver`, and submits what it returns. The resolver validates the arguments
   itself and never writes: it returns `Resolution.Steps` (finished steps and `ToolStep.Mutation`), `Resolution.NoMatch`,
   `Resolution.Escalate` or `Resolution.Failed`. Only the first tool call of an answer is acted on; extra calls are
-  dropped and a completed outcome is marked partial.
+  dropped and a completed outcome is marked partial. A SingleShot tier cannot serve reads: its resolver gets only the
+  first tool call and returns finished steps and mutations, so a read tool such as `find_items` is usable only in the
+  AgenticLoop tier.
 - **AgenticLoop** runs a bounded conversation over your tools. Your `ToolExecutor` prepares each call: a read returns
   `ToolStep.Finished` with `FinishedKind.READ`, a rejected call `FinishedKind.ERROR`, a change `ToolStep.Mutation`. It
   never writes either. Limits come from the `TierPolicy` (step 8). A tool that errors twice ends the run as a tool
@@ -412,6 +414,9 @@ fun keyAdvice(cause: String): String = when (cause) {
 }
 ```
 
+A `ProviderId` is a value class whose toString() prints its wire value (anthropic, openai, openrouter, on_device), so
+the names the snippet builds with it, such as `my_app_anthropic` and `my_app_anthropic_ct`, are clean strings.
+
 An unreadable key reaches you as `FailureReason.CredentialUnreadable(provider, cause)` (and, from the store itself, as
 `KeyState.Unreadable` for the four causes other than `key_missing`). The causes are stable codes, also public values on
 `KeystoreCauseCodes` (getter-only values, so not usable in annotations): `key_missing`
@@ -640,8 +645,14 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
+import org.junit.Assert.assertEquals
+import org.junit.Test
 ```
+
+The test dependencies are `kotlinx-coroutines-test` and `junit` (`testImplementation`; the engine does not publish
+them). The last three imports are for the test that drives the provider, not for the provider class itself.
 
 <!-- doc-snippet: scripted-provider -->
 ```kotlin
@@ -700,7 +711,11 @@ provider in an app.
   reject a forced tool choice (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, `claude-mythos-5-1`) are sent
   `auto` plus an instruction to call the tool; a dated id such as `claude-opus-5-5-20261001` is not in the table, so
   its first request is forced, refused and re-sent, which doubles that call's latency and spend until you add a
-  `capabilities(...)` override with `supportsForcedToolChoice = false`.
+  `capabilities(...)` override with `supportsForcedToolChoice = false`. Direct OpenAI `-pro` and `-codex` ids (for
+  example `gpt-5-pro` or `gpt-5-codex`) are refused the same way, before any call, when the request carries tools.
+  A single-tool SingleShot prefix is usually shorter than the provider's minimum cacheable prefix, so it will not cache
+  on `claude-haiku-4-5` (4,096 tokens) or on OpenAI (1,024 tokens); claude-sonnet-5 needs 1,024 and claude-sonnet-5-5
+  needs 512.
 - **Open taxonomies need `else`:** `FailureReason`, `EscalationReason`, `Resolution`, `CredentialLookup`, `KeyState`,
   `ActionKind`, `FinishedKind`, `PipelineEvent`, `TraceCode`, `StopReason`, `ToolChoice`, `ModelResult`,
   `OnDeviceAvailability`, `TierSelector`, `AnthropicAttemptKind` and `ChatCompletionsAttemptKind`. Later versions add
