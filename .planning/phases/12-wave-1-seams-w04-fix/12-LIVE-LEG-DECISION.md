@@ -1,6 +1,7 @@
 # Phase 12 live-leg request (PROV-16)
 
-decision: approved
+decision: consumed
+consumed: 2026-10-05T16:03:14-06:00 — TESTER window closed after the one granted leg (2/4 requests); re-running needs a new relayed approval
 relayed_by: orchestrator yahir-gsd-control-plane-3b via the coordinator (control-plane 4146165), spend approval only
 date: 2026-10-05
 
