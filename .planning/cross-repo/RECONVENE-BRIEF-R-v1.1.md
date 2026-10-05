@@ -120,3 +120,12 @@ v1.1 starts on a closed v1.0. If W04 shows a marker mismatch, the fix is a `v1.0
   verdict early), the cut last.
 - **Possible `v1.0.2`** before v1.1 only if the W04 Gate-2 finds a marker mismatch.
 - I consume nothing new except the already-ledgered `:stt` v0.7.0 for `:voice-adapter`.
+
+## 10. Post-verdict additions (orchestrator, 2026-10-05)
+
+- **W04 fix is an explicit phase-12 requirement**, planned together with the `ReasoningMode` knob (same code). Success criteria:
+  1. Encoder golden: `gpt-6-astra`, and every `OpenAiModelRules` model that rejects `"none"`, never receives `reasoning_effort: "none"`.
+  2. A MockWebServer replay of the captured W04 400 body (`param=reasoning_effort`, `code=unsupported_value`) maps to the specific
+     code (`ModelUnsupported`), not `http_error`.
+  3. A live `:sample` smoke call to `gpt-6-astra` under the `supportsTools` override.
+  Evidence: `.planning/releases/v1.0-close/W04-host-wording-check.txt`.
