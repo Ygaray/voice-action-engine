@@ -43,8 +43,8 @@ The `:sample` app module is never published.
 <!-- repin-matrix:begin -->
 | Consumer | Pinned | Latest | Status |
 |---|---|---|---|
-| SecondBrain | v1.0.0 | v1.0.0 | current |
-| CalTracker | v1.0.0 | v1.0.0 | current |
+| CalTracker_Android | v1.0.1 | v1.0.1 | current |
+| SecondBrain | v1.0.1 | v1.0.1 | current |
 <!-- repin-matrix:end -->
 
 **Repo:** public at `github.com/Ygaray/voice-action-engine` (created 2026-09-29).
