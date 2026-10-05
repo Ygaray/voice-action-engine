@@ -71,7 +71,7 @@ v1.1 starts on a closed v1.0. If W04 shows a marker mismatch, the fix is a `v1.0
 
 | Phase | Goal | Items | Consumer phase unblocked |
 |---|---|---|---|
-| 12 | Wave-1 additive seams: SingleShot `onFailed`, `ReasoningMode` knob, `claude-sonnet-5` row, `TierAttempt.carryIn`, `Unhandled.cappedByPolicy`, `Extraction.callId`/`ExecutedAction.providerCallId`, `:keystore` opt-in `KeyAccess`, the 3 doc stumbles + the (d) note | XR-171-03(1), XR-172-02, XR-173-01 a–e, XR-175-02(f) | SB 176–178 cleanup; CT 75 |
+| 12 | Wave-1 additive seams: SingleShot `onFailed`, `ReasoningMode` knob, `claude-sonnet-5` row, `TierAttempt.carryIn`, `Unhandled.cappedByPolicy`, `Extraction.callId`/`ExecutedAction.providerCallId`, `:keystore` opt-in `KeyAccess`, the 3 doc stumbles + the (d) note + **W04 fix** (direct Responses-only id: no `reasoning_effort` and/or classify `reasoning_effort`+`unsupported_value` as `ModelUnsupported`; internal) | XR-171-03(1), XR-172-02, XR-173-01 a–e, XR-175-02(f) | SB 176–178 cleanup; CT 75 |
 | 13 | On-device model **spike**, time-boxed. It runs early so the verdict reaches SB 179 / CT 75 before they plan. | V11-04 | SB 179, CT 75 (on-device SingleShot) |
 | 14 | `LocalGrammarStrategy` + bilingual `GrammarPack` DSL (+ the optional slot `normalize` hook) | V11-01, CT P75 mechanism | SB 176, CT 75 |
 | 15 | `PlanThenExecuteStrategy` + `onFailed` hook + write-output step binding + the post-commit suppression test | V11-02 | SB 177 |

@@ -26,3 +26,6 @@ override (grep, 2026-10-05). Under the override the failure is still loud (HttpE
 Fix options: (1) wireRules: a Responses-only id on OpenAI direct sends no reasoning_effort, so the API answers with the
 /v1/responses text and the marker matches; and/or (2) classify param=reasoning_effort + code=unsupported_value as
 ModelUnsupported. Both are internal: no API change.
+
+DISPOSITION (Yahir, in-session, 2026-10-05): fix in v1.1 phase 12, no v1.0.2. Accepted for the v1.0 close as a known,
+override-only mismatch. Internal fix (wireRules and/or classifier), no API change.
