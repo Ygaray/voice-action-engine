@@ -17,7 +17,8 @@ The new tiers are proven end to end on the TESTER, and an AI agent can wire ever
 ## Implementation Decisions
 
 ### legs — Which legs run and what spends money?
-- **D-01 [legs]:** Plan + router live only, cheapest models, new decision file; v1.0 legs not re-run (P12's seam changes are JVM-proven). _(source: human)_
+- **D-01 [legs]:** Plan + router live only, cheapest models, new decision file; v1.0 legs not re-run (P12's seam changes are JVM-proven). _(source: human)_ _(amended by D-13: W04 smoke added)_
+- **D-13 [legs/w04-smoke]:** Add a live `gpt-6-astra` smoke for the W04 fix (P12 D-05) to P19's live legs, alongside plan + router. One OpenAI call on the TESTER: it must succeed with no 400 on `reasoning_effort`, which proves the deny-list fix end to end on the real wire. Record it as a new evidence line per D-08 (no key, no transcript, no tool args). Key via the test-keys workflow (`~/.claude/context/workflows/test-keys.md`): `push-test-key openai --device <TESTER> --package <sample appId>`, TESTER only. Never inline or paste a key. A missing key is a loud stop, not a skip. _(source: human — Yahir ruling via orchestrator 3b, 2026-10-05, control-plane 4146165)_
 
 ### router-leg — Router leg on device.
 - **D-02 [router-leg]:** Live engine Router leg (classifier prompt, cheap-model selection, PickContext accounting run on a device before the immutable tag); ladder needs ≥2 LLM tiers or D-ROUTER-SKIP hides the picker. _(provisional — refresh at execution; depends on Phase 16)_ _(source: ai-auto)_
@@ -89,7 +90,7 @@ Provisional decisions depend on Phase(s) 12, 15, 16, 17 — refresh them against
 <specifics>
 ## Specific Ideas
 
-Operator-reviewed decision(s) here (source: human) — treat them as locked: [legs].
+Operator-reviewed decision(s) here (source: human) — treat them as locked: [legs], [legs/w04-smoke].
 
 </specifics>
 
