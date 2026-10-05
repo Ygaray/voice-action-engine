@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
@@ -87,6 +88,62 @@ class InFlightTierTraceTest {
             val trace = sink.closes.single().trace
             assertEquals("cancelled", trace.attempts.single().outcome)
             assertEquals(paidTotal, trace.usage.total)
+        }
+    }
+
+    private fun escalatingWithCarry() = ScriptedStrategy(
+        StrategyId("first"),
+        { _, _ -> StrategyOutcome.Escalate(EscalationReason.NoToolCall(), Any()) },
+    )
+
+    @Test
+    fun aTierCutOffByTheDeadlineReportsWhetherItReceivedACarry() = runTest {
+        NoNetworkGuard.during {
+            val withCarry = commandPipeline {
+                tier(escalatingWithCarry())
+                tier(ScriptedStrategy(StrategyId("slow"), hangAfterOneTurn(null)))
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+                policy = TierPolicySource.fixed(TierPolicy { commandTimeoutMillis = DEADLINE_MILLIS })
+            }.execute(CommandInput("hi"))
+            assertEquals(listOf("escalated", "timeout"), withCarry.trace.attempts.map { it.outcome })
+            assertEquals(listOf(false, true), withCarry.trace.attempts.map { it.carryIn })
+
+            val withoutCarry = commandPipeline {
+                tier(ScriptedStrategy(StrategyId("slow"), hangAfterOneTurn(null)))
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+                policy = TierPolicySource.fixed(TierPolicy { commandTimeoutMillis = DEADLINE_MILLIS })
+            }.execute(CommandInput("hi"))
+            assertEquals("timeout", withoutCarry.trace.attempts.single().outcome)
+            assertEquals(false, withoutCarry.trace.attempts.single().carryIn)
+        }
+    }
+
+    @Test
+    fun aCancelledTierThatReceivedACarryReportsIt() = runTest {
+        NoNetworkGuard.during {
+            val started = CompletableDeferred<Unit>()
+            val sink = RecordingCommitSink()
+            val pipeline = commandPipeline {
+                tier(escalatingWithCarry())
+                tier(ScriptedStrategy(StrategyId("slow"), hangAfterOneTurn(started)))
+                gate = ScriptedGate.admitAll()
+                commitSink = sink
+            }
+
+            val call = async { pipeline.execute(CommandInput("hi")) }
+            started.await()
+            call.cancel()
+            try {
+                call.await()
+            } catch (expected: CancellationException) {
+                assertTrue(call.isCancelled)
+            }
+
+            val attempts = sink.closes.single().trace.attempts
+            assertEquals(listOf("escalated", "cancelled"), attempts.map { it.outcome })
+            assertEquals(listOf(false, true), attempts.map { it.carryIn })
         }
     }
 

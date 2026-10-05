@@ -365,6 +365,31 @@ class TraceTest {
         }
     }
 
+    @Test
+    fun carryInRendersAsABooleanAndNeverTheCarrysContent() = runTest {
+        NoNetworkGuard.during {
+            val canary = "CARRY-CANARY-7731"
+            val carry = object {
+                override fun toString(): String = canary
+            }
+            val listener = RecordingEventListener()
+            val outcome = commandPipeline {
+                tier(tier("a") { _, _ -> StrategyOutcome.Escalate(EscalationReason.NoToolCall(), carry) })
+                tier(tier("b") { _, _ -> StrategyOutcome.Completed("ok") })
+                gate = ScriptedGate.admitAll()
+                commitSink = RecordingCommitSink()
+                this.listener = listener
+            }.execute(CommandInput("add milk"))
+
+            val attempts = outcome.trace.attempts
+            assertTrue(attempts[0].toString().contains("carryIn=false"))
+            assertTrue(attempts[1].toString().contains("carryIn=true"))
+            val rendered = listOf(outcome.toString(), outcome.trace.toString()) +
+                attempts.map { it.toString() } + listener.events.map { it.toString() }
+            rendered.forEach { assertTrue(!it.contains(canary)) }
+        }
+    }
+
     private companion object {
         const val INPUT = 100L
         const val CACHE_READ = 900L
