@@ -193,7 +193,9 @@ has a stable `code`.
 - `SingleShotStrategy(id) { tooling, resolver, userTurn, forceTool, reasoning, onNoToolCall, onRefusal, onFailed,
   capabilities, clock }`: one provider call, one local resolution. Only the first tool call of an answer is acted on.
   `onFailed` fires only for provider failures other than `NoToolCall` and `Refusal`, and defaults to
-  `Failed(reason, details)`.
+  `Failed(reason, details)`. It also receives the runtime failures of an on-device provider that was bound
+  successfully, so an `onFailed` that escalates every reason would send the transcript to the next tier: branch on the
+  reason (for example `ProviderUnavailable` for `ProviderId.ON_DEVICE`) before escalating.
 - `AgenticLoopStrategy(id) { tooling, executor, userTurn, reasoning, capabilities, clock }`: a bounded conversation;
   limits come from `TierPolicy`.
 - `CommandStrategy` is the interface behind both; a custom tier submits every write as a `ToolStep` through

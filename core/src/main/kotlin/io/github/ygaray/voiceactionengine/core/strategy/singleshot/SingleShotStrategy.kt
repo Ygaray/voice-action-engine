@@ -226,6 +226,11 @@ public class SingleShotStrategy internal constructor(
          * could be bound, when a token or iteration limit stops the tier, for a gate decision, or when the tier
          * throws. Defaults to failing with the same reason and details. A hook that throws ends the tier as a
          * strategy error.
+         *
+         * It also receives a runtime failure of an on-device provider that was bound successfully, for example a
+         * `FailureReason.ProviderUnavailable` for `ProviderId.ON_DEVICE`. An on-device failure that ends the command
+         * loudly by default would climb to the next tier, carrying the same transcript, if the hook answers every
+         * reason with an escalation. Branch on the reason before escalating.
          */
         public var onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome =
             { reason, details -> StrategyOutcome.Failed(reason, details) }
