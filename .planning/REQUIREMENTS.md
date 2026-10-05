@@ -1,0 +1,112 @@
+# Requirements: voice-action-engine
+
+**Defined:** 2026-10-05
+**Milestone:** v1.1 Grammar, Plan, Router, Undo, Spike, Adapter → tag `v1.1.0`
+**Core Value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier
+ladder it composed itself, with every failure surfaced as a specific, loud reason.
+**Scope source:** R-v1.1 GO (Yahir via orchestrator, 2026-10-05), `.planning/cross-repo/RECONVENE-BRIEF-R-v1.1.md`
+@2b9f2eb + d9db332; contract §6.2 steps 8–13 + A18/E7 (+ E8 `:undo` step, orchestrator).
+
+Every public-API change here is **strictly additive** against the v1.0.1 `api.txt` (Metalava
+`--check-compatibility:api:released`). Existing JVM constructors are kept explicitly; never rely on a Kotlin default argument
+alone to keep one.
+
+## v1.1 Requirements
+
+### Wave-1 additive seams (consumer asks)
+
+- [ ] **SEAM-01** (XR-173-01a): `SingleShotStrategy.Builder.onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome`, default `Failed(reason, details)`. It is called for provider failures only, never for a ceiling, gate or `strategy_error`. An app maps an HTTP 400 to `Escalate` without a decorator.
+- [ ] **SEAM-02** (XR-173-01b): there is an explicit per-strategy reasoning knob. `ModelRequest.reasoning: ReasoningMode` (open value class: `OFF`, `PROVIDER_DEFAULT`; the 7-arg ctor is kept, defaulting to `OFF`), plus `Builder.reasoning` on SingleShot and AgenticLoop, both defaulting to `OFF`. Today's wire defaults are pinned by goldens.
+- [ ] **SEAM-03** (XR-173-01c): the Anthropic capability table has an exact `claude-sonnet-5` row (forced tool choice allowed, explicit breakpoints, `minCacheablePrefixTokens` from Anthropic's docs). Internal only.
+- [ ] **SEAM-04** (XR-173-01e): `TierAttempt.carryIn: Boolean` reports whether the tier received a carry (presence only, never the content).
+- [ ] **SEAM-05** (XR-175-02f): `CommandOutcome.Unhandled.cappedByPolicy: Boolean` is true when policy skipped at least one tier (`tier_skipped_policy`, offline-only included) and no tier handled the command. Its KDoc states that coverage.
+- [ ] **SEAM-06** (XR-171-03(1)): `Extraction.callId: String?` (new 3-arg ctor; the 2-arg ctor is kept) and `ExecutedAction.providerCallId: String?` carry the provider tool-call id. Both are null for zero-call tiers.
+- [ ] **SEAM-07** (XR-172-02): a public `fun interface KeyAccess` plus an `ApiKeyStore(dataStore, slots, keyAccess)` ctor gated by `@RequiresOptIn(level = ERROR) @DelicateKeyAccess`. INTEGRATION.md shows a ~10-line software fake. No new published module.
+
+### Provider fix (W04)
+
+- [ ] **PROV-14**: a direct OpenAI Responses-only model (`gpt-6-astra`, `gpt-6.1-sol` families, and every `OpenAiModelRules` model that rejects `"none"`) is never sent `reasoning_effort: "none"`. Proven by an encoder golden.
+- [ ] **PROV-15**: a 400 with `param=reasoning_effort` and `code=unsupported_value` (the captured W04 body, replayed through MockWebServer) maps to `FailureReason.ModelUnsupported`, not `http_error`.
+- [ ] **PROV-16**: a live `:sample` smoke call to `gpt-6-astra` under the `supportsTools` override returns the specific typed outcome (evidence logged, test key, bounded spend).
+
+### LocalGrammar (§6.2 step 8, V11-01)
+
+- [ ] **GRAM-01**: `LocalGrammarStrategy` resolves a matching transcript to the app's tool call with zero provider calls, then submits it through the session (gate → commit → sink like every tier).
+- [ ] **GRAM-02**: a bilingual `GrammarPack` DSL lets an app declare EN and ES rules with typed slots, number words in both languages, and per-language phrasing for one intent.
+- [ ] **GRAM-03**: a transcript no rule matches, or a slot the app resolver rejects, ends `NoMatch`, so the ladder hands over to the next tier with carry cleared. A grammar tier never guesses.
+- [ ] **GRAM-04**: an optional per-slot `normalize: (raw, language) -> String?` hook lets the app plug in a synonym map (for example CT cross-language food names) without the engine naming any domain.
+- [ ] **GRAM-05**: the grammar tier declares `NO_PROVIDER` capabilities, so it runs offline-only and under any provider policy.
+
+### PlanThenExecute (§6.2 step 9, V11-02)
+
+- [ ] **PLAN-01**: `PlanThenExecuteStrategy` makes one model call that returns a plan of steps over the app's `ToolExecutor`, then runs the steps in order through the gate.
+- [ ] **PLAN-02**: a later step can reference an earlier step's write output (`ExecutedAction.targetIds`). A binding that doesn't resolve fails that step.
+- [ ] **PLAN-03**: a failed step triggers at most one replan call, then `Escalate`. A step that needs a lookup result escalates instead of planning (contract §4).
+- [ ] **PLAN-04**: after the first commit, no escalation happens (`escalation_suppressed` → partial `Completed`). A Plan-specific test proves it.
+- [ ] **PLAN-05**: `PlanThenExecuteStrategy.Builder.onFailed` has the same hook as SEAM-01.
+
+### Tier selection (§6.2 step 10, V11-03)
+
+- [ ] **ROUT-01**: `fun interface StartTierPicker` + a public `TierSelector.Custom(picker)` let an app choose the start tier (suspend, sees the input and the eligible LLM tiers). The picker's model calls go through a `PickContext` that counts toward the run budget and the trace.
+- [ ] **ROUT-02**: a zero-call tier at the ladder head (grammar) always runs first as a free pre-pass. The picker chooses only among the remaining eligible LLM tiers.
+- [ ] **ROUT-03**: if the picker returns null, returns an ineligible id or throws, the walk falls back to Linear and records a `router_fallback` trace code. That's never a failure.
+- [ ] **ROUT-04**: when policy leaves no eligible LLM tier (for example offline-only), the picker is never called and no router model call is made.
+- [ ] **ROUT-05**: `TierSelector.Router(...)` is the engine's cheap-model classifier, built on the same seam, default off. Telemetry shows the tiers it saved versus Linear.
+
+### On-device spike (§6.2 step 11, V11-04)
+
+- [ ] **SPIKE-01**: a bundled Gemma-2B-class model (MediaPipe/LiteRT) is measured on the TESTER: latency, RAM and strict-JSON reliability on SingleShot-shaped prompts.
+- [ ] **SPIKE-02**: the verdict (green/red, with numbers) is messaged to the orchestrator early, before the SB 179 and CT 75 planning needs it.
+- [ ] **SPIKE-03**: if green, the on-device provider ships `@Experimental` in its own module behind the `ON_DEVICE` capability gate. If red, nothing ships and the tag isn't blocked (L10).
+
+### Run-level undo (A18/E7/E8, V11-05)
+
+- [ ] **UNDO-01**: a `:undo` module (`voice-action-engine-undo`) depends on nothing, not even `:core`, and a non-voice app can use it alone.
+- [ ] **UNDO-02**: a journal/memento design with per-entity adapters (read, write back, re-insert if deleted) and explicit compensators for out-of-DB side effects.
+- [ ] **UNDO-03**: an unchanged-since-commit check runs before every restore. A changed entity makes the undo refuse loudly and never clobber. An undo either completes or reports exactly what it couldn't restore.
+- [ ] **UNDO-04**: the pipeline journals each command's committed actions by `runId`, so an app can offer "Undo all (N)" for a whole command, entangled actions included.
+
+### Voice adapter (§6.2 step 12, V11-06)
+
+- [ ] **ADPT-01**: the `:voice-adapter` module (`voice-action-engine-voice-adapter`) maps an `:stt` v0.7.0 final segment, including its detected language, to `CommandInput`. `:core` still depends on no other hub.
+
+### Docs, sample and release
+
+- [ ] **DOC-01**: the 3 open v1.0.1 wiring stumbles are fixed: INTEGRATION §7 (what `ProviderId` prints), §10 (`runTest`/JUnit imports), §5/6 (SingleShot can't serve reads). Plus a note that a single-tool SingleShot prefix won't cache on Haiku/OpenAI.
+- [ ] **DOC-02**: README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every new tier, seam and module well enough that an agent can wire them from the docs alone (isolated wiring test PASS on the final SHA).
+- [ ] **VER-06**: a `:sample` Gate-1 on the TESTER exercises grammar (offline, zero calls), plan, the router and undo-all end to end.
+- [ ] **VER-07**: `v1.1.0` is cut only on green verification:
+  - the API is strictly additive vs v1.0.1 (`apiDump` diff is `+`-only);
+  - seams honor the contract;
+  - all published modules (core, providers, keystore, undo, voice-adapter, plus the on-device module if green) build on JitPack;
+  - the §11 row is messaged to the orchestrator.
+
+## Future Requirements
+
+- **LATER-01**: moving/tail cache breakpoint on message history.
+- **LATER-02**: OpenAI `prompt_cache_key`; OpenRouter `anthropic/*` cache_control passthrough.
+- **LATER-03**: OpenAI Responses API dialect.
+- **LATER-04**: published `:testing` module with shared fakes (needs an A7-style amendment; SEAM-07 covers the keystore case).
+- **LATER-05**: separate/weighted token budgets.
+- **LATER-06**: Gemini Nano / AICore `ON_DEVICE` implementation (Pixel 10).
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| A staged `v1.1.0` + `v1.2.0` | Yahir kept A4's one tag |
+| A published keystore test-fixtures artifact | Yahir chose the opt-in seam (SEAM-07) |
+| A `CapRefused` outcome subclass | Would break consumers' exhaustive `when`; SEAM-05 is an additive flag |
+| Agentic on-device | A green spike gives bundled SingleShot/Plan only (§4) |
+| Domain synonym data in the engine | Domain-free; apps supply maps via GRAM-04 |
+| Streaming, parallel tool execution, vendor SDKs, DI, library UI | Unchanged from v1.0 |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+
+**Coverage:** filled by the roadmap.
+
+---
+*Requirements defined: 2026-10-05*
