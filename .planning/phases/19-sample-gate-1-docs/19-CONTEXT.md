@@ -1,0 +1,105 @@
+# Phase 19: Sample Gate-1 & Docs - Context
+
+**Gathered:** 2026-10-05
+**Status:** Ready for planning
+**Discussed via:** `/gsd-discuss-milestone` (mode: mixed)
+
+<domain>
+## Phase Boundary
+
+The new tiers are proven end to end on the TESTER, and an AI agent can wire every new tier, seam and module from the docs alone.
+
+**Requirements:** VER-06, DOC-02
+
+</domain>
+
+<decisions>
+## Implementation Decisions
+
+### legs — Which legs run and what spends money?
+- **D-01 [legs]:** Plan + router live only, cheapest models, new decision file; v1.0 legs not re-run (P12's seam changes are JVM-proven). _(source: human)_
+
+### router-leg — Router leg on device.
+- **D-02 [router-leg]:** Live engine Router leg (classifier prompt, cheap-model selection, PickContext accounting run on a device before the immutable tag); ladder needs ≥2 LLM tiers or D-ROUTER-SKIP hides the picker. _(provisional — refresh at execution; depends on Phase 16)_ _(source: ai-auto)_
+
+### plan-cache — The deferred `submit_plan` cache-prefix measurement.
+- **D-03 [plan-cache]:** Defer explicitly in the carry register unless a fixture-backed leg can extend LE-7 redaction cheaply; never drop silently (SB 177 wants the number). _(provisional — refresh at execution; depends on Phase 15)_ _(source: ai-auto)_
+
+### store — State behind the new legs.
+- **D-04 [store]:** Stateful store (CannedToolExecutor has no targetIds, so binding and undo would pass vacuously). _(source: ai-auto)_
+
+### offline-proof — What "offline, zero calls" means for the grammar leg.
+- **D-05 [offline-proof]:** offlineOnly + explicit zero-attempt counts + a tripwire provider; no airplane mode needed. Grammar leg: one EN match, one ES match, one near-miss → `Unhandled(cappedByPolicy=true)` with zero calls. _(source: ai-auto)_
+
+### undo-leg — Undo-all leg source.
+- **D-06 [undo-leg]:** Offline scripted command + refusal sub-case; N counts committed only. _(provisional — refresh at execution; depends on Phase 17)_ _(source: ai-auto)_
+
+### paths — Runner/guard/wiring paths broken by the v1.0 archive.
+- **D-07 [paths]:** One shared stable per-release path; fix lands in P12 (first runner use, PROV-16) and P19/P20 inherit it. _(provisional — refresh at execution; depends on Phase 12)_ _(source: ai-auto)_
+
+### evidence — Evidence lines for the new proofs.
+- **D-08 [evidence]:** New line types in lockstep; no tier ids or slot values (Pitfall 26). _(source: ai-auto)_
+
+### docs-state — Docs at the wiring SHA.
+- **D-09 [docs-state]:** Final state at the wiring SHA (gate 7 forbids doc edits after it; v1.0.1 did the same). _(source: ai-auto)_
+
+### snippets — Doc snippet compilation and coverage gate.
+- **D-10 [snippets]:** All snippets in `:sample` DocSnippetsTest + generalized coverage gate from the module manifest (else C03 fails on undo coordinates and C20 passes vacuously). _(provisional — refresh at execution; depends on Phase 17)_ _(source: ai-auto)_
+
+### wiring — Isolated wiring test scope.
+- **D-11 [wiring]:** Four surfaces + keystore; voice-adapter covered by docs coverage, not wiring. Re-confirm the CLI still supports the isolation flags. _(source: ai-auto)_
+
+### api-review — Consolidated frozen-surface API review.
+- **D-12 [api-review]:** P19 artifact before the wiring SHA (a shape fix at P20 forces a doc + wiring rerun; after the tag it's frozen). _(source: ai-auto)_
+
+### Claude's Discretion
+Areas marked `ai-auto` took research's recommendation without operator review; the planner may refine mechanics within the stated decision but must not reverse it without a new discuss pass.
+
+</decisions>
+
+<canonical_refs>
+## Canonical References
+
+**Downstream agents MUST read these before planning or implementing.**
+
+### Milestone decisions
+- `.planning/v1.1-DECISION-MAP.md` § Phase 19 — source of every decision above (options, recommendation, provisional flags)
+- `.planning/cross-repo/R-v1.1-CONSUMER-ANSWERS.md` — SB/CT/stt/orchestrator answers and binding conditions
+
+### Scope
+- `.planning/ROADMAP.md` § Phase 19 — goal, success criteria
+- `.planning/REQUIREMENTS.md` — VER-06, DOC-02
+- `.planning/PROJECT.md` — constraints (domain-free, additive API, secrets, A1/A7)
+
+### Research
+- `.planning/research/SUMMARY.md`, `ARCHITECTURE.md`, `PITFALLS.md`, `FEATURES.md`, `STACK.md` (all under `.planning/research/`) — v1.1 milestone research
+
+</canonical_refs>
+
+<code_context>
+## Existing Code Insights
+
+Code-level assets, file:line anchors and integration points are cited inline in the decisions above and in `.planning/research/ARCHITECTURE.md`; the full scout happens at plan time.
+
+### Cross-phase dependencies
+Provisional decisions depend on Phase(s) 12, 15, 16, 17 — refresh them against that phase's real output at execution.
+
+</code_context>
+
+<specifics>
+## Specific Ideas
+
+Operator-reviewed decision(s) here (source: human) — treat them as locked: [legs].
+
+</specifics>
+
+<deferred>
+## Deferred Ideas
+
+- `submit_plan` cache-prefix measurement — defer explicitly in the carry register unless a fixture-backed leg is cheap (see [plan-cache]).
+
+</deferred>
+
+---
+
+*Phase: 19-sample-gate-1-docs*
