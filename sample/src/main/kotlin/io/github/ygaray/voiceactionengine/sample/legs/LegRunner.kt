@@ -49,6 +49,8 @@ import io.github.ygaray.voiceactionengine.sample.verdict.VerdictKind
 import kotlinx.coroutines.sync.Mutex
 
 private const val HTTP_OK = 200
+private const val REASON_MODEL_UNSUPPORTED = "model_unsupported"
+private const val REASON_NO_PROVIDER_CALL = "no_provider_call"
 
 // A tier must declare the providers it may use; the demos declare the demo provider and nothing else.
 private val DEMO_ONLY = StrategyCapabilities(setOf(DEMO_PROVIDER))
@@ -288,10 +290,17 @@ internal class LegRunner(
             Judged(result.verdict, result.extras(facts.turns.size))
         }
         LegKind.RESPONSES_PROBE -> {
-            // Capture only: whatever the endpoint said is recorded with its code and HTTP status, never passed or failed.
+            // PASS only on the typed model_unsupported AFTER a real provider answer (an HTTP status is present).
             val status = facts.attempts.lastOrNull()?.httpStatus
+            val reason = facts.summary.reason
             val extras = if (status == null) emptyMap() else mapOf("http" to status.toLong())
-            Judged(Verdict(VerdictKind.CAPTURED, facts.summary.reason ?: facts.summary.kind), extras)
+            val verdict = when {
+                reason == REASON_MODEL_UNSUPPORTED && status != null ->
+                    Verdict(VerdictKind.PASS, REASON_MODEL_UNSUPPORTED)
+                reason == REASON_MODEL_UNSUPPORTED -> Verdict(VerdictKind.FAIL, REASON_NO_PROVIDER_CALL)
+                else -> Verdict(VerdictKind.FAIL, reason ?: facts.summary.kind)
+            }
+            Judged(verdict, extras)
         }
         else -> error("leg kind ${facts.spec.kind} is not a live leg")
     }

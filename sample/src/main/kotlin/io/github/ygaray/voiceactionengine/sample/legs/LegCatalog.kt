@@ -146,7 +146,7 @@ internal object LegCatalog {
         needsFixture = false,
     )
 
-    // Optional probe: a Responses-only model through Chat Completions. Recorded as CAPTURED, never judged.
+    // Optional probe: a Responses-only model through Chat Completions. Judged: PASS only on the typed model_unsupported after a real provider answer.
     private val responsesProbe = LegSpec(
         id = LegId.RESPONSES_PROBE,
         provider = ProviderId.OPENAI,

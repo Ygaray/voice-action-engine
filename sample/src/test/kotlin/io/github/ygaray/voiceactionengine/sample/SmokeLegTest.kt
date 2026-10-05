@@ -173,7 +173,7 @@ class SmokeLegTest {
     }
 
     @Test
-    fun theResponsesProbeIsCapturedNotPassed() = runTest {
+    fun theResponsesProbePassesOnlyOnTheTypedModelUnsupported() = runTest {
         NoNetworkGuard.during {
             val rejected = AttemptStep(listOf("initial" to 400), ModelResult.Failure(FailureReason.ModelUnsupported()))
             val rig = legRig(folder.newFolder()) { tap ->
@@ -182,11 +182,11 @@ class SmokeLegTest {
 
             val result = rig.runner.run(LegId.RESPONSES_PROBE)
 
-            assertEquals(result.toString(), VerdictKind.CAPTURED, result.verdict.kind)
+            assertEquals(result.toString(), VerdictKind.PASS, result.verdict.kind)
             assertEquals("model_unsupported", result.verdict.reason)
             assertTrue(
                 rig.sink.rendered.toString(),
-                "VAE_VERDICT leg=responses_probe verdict=CAPTURED reason=model_unsupported http=400 trigger=ui" in
+                "VAE_VERDICT leg=responses_probe verdict=PASS reason=model_unsupported http=400 trigger=ui" in
                     rig.sink.rendered,
             )
             assertEquals("gpt-6-astra", rig.fake(ProviderId.OPENAI).calls.single().model)
@@ -199,6 +199,41 @@ class SmokeLegTest {
             assertEquals(VerdictKind.REFUSED, again.verdict.kind)
             assertEquals("budget", again.verdict.reason)
             assertEquals(1, rig.fake(ProviderId.OPENAI).calls.size)
+        }
+    }
+
+    @Test
+    fun theResponsesProbeFailsOnAnyOtherAnswer() = runTest {
+        NoNetworkGuard.during {
+            val other = AttemptStep(listOf("initial" to 400), ModelResult.Failure(FailureReason.HttpError()))
+            val rig = legRig(folder.newFolder()) { tap ->
+                listOf(AttemptingFake(ProviderId.OPENAI, tap, listOf(other)))
+            }
+
+            val result = rig.runner.run(LegId.RESPONSES_PROBE)
+
+            assertEquals(result.toString(), VerdictKind.FAIL, result.verdict.kind)
+            assertEquals("http_error", result.verdict.reason)
+            assertTrue(
+                rig.sink.rendered.toString(),
+                "VAE_VERDICT leg=responses_probe verdict=FAIL reason=http_error http=400 trigger=ui" in
+                    rig.sink.rendered,
+            )
+        }
+    }
+
+    @Test
+    fun aModelUnsupportedWithNoProviderCallIsAFailNotLiveProof() = runTest {
+        NoNetworkGuard.during {
+            val refusedBeforeTheCall = AttemptStep(emptyList(), ModelResult.Failure(FailureReason.ModelUnsupported()))
+            val rig = legRig(folder.newFolder()) { tap ->
+                listOf(AttemptingFake(ProviderId.OPENAI, tap, listOf(refusedBeforeTheCall)))
+            }
+
+            val result = rig.runner.run(LegId.RESPONSES_PROBE)
+
+            assertEquals(result.toString(), VerdictKind.FAIL, result.verdict.kind)
+            assertEquals("no_provider_call", result.verdict.reason)
         }
     }
 }
