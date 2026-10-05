@@ -2,7 +2,10 @@ package io.github.ygaray.voiceactionengine.core
 
 import io.github.ygaray.voiceactionengine.core.provider.ProviderRequest
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
+import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
+import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -110,6 +113,26 @@ class ApiShapeTest {
         assertThrows(NoSuchMethodException::class.java) { cls.getConstructor(string, string, schema, bool) }
         assertThrows(NoSuchMethodException::class.java) { cls.getConstructor(string, string, schema, bool, bool) }
         assertTrue(hasDefaultArgumentStub(cls))
+    }
+
+    @Test
+    fun modelRequestKeepsEveryV10ConstructorAsARealPublicConstructor() {
+        val string = String::class.java
+        val list = List::class.java
+        val choice = ToolChoice::class.java
+        val int = Int::class.javaPrimitiveType
+        val cache = CacheDirective::class.java
+        val bool = Boolean::class.javaPrimitiveType
+        val real = ModelRequest::class.java.declaredConstructors
+            .filter { !it.isSynthetic && Modifier.isPublic(it.modifiers) }
+            .map { it.parameterTypes.toList() }
+
+        assertTrue(real.toString(), listOf(string, list, list, choice, int, cache, bool) in real)
+        assertTrue(real.toString(), listOf(string, list, list, choice, int, cache) in real)
+        assertTrue(real.toString(), listOf(string, list, int) in real)
+        assertTrue(real.toString(), listOf(string, list, list, int) in real)
+        assertTrue(!hasDefaultArgumentStub(ModelRequest::class.java))
+        assertTrue(!hasDefaultArgumentStub(ReasoningMode::class.java))
     }
 
     /**

@@ -22,6 +22,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
+import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResultsMessage
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
@@ -73,6 +74,7 @@ public class AgenticLoopStrategy internal constructor(
     }
     private val userTurn: UserTurnRenderer = settings.userTurn
     private val clock: Clock = settings.clock
+    private val reasoning: ReasoningMode = settings.reasoning
 
     override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome =
         ceilingReached(session) ?: start(input, session)
@@ -91,7 +93,7 @@ public class AgenticLoopStrategy internal constructor(
     ): StrategyOutcome {
         val context = UserTurnContext(input, ZonedDateTime.now(clock), session.carry)
         val first = UserMessage(userTurn.render(context))
-        return AgenticRun(DispatchContext(session, input, snapshot, executor), model, first).run()
+        return AgenticRun(DispatchContext(session, input, snapshot, executor), model, first, reasoning).run()
     }
 
     /** Prints the id only. */
@@ -123,6 +125,12 @@ public class AgenticLoopStrategy internal constructor(
          * current zone, read again for every command, so a change of zone applies from the next command.
          */
         public var clock: Clock = CurrentZoneClock
+
+        /**
+         * The reasoning request every turn of this tier carries. Defaults to [ReasoningMode.OFF]: the engine adds no
+         * reasoning request of its own.
+         */
+        public var reasoning: ReasoningMode = ReasoningMode.OFF
     }
 
     /** Ways to create a tier. */
@@ -145,6 +153,7 @@ internal class AgenticRun(
     private val context: DispatchContext,
     private val model: BoundModel,
     first: UserMessage,
+    private val reasoning: ReasoningMode,
 ) {
     private val history = mutableListOf<Message>(first)
 
@@ -178,6 +187,7 @@ internal class AgenticRun(
             context.session.policy.maxTokensPerTurn,
             CacheDirective(true),
             false,
+            reasoning,
         )
 
     // The order is fixed: the token ceiling, then the last-turn guard, then whole-turn validation, then dispatch. The

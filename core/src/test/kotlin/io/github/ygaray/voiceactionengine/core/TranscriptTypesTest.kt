@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.Message
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
+import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.NativeReplay
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
@@ -82,6 +83,35 @@ class TranscriptTypesTest {
 
         assertEquals(null, response.requestId)
         assertTrue(response.message.parts.isEmpty())
+    }
+
+    @Test
+    fun everyPreExistingRequestConstructorDefaultsReasoningToOff() {
+        val user = listOf(UserMessage("hi"))
+        val tools = listOf(logItemTool())
+        val choice = ToolChoice.Auto()
+        val cache = CacheDirective(true)
+
+        val requests = listOf(
+            ModelRequest("s", user, tools, choice, 8, cache, true),
+            ModelRequest("s", user, tools, choice, 8, cache),
+            ModelRequest("s", user, 8),
+            ModelRequest("s", user, tools, 8),
+        )
+
+        requests.forEach { assertEquals(ReasoningMode.OFF, it.reasoning) }
+        val explicit = ModelRequest("s", user, tools, choice, 8, cache, true, ReasoningMode.PROVIDER_DEFAULT)
+        assertEquals(ReasoningMode.PROVIDER_DEFAULT, explicit.reasoning)
+    }
+
+    @Test
+    fun reasoningModesAreDistinctPrintTheirTokenAndShowOnlyTheTokenInARequest() {
+        assertNotEquals(ReasoningMode.OFF, ReasoningMode.PROVIDER_DEFAULT)
+        assertEquals("off", ReasoningMode.OFF.toString())
+        assertEquals("provider_default", ReasoningMode.PROVIDER_DEFAULT.toString())
+        val printed = ModelRequest("secret system", listOf(UserMessage("secret words")), 8).toString()
+        assertTrue(printed, printed.endsWith("reasoning=off)"))
+        assertTrue(printed, "secret" !in printed)
     }
 
     @Test
@@ -306,7 +336,7 @@ class TranscriptTypesTest {
 
         val printed = request.toString()
 
-        assertTrue(printed, printed.endsWith("singleToolCall=true)"))
+        assertTrue(printed, printed.endsWith("singleToolCall=true, reasoning=off)"))
         assertFalse(printed, printed.contains(CANARY))
     }
 
