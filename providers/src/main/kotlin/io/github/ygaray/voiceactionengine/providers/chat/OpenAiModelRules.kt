@@ -64,6 +64,9 @@ internal object OpenAiModelRules {
      * Responses endpoint, and OpenAI documents no Chat Completions support for the -pro and -codex models, so on
      * OpenAI itself a request with tools to any of them is refused before any call. Through a router ([viaRouter]
      * true) the router advertises tools and translates, so the answer is true.
+     *
+     * The deny-list is targeted: only the ids above and the gpt-5 and gpt-6 -pro and -codex ids. Another Responses-only
+     * id (for example o3-pro) is not refused here; the app's `capabilities(...)` override is the escape hatch for it.
      */
     fun toolsOnChat(id: String, viaRouter: Boolean): Boolean =
         viaRouter || !(RESPONSES_ONLY.matches(id) || PRO_OR_CODEX.matches(id))

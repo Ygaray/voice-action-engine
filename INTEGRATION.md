@@ -706,13 +706,16 @@ provider in an app.
 
 - **Unsupported and uncached combinations.** OpenRouter model ids of the form `anthropic/<id>` are uncached in v1.0:
   no cache markers are sent through a router (OpenAI models cache automatically, Anthropic's own provider uses explicit
-  breakpoints). OpenAI ids that answer only on the Responses endpoint, such as `gpt-6-astra` and `gpt-6.1-sol`, fail
-  with `FailureReason.ModelUnsupported` before any network call (through OpenRouter they work). Anthropic models that
+  breakpoints). The OpenAI ids the engine knows answer only on the Responses endpoint, `gpt-6-astra` and `gpt-6.1-sol`,
+  fail with `FailureReason.ModelUnsupported` before any network call (through OpenRouter they work). Anthropic models that
   reject a forced tool choice (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-fable-5-1`, `claude-mythos-5-1`) are sent
   `auto` plus an instruction to call the tool; a dated id such as `claude-opus-5-5-20261001` is not in the table, so
   its first request is forced, refused and re-sent, which doubles that call's latency and spend until you add a
-  `capabilities(...)` override with `supportsForcedToolChoice = false`. Direct OpenAI `-pro` and `-codex` ids (for
-  example `gpt-5-pro` or `gpt-5-codex`) are refused the same way, before any call, when the request carries tools.
+  `capabilities(...)` override with `supportsForcedToolChoice = false`. Direct OpenAI `gpt-5` and `gpt-6` `-pro` and
+  `-codex` ids (for example `gpt-5-pro` or `gpt-5-codex`) are refused the same way, before any call, when the request
+  carries tools. The list is targeted, not general: any other Responses-only id (for example `o3-pro`) is not on it, so
+  its first request reaches OpenAI and fails with the mapped endpoint error. Add a `capabilities(...)` override with
+  `supportsTools = false` for such an id to refuse it before any call.
   A single-tool SingleShot prefix is usually shorter than the provider's minimum cacheable prefix, so it will not cache
   on `claude-haiku-4-5` (4,096 tokens) or on OpenAI (1,024 tokens); claude-sonnet-5 needs 1,024 and claude-sonnet-5-5
   needs 512.
