@@ -121,8 +121,8 @@ run_scenario() {
   # Skeleton inputs the runner reads on the host: the decision file, the fixture and its digest constant, the cold stamp.
   case "${DECISION:-}" in
     approved | deferred)
-      mkdir -p "$dir/repo/.planning/phases/10-sample-harness-gate-1-docs"
-      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" >"$dir/repo/.planning/phases/10-sample-harness-gate-1-docs/10-LIVE-LEG-DECISION.md"
+      mkdir -p "$dir/repo/.planning/phases/12-wave-1-seams-w04-fix"
+      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" >"$dir/repo/.planning/phases/12-wave-1-seams-w04-fix/12-LIVE-LEG-DECISION.md"
       ;;
   esac
   case "${FIXTURE:-}" in
@@ -271,7 +271,7 @@ GOLDEN="$HERE/../sample/src/test/resources/evidence-lines.golden.txt"
 EVIDENCE_KT="$HERE/../sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/evidence/EvidenceLine.kt"
 [ -x "$FILTER_SRC" ] || die "setup: $FILTER_SRC is missing or not executable"
 [ -f "$GOLDEN" ] || die "setup: $GOLDEN is missing"
-EVID_REL=".planning/phases/10-sample-harness-gate-1-docs/evidence"
+EVID_REL=".planning/phases/12-wave-1-seams-w04-fix/evidence"
 
 # Planted key-shaped tokens, assembled at run time from fragments (never written as a literal).
 PLANT_A="s""k-ant-api03-abcdefghijklmnopqrstuvwxyz0123"

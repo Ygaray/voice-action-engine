@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Guarded host runner for the Phase 10 Gate-1 sample app. The ONLY sanctioned host path to the TESTER for this phase.
+# Guarded host runner for the sample app's live legs (the PHASE_DIR below names whose decision file and evidence it uses). The ONLY sanctioned host path to the TESTER for the sample.
 #   TESTER ONLY. It targets the Gate-1 rig yahirs-s22-ultra-2 (USB serial R5CT10XNKQN first, the wireless
 #   100.118.21.106:1496 only as a fallback, and only after ro.serialno proves it is the same handset). It NEVER
 #   substitutes another device, never touches the personal phone (100.126.94.47), and has no option, argument or
@@ -36,8 +36,8 @@ ADB="${ADB:-adb}"
 # The key helper: it moves a key by file reference and refuses the personal phone itself. PUSH_TEST_KEY names a binary only.
 PUSH_TEST_KEY="${PUSH_TEST_KEY:-push-test-key}"
 
-PHASE_DIR=".planning/phases/10-sample-harness-gate-1-docs"
-DECISION_FILE="$PHASE_DIR/10-LIVE-LEG-DECISION.md"
+PHASE_DIR=".planning/phases/12-wave-1-seams-w04-fix"
+DECISION_FILE="$PHASE_DIR/12-LIVE-LEG-DECISION.md"
 EVIDENCE_DIR="$PHASE_DIR/evidence"
 HOST_FIXTURE="sample/src/debug/assets/sb-a10-fixture.json"
 # The expected fixture digest is read from this Kotlin constant (single source of truth), never duplicated here.
