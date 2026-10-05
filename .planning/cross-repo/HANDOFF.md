@@ -109,20 +109,15 @@ Session names can change after a restart. If one doesn't resolve, ask the orches
 (hubs: what tag and roughly when; consumers: which tags you need, for which phases)
 ```
 
-## Current state (2026-10-04, PARKED)
+## Current state (2026-10-05, PARKED — restart-ready)
 
+- **v1.1 discussed** (276d251): CONTEXT.md is written for Phases 12–20 (`.planning/phases/12-…` through `20-cut-v1-1-0`), and the binding consumer conditions from `R-v1.1-CONSUMER-ANSWERS.md` are carried into the affected decisions. Mixed mode: 4 areas were decided by the operator, all taking research's recommendation (P13 thresholds, P15 binding, P19 legs, P20 push).
+- **Waiting on orchestrator dispatch of `/gsd-execute-milestone` for v1.1** (Yahir's go is pending). Do not self-start.
+- **No v1.1 phase started.** Nothing has been planned or executed for 12–20.
 - **Ledgered:** `v1.0.0` (efc060f8fe, 2026-10-02) and `v1.0.1` (b32840e7eb, tag object 5d8dde4b01, 2026-10-04) are both in §11. v1.0.1 was ledgered at contract 651605b; its evidence path is `.planning/releases/v1.0.1/evidence/cut-v1.0.1.txt`. JitPack is ok for core/providers/keystore. v1.0.1 = XR-171-01 + XR-171-03 ruling (a) + the doc patch, with no public API change.
-- **Next: the v1.1 milestone**, dispatched by the orchestrator only; do not self-start it. Also pending, and orchestrator-dispatched: v1.0 milestone close (certify + verify-milestone/Gate-2). **R-v1.1 agenda:**
-  1. SingleShot failure hook;
-  2. thinking knob;
-  3. claude-sonnet-5 capability-table id;
-  4. TierAttempt carry flag;
-  5. Extraction provider tool-call id (SB Phase 178);
-  6. `:keystore` test fixtures / KeyAccess seam;
-  7. W04 Gate-2: Responses-only 400 wording vs `RESPONSES_ENDPOINT_MARKER`;
-  8. plus the 4 v1.0.1 wiring doc stumbles (`.planning/releases/v1.0.1/evidence/wiring-stumbles.txt`) and the contract's v1.1 on-device spike.
+- **Also pending, orchestrator-dispatched:** v1.0 milestone close (certify + verify-milestone/Gate-2). The R-v1.1 agenda (SingleShot failure hook, thinking knob, sonnet-5 id, TierAttempt carry flag, extraction tool-call id, `:keystore` fixtures, W04 wording, v1.0.1 wiring stumbles, on-device spike) is folded into the Phase 12–20 CONTEXT.
 - **INC-2026-09-08-02 note (stage-marker barrier):** in Phases 10 and 11, an execute-stage marker (`.gsd-stage-execute.done.json`) was written at a NON-final needs_human exit and persisted across the re-dispatch, so `stage-barrier` read `clear` while the stage was still mid-flight. The master advanced only on the final `advance` JSON plus final VERIFICATION/SELF-UAT. In v1.1, treat the barrier as advisory after any needs_human pause, and reset the marker on re-entry if the tooling doesn't.
 - **Release-cut host gotcha:** the clean-archive `check` OOMs under earlyoom when swap is full (5 killed attempts for v1.0.1). Quiet window + swap headroom + single-use daemon GRADLE_OPTS; never `./gradlew --stop` with another repo's daemon live.
 - **Wiring tests:** isolated only (headless `claude -p` + throwaway CLAUDE_CONFIG_DIR). The tag SHA must be API- and doc-identical to the wiring-pass SHA.
-- **Wave-1:** SB/CT are at v1.0.0; their v1.0.1 repins are queued on their side.
+- **Wave-1:** SB and CT are repinned at v1.0.1 (ECOSYSTEM matrix, 1591a8c).
 - **Pause files:** `.planning/.continue-here.md`, `.planning/HANDOFF.json`.
