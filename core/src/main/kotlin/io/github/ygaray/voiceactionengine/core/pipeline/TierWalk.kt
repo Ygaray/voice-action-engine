@@ -41,7 +41,8 @@ internal class TierWalk(
         if (start == null) {
             return CommandOutcome.Failed(effects(), ladder.refusal ?: FailureReason.NoEligibleTier(), null)
         }
-        return climb(ladder.tiers.drop(start), input) ?: CommandOutcome.Unhandled(effects(), lastReason)
+        return climb(ladder.tiers.drop(start), input)
+            ?: CommandOutcome.Unhandled(effects(), lastReason, ladder.cappedByPolicy)
     }
 
     private suspend fun climb(tiers: List<CommandStrategy>, input: CommandInput): CommandOutcome? {

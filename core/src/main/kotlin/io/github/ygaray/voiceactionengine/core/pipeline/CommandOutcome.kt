@@ -130,12 +130,19 @@ public sealed class CommandOutcome {
      * Every tier was tried and none could handle the command.
      *
      * @property lastReason the last tier's reason for handing up, or null after a final no-match.
+     * @property cappedByPolicy true when the command's policy skipped at least one tier (a `tier_skipped_policy` in
+     * the trace: a tier above `maxTier`, or a tier its provider restriction or offline-only mode does not permit,
+     * offline-only included) and no tier handled the command. False when nothing was skipped by policy, including
+     * when a selector simply started past the earlier tiers. A ladder whose tiers were all skipped is never
+     * unhandled: it fails with `NoEligibleTier` or `ProviderUnavailable`.
      */
     public class Unhandled internal constructor(
         internal override val effects: RunEffects,
         public val lastReason: EscalationReason?,
+        public val cappedByPolicy: Boolean,
     ) : CommandOutcome() {
         override fun toString(): String =
-            "Unhandled(runId=$runId, lastReason=$lastReason, executed=${executed.size}, held=${held.size})"
+            "Unhandled(runId=$runId, lastReason=$lastReason, cappedByPolicy=$cappedByPolicy, " +
+                "executed=${executed.size}, held=${held.size})"
     }
 }

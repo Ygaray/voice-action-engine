@@ -311,6 +311,115 @@ class TierPolicyTest {
         }
     }
 
+    // ---- Unhandled.cappedByPolicy ----
+
+    private fun CommandOutcome.capped(): Boolean = (this as CommandOutcome.Unhandled).cappedByPolicy
+
+    @Test
+    fun maxTierCuttingTheLadderThenNoHandlerIsCapped() = runTest {
+        NoNetworkGuard.during {
+            val outcome = ladder(
+                tier("a", StrategyCapabilities.ANY_PROVIDER),
+                tier("b", StrategyCapabilities.ANY_PROVIDER),
+                policy = TierPolicySource.fixed(TierPolicy { maxTier = StrategyId("a") }),
+            ).execute(CommandInput("hi"))
+            assertTrue(outcome.capped())
+        }
+    }
+
+    @Test
+    fun aProviderRestrictionSkippingATierThenNoHandlerIsCapped() = runTest {
+        NoNetworkGuard.during {
+            val outcome = ladder(
+                tier("openai", caps(ProviderId.OPENAI)),
+                tier("anthropic", caps(ProviderId.ANTHROPIC)),
+                policy = TierPolicySource.fixed(TierPolicy { allowedProviders = setOf(ProviderId.ANTHROPIC) }),
+            ).execute(CommandInput("hi"))
+            assertTrue(outcome.capped())
+        }
+    }
+
+    @Test
+    fun offlineOnlyDroppingACloudTierThenNoHandlerIsCapped() = runTest {
+        NoNetworkGuard.during {
+            val outcome = ladder(
+                tier("grammar", StrategyCapabilities.NO_PROVIDER, StrategyOutcome.NoMatch()),
+                tier("cloud", caps(ProviderId.ANTHROPIC)),
+                policy = TierPolicySource.fixed(TierPolicy { offlineOnly = true }),
+            ).execute(CommandInput("hi"))
+            assertTrue(outcome.capped())
+        }
+    }
+
+    @Test
+    fun nothingSkippedByPolicyIsNotCappedWhetherTheLastTierHandsUpOrFindsNoMatch() = runTest {
+        NoNetworkGuard.during {
+            val handsUp = ladder(
+                tier("a", StrategyCapabilities.ANY_PROVIDER),
+                tier("b", StrategyCapabilities.ANY_PROVIDER),
+            ).execute(CommandInput("hi"))
+            assertFalse(handsUp.capped())
+
+            val noMatch = ladder(
+                tier("a", StrategyCapabilities.ANY_PROVIDER),
+                tier("b", StrategyCapabilities.ANY_PROVIDER, StrategyOutcome.NoMatch()),
+            ).execute(CommandInput("hi"))
+            assertFalse(noMatch.capped())
+        }
+    }
+
+    @Test
+    fun aLadderWithEveryTierSkippedByPolicyFailsInsteadOfBeingUnhandled() = runTest {
+        NoNetworkGuard.during {
+            val capped = ladder(
+                tier("a", caps(ProviderId.OPENAI)),
+                policy = TierPolicySource.fixed(TierPolicy { allowedProviders = setOf(ProviderId.ANTHROPIC) }),
+            ).execute(CommandInput("hi"))
+            assertEquals(FailureReason.NoEligibleTier(), (capped as CommandOutcome.Failed).reason)
+
+            val offline = ladder(
+                tier("a", caps(ProviderId.ANTHROPIC)),
+                policy = TierPolicySource.fixed(TierPolicy { offlineOnly = true }),
+            ).execute(CommandInput("hi"))
+            assertEquals(
+                FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, "offline_unavailable"),
+                (offline as CommandOutcome.Failed).reason,
+            )
+        }
+    }
+
+    @Test
+    fun aTierSkippedByPolicyDoesNotMakeALaterCompletionUnhandled() = runTest {
+        NoNetworkGuard.during {
+            val outcome = ladder(
+                tier("openai", caps(ProviderId.OPENAI)),
+                tier("anthropic", caps(ProviderId.ANTHROPIC), StrategyOutcome.Completed("ok")),
+                policy = TierPolicySource.fixed(TierPolicy { allowedProviders = setOf(ProviderId.ANTHROPIC) }),
+            ).execute(CommandInput("hi"))
+            assertTrue(outcome is CommandOutcome.Completed)
+        }
+    }
+
+    @Test
+    fun aSelectorStartingPastEarlierTiersIsNotAPolicySkip() = runTest {
+        NoNetworkGuard.during {
+            val outcome = ladder(
+                tier("a", StrategyCapabilities.ANY_PROVIDER),
+                tier("b", StrategyCapabilities.ANY_PROVIDER),
+                selected = TierSelector.Fixed(StrategyId("b")),
+            ).execute(CommandInput("hi"))
+            assertFalse(outcome.capped())
+        }
+    }
+
+    @Test
+    fun unhandledToStringShowsTheFlag() = runTest {
+        NoNetworkGuard.during {
+            val outcome = ladder(tier("a", StrategyCapabilities.ANY_PROVIDER)).execute(CommandInput("hi"))
+            assertTrue(outcome.toString().contains("cappedByPolicy=false"))
+        }
+    }
+
     @Test
     fun fixedTierCutByMaxTierFailsWithNoEligibleTier() = runTest {
         NoNetworkGuard.during {

@@ -17,6 +17,7 @@ internal class Ladder(
     val selector: TierSelector,
     private val onDeviceAvailable: Boolean,
     val refusal: FailureReason?,
+    val cappedByPolicy: Boolean,
 ) {
     /** True when [tier] can only use on-device inference and that is not available, so it must not run. */
     fun blockedOnDevice(tier: CommandStrategy): Boolean = tier.capabilities.onDeviceOnly && !onDeviceAvailable
@@ -54,7 +55,7 @@ internal class PolicyPreCheck(
             allowed
         }
         return if (eligible.isNotEmpty()) {
-            Ladder(eligible, selector, onDevice, null)
+            Ladder(eligible, selector, onDevice, null, cappedByPolicy = eligible.size < strategies.size)
         } else {
             refused(nothingMayRun(policy, recorder), onDevice)
         }
@@ -70,7 +71,7 @@ internal class PolicyPreCheck(
         }
 
     private fun refused(reason: FailureReason, onDevice: Boolean): Ladder =
-        Ladder(emptyList(), selector, onDevice, reason)
+        Ladder(emptyList(), selector, onDevice, reason, cappedByPolicy = false)
 
     private fun permits(tier: CommandStrategy, policy: TierPolicy, onDevice: Boolean): Boolean {
         val capabilities = tier.capabilities
