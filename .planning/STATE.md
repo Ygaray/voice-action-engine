@@ -5,16 +5,16 @@ milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 12
 current_phase_name: Wave-1 Seams & W04 Fix
 status: executing
-stopped_at: Completed 12-02-PLAN.md
-last_updated: "2026-10-05T21:44:34.364Z"
+stopped_at: Completed 12-03-PLAN.md
+last_updated: "2026-10-05T21:47:20.924Z"
 last_activity: 2026-10-05
 last_activity_desc: Phase 12 execution started
-state_head: ad44f3e7243699bdef3a867f377228040626393a
+state_head: fa6a7109ee4c9f44f3fb7b5551dca9be086bea25
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 8
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 12 (Wave-1 Seams & W04 Fix) — EXECUTING
-Plan: 3 of 8
+Plan: 4 of 8
 Status: Ready to execute
 Last activity: 2026-10-05 — Phase 12 execution started
 
@@ -97,6 +97,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 03 P10 | 20 min | 3 tasks | 4 files |
 | Phase 12 P01 | 40min | 3 tasks | 11 files |
 | Phase 12 P02 | ~25min | 3 tasks | 12 files |
+| Phase 12 P03 | 15min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,7 @@ Recent decisions affecting current work:
 - [Phase 12]: [12-01] Deny-list only for OpenAI wire rules; pro/codex exclusion is direct-only, routed ids keep today's rules
 - [Phase 12]: [12-01] reasoning_effort 400 classifier keys on status 400 + param + code, never reads the message
 - [Phase 12]: 12-02: ReasoningMode OFF and PROVIDER_DEFAULT are both the v1.0 wire; onFailed fires from the provider-failure else arm only
+- [Phase 12]: 12-03: cappedByPolicy = PolicyPreCheck dropped any tier (both skip sites, offline-only included); carryIn = walk carry non-null at tier start
 
 ### Pending Todos
 
@@ -142,8 +144,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-05T21:44:34.328Z
-Stopped at: Completed 12-02-PLAN.md
+Last session: 2026-10-05T21:47:20.891Z
+Stopped at: Completed 12-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
