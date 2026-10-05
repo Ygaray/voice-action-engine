@@ -157,7 +157,43 @@ Plans:
   3. Green: an on-device provider ships `@Experimental` in its own published module behind the `ON_DEVICE` capability gate, and where the gate reports unavailable, the run falls back exactly as in v1.0 (declared fallback or a loud typed failure). Red: no module and no code ship, SPIKE-03 is dispositioned N/A-deferred, and `v1.1.0` isn't blocked (L10).
   4. Whatever the verdict, `:core` and `:providers` gain no on-device or ML dependency: the `:core` classpath allowlist and the no-on-device-implementation scan still pass. Agentic on-device stays out of scope.
 
-**Plans**: TBD
+**Plans:** 11 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 13-01-PLAN.md — toolchain proof in the real build (D-02, 0.17.1 then 0.16.1), unpublished `:spike-ondevice` scaffold, APK cost + stdlib fallout rows, D-07 thresholds locked (SPIKE-01)
+- [ ] 13-02-PLAN.md — SC4 hardening (D-09): module-scoped `verifyNoMlArtifacts`, LiteRT/MediaPipe tokens in the `:core` scan, model/gold hygiene patterns, negative controls (SPIKE-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 13-03-PLAN.md — closed evidence grammar + filter, Wilson/percentile/schema scoring, per-envelope verdict rules, `verify-spike-verdict.sh` (SPIKE-01, SPIKE-02)
+- [ ] 13-04-PLAN.md — throwaway `ON_DEVICE` provider on the real SingleShot path, Route A / Route B, backend seam, `LiteRtBackend` (SPIKE-01)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 13-05-PLAN.md — trial path scored against gold labels, small committed EN/ES/negative set, private SB-sized labels (SPIKE-01)
+- [ ] 13-06-PLAN.md — guarded TESTER runner + fake-adb guard proof, window-grant gate, time-box, pinned model fetch (SPIKE-01)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 13-07-PLAN.md — on-device measurement ladder: engine rows (GPU, prefill, KV reuse, ResponseFormat), screen/confirm/sustained, early exits (SPIKE-01)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 13-08-PLAN.md — one granted TESTER window: measure, commit filtered evidence, clean the device (SPIKE-01; not autonomous)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 13-09-PLAN.md — verdict computed from evidence, relay message to the orchestrator (SPIKE-02; not autonomous: relay checkpoint)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 13-10-PLAN.md — disposition per D-08: red deletes the spike (SPIKE-03 N/A-deferred), green_defer requests 13.1, green_ship hands off (SPIKE-03)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 13-11-PLAN.md — conditional: `@Experimental` `:ondevice` on Phase 17 plumbing, only on branch green_ship; otherwise a recorded no-op (SPIKE-03)
 **Note**: if the verdict is green and productizing the provider overruns the time-box, insert Phase 13.1 (`/gsd-phase --insert`) and move SPIKE-03 there. The verdict message (SPIKE-02) is never delayed for it.
 **Device note**: TESTER only, never the personal phone. Don't overlap with Phase 12's live smoke or Phase 19's Gate-1.
 **Research flag**: yes. Open items: MediaPipe LLM Inference vs LiteRT-LM; Gemma license terms for a bundled model; model delivery (APK asset vs download); S22 RAM headroom.
