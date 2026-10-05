@@ -105,8 +105,45 @@ alone to keep one.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| SEAM-01 | Phase 12 | Pending |
+| SEAM-02 | Phase 12 | Pending |
+| SEAM-03 | Phase 12 | Pending |
+| SEAM-04 | Phase 12 | Pending |
+| SEAM-05 | Phase 12 | Pending |
+| SEAM-06 | Phase 12 | Pending |
+| SEAM-07 | Phase 12 | Pending |
+| PROV-14 | Phase 12 | Pending |
+| PROV-15 | Phase 12 | Pending |
+| PROV-16 | Phase 12 | Pending |
+| GRAM-01 | Phase 14 | Pending |
+| GRAM-02 | Phase 14 | Pending |
+| GRAM-03 | Phase 14 | Pending |
+| GRAM-04 | Phase 14 | Pending |
+| GRAM-05 | Phase 14 | Pending |
+| PLAN-01 | Phase 15 | Pending |
+| PLAN-02 | Phase 15 | Pending |
+| PLAN-03 | Phase 15 | Pending |
+| PLAN-04 | Phase 15 | Pending |
+| PLAN-05 | Phase 15 | Pending |
+| ROUT-01 | Phase 16 | Pending |
+| ROUT-02 | Phase 16 | Pending |
+| ROUT-03 | Phase 16 | Pending |
+| ROUT-04 | Phase 16 | Pending |
+| ROUT-05 | Phase 16 | Pending |
+| SPIKE-01 | Phase 13 | Pending |
+| SPIKE-02 | Phase 13 | Pending |
+| SPIKE-03 | Phase 13 | Pending |
+| UNDO-01 | Phase 17 | Pending |
+| UNDO-02 | Phase 17 | Pending |
+| UNDO-03 | Phase 17 | Pending |
+| UNDO-04 | Phase 17 | Pending |
+| ADPT-01 | Phase 18 | Pending |
+| DOC-01 | Phase 12 | Pending |
+| DOC-02 | Phase 19 | Pending |
+| VER-06 | Phase 19 | Pending |
+| VER-07 | Phase 20 | Pending |
 
-**Coverage:** filled by the roadmap.
+**Coverage:** 37/37 v1.1 requirements mapped to Phases 12-20 (no orphans, no duplicates).
 
 ---
-*Requirements defined: 2026-10-05*
+*Requirements defined: 2026-10-05 · Traceability filled by the v1.1 roadmap: 2026-10-05*
