@@ -5,7 +5,6 @@ relayed_by: orchestrator yahir-gsd-control-plane-3b via the coordinator (control
 date: 2026-10-05
 
 requested_by: executor of plan 12-05, for the orchestrator relay that plan 12-08 waits on
-date: 2026-10-05
 
 The runner (`scripts/run-sample-gate1.sh push-keys`) refuses to move any key until the line above reads exactly
 `decision: approved`. Only plan 12-08, quoting a relayed orchestrator answer, may change it.
@@ -14,10 +13,9 @@ The runner (`scripts/run-sample-gate1.sh push-keys`) refuses to move any key unt
 
 GO on 12-08: the live gpt-6-astra W04 smoke, ceiling 4 requests / USD 0.05, using the spend-capped openai test key on TESTER R5CT10XNKQN only. Source: Yahir's ruling 'do the smoke' (relayed by orchestrator yahir-gsd-control-plane-3b, control-plane 4146165).
 
-Scope note: this is the spend approval only. The TESTER DEVICE WINDOW is a separate grant and is NOT yet granted; no device step
-may start until it is. The decision line above stays `pending` until plan 12-08 flips it under that window.
-
-The TESTER device window is a SEPARATE grant that is still pending, and no device step may start before it is granted (the decision line now reads `approved` for the spend only).
+Scope note: the decision line above reads `approved` for the spend approval. The TESTER DEVICE WINDOW is a separate grant and
+was GRANTED afterwards (12-CONTEXT.md Runtime Decisions RT-01, commit f8d4d73) for 12-08 Task 3 only: one responses_probe leg,
+about 15 min, 3 requests left of the 4 / USD 0.05 ceiling after Probe C, `adb -s R5CT10XNKQN` only, full cleanup afterwards.
 
 ## Budget (bounded)
 
