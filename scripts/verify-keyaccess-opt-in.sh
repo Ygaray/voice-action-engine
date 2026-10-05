@@ -10,7 +10,11 @@ cd "$(git rev-parse --show-toplevel)"
 PLANT="sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ZzOptInPlant.kt"
 LOG="$(mktemp)"
 cleanup() { rm -f "$PLANT" "$LOG"; }
-trap cleanup EXIT INT TERM
+# INT and TERM must exit: a trap that only cleans up lets the script carry on and start the next plant. The exit fires
+# the EXIT trap, so cleanup runs once.
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 fails=0
 # The Kotlin opt-in error prints the marker's own message (not a fixed "needs opt-in" text), so the proof greps for that
 # message, reported against the plant file. Keep it in step with DelicateKeyAccess.kt.
