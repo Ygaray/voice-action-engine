@@ -6,6 +6,9 @@ package io.github.ygaray.voiceactionengine.keystore
  * It is meant for tests that need a software key on the JVM. Production code keeps the platform key store, which the
  * two ordinary [ApiKeyStore] constructors use. Using a marked declaration without an explicit
  * `@OptIn(DelicateKeyAccess::class)` is a compile error.
+ *
+ * The gate is enforced by the Kotlin compiler only. Java callers and reflection are not subject to opt-in checks, so
+ * the seam is a convention for them, not a barrier.
  */
 @RequiresOptIn(
     level = RequiresOptIn.Level.ERROR,

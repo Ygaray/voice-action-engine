@@ -41,6 +41,7 @@ internal sealed class SecretRead {
  * pair whose device key is gone (for example after a backup restore) reports a missing key instead of silently
  * replacing it.
  */
+@OptIn(DelicateKeyAccess::class)
 internal class SecretReader(private val keyAccess: KeyAccess) {
     private val decoder: Base64.Decoder = Base64.getDecoder()
 

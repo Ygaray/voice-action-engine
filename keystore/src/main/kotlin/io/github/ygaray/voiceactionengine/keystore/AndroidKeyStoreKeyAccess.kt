@@ -26,6 +26,7 @@ import javax.crypto.SecretKey
  * so keys created by either side are interchangeable. This is the only main source file that touches
  * `android.security.keystore`.
  */
+@OptIn(DelicateKeyAccess::class)
 internal object AndroidKeyStoreKeyAccess : KeyAccess {
     private const val PROVIDER = "AndroidKeyStore"
     private const val KEY_SIZE_BITS = 256

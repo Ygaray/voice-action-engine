@@ -29,8 +29,15 @@ kotlin {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
         // Restrict the JDK API surface to 11 (see :core); the build JDK is 17.
         freeCompilerArgs.add("-Xjdk-release=11")
-        // The keystore implements and stores the seam itself; consumers must opt in.
-        optIn.add("io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess")
+    }
+}
+
+// Tests build and fake the key-custody seam freely, so the test compilations opt in. The main compilation does not:
+// the few internal use sites carry their own @OptIn, so a future public member that exposes KeyAccess fails to compile
+// until it is marked.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    if (name.contains("UnitTest") || name.contains("AndroidTest")) {
+        compilerOptions.optIn.add("io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess")
     }
 }
 

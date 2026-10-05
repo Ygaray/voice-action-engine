@@ -33,15 +33,16 @@ import java.util.Base64
  * migrated: values already written by the app read back as they are, and values this store writes can be read by the
  * app's older code.
  */
-public class ApiKeyStore internal constructor(
+public class ApiKeyStore @OptIn(DelicateKeyAccess::class) internal constructor(
     private val dataStore: DataStore<Preferences>,
     slots: List<KeySlot>,
     private val ioDispatcher: CoroutineDispatcher,
-    private val keyAccess: KeyAccess,
+    @property:OptIn(DelicateKeyAccess::class) private val keyAccess: KeyAccess,
 ) {
     private val slotsByProvider: Map<ProviderId, KeySlot> = indexValidated(slots)
     private val writeMutex = Mutex()
     private val encoder: Base64.Encoder = Base64.getEncoder()
+    @OptIn(DelicateKeyAccess::class)
     private val reader = SecretReader(keyAccess)
 
     /** Builds a store over the app's [dataStore] and [slots], doing its blocking work on [Dispatchers.IO]. */
@@ -72,6 +73,7 @@ public class ApiKeyStore internal constructor(
      * device key.
      * @throws java.io.IOException when the preferences cannot be written.
      */
+    @OptIn(DelicateKeyAccess::class)
     public suspend fun save(provider: ProviderId, apiKey: String) {
         val slot = requireNotNull(slotsByProvider[provider]) { "No key slot for provider $provider" }
         val trimmed = apiKey.trim()
