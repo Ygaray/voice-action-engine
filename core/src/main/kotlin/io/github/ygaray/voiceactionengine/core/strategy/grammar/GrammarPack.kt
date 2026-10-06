@@ -45,9 +45,15 @@ internal sealed class GrammarResult {
  * - `<name>`, a named sub-rule of the same language declared with [Builder.enRule] or [Builder.esRule]; sub-rules may
  *   refer to other sub-rules (never to themselves) and may not hold slots.
  *
+ * - `{name}`, a slot the intent declares once with [IntentBuilder.integer], [IntentBuilder.decimal],
+ *   [IntentBuilder.choice] or [IntentBuilder.text]; the same declaration serves its English and Spanish phrasings, so
+ *   both languages bind the same slots and a match carries equal typed arguments whichever language was spoken. A slot
+ *   written only inside `[ ]` is optional and its key is left out when it is not spoken.
+ *
  * Every phrasing needs at least one literal word on every path, so an optional-only phrasing is refused. A phrasing
  * that expands to more than 256 sequences is refused too: split it with sub-rules. Anything wrong in the declarations
- * (bad syntax, an unknown or looping rule, two tools reading the same words in one language) throws when the pack is
+ * (bad syntax, an unknown or looping rule, two tools reading the same words in one language, a slot that is invalid,
+ * unused, missing from a phrasing that needs it or placed next to another free-span slot) throws when the pack is
  * built, never when a transcript is matched.
  *
  * The pack is immutable once built, so it is safe to share between commands and threads.
@@ -59,18 +65,15 @@ public class GrammarPack internal constructor(settings: Builder) {
     init {
         val intents = settings.intents.toList()
         validateIntents(intents)
+        validateSlotDeclarations(intents)
         intentCount = intents.size
         val enFillers = foldFillers(EN, settings.enFillers.toList())
         val esFillers = foldFillers(ES, settings.esFillers.toList())
         val slots = intents.associate { intent -> intent.toolName to intent.slots.associate { it.name to it.spec } }
-        matchers = mapOf(
-            EN to RuleMatcher(
-                compileLanguage(EN, intents, settings.enRules.toList(), enFillers) { it.en }, enFillers, slots,
-            ),
-            ES to RuleMatcher(
-                compileLanguage(ES, intents, settings.esRules.toList(), esFillers) { it.es }, esFillers, slots,
-            ),
-        )
+        val enRules = compileLanguage(EN, intents, settings.enRules.toList(), enFillers) { it.en }
+        val esRules = compileLanguage(ES, intents, settings.esRules.toList(), esFillers) { it.es }
+        validateSlotUse(intents, enRules + esRules)
+        matchers = mapOf(EN to RuleMatcher(enRules, enFillers, slots), ES to RuleMatcher(esRules, esFillers, slots))
     }
 
     /**

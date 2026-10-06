@@ -1,5 +1,8 @@
 package io.github.ygaray.voiceactionengine.core.strategy.grammar
 
+// A template with more slots than this is refused; relaxing it later only accepts more packs.
+private const val SLOTS_PER_TEMPLATE = 4
+
 // Build-time checks of a pack's declarations. Every fault is an IllegalArgumentException from `require`, and every
 // message carries tool names, template text and filler text: authoring data, never anything from a transcript.
 
@@ -32,8 +35,8 @@ internal fun foldFillers(language: String, phrases: List<String>): List<List<Str
     }.distinct().sortedByDescending { it.size }
 
 /**
- * Checks one flat rule of [toolName]'s [template]: it holds a literal word on every path, and it neither begins nor ends with a declared filler, which stripping would remove from the transcript and so
- * leave the rule unable to match.
+ * Checks one flat rule of [template]: it holds a literal word on every path, and it neither begins nor ends with a
+ * declared filler, which stripping would remove from the transcript and so leave the rule unable to match.
  */
 internal fun validateFlat(flat: FlatRule, template: String, fillers: List<List<String>>) {
     require(flat.elements.any { it is RuleElement.Word }) {
@@ -74,3 +77,30 @@ internal fun admitFlat(compiled: MutableMap<String, FlatRule>, flat: FlatRule, t
             "phrasing: $template"
     }
 }
+
+/**
+ * Checks one compiled phrasing against its intent's slot use: no more than [SLOTS_PER_TEMPLATE] slots, none twice,
+ * every [required] slot present (a slot only inside `[ ]` in some template is optional, its key omitted when
+ * absent), and no two open-span slots (numbers and text) side by side without a literal word between them.
+ */
+internal fun validateRuleSlots(rule: FlatRule, required: Set<String>, specs: Map<String, SlotSpec>) {
+    val where = "tool ${rule.toolName} ${rule.language} template \"${rule.template}\""
+    val names = rule.elements.filterIsInstance<RuleElement.Slot>().map { it.name }
+    require(names.size <= SLOTS_PER_TEMPLATE) {
+        "GrammarPack: $where holds ${names.size} slots, and a template may hold at most $SLOTS_PER_TEMPLATE"
+    }
+    val repeated = names.groupBy { it }.filterValues { it.size > 1 }.keys.firstOrNull()
+    require(repeated == null) { "GrammarPack: $where uses the slot {$repeated} more than once in one reading" }
+    val missing = required.firstOrNull { it !in names }
+    require(missing == null) {
+        "GrammarPack: $where lacks the required slot {$missing}; put it inside [ ] to make it optional"
+    }
+    for ((left, right) in rule.elements.zipWithNext()) {
+        require(!(isOpenSpan(left, specs) && isOpenSpan(right, specs))) {
+            "GrammarPack: $where has two open-span slots next to each other; put a literal word between them"
+        }
+    }
+}
+
+private fun isOpenSpan(element: RuleElement, specs: Map<String, SlotSpec>): Boolean =
+    element is RuleElement.Slot && specs[element.name]?.openSpan == true

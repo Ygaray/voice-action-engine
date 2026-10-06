@@ -100,9 +100,9 @@ internal class RuleMatcher(
 private class Bound(val name: String, val candidate: SlotCandidate, val from: Int)
 
 /**
- * The depth-first walk of one flat rule over the kept tokens. A word must equal the next token; a slot tries each of its
- * candidate spans. Success needs every token consumed. [onHit] receives each complete parse and answers true to stop
- * the whole walk, which [run] then reports as true.
+ * The depth-first walk of one flat rule over the kept tokens. A word must equal the next token; a slot tries each of
+ * its candidate spans. Success needs every token consumed. [onHit] receives each complete parse and answers true to
+ * stop the whole walk, which [run] then reports as true.
  */
 private class RuleWalk(
     private val rule: FlatRule,
@@ -134,7 +134,9 @@ private class RuleWalk(
     }
 
     private fun hit(): RuleVerdict.One {
-        val bindings = bound.map { SlotBinding(it.name, it.candidate.value, tokens.surface(it.from, it.candidate.end)) }
+        val bindings = bound.map {
+            SlotBinding(it.name, it.candidate.value, tokens.surface(it.from, it.candidate.end))
+        }
         return RuleVerdict.One(rule, JsonObject(bindings.associate { it.name to it.value }), bindings)
     }
 }
