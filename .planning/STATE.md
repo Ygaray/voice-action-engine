@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-10-06T14:55:36.736Z"
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-10-06T15:05:51.411Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 14 execution started
-state_head: "0b6c2394ccbd07e6a7ef864a03b0f1eff9802f63"
+state_head: 1e1db425ba920f5135132a021ea48acb38de8fdd
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 29
-  completed_plans: 20
+  completed_plans: 21
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 14 execution started
@@ -118,6 +118,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P10 | 20min | 3 tasks | 70 files |
 | Phase 13 P11 | 5min | 0 tasks | 0 files |
 | Phase 14 P01 | 15min | 3 tasks | 12 files |
+| Phase 14 P02 | 45min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -147,6 +148,7 @@ Recent decisions affecting current work:
 - [Phase 13]: 13-08: RT-02 raw sb answers kept host-private via PrivateRawSink + runner pull-private-raw; 4h time-box expired inside screen_sb, confirm_sb/sustained/exit_reasons unmeasured (runner refused)
 - [Phase 13]: 13-10: spike disposition branch red (both envelopes red); spike module removed, SPIKE-03 N/A-deferred, v1.1.0 not blocked
 - [Phase 14]: Phase 14-01: D-01 submit path lives in StepSubmission.kt; grammar tier has no try/catch (resolver throws handled by TierWalk strategy_error); Extraction.matchedLanguage via internal 4-arg ctor
+- [Phase 14]: 14-02: D-12 grant gate reads only the first key block; runner is USB-only; RAE read via Wayback (all 11 ES rules confirmed)
 
 ### Pending Todos
 
@@ -174,8 +176,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T14:55:36.560Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-10-06T15:05:51.309Z
+Stopped at: Completed 14-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

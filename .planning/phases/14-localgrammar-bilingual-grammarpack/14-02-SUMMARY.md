@@ -15,7 +15,8 @@ provides:
   - 14-RAE-CHECK.md, all 11 Spanish number rules confirmed against RAE
 affects: [14-03, 14-09]
 
-requirements-completed: [GRAM-02]
+requirements-completed: []
+requirements-contributed: [GRAM-02]
 
 actuals:
   tokens: 13800
@@ -111,7 +112,8 @@ No device command ran in this plan (no adb, no Gradle).
 1. **[Rule 3 - Blocking] `14-WINDOW-GRANT.md` already existed (untracked, written by the master).** The plan's Task 1 creates it, but the driver instruction says to stay off master-owned files. Resolved by extending it additively (nothing removed, `grant: pending` untouched, no `grant: open`) and committing it with Task 1, since the plan lists it and its verify needs the `## Relay` section.
 2. **`timebox_s: 3600` instead of the plan's 7200.** The master's pre-approval fixed 3600; the Relay text names both numbers.
 3. **RAE fetched through Wayback snapshots.** The plan's primary route (rae.es via WebFetch, then curl) gave 403 on all five URLs and WebFetch is not in this executor's toolset; the archived copies of the same DPD entries were used (added `/dpd/medio` for R11, which none of the five pages cover). Source URLs in the file point at the snapshots.
-4. The verifier derives its "real grant file" scenarios by rewriting the first-block `grant:` line with sed (pending and open), so it stays valid after plan 14-09 changes the real file to `open`, `consumed` or `deferred`.
+4. **GRAM-02 left Pending.** The plan frontmatter lists it and `requirements.mark-complete` flipped it, but the DSL with number words in both languages is built by plans 14-03, 14-04, 14-05 and 14-08; this plan only prepares D-12 and checks RAE. I reverted the flip in REQUIREMENTS.md so the requirement is not reported complete before its code exists; the plan that lands the DSL should mark it.
+5. The verifier derives its "real grant file" scenarios by rewriting the first-block `grant:` line with sed (pending and open), so it stays valid after plan 14-09 changes the real file to `open`, `consumed` or `deferred`.
 
 ## Notes for downstream plans
 
