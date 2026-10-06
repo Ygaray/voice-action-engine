@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
-current_plan: Not started
+current_plan: 2
 status: executing
-stopped_at: Phase 13 complete, ready to plan Phase 14
-last_updated: "2026-10-06T14:37:56.141Z"
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-10-06T14:55:36.736Z"
 last_activity: 2026-10-06
-last_activity_desc: Phase 13 complete, transitioned to Phase 14
-state_head: 9827684e121542ca672775f04571bc7151cdc17c
+last_activity_desc: Phase 14 execution started
+state_head: "0b6c2394ccbd07e6a7ef864a03b0f1eff9802f63"
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 29
-  completed_plans: 19
+  completed_plans: 20
   percent: 0
 ---
 
@@ -26,15 +26,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 12 — Wave-1 Seams & W04 Fix
+**Current focus:** Phase 14 — localgrammar-bilingual-grammarpack
 
 ## Current Position
 
-Phase: 14 (localgrammar-bilingual-grammarpack) — READY TO EXECUTE
-Current Plan: Not started
+Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
+Current Plan: 2
 Total Plans in Phase: 10
 Status: Ready to execute
-Last activity: 2026-10-06 — Phase 13 complete, transitioned to Phase 14
+Last activity: 2026-10-06 — Phase 14 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -117,6 +117,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P09 | 45min | 3 tasks | 7 files |
 | Phase 13 P10 | 20min | 3 tasks | 70 files |
 | Phase 13 P11 | 5min | 0 tasks | 0 files |
+| Phase 14 P01 | 15min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -145,6 +146,7 @@ Recent decisions affecting current work:
 - [Phase 13]: 13-07: only a measured not_reused KV disposition can end the sb envelope early; BackendRequest.engineFlag lets rf_matrix learn whether the engine constrained-decoding flag is needed; a screen with no startable cell is an error, never a quiet done 0/0
 - [Phase 13]: 13-08: RT-02 raw sb answers kept host-private via PrivateRawSink + runner pull-private-raw; 4h time-box expired inside screen_sb, confirm_sb/sustained/exit_reasons unmeasured (runner refused)
 - [Phase 13]: 13-10: spike disposition branch red (both envelopes red); spike module removed, SPIKE-03 N/A-deferred, v1.1.0 not blocked
+- [Phase 14]: Phase 14-01: D-01 submit path lives in StepSubmission.kt; grammar tier has no try/catch (resolver throws handled by TierWalk strategy_error); Extraction.matchedLanguage via internal 4-arg ctor
 
 ### Pending Todos
 
@@ -172,8 +174,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T06:05:09.961Z
-Stopped at: Phase 13 complete, ready to plan Phase 14
+Last session: 2026-10-06T14:55:36.560Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

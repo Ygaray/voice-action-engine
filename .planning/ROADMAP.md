@@ -214,12 +214,12 @@ Plans:
   4. A slot's optional `normalize: (raw, language) -> String?` hook sees the raw slot text and the language before resolution, so an app-supplied synonym map (for example CT's cross-language names) changes what resolves. Library code still names no domain (the CLN-02 scan stays green).
   5. The grammar tier declares `NO_PROVIDER` capabilities, so it runs under `offlineOnly` and under any `allowedProviders`. Under offline-only, a no-match ends `Unhandled` with `cappedByPolicy = true` after zero provider calls.
 
-**Plans**: 10 plans (8 waves; 14-09 is non-autonomous, TESTER-window gated)
+**Plans**: 1/10 plans executed (8 waves; 14-09 is non-autonomous, TESTER-window gated)
 
 Plans:
 **Wave 1**
 
-- [ ] 14-01-PLAN.md — D-01 StepSubmission move (commit 1), end-to-end tracer (GrammarPack -> LocalGrammarStrategy -> gate/commit/sink, zero provider calls), six grammar trace codes, resolver-rejection slice
+- [x] 14-01-PLAN.md — D-01 StepSubmission move (commit 1), end-to-end tracer (GrammarPack -> LocalGrammarStrategy -> gate/commit/sink, zero provider calls), six grammar trace codes, resolver-rejection slice
 - [ ] 14-02-PLAN.md — D-12 prep at phase start: window-grant file + relay text, neutral STT prompt list, guarded capture runner + offline guard proof, RAE check of ES number rules (no Gradle, no device)
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -363,7 +363,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 |-------|-----------|----------------|--------|-----------|
 | 12. Wave-1 Seams & W04 Fix | v1.1 | 8/8 | Complete    | 2026-10-05 |
 | 13. On-Device Model Spike | v1.1 | 11/11 | Complete    | 2026-10-06 |
-| 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 0/TBD | Not started | - |
+| 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 1/10 | In Progress|  |
 | 15. PlanThenExecute Strategy | v1.1 | 0/TBD | Not started | - |
 | 16. Start-Tier Selection | v1.1 | 0/TBD | Not started | - |
 | 17. Run-Level Undo | v1.1 | 0/TBD | Not started | - |
