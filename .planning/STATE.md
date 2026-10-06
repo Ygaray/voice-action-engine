@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 17
 current_phase_name: Run-Level Undo
-current_plan: 7
+current_plan: 8
 status: executing
-stopped_at: Completed 17-06-PLAN.md
-last_updated: "2026-10-06T23:18:56.047Z"
+stopped_at: Completed 17-07-PLAN.md
+last_updated: "2026-10-06T23:32:22.451Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 17 execution started
-state_head: bb3d5296b47df362aa43d8d05d47cab8f0059b93
+state_head: 0676f9f437765ba8560783cda97761ad33c6eaa4
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 53
-  completed_plans: 49
+  completed_plans: 50
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 17 (Run-Level Undo) — EXECUTING
-Current Plan: 7
+Current Plan: 8
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 17 execution started
@@ -143,6 +143,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17 P04 | 15min | 3 tasks | 8 files |
 | Phase 17 P05 | 40min | 3 tasks | 17 files |
 | Phase 17 P06 | 40min | 3 tasks | 11 files |
+| Phase 17 P07 | 35min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -189,6 +190,8 @@ Recent decisions affecting current work:
 - [Phase 17]: 17-02: compositeSink runs all children then throws one fixed-text counts-only fault (sink_error visible, outcome unchanged); heldRunId set only by commitHeld
 - [Phase 17]: 17-06: compensators are independent of each other (one failing never stops the rest); effects of an action run in reverse declaration order; an unrestored action's effects are SKIPPED_AFTER_FAILURE
 - [Phase 17]: 17-06: JournalState.claim is the single place deciding group refusal reasons (unknown, in progress, withheld); the undoing flag is released in finally
+- [Phase 17]: [17-07] undoEntry for isolated entries only (ENTANGLED otherwise); JournalStore is a save/delete mirror with no loadAll; applied nothing-written and failed entries count in N
+- [Phase 17]: [17-07] A late record into a group mid-undo is appended and pending, not withheld; eviction by count or age skips groups being undone
 
 ### Pending Todos
 
@@ -216,8 +219,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T23:18:55.963Z
-Stopped at: Completed 17-06-PLAN.md
+Last session: 2026-10-06T23:32:22.365Z
+Stopped at: Completed 17-07-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
