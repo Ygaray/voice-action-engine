@@ -88,8 +88,8 @@ count, and paste the `PLAN_PROBE` lines under a "Result" heading with an overall
 If the orchestrator defers the probe, or a key or the network is missing, record
 
 ```
-decision: deferred
-deferred_obligation: D-04 live binding probe owed; owner: Phase 19 Gate-1 plan leg; must run before the v1.1.0 cut
+    decision: deferred
+    deferred_obligation: D-04 live binding probe owed; owner: Phase 19 Gate-1 plan leg; must run before the v1.1.0 cut
 ```
 
 in place of the decision line, with `relayed_by:` and `date:` lines, and make no live call.
