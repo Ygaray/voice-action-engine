@@ -39,11 +39,11 @@ alone to keep one.
 
 ### PlanThenExecute (§6.2 step 9, V11-02)
 
-- [ ] **PLAN-01**: `PlanThenExecuteStrategy` makes one model call that returns a plan of steps over the app's `ToolExecutor`, then runs the steps in order through the gate.
-- [ ] **PLAN-02**: a later step can reference an earlier step's write output (`ExecutedAction.targetIds`). A binding that doesn't resolve fails that step.
-- [ ] **PLAN-03**: a failed step triggers at most one replan call, then `Escalate`. A step that needs a lookup result escalates instead of planning (contract §4).
-- [ ] **PLAN-04**: after the first commit, no escalation happens (`escalation_suppressed` → partial `Completed`). A Plan-specific test proves it.
-- [ ] **PLAN-05**: `PlanThenExecuteStrategy.Builder.onFailed` has the same hook as SEAM-01.
+- [x] **PLAN-01**: `PlanThenExecuteStrategy` makes one model call that returns a plan of steps over the app's `ToolExecutor`, then runs the steps in order through the gate.
+- [x] **PLAN-02**: a later step can reference an earlier step's write output (`ExecutedAction.targetIds`). A binding that doesn't resolve fails that step.
+- [x] **PLAN-03**: a failed step triggers at most one replan call, then `Escalate`. A step that needs a lookup result escalates instead of planning (contract §4).
+- [x] **PLAN-04**: after the first commit, no escalation happens (`escalation_suppressed` → partial `Completed`). A Plan-specific test proves it.
+- [x] **PLAN-05**: `PlanThenExecuteStrategy.Builder.onFailed` has the same hook as SEAM-01.
 
 ### Tier selection (§6.2 step 10, V11-03)
 
@@ -120,11 +120,11 @@ alone to keep one.
 | GRAM-03 | Phase 14 | Complete |
 | GRAM-04 | Phase 14 | Complete |
 | GRAM-05 | Phase 14 | Complete |
-| PLAN-01 | Phase 15 | Pending |
-| PLAN-02 | Phase 15 | Pending |
-| PLAN-03 | Phase 15 | Pending |
-| PLAN-04 | Phase 15 | Pending |
-| PLAN-05 | Phase 15 | Pending |
+| PLAN-01 | Phase 15 | Complete |
+| PLAN-02 | Phase 15 | Complete |
+| PLAN-03 | Phase 15 | Complete |
+| PLAN-04 | Phase 15 | Complete |
+| PLAN-05 | Phase 15 | Complete |
 | ROUT-01 | Phase 16 | Pending |
 | ROUT-02 | Phase 16 | Pending |
 | ROUT-03 | Phase 16 | Pending |

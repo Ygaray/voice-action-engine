@@ -55,7 +55,7 @@ documents them so an agent can wire them. Phase 20 cuts the tag.
 - [x] **Phase 12: Wave-1 Seams & W04 Fix** - additive consumer seams (`onFailed`, `ReasoningMode`, `claude-sonnet-5` row, `carryIn`, `cappedByPolicy`, call ids, opt-in `KeyAccess`), the three v1.0.1 doc stumbles, and the Responses-only `ModelUnsupported` fix (completed 2026-10-05)
 - [x] **Phase 13: On-Device Model Spike** - §6.2 step 11: time-boxed bundled ~2B model measurement on the TESTER, verdict to the orchestrator early, ships `@Experimental` only if green (completed 2026-10-06)
 - [x] **Phase 14: LocalGrammar & Bilingual GrammarPack** - §6.2 step 8: a free, offline EN/ES grammar tier with typed slots, number words and a per-slot `normalize` hook (completed 2026-10-06)
-- [ ] **Phase 15: PlanThenExecute Strategy** - §6.2 step 9: one planning call, ordered gated steps, write-output step binding, at most one replan
+- [x] **Phase 15: PlanThenExecute Strategy** - §6.2 step 9: one planning call, ordered gated steps, write-output step binding, at most one replan (completed 2026-10-06)
 - [ ] **Phase 16: Start-Tier Selection** - §6.2 step 10: `TierSelector.Custom(StartTierPicker)` + opt-in `TierSelector.Router`, grammar pre-pass, loud fallback to Linear
 - [ ] **Phase 17: Run-Level Undo** - A18: standalone `:undo` journal (entity adapters, compensators, refuse-loudly check) + pipeline integration for "Undo all (N)"
 - [ ] **Phase 18: Voice Adapter** - §6.2 step 12: `:stt` v0.7.0 final segment → `CommandInput`, `:core` still hub-free
@@ -394,7 +394,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 12. Wave-1 Seams & W04 Fix | v1.1 | 8/8 | Complete    | 2026-10-05 |
 | 13. On-Device Model Spike | v1.1 | 11/11 | Complete    | 2026-10-06 |
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 10/10 | Complete    | 2026-10-06 |
-| 15. PlanThenExecute Strategy | v1.1 | 7/7 | In Progress|  |
+| 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 16. Start-Tier Selection | v1.1 | 0/TBD | Not started | - |
 | 17. Run-Level Undo | v1.1 | 0/TBD | Not started | - |
 | 18. Voice Adapter | v1.1 | 0/TBD | Not started | - |
