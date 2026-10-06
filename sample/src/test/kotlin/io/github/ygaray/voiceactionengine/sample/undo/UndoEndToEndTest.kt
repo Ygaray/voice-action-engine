@@ -2,20 +2,30 @@ package io.github.ygaray.voiceactionengine.sample.undo
 
 import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.StrategyId
+import io.github.ygaray.voiceactionengine.core.commit.ActionEvent
 import io.github.ygaray.voiceactionengine.core.commit.ActionKind
+import io.github.ygaray.voiceactionengine.core.commit.CommitSink
+import io.github.ygaray.voiceactionengine.core.commit.GateDecision
+import io.github.ygaray.voiceactionengine.core.commit.RunTermination
+import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.commit.compositeSink
+import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
+import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.undo.UndoJournal
+import io.github.ygaray.voiceactionengine.undo.UndoReason
 import io.github.ygaray.voiceactionengine.undo.UndoResult
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -63,6 +73,170 @@ class UndoEndToEndTest {
             val again = journal.undoAll("run-1")
             assertTrue(again.toString(), again is UndoResult.AlreadyUndone)
             assertEquals(seeded, store.snapshot())
+        }
+    }
+
+    @Test
+    fun s2AnUnrelatedEditRefusesTheWholeUndoAndWritesNothing() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val pipeline = rig.pipeline(
+                ScriptedGate.admitAll(),
+                rig.submitting(rig.create("n1"), rig.rename("a", "v1"), rig.create("n2", "item-1"), rig.alarm("al-1")),
+            )
+            pipeline.execute(CommandInput("three writes and an alarm"))
+            assertEquals(4, rig.journal.group("run-1")!!.count)
+            rig.store.edit("a", "x")
+            val afterEdit = rig.store.snapshot()
+
+            val result = rig.journal.undoAll("run-1")
+
+            assertTrue(result.toString(), result is UndoResult.Refused)
+            val blocker = (result as UndoResult.Refused).blockers.first { it.entity?.id == "a" }
+            assertEquals("item", blocker.entity?.type)
+            assertEquals(UndoReason.CHANGED_SINCE, blocker.reason)
+            assertEquals(afterEdit, rig.store.snapshot())
+            assertEquals(emptyList<String>(), rig.log.events)
+            assertEquals(setOf("al-1"), rig.board.ids)
+            assertEquals(4, rig.journal.group("run-1")!!.count)
+        }
+    }
+
+    @Test
+    fun s3AHeldRenameConfirmedLaterRestoresTheMovedStateNotTheProposedOne() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val pipeline = rig.pipeline(
+                ScriptedGate.sequence(null, GateDecision.Hold("confirm", null)),
+                rig.submitting(rig.rename("a", "v2")),
+            )
+
+            val first = pipeline.execute(CommandInput("rename a"))
+
+            val proposed = rig.recording.actions.single()
+            assertEquals(ActionKind.HELD, proposed.action.kind)
+            assertFalse(proposed.action.applied)
+            assertEquals(1, rig.bridge.pendingHeld("run-1"))
+            assertTrue(rig.journal.group("run-1")?.count ?: 0 == 0)
+            assertEquals("v0", rig.store.get("a")?.title)
+
+            rig.store.edit("a", "v1")
+            val moved = rig.store.get("a")
+            pipeline.commitHeld(first.held.single())
+
+            val confirmed = rig.recording.actions.last()
+            assertEquals("run-1", confirmed.heldRunId)
+            assertEquals("run-2", confirmed.runId)
+            assertEquals(1, rig.journal.group("run-1")!!.count)
+            assertEquals(0, rig.bridge.pendingHeld("run-1"))
+            assertEquals("v2", rig.store.get("a")?.title)
+
+            val result = rig.journal.undoAll("run-1")
+
+            assertTrue(result.toString(), result is UndoResult.Complete)
+            assertEquals("v1", rig.store.get("a")?.title)
+            assertEquals(moved, rig.store.get("a"))
+        }
+    }
+
+    @Test
+    fun s4AClarificationReplyIsItsOwnGroupAndKeepsItsParentGroupKey() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val ids = ArrayDeque(listOf("run-p", "run-r"))
+            val pipeline = rig.pipeline(
+                ScriptedGate.admitAll(),
+                rig.submitting(rig.create("n1")),
+                rig.submitting(rig.rename("a", "v1")),
+                runIds = { ids.removeFirst() },
+            )
+            pipeline.execute(CommandInput("first"))
+            val before = rig.journal.group("run-p")!!
+
+            pipeline.execute(CommandInput("reply", parentRunId = "run-p"))
+
+            val reply = rig.recording.actions.last()
+            assertEquals("run-r", reply.runId)
+            assertEquals("run-p", reply.parentRunId)
+            assertNull(reply.heldRunId)
+            val group = rig.journal.group("run-r")!!
+            assertEquals("run-p", group.parentGroupKey)
+            assertEquals(1, group.count)
+            val parent = rig.journal.group("run-p")!!
+            assertEquals(1, parent.count)
+            assertEquals(before.revision, parent.revision)
+            assertNull(parent.parentGroupKey)
+        }
+    }
+
+    @Test
+    fun s5AThrowingFirstSinkNeverStopsTheBridgeOrChangesTheOutcome() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val thrower = object : CommitSink {
+                override suspend fun onAction(event: ActionEvent) = throw IllegalStateException("sink down")
+
+                override suspend fun onRunClosed(runId: String, termination: RunTermination) = Unit
+            }
+            val pipeline = rig.pipeline(
+                ScriptedGate.admitAll(),
+                rig.submitting(rig.create("n1"), rig.rename("a", "v1")),
+                sink = compositeSink(thrower, rig.bridge, rig.recording),
+            )
+
+            val outcome = pipeline.execute(CommandInput("two writes"))
+
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Completed)
+            assertEquals(2, outcome.commits.size)
+            assertEquals(2, rig.recording.actions.size)
+            assertTrue(TraceCode.SINK_ERROR in outcome.trace.codes)
+            assertEquals(setOf("a", "item-1"), rig.store.snapshot().keys)
+            val group = rig.journal.group("run-1")!!
+            assertEquals(2, group.count)
+            assertFalse(group.withheld)
+        }
+    }
+
+    @Test
+    fun s6aAnAppliedActionWithoutATicketWithholdsTheGroup() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val noTicket = FakeMutation("create_item", StepResult("ok"))
+            val pipeline = rig.pipeline(ScriptedGate.admitAll(), rig.submitting(rig.create("n1"), noTicket))
+            pipeline.execute(CommandInput("one with a ticket, one without"))
+            val written = rig.store.snapshot()
+
+            val group = rig.journal.group("run-1")!!
+            val result = rig.journal.undoAll("run-1")
+
+            assertTrue(group.withheld)
+            assertTrue(result.toString(), result is UndoResult.Refused)
+            assertEquals(UndoReason.JOURNAL_WITHHELD, (result as UndoResult.Refused).blockers.first().reason)
+            assertEquals(written, rig.store.snapshot())
+            assertEquals(emptyList<String>(), rig.log.events)
+        }
+    }
+
+    @Test
+    fun s6bAnActionTheBridgeNeverSawWithholdsTheGroupAtRunClose() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val pipeline = rig.pipeline(
+                ScriptedGate.admitAll(),
+                rig.submitting(rig.create("n1"), rig.create("n2"), rig.create("n3")),
+                sink = compositeSink(DroppingSink(rig.bridge, 1), rig.recording),
+            )
+            pipeline.execute(CommandInput("three creates"))
+            val written = rig.store.snapshot()
+
+            val group = rig.journal.group("run-1")!!
+            val result = rig.journal.undoAll("run-1")
+
+            assertTrue(group.withheld)
+            assertEquals(3, rig.recording.actions.size)
+            assertTrue(result.toString(), result is UndoResult.Refused)
+            assertEquals(UndoReason.JOURNAL_WITHHELD, (result as UndoResult.Refused).blockers.first().reason)
+            assertEquals(written, rig.store.snapshot())
         }
     }
 }
