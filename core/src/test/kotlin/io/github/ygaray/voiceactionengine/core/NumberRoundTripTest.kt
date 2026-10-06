@@ -72,4 +72,19 @@ class NumberRoundTripTest {
     fun englishDigitsRoundTripAcrossTheWholeRange() {
         assertDigitsRoundTrip("en")
     }
+
+    @Test
+    fun spanishWordsRoundTripAcrossTheWholeRange() {
+        assertWholeRange("es", sweep("es", ::spellEs))
+    }
+
+    @Test
+    fun spanishVariantsRoundTripAcrossTheWholeRange() {
+        assertWholeRange("es", sweep("es", ::spellEsVariant))
+    }
+
+    @Test
+    fun spanishDigitsRoundTripAcrossTheWholeRange() {
+        assertDigitsRoundTrip("es")
+    }
 }
