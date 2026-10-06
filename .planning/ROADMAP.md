@@ -214,7 +214,20 @@ Plans:
   4. A slot's optional `normalize: (raw, language) -> String?` hook sees the raw slot text and the language before resolution, so an app-supplied synonym map (for example CT's cross-language names) changes what resolves. Library code still names no domain (the CLN-02 scan stays green).
   5. The grammar tier declares `NO_PROVIDER` capabilities, so it runs under `offlineOnly` and under any `allowedProviders`. Under offline-only, a no-match ends `Unhandled` with `cappedByPolicy = true` after zero provider calls.
 
-**Plans**: TBD
+**Plans**: 10 plans (8 waves; 14-09 is non-autonomous, TESTER-window gated)
+
+Plans:
+- [ ] 14-01-PLAN.md — D-01 StepSubmission move (commit 1), end-to-end tracer (GrammarPack -> LocalGrammarStrategy -> gate/commit/sink, zero provider calls), six grammar trace codes, resolver-rejection slice
+- [ ] 14-02-PLAN.md — D-12 prep at phase start: window-grant file + relay text, neutral STT prompt list, guarded capture runner + offline guard proof, RAE check of ES number rules (no Gradle, no device)
+- [ ] 14-03-PLAN.md — TDD: strict EN/ES number words and digit forms, digit-grouping matrix, independent round-trip 0..999,999
+- [ ] 14-04-PLAN.md — Phrasing: D-11 text fold/tokenizer, D-03 template mini-syntax + sub-rules, anchored enumerate-all-parses matcher, fillers, template validation
+- [ ] 14-05-PLAN.md — Typed slots (integer, decimal, choice, text) and slot validation; SC-1 bilingual proof
+- [ ] 14-06-PLAN.md — Never guesses: ambiguity self-check, D-10 label table + tryOtherLanguage + agreement, derived cap, near-miss corpus, mutation property
+- [ ] 14-07-PLAN.md — normalize hook (D-09), terminal intents (D-06), verdict pass-through + held (D-02, SC-2), policy proofs (SC-5), redaction sweep
+- [ ] 14-08-PLAN.md — API.md rows, frozen-surface review vs the real Metalava dump, open items for the orchestrator, full phase gate
+- [ ] 14-09-PLAN.md — D-12 TESTER capture under a relayed window (or A12 deferral) via an opt-in :sample androidTest tool
+- [ ] 14-10-PLAN.md — Fold captured recognizer forms back into internal aliases with GrammarSttFixturesTest, or record the deferred obligation
+
 **Research flag**: yes. Open items: the DSL shape; ES number words (compound forms such as "veintiuno", "ciento y"); how strict matching stays while still never guessing.
 
 #### Phase 15: PlanThenExecute Strategy
