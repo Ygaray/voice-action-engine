@@ -26,7 +26,10 @@ import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarPack
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.LocalGrammarStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
@@ -677,11 +680,83 @@ class RedactionCanaryTest {
         }
     }
 
+    private val grammarPack = GrammarPack {
+        intent("add_item") {
+            text("body", 4)
+            en("add item {body}")
+        }
+        intent("rename_item") {
+            text("subject", 3)
+            normalize("subject") { _, _ -> throw IllegalStateException("$CANARY-HOOK-MESSAGE $KEY") }
+            en("rename {subject}")
+        }
+        intent("drop_item") {
+            text("thing", 3)
+            en("drop {thing}")
+        }
+    }
+
+    private suspend fun grammarRun(transcript: String, gate: ScriptedGate): CommandOutcome {
+        val listener = RecordingEventListener()
+        val sink = RecordingCommitSink()
+        val resolver = RecordingResolver { extraction, _ ->
+            see(extraction)
+            when (extraction.toolName) {
+                "add_item" -> Resolution.Steps(listOf(ToolStep.Mutation(mutation("add_item"))), "$CANARY-REPLY")
+                else -> Resolution.NoMatch()
+            }
+        }
+        val grammar = LocalGrammarStrategy(StrategyId("grammar")) {
+            pack = grammarPack
+            this.resolver = resolver
+        }
+        val next = ScriptedStrategy(StrategyId("next"), { _, _ -> StrategyOutcome.Completed(null) })
+        val pipeline = pipelineOf(
+            listOf(grammar, next),
+            FakeAiProvider(ProviderId.ANTHROPIC),
+            gate,
+            sink,
+            listener,
+        )
+        see(grammar)
+        see(grammarPack)
+        see(grammarPack.match(transcript, "en"))
+        val outcome = pipeline.execute(CommandInput(transcript, "en", Canary("CONTEXT")))
+        sweepOutcome(outcome)
+        sink.actions.forEach { see(it) }
+        sink.closes.forEach { see(it) }
+        listener.events.forEach { see(it) }
+        gate.proposals.forEach { see(it) }
+        checkEventFields(listener.events)
+        return outcome
+    }
+
+    /** A grammar run with a canary transcript and slot text, a throwing hook, a rejecting resolver and a held write. */
+    @Test
+    fun noCanaryLeaksFromAGrammarRun() = runTest {
+        NoNetworkGuard.during {
+            val holdAll = ScriptedGate.holdAll(Canary("HOLD"), "$CANARY-HOLD-TOKEN")
+            val held = grammarRun("add item $CANARY-SLOT-TEXT", holdAll)
+            val hookFault = grammarRun("rename $CANARY-SLOT-TEXT", ScriptedGate.admitAll())
+            val rejected = grammarRun("drop $CANARY-SLOT-TEXT", ScriptedGate.admitAll())
+
+            val leaks = printed.filter { CANARY in it || KEY in it }
+            assertTrue("leaked: $leaks", leaks.isEmpty())
+            assertTrue("swept only ${printed.toSet().size} distinct values", printed.toSet().size >= MIN_GRAMMAR)
+            // The grammar tier really took each path, so the sweep covered it.
+            assertEquals("$CANARY-REPLY", (held as CommandOutcome.Completed).reply)
+            assertEquals(1, held.held.size)
+            assertTrue(TraceCode.GRAMMAR_NORMALIZE_ERROR in hookFault.trace.codes)
+            assertTrue(TraceCode.GRAMMAR_RESOLVER_REJECTED in rejected.trace.codes)
+        }
+    }
+
     private companion object {
         const val MIN_DISTINCT = 25
         const val MIN_ROUTED_DISTINCT = 30
         const val MIN_SINGLE_SHOT = 20
         const val MIN_AGENTIC = 30
+        const val MIN_GRAMMAR = 15
         const val AGENTIC_SAVE = "save_entry"
         const val AGENTIC_LOG = "log_entry"
         const val AGENTIC_FIND = "find_entries"
