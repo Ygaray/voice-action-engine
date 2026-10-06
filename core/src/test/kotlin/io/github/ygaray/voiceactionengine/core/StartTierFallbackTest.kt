@@ -140,6 +140,22 @@ class StartTierFallbackTest {
     }
 
     @Test
+    fun aMidLadderZeroCallTierIsBypassedWhenThePickLandsPastIt() = runTest {
+        NoNetworkGuard.during {
+            val picker = ScriptedPicker({ _, _, _ -> StrategyId("agentic") })
+
+            val (ladder, outcome) = runWith(picker)
+
+            assertEquals("a", (outcome as CommandOutcome.Completed).reply)
+            assertEquals(0, ladder.local.executions)
+            assertEquals(0, ladder.single.executions)
+            assertEquals(1, ladder.agentic.executions)
+            assertEquals(listOf("grammar", "agentic"), outcome.trace.attempts.map { it.strategy.value })
+            assertEquals(1, outcome.trace.selection!!.tiersBypassed)
+        }
+    }
+
+    @Test
     fun aPickerThatThrowsFallsBackToLinearAndLeaksNothing() = runTest {
         NoNetworkGuard.during {
             val listener = RecordingEventListener()

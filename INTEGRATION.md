@@ -96,7 +96,9 @@ that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named
 - **Zero-call head first.** With `Custom` or `Router`, the tiers at the head of the ladder that make no model call (the
   grammar tier) always run first, for free. A picker runs only when they hand the command over, and it never sees a
   zero-call tier: it chooses among the eligible tiers that call a model. `Fixed(id)` is different: it starts exactly at
-  that tier, so a grammar head below it does not run.
+  that tier, so a grammar head below it does not run. A zero-call tier that sits after a model tier is not part of the
+  head: if the pick lands past it, it is bypassed together with the model tiers the pick skips, and the trace does not
+  count it in `tiersBypassed`.
 - **Your own picker.** `TierSelector.Custom(picker)` takes your `StartTierPicker`: a suspend function that sees the
   command and the eligible model tiers in ladder order and returns one id, or null for "start at the first". Use
   `TierSelector.Custom(picker) { id = ...; capabilities = ... }` to name the picker and the providers it may call.

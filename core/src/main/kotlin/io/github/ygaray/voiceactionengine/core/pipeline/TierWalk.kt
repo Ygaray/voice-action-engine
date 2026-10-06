@@ -49,7 +49,9 @@ internal class TierWalk(
 
     /**
      * The zero-call head runs through [runTier] exactly like any tier (gate, suppression, trace), and its carry passes
-     * unchanged to the picked tier. The picker then chooses among the tiers that call a model.
+     * unchanged to the picked tier. The picker then chooses among the tiers that call a model. Only the zero-call tiers
+     * at the very head run first: one that follows a model tier is bypassed, with the tiers the pick skips, when the
+     * pick lands past it.
      */
     private suspend fun walkPicked(picking: PickingSpec, input: CommandInput): CommandOutcome? {
         val head = ladder.tiers.takeWhile { it.capabilities.providers.isEmpty() }
