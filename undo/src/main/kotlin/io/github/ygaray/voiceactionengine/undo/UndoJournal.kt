@@ -1,8 +1,17 @@
 package io.github.ygaray.voiceactionengine.undo
 
 import io.github.ygaray.voiceactionengine.undo.internal.JournalState
+import io.github.ygaray.voiceactionengine.undo.internal.Recorded
+import io.github.ygaray.voiceactionengine.undo.internal.Retention
 import io.github.ygaray.voiceactionengine.undo.internal.UndoPass
+import io.github.ygaray.voiceactionengine.undo.internal.guardedCall
 import io.github.ygaray.voiceactionengine.undo.internal.requireToken
+
+/** How many groups the journal keeps unless told otherwise. */
+private const val GROUP_LIMIT: Int = 50
+
+/** How long a group may be idle, in milliseconds, before the journal drops it unless told otherwise: one hour. */
+private const val AGE_LIMIT_MILLIS: Long = 3_600_000
 
 /**
  * A journal of what each command changed, so one call can undo a whole command.
@@ -11,8 +20,10 @@ import io.github.ygaray.voiceactionengine.undo.internal.requireToken
  * app uses the command's run id). [undoAll] then restores every entity the group touched, newest action first, or
  * refuses and writes nothing when anything moved on since.
  *
- * The journal lives in memory and does not survive process death. It depends on nothing but the Kotlin standard
- * library, so it works in an app that has no voice engine at all.
+ * The journal lives in memory and does not survive process death. It keeps at most [Builder.maxGroups] groups and
+ * drops a group idle for more than [Builder.maxAgeMillis], so the snapshots of user data in it do not pile up or
+ * linger. It depends on nothing but the Kotlin standard library, so it works in an app that has no voice engine at
+ * all.
  *
  * Build one with the DSL:
  * ```
@@ -25,13 +36,39 @@ import io.github.ygaray.voiceactionengine.undo.internal.requireToken
 public class UndoJournal internal constructor(settings: Builder) {
     private val adapters: Map<String, EntityAdapter> = settings.adapters.toMap()
     private val compensators: Map<String, Compensator> = settings.compensators.toMap()
-    private val state = JournalState()
-    private val pass = UndoPass(state, adapters, compensators)
+    private val clock: () -> Long = settings.clock
+    private val state: JournalState
+    private val pass: UndoPass
 
-    /** Collects the adapters and compensators of a journal. */
+    @Volatile
+    private var lastNow = 0L
+
+    init {
+        require(settings.maxGroups >= 1) { "maxGroups must be at least 1" }
+        require(settings.maxAgeMillis >= 1) { "maxAgeMillis must be at least 1" }
+        state = JournalState(Retention(settings.maxGroups, settings.maxAgeMillis), mirrored = false)
+        pass = UndoPass(state, adapters, compensators)
+    }
+
+    /** Collects the adapters, compensators and limits of a journal. */
     public class Builder internal constructor() {
         internal val adapters: MutableMap<String, EntityAdapter> = LinkedHashMap()
         internal val compensators: MutableMap<String, Compensator> = LinkedHashMap()
+
+        /**
+         * How many groups the journal keeps; past that the least recently active group is dropped, except one being
+         * undone. Default 50. Must be at least 1.
+         */
+        public var maxGroups: Int = GROUP_LIMIT
+
+        /**
+         * How long a group may be idle, in milliseconds since its last change, before the journal drops it. Default one
+         * hour. Must be at least 1.
+         */
+        public var maxAgeMillis: Long = AGE_LIMIT_MILLIS
+
+        /** The time source for [maxAgeMillis], in milliseconds. Tests replace it; the default is the system clock. */
+        public var clock: () -> Long = { System.currentTimeMillis() }
 
         /**
          * Registers the adapter for its entity type.
@@ -85,7 +122,7 @@ public class UndoJournal internal constructor(settings: Builder) {
         requireToken("groupKey", groupKey)
         if (parentGroupKey != null) requireToken("parentGroupKey", parentGroupKey)
         val data = ticket?.takeIf { it.owner === this }?.freeze()
-        state.append(groupKey, parentGroupKey, entry, failed, data)
+        state.append(groupKey, parentGroupKey, Recorded(entry, failed, data), now())
     }
 
     /**
@@ -100,7 +137,7 @@ public class UndoJournal internal constructor(settings: Builder) {
     public suspend fun runClosed(groupKey: String, runId: String, appliedPositions: Set<Int>) {
         requireToken("groupKey", groupKey)
         requireToken("runId", runId)
-        state.runClosed(groupKey, runId, appliedPositions.toSet())
+        state.runClosed(groupKey, runId, appliedPositions.toSet(), now())
     }
 
     /**
@@ -111,7 +148,7 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun withhold(groupKey: String) {
         requireToken("groupKey", groupKey)
-        state.withhold(groupKey)
+        state.withhold(groupKey, now())
     }
 
     /**
@@ -121,7 +158,7 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun group(groupKey: String): UndoGroup? {
         requireToken("groupKey", groupKey)
-        return state.view(groupKey)
+        return state.view(groupKey, now())
     }
 
     /**
@@ -135,8 +172,27 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun undoAll(groupKey: String): UndoResult {
         requireToken("groupKey", groupKey)
-        return pass.run(groupKey)
+        return pass.run(groupKey, null, now())
     }
+
+    /**
+     * Undoes the single action [entry] of the group, for an action that shares no entity with another action not yet
+     * undone (see [UndoGroup.isolated]). Only that action's own entities are checked.
+     *
+     * An action that shares an entity with another is refused with [UndoReason.ENTANGLED] and nothing is written: it is
+     * never widened to the actions it shares with, so use [undoAll] for those. An unknown group, a withheld group, an
+     * unknown action and one that is already undone are answered like [undoAll] does, and the call shares the group's
+     * in-progress claim with it.
+     *
+     * @throws IllegalArgumentException when [groupKey] is blank or longer than 256 characters.
+     */
+    public suspend fun undoEntry(groupKey: String, entry: EntryRef): UndoResult {
+        requireToken("groupKey", groupKey)
+        return pass.run(groupKey, entry, now())
+    }
+
+    // The time source is app code, so a fault in it never reaches the caller: the last good reading stands in.
+    private fun now(): Long = guardedCall(onFault = { lastNow }) { clock().also { lastNow = it } }
 
     override fun toString(): String = "UndoJournal(groups=${state.groupCount()})"
 }

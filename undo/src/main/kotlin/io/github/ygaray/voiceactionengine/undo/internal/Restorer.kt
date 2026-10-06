@@ -14,7 +14,7 @@ internal class RestoreOutcome(val restored: Set<EntityKey>, val notRestored: Lis
  * An entity is marked restored the moment its restore returned true, and never before, so a pass that is cut short
  * leaves exactly the finished entities marked.
  */
-internal class Restorer(private val state: JournalState) {
+internal class Restorer(private val marks: Marks) {
 
     suspend fun run(steps: List<Step>, entries: List<Entry>, footprints: Footprints): RestoreOutcome {
         val restored = HashSet<EntityKey>()
@@ -25,7 +25,7 @@ internal class Restorer(private val state: JournalState) {
             val failure =
                 if (component in failed) step.failure(UndoReason.SKIPPED_AFTER_FAILURE, null) else attempt(step)
             if (failure == null) {
-                state.markRestored(entries, setOf(step.key))
+                marks.markRestored(entries, setOf(step.key))
                 restored.add(step.key)
             } else {
                 failed.add(component)

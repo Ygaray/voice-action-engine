@@ -8,6 +8,7 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.startCoroutine
+import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 private const val AWAIT_SECONDS = 10L
@@ -217,6 +218,14 @@ internal class Rig(
     }
 
     fun undoAll(group: String): UndoResult = runSuspending { journal.undoAll(group) }
+
+    fun undoEntry(group: String, entry: EntryRef): UndoResult = runSuspending { journal.undoEntry(group, entry) }
+
+    /** Lets a restore of [id] that was suspended with [TestAdapter.suspendOnRestore] carry on. */
+    fun resume(id: String) {
+        adapter.suspendOnRestore.remove(id)
+        checkNotNull(adapter.gates.remove(id)) { "the restore of $id is not suspended" }.resume(Unit)
+    }
 }
 
 /** The group view of [groupKey], or null. */

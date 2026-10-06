@@ -16,7 +16,7 @@ import io.github.ygaray.voiceactionengine.undo.UndoReason
  */
 internal class Compensating(
     private val compensators: Map<String, Compensator>,
-    private val state: JournalState,
+    private val marks: Marks,
 ) {
 
     /** [restored] is every entity that is as it was after the restores, including the ones of an earlier pass. */
@@ -40,7 +40,7 @@ internal class Compensating(
             compensator.compensate(compensation.payload)
             null
         }
-        if (failure == null) state.markCompensated(entry, index)
+        if (failure == null) marks.markCompensated(entry, index)
         return failure
     }
 

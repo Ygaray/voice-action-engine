@@ -33,6 +33,11 @@ internal class Entry(
     val footprint: Set<EntityKey>
         get() = keys + data.touches
 
+    /** Lets go of the snapshots: an undone action (or a dropped group) needs them no more. */
+    fun dropSnapshots() {
+        data.captures.forEach { it.snapshot = null }
+    }
+
     override fun toString(): String = "Entry(sequence=$sequence, failed=$failed, undone=$undone)"
 }
 
@@ -55,10 +60,28 @@ internal class Group(val key: String, var parentGroupKey: String?) {
 
     /** Rises on every change, so a copy of the group's view can tell it is stale. */
     var revision: Long = 0
+
+    /** When the group last changed, by the journal's clock. */
+    var lastActive: Long = 0
+
+    /** Orders groups by their last change, whatever the clock says. */
+    var activity: Long = 0
     val entries: MutableList<Entry> = ArrayList()
 
     fun bump() {
         revision++
+    }
+
+    /** A change at [now]; [tick] is the next value of the journal's activity counter. */
+    fun touch(now: Long, tick: Long) {
+        revision++
+        lastActive = now
+        activity = tick
+    }
+
+    /** Lets go of every snapshot, for a group that is leaving the journal. */
+    fun dropSnapshots() {
+        entries.forEach { it.dropSnapshots() }
     }
 
     /** The positions recorded for [runId]. */
@@ -68,17 +91,31 @@ internal class Group(val key: String, var parentGroupKey: String?) {
 /** What a recorded action holds when its ticket was missing, rejected or not sealed: nothing to restore. */
 private val UNUSABLE = TicketData(emptyList(), emptySet(), emptyList(), false, false)
 
-/** What an undo pass may work on: the actions still to undo, or the reason the whole group cannot be undone. */
-internal class Scope(val reason: UndoReason?, val pending: List<PendingEntry>)
+/** One action as the app reported it: which, whether it reported an error, and its frozen ticket if it had one. */
+internal class Recorded(val ref: EntryRef, val failed: Boolean, val data: TicketData?)
+
+/**
+ * What an undo pass may work on: the actions still to undo, or the reason it cannot go ahead. [entry] is the action a
+ * refusal is about, or null when it is about the whole group.
+ */
+internal class Scope(val reason: UndoReason?, val pending: List<PendingEntry>, val entry: EntryRef?)
 
 /**
  * The journal's records. Every access is inside a short `synchronized` block that never calls an adapter, a
- * compensator or any app code.
+ * compensator, the store or any other app code, so the clock is read by the caller and passed in as `now`.
+ *
+ * With [mirrored], the keys of dropped groups are kept until [drainDropped] hands them on, so the store can be told
+ * outside the lock.
  */
-internal class JournalState {
+internal class JournalState(private val retention: Retention, private val mirrored: Boolean) {
     private val lock = Any()
     private val groups = LinkedHashMap<String, Group>()
+    private val dropped = ArrayList<String>()
     private var nextSequence = 0L
+    private var nextActivity = 0L
+
+    /** The marks an undo pass leaves on actions as it goes. */
+    val marks = Marks(lock)
 
     fun groupCount(): Int = synchronized(lock) { groups.size }
 
@@ -87,9 +124,12 @@ internal class JournalState {
      * that did not fail) withholds the whole group, so "undo all" is never offered for part of it. An action that is
      * not usable is still listed, with nothing to restore, so the group's view shows every action that was reported.
      */
-    fun append(groupKey: String, parentGroupKey: String?, ref: EntryRef, failed: Boolean, data: TicketData?) {
+    fun append(groupKey: String, parentGroupKey: String?, recorded: Recorded, now: Long) {
+        val ref = recorded.ref
+        val failed = recorded.failed
+        val data = recorded.data
         synchronized(lock) {
-            val group = groupFor(groupKey)
+            val group = open(groupKey, now)
             if (group.parentGroupKey == null) group.parentGroupKey = parentGroupKey
             val duplicate = group.entries.any { it.ref == ref }
             val usable = data != null && (failed || data.sealed) && !duplicate
@@ -98,58 +138,93 @@ internal class JournalState {
                 val kept = if (usable && !group.withheld) data else null
                 group.entries.add(Entry(group, ref, nextSequence++, failed, kept ?: UNUSABLE))
             }
-            group.bump()
+            group.touch(now, nextActivity++)
         }
     }
 
     /** Checks that every position a run applied was recorded: a missing one withholds the group. */
-    fun runClosed(groupKey: String, runId: String, appliedPositions: Set<Int>) {
+    fun runClosed(groupKey: String, runId: String, appliedPositions: Set<Int>, now: Long) {
         synchronized(lock) {
+            sweep(now, null)
             if (appliedPositions.isEmpty() && groupKey !in groups) return
-            val group = groupFor(groupKey)
+            val group = open(groupKey, now)
             if (!group.positionsOf(runId).containsAll(appliedPositions)) group.withheld = true
-            group.bump()
+            group.touch(now, nextActivity++)
         }
     }
 
     /** Withholds the group, creating it when it is not known. */
-    fun withhold(groupKey: String) {
+    fun withhold(groupKey: String, now: Long) {
         synchronized(lock) {
-            val group = groupFor(groupKey)
+            val group = open(groupKey, now)
             group.withheld = true
-            group.bump()
+            group.touch(now, nextActivity++)
         }
     }
 
     /** The view of the group, or null when it is not known. */
-    fun view(groupKey: String): UndoGroup? = synchronized(lock) { groups[groupKey]?.let(::viewOf) }
+    fun view(groupKey: String, now: Long): UndoGroup? = synchronized(lock) {
+        sweep(now, null)
+        groups[groupKey]?.let(::viewOf)
+    }
 
-    private fun groupFor(groupKey: String): Group = groups.getOrPut(groupKey) { Group(groupKey, null) }
+    /** The view of the group for the store, or null when there is no store or the group is gone. */
+    fun mirrorView(groupKey: String): UndoGroup? = synchronized(lock) {
+        if (mirrored) groups[groupKey]?.let(::viewOf) else null
+    }
+
+    /** The keys of the groups dropped since the last call. */
+    fun drainDropped(): List<String> = synchronized(lock) {
+        val keys = dropped.toList()
+        dropped.clear()
+        keys
+    }
 
     /**
-     * What an undo of the group may work on. When it has something to undo the group is claimed in the same locked
-     * step, so a second call sees [UndoReason.IN_PROGRESS] and never works on the same entities. A claim is given back
-     * with [release].
+     * What an undo of the group, or of the one action [only], may work on. When it has something to undo the group is
+     * claimed in the same locked step, so a second call sees [UndoReason.IN_PROGRESS] and never works on the same
+     * entities. A claim is given back with [release].
      */
-    fun claim(groupKey: String): Scope = synchronized(lock) {
+    fun claim(groupKey: String, only: EntryRef?, now: Long): Scope = synchronized(lock) {
+        sweep(now, null)
         val group = groups[groupKey]
         when {
-            group == null -> Scope(UndoReason.UNKNOWN_GROUP, emptyList())
-            group.undoing -> Scope(UndoReason.IN_PROGRESS, emptyList())
-            group.withheld -> Scope(UndoReason.JOURNAL_WITHHELD, emptyList())
-            else -> {
-                val pending = group.entries.filter { !it.undone }.map(::pendingOf)
-                group.undoing = pending.isNotEmpty()
-                Scope(null, pending)
-            }
+            group == null -> Scope(UndoReason.UNKNOWN_GROUP, emptyList(), null)
+            group.undoing -> Scope(UndoReason.IN_PROGRESS, emptyList(), null)
+            group.withheld -> Scope(UndoReason.JOURNAL_WITHHELD, emptyList(), null)
+            else -> scopeOf(group, only).also { group.undoing = it.pending.isNotEmpty() }
         }
     }
 
-    /** Gives back the claim of [groupKey]. Safe to call when there is none. */
-    fun release(groupKey: String) {
-        synchronized(lock) { groups[groupKey]?.undoing = false }
+    /** Gives back the claim of [groupKey], counting the undo as activity when it [changed] anything. */
+    fun release(groupKey: String, now: Long, changed: Boolean) {
+        synchronized(lock) {
+            val group = groups[groupKey] ?: return
+            group.undoing = false
+            if (changed) group.touch(now, nextActivity++)
+        }
     }
 
+    // Drops what the limits say, and remembers the keys for the store. A group dropped by age and then used again
+    // comes back through open() as a withheld group.
+    private fun sweep(now: Long, keep: String?) {
+        val gone = retention.sweep(groups, now, keep)
+        if (mirrored) dropped.addAll(gone)
+    }
+
+    // The group for the key, created withheld when it was dropped earlier: part of its command is gone for good.
+    private fun open(groupKey: String, now: Long): Group {
+        sweep(now, null)
+        val group = groups.getOrPut(groupKey) {
+            Group(groupKey, null).also { it.withheld = retention.wasDropped(groupKey) }
+        }
+        sweep(now, groupKey)
+        return group
+    }
+}
+
+/** The marks an undo pass leaves on actions: what is restored and reversed, and so what is undone. */
+internal class Marks(private val lock: Any) {
     /** Marks [done] restored on each of [entries]. An entry with everything restored and reversed is undone. */
     fun markRestored(entries: List<Entry>, done: Set<EntityKey>) {
         synchronized(lock) {
@@ -187,13 +262,29 @@ private fun viewOf(group: Group): UndoGroup {
     )
 }
 
+// The actions an undo of the group (or of the one action [only]) works on, or why it cannot go ahead.
+private fun scopeOf(group: Group, only: EntryRef?): Scope {
+    val open = group.entries.filter { !it.undone }
+    if (only == null) return Scope(null, open.map(::pendingOf), null)
+    val entry = group.entries.firstOrNull { it.ref == only }
+    return when {
+        entry == null -> Scope(UndoReason.UNKNOWN_ENTRY, emptyList(), only)
+        entry.undone -> Scope(null, emptyList(), null)
+        !Footprints(open).isolated(entry) -> Scope(UndoReason.ENTANGLED, emptyList(), entry.ref)
+        else -> Scope(null, listOf(pendingOf(entry)), null)
+    }
+}
+
 private fun pendingOf(entry: Entry) = PendingEntry(entry, entry.restoredKeys.toSet(), entry.compensated.toSet())
 
 /** Marks [entry] undone when everything of it is restored and reversed. True when it just became undone. */
 private fun refresh(entry: Entry): Boolean {
     val effectsDone = entry.data.compensations.indices.all { it in entry.compensated }
     val becomesUndone = !entry.undone && effectsDone && entry.restoredKeys.containsAll(entry.keys)
-    if (becomesUndone) entry.undone = true
+    if (becomesUndone) {
+        entry.undone = true
+        entry.dropSnapshots()
+    }
     return becomesUndone
 }
 
@@ -204,19 +295,23 @@ internal class UndoPass(
     compensators: Map<String, Compensator>,
 ) {
     private val verifier = Verifier(adapters, compensators.keys)
-    private val restorer = Restorer(state)
-    private val compensating = Compensating(compensators, state)
+    private val restorer = Restorer(state.marks)
+    private val compensating = Compensating(compensators, state.marks)
 
-    suspend fun run(groupKey: String): UndoResult {
-        val scope = state.claim(groupKey)
+    /** Undoes the group, or only the action [only] when it is given. */
+    suspend fun run(groupKey: String, only: EntryRef?, now: Long): UndoResult {
+        val scope = state.claim(groupKey, only, now)
         val reason = scope.reason
         return when {
-            reason != null -> refusal(reason)
+            reason != null -> UndoResult.Refused(listOf(Blocker(scope.entry, null, reason)))
             scope.pending.isEmpty() -> UndoResult.AlreadyUndone()
-            else -> try {
-                restore(scope.pending)
-            } finally {
-                state.release(groupKey)
+            else -> {
+                var changed = false
+                try {
+                    restore(scope.pending).also { changed = it !is UndoResult.Refused }
+                } finally {
+                    state.release(groupKey, now, changed)
+                }
             }
         }
     }
@@ -225,17 +320,14 @@ internal class UndoPass(
         val plan = verifier.verify(pending)
         if (plan.blockers.isNotEmpty()) return UndoResult.Refused(plan.blockers)
         val entries = pending.map { it.entry }
-        state.markRestored(entries, plan.satisfied)
+        state.marks.markRestored(entries, plan.satisfied)
         val outcome = restorer.run(plan.steps, entries, Footprints(entries))
         val restoredKeys = HashSet<EntityKey>(plan.satisfied).apply {
             addAll(outcome.restored)
             pending.forEach { addAll(it.restored) }
         }
         val notRestored = outcome.notRestored + compensating.run(pending, restoredKeys)
-        val restored = state.finished(entries).sortedByDescending { it.sequence }.map { it.ref }
+        val restored = state.marks.finished(entries).sortedByDescending { it.sequence }.map { it.ref }
         return if (notRestored.isEmpty()) UndoResult.Complete(restored) else UndoResult.Partial(restored, notRestored)
     }
-
-    private fun refusal(reason: UndoReason): UndoResult =
-        UndoResult.Refused(listOf(Blocker(null, null, reason)))
 }

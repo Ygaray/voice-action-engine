@@ -14,7 +14,7 @@ import io.github.ygaray.voiceactionengine.undo.UndoReason
  */
 internal class Capture(
     val key: EntityKey,
-    val snapshot: Any?,
+    var snapshot: Any?,
     val beforeFingerprint: String?,
     var afterFingerprint: String?,
     var settled: Boolean,
