@@ -36,10 +36,13 @@ APP_PKG="io.github.ygaray.voiceactionengine.sample"
 TEST_PKG="io.github.ygaray.voiceactionengine.sample.test"
 TOOL_CLASS="io.github.ygaray.voiceactionengine.sample.SttFormsCaptureTool"
 INSTRUMENT_RUNNER="androidx.test.runner.AndroidJUnitRunner"
+# Byte-identical to the sibling runners' LOCK_FILE line (the guard script asserts it), so all three share one lock.
 LOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/vae-keystore-tester.lock"
 ADB="${ADB:-adb}"
 
-PHASE_DIR="${VAE_STT_PHASE_DIR:-.planning/phases/14-localgrammar-bilingual-grammarpack}"
+# Fixed on purpose: no environment variable may redirect the grant gate to a file the caller controls (the committed,
+# relayed grant file is the control). The guard script's static check refuses any ${VAE_...} read in this file.
+PHASE_DIR=".planning/phases/14-localgrammar-bilingual-grammarpack"
 GRANT_FILE="$PHASE_DIR/14-WINDOW-GRANT.md"
 PROMPTS="core/src/test/resources/grammar/stt-prompts.tsv"
 # The app's own external files dir itself, NOT a subdirectory: an adb mkdir creates the subdirectory owned by shell (mode 2770,

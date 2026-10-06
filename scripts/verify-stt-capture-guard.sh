@@ -208,9 +208,16 @@ GRANT=none CALLS_EMPTY=1 run_scenario grant_file_missing 4 "NO WINDOW GRANT" "IN
 GRANT=late CALLS_EMPTY=1 run_scenario grant_open_only_in_later_block 4 "NO WINDOW GRANT" "INFRA sub=preflight reason=no_grant" preflight
 GRANT=dup CALLS_EMPTY=1 run_scenario grant_two_grant_lines 4 "NO WINDOW GRANT" "INFRA sub=preflight reason=no_grant" preflight
 GRANT=space CALLS_EMPTY=1 run_scenario grant_not_exact_line 4 "NO WINDOW GRANT" "INFRA sub=preflight reason=no_grant" preflight
-# The committed grant file is pending today: the real file must refuse. A copy opened by one sed holds the real layout.
-GRANT=real CALLS_EMPTY=1 run_scenario grant_real_file_pending 4 "NO WINDOW GRANT" "INFRA sub=preflight reason=no_grant" preflight
+# The real grant layout (whatever the committed state is today, forced to pending by one sed) must refuse; a copy forced to
+# open by one sed holds the real layout and must pass.
+GRANT=real CALLS_EMPTY=1 run_scenario grant_real_layout_refuses_when_pending 4 "NO WINDOW GRANT" "INFRA sub=preflight reason=no_grant" preflight
 GRANT=real_open run_scenario grant_real_layout_opens 0 "-" "OK sub=preflight target=R5CT10XNKQN" preflight
+# WR-02: no environment variable may point the gate at a caller-controlled grant file. The skeleton's own grant is pending, a
+# decoy directory holds an open one, and the runner must still refuse (and never touch adb).
+mkdir -p "$WORK/decoy-phase"
+write_grant "$WORK/decoy-phase/14-WINDOW-GRANT.md" open
+VAE_STT_PHASE_DIR="$WORK/decoy-phase" GRANT=pending CALLS_EMPTY=1 run_scenario grant_env_override_ignored 4 "NO WINDOW GRANT" \
+  "INFRA sub=preflight reason=no_grant" preflight
 # A refusal comes before the lock: a held lock under a pending grant is still no_grant, not tester_busy.
 flock -n 8 || die "grant_pending_lock_held: cannot take the lock"
 GRANT=pending CALLS_EMPTY=1 run_scenario grant_pending_lock_held 4 "NO WINDOW GRANT" "INFRA sub=preflight reason=no_grant" preflight
@@ -343,6 +350,20 @@ lock_line="$(grep -n '^acquire_and_resolve$' "$CODE" | cut -d: -f1)"
 [ -n "$grant_line" ] && [ -n "$lock_line" ] && [ "$grant_line" -lt "$lock_line" ] || die "static_grant_before_lock: the grant check must precede the lock"
 [ "$(grep -c 'flock' "$CODE")" = 1 ] || die "static_grant_before_lock: flock must appear in exactly one place"
 grep -q 'grant: open' "$RUNNER_SRC" || die "static_grant_before_lock: the exact grant line is not named in the runner"
+
+# static_no_env_overrides: the runner reads no VAE_* variable, and the grant file path derives only from the fixed constant.
+SCENARIOS=$((SCENARIOS + 1))
+if grep -qE '\$\{?VAE_' "$CODE"; then die "static_no_env_overrides: the runner reads a VAE_ environment variable"; fi
+grep -q '^PHASE_DIR="\.planning/phases/14-localgrammar-bilingual-grammarpack"$' "$CODE" \
+  || die "static_no_env_overrides: PHASE_DIR must be the fixed phase path"
+[ "$(grep -c '^GRANT_FILE=' "$CODE")" = 1 ] && grep -q '^GRANT_FILE="\$PHASE_DIR/14-WINDOW-GRANT.md"$' "$CODE" \
+  || die "static_no_env_overrides: GRANT_FILE must be assigned once, from PHASE_DIR only"
+
+# static_lock_shared: the lock path line is byte-identical to the sibling runners', so all device runners exclude each other.
+SCENARIOS=$((SCENARIOS + 1))
+lock_decl="$(grep '^LOCK_FILE=' "$RUNNER_SRC")"
+[ "$lock_decl" = "$(grep '^LOCK_FILE=' "$HERE/run-keystore-instrumented.sh")" ] || die "static_lock_shared: LOCK_FILE differs from run-keystore-instrumented.sh"
+[ "$lock_decl" = "$(grep '^LOCK_FILE=' "$HERE/run-sample-gate1.sh")" ] || die "static_lock_shared: LOCK_FILE differs from run-sample-gate1.sh"
 
 # static_modes: both scripts are executable.
 SCENARIOS=$((SCENARIOS + 1))
