@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 13
 current_phase_name: on-device-model-spike
-current_plan: 8
+current_plan: 9
 status: executing
-stopped_at: Completed 13-07-PLAN.md
-last_updated: "2026-10-06T01:44:47.838Z"
+stopped_at: Completed 13-08-PLAN.md
+last_updated: "2026-10-06T05:53:40.621Z"
 last_activity: 2026-10-05
 last_activity_desc: Phase 12 complete, transitioned to Phase 13
-state_head: 824eb5c99faefbeb3ed2ceb85feb69c828e514f2
+state_head: 74ba3d3f644dde3e758ff9fbacba02543615b536
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 19
-  completed_plans: 15
+  completed_plans: 16
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 13 (on-device-model-spike) — READY TO EXECUTE
-Current Plan: 8
+Current Plan: 9
 Total Plans in Phase: 11
 Status: Ready to execute
 Last activity: 2026-10-05 — Phase 12 complete, transitioned to Phase 13
@@ -112,6 +112,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P05 | 13 min | 3 tasks | 17 files |
 | Phase 13 P06 | 26 min | 3 tasks | 3 files |
 | Phase 13 P07 | 22min | 3 tasks | 17 files |
+| Phase 13 P08 | 4h05m | 3 tasks | 23 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,7 @@ Recent decisions affecting current work:
 - [Phase 13]: 13-04: constrained-decoding flag follows the ON/OFF arm; Route B keeps Required as offered-tools; no :core change — Pitfall 1: an unset engine flag could make the ON arm silently unconstrained; JNI behavior is verified only on the TESTER
 - [Phase 13]: 13-05: SchemaSubset supports the SB fixture keywords (bounds, pattern, uuid format, default); SB gold positives cover only speakable-argument tools; any provider failure scores a miss, never a decline
 - [Phase 13]: 13-07: only a measured not_reused KV disposition can end the sb envelope early; BackendRequest.engineFlag lets rf_matrix learn whether the engine constrained-decoding flag is needed; a screen with no startable cell is an error, never a quiet done 0/0
+- [Phase 13]: 13-08: RT-02 raw sb answers kept host-private via PrivateRawSink + runner pull-private-raw; 4h time-box expired inside screen_sb, confirm_sb/sustained/exit_reasons unmeasured (runner refused)
 
 ### Pending Todos
 
@@ -165,8 +167,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T01:44:44.847Z
-Stopped at: Completed 13-07-PLAN.md
+Last session: 2026-10-06T05:53:40.566Z
+Stopped at: Completed 13-08-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
