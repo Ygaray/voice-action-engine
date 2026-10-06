@@ -119,13 +119,14 @@ internal fun parseRules(specs: List<RuleSpec>): Map<String, List<TemplateNode>> 
 }
 
 /**
- * Compiles every template of one language into flat rules. The same flat sequence declared twice by one tool is kept
- * once; declared by two tools it is refused, because the transcript could not choose between them.
+ * Compiles every template of one language into flat rules, checking each one against the language's folded [fillers].
+ * The same flat sequence declared twice by one tool is kept once; declared by two tools it is refused.
  */
 internal fun compileLanguage(
     language: String,
     intents: List<IntentSpec>,
     specs: List<RuleSpec>,
+    fillers: List<List<String>>,
     templatesOf: (IntentSpec) -> List<String>,
 ): List<FlatRule> {
     val expander = TemplateExpander(language, parseRules(specs))
@@ -135,29 +136,12 @@ internal fun compileLanguage(
     val compiled = LinkedHashMap<String, FlatRule>()
     for (intent in intents) {
         for ((index, template) in templatesOf(intent).withIndex()) {
-            require(template.isNotBlank()) {
-                "GrammarPack: tool ${intent.toolName} declares a blank $language phrasing"
+            validateTemplateText(intent.toolName, language, template)
+            for (flat in expander.expand(intent.toolName, index, template)) {
+                validateFlat(flat, template, fillers)
+                admitFlat(compiled, flat, template)
             }
-            expander.expand(intent.toolName, index, template).forEach { admit(compiled, it, template) }
         }
     }
     return compiled.values.toList()
-}
-
-private fun admit(compiled: MutableMap<String, FlatRule>, flat: FlatRule, template: String) {
-    require(flat.elements.none { it is RuleElement.Slot }) {
-        "GrammarPack: tool ${flat.toolName} template \"$template\" uses a slot, and no slot kind is available yet"
-    }
-    require(flat.elements.any { it is RuleElement.Word }) {
-        "GrammarPack: tool ${flat.toolName} template \"$template\" can match with no literal word"
-    }
-    val existing = compiled[flat.signature]
-    if (existing == null) {
-        compiled[flat.signature] = flat
-    } else {
-        require(existing.toolName == flat.toolName) {
-            "GrammarPack: tools ${existing.toolName} and ${flat.toolName} declare the same ${flat.language} " +
-                "phrasing: $template"
-        }
-    }
 }

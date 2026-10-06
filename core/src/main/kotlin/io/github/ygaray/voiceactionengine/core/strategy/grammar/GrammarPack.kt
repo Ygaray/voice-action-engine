@@ -54,11 +54,13 @@ public class GrammarPack internal constructor(settings: Builder) {
 
     init {
         val intents = settings.intents.toList()
-        validate(intents)
+        validateIntents(intents)
         intentCount = intents.size
+        val enFillers = foldFillers(EN, settings.enFillers.toList())
+        val esFillers = foldFillers(ES, settings.esFillers.toList())
         matchers = mapOf(
-            EN to RuleMatcher(compileLanguage(EN, intents, settings.enRules.toList()) { it.en }),
-            ES to RuleMatcher(compileLanguage(ES, intents, settings.esRules.toList()) { it.es }),
+            EN to RuleMatcher(compileLanguage(EN, intents, settings.enRules.toList(), enFillers) { it.en }, enFillers),
+            ES to RuleMatcher(compileLanguage(ES, intents, settings.esRules.toList(), esFillers) { it.es }, esFillers),
         )
     }
 
@@ -122,22 +124,13 @@ public class GrammarPack internal constructor(settings: Builder) {
     override fun toString(): String =
         "GrammarPack(intents=$intentCount, enRules=${matchers[EN]?.size}, esRules=${matchers[ES]?.size})"
 
-    private fun validate(intents: List<IntentSpec>) {
-        val names = HashSet<String>()
-        for (intent in intents) {
-            require(intent.toolName.isNotBlank()) { "GrammarPack: an intent's tool name must not be blank" }
-            require(names.add(intent.toolName)) { "GrammarPack: tool ${intent.toolName} is declared twice" }
-            require(intent.en.isNotEmpty() || intent.es.isNotEmpty()) {
-                "GrammarPack: tool ${intent.toolName} declares no phrasing"
-            }
-        }
-    }
-
     /** Collects the intents and sub-rules of one [GrammarPack]. */
     public class Builder internal constructor() {
         internal val intents: MutableList<IntentSpec> = mutableListOf()
         internal val enRules: MutableList<RuleSpec> = mutableListOf()
         internal val esRules: MutableList<RuleSpec> = mutableListOf()
+        internal val enFillers: MutableList<String> = mutableListOf()
+        internal val esFillers: MutableList<String> = mutableListOf()
 
         /**
          * Declares the phrasings that mean the app's tool [toolName], from [block].
@@ -163,6 +156,25 @@ public class GrammarPack internal constructor(settings: Builder) {
         /** Declares the Spanish sub-rule [name]; the same as [enRule] for the Spanish phrasings. */
         public fun esRule(name: String, vararg templates: String) {
             esRules.add(RuleSpec(name, templates.toList()))
+        }
+
+        /**
+         * Declares English filler [phrases] such as "please" or "could you". A transcript may carry them at its start
+         * and its end, and they are stripped before matching: longest first, and repeatedly, so "please could you turn
+         * on the light please" loses all three. Only the edges are touched; a filler in the middle of a transcript
+         * stays and stops the match, so write an interior optional word as `[..]` in the phrasing instead.
+         *
+         * The engine ships no filler: a pack with none strips nothing. A filler is folded like any other text, and a
+         * blank one is refused when the pack is built, as is a phrasing that begins or ends with one of the fillers
+         * (stripping would remove a word the phrasing needs).
+         */
+        public fun enFillers(vararg phrases: String) {
+            enFillers.addAll(phrases)
+        }
+
+        /** Declares Spanish filler [phrases] such as "por favor"; the same as [enFillers] for Spanish. */
+        public fun esFillers(vararg phrases: String) {
+            esFillers.addAll(phrases)
         }
     }
 

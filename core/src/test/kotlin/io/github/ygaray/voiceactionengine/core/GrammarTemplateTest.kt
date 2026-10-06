@@ -179,9 +179,11 @@ class GrammarTemplateTest {
     private fun flat(tool: String, vararg words: String): FlatRule =
         FlatRule(tool, "en", words.map { RuleElement.Word(it) }, "$tool:en:0")
 
+    private fun matcherOf(vararg rules: FlatRule): RuleMatcher = RuleMatcher(rules.toList(), emptyList())
+
     @Test
     fun twoDistinctResultsInOneLanguageAreAmbiguous() {
-        val matcher = RuleMatcher(listOf(flat("first_tool", "go", "now"), flat("second_tool", "go", "now")))
+        val matcher = matcherOf(flat("first_tool", "go", "now"), flat("second_tool", "go", "now"))
 
         assertTrue(matcher.match(listOf("go", "now")) is RuleVerdict.Ambiguous)
     }
@@ -189,7 +191,7 @@ class GrammarTemplateTest {
     @Test
     fun theSameResultFromTwoRulesIsOneResult() {
         val first = flat("first_tool", "go", "now")
-        val matcher = RuleMatcher(listOf(first, flat("first_tool", "go", "now"), flat("other_tool", "stop")))
+        val matcher = matcherOf(first, flat("first_tool", "go", "now"), flat("other_tool", "stop"))
 
         val verdict = matcher.match(listOf("go", "now"))
 

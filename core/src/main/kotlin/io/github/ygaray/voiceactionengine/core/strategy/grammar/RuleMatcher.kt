@@ -24,22 +24,54 @@ internal sealed class RuleVerdict {
  * literal word per step and stops at the first mismatch, so a rule costs at most its own length. There is no
  * backtracking over user-supplied patterns and no regular expression.
  */
-internal class RuleMatcher(private val rules: List<FlatRule>) {
+internal class RuleMatcher(rules: List<FlatRule>, fillers: List<List<String>>) {
+    private val rules: List<FlatRule> = rules.toList()
+
+    // Longest first, so a filler that contains another is stripped whole.
+    private val fillers: List<List<String>> = fillers.sortedByDescending { it.size }
 
     /** The number of flat rules, for the pack's `toString`. */
     val size: Int get() = rules.size
 
-    /** The verdict for the folded [keys] of one transcript. */
+    /** The verdict for the folded [keys] of one transcript, after its leading and trailing fillers are stripped. */
     fun match(keys: List<String>): RuleVerdict {
+        val kept = strip(keys)
         val results = LinkedHashMap<String, FlatRule>()
         for (rule in rules) {
-            if (walk(rule.elements, 0, keys, 0)) {
+            if (walk(rule.elements, 0, kept, 0)) {
                 results.putIfAbsent(resultKey(rule), rule)
                 if (results.size > 1) return RuleVerdict.Ambiguous()
             }
         }
         return results.values.firstOrNull()?.let { RuleVerdict.One(it) } ?: RuleVerdict.None()
     }
+
+    // Leading phrases first, then trailing ones, each repeatedly and longest first; interior words are never touched.
+    private fun strip(keys: List<String>): List<String> {
+        var from = 0
+        var to = keys.size
+        var step = leadingFiller(keys, from, to)
+        while (step > 0) {
+            from += step
+            step = leadingFiller(keys, from, to)
+        }
+        step = trailingFiller(keys, from, to)
+        while (step > 0) {
+            to -= step
+            step = trailingFiller(keys, from, to)
+        }
+        return keys.subList(from, to)
+    }
+
+    private fun leadingFiller(keys: List<String>, from: Int, to: Int): Int =
+        fillers.firstOrNull { occursAt(keys, from, from, to, it) }?.size ?: 0
+
+    private fun trailingFiller(keys: List<String>, from: Int, to: Int): Int =
+        fillers.firstOrNull { occursAt(keys, to - it.size, from, to, it) }?.size ?: 0
+
+    // True when [phrase] sits in keys exactly at [at], inside the window [from, to).
+    private fun occursAt(keys: List<String>, at: Int, from: Int, to: Int, phrase: List<String>): Boolean =
+        at >= from && at + phrase.size <= to && phrase.indices.all { keys[at + it] == phrase[it] }
 
     // The identity of a result: what the app would be asked to do. Rules reaching the same one are the same reading.
     private fun resultKey(rule: FlatRule): String = rule.toolName
