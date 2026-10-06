@@ -196,3 +196,24 @@ who already compiled against it, so overturn before the cut if at all. The drive
 | REQ | ROUT-01 .. ROUT-05 | Custom picker, zero-call head, fallback, policy gates, engine Router | 16-01 .. 16-07 | DONE on the JVM; the docs close here |
 | CONTEXT | D-01 .. D-09 | As recorded in `16-CONTEXT.md` | 16-01 .. 16-07 | DONE (surface reviewed here) |
 | CONTEXT | RT-01 | Step-id cap parse-only | 16-01 .. 16-07 | DONE (no schema or parse change) |
+
+## Gate results
+
+Run once, alone, on the phase branch on 2026-10-06 (HEAD `321fee6`, the review commit; no source file changed in this
+plan). Host-safe recipe: `GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false
+-Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m"`, `--offline -q`. No earlyoom kill, no
+retry.
+
+| Command | Exit | Final line | Duration |
+|---|---|---|---|
+| `scripts/review-api-surface.sh --out <scratch>/vae-16-core-dump.txt` (Task 2) | 0 | `API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=206` | under 60 s |
+| `./gradlew --offline -q -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false check` | 0 | exit 0 (quiet mode prints no task count and the log was empty) | 144 s |
+| `scripts/verify-docs-coverage.sh` | 0 | `DOC COVERAGE OK checks=25 types=107` | under 10 s |
+| `scripts/verify-repo-hygiene.sh` | 0 | `HYGIENE OK` | under 10 s |
+| `git diff --quiet 9c88961 -- core/api.txt providers/api.txt keystore/api.txt providers/src/main keystore/src/main PlanSchema.kt PlanParse.kt` | 0 | no difference | instant |
+| `git diff --name-only 9c88961 -- core/src/main` | 0 | exactly 15 files, all in the expected set (pipeline 8, telemetry 6, strategy/plan/PlanBinding.kt) | instant |
+
+`core/api.txt` being byte-identical means only that no dump was committed early. The public surface did grow: Metalava's
+compatibility check inside `check` accepts the additions against the committed snapshot, and the block diff above is
+the +-only proof until the v1.1.0 cut. RT-01 stays parse-only (`PlanBinding.kt`); `PlanSchema.kt` and `PlanParse.kt` are
+unchanged (P15 OI-1, DO NOT NARROW, honored).
