@@ -13,7 +13,7 @@ private const val APOSTROPHES = "'’"
  * One word of a folded text: its comparison [key] and the `[start, end)` span of its surface in the NFC text.
  * [breakBefore] is true when a sentence terminator stood between the previous word and this one.
  */
-internal class GrammarToken(val key: String, val start: Int, val end: Int, val breakBefore: Boolean = false)
+internal class GrammarToken(val key: String, val start: Int, val end: Int, val breakBefore: Boolean)
 
 /**
  * A text split into [tokens] over its NFC form [nfc]. [clauseBreak] is true when a sentence terminator (`.`, `!`, `?`
@@ -110,14 +110,12 @@ private class TokenScan(private val nfc: String) {
         var start = from
         while (start < end && nfc[start] in EDGE_PUNCTUATION) start++
         val key = if (start < end) foldKey(nfc.substring(start, end)) else ""
-        if (key.isNotEmpty()) add(GrammarToken(key, start, end))
+        if (key.isNotEmpty()) add(key, start, end)
         if (terminated) terminatorSeen = true
     }
 
-    private fun GrammarToken.afterBreak() = GrammarToken(key, start, end, breakBefore = true)
-
-    private fun add(token: GrammarToken) {
-        tokens.add(if (terminatorSeen && tokens.isNotEmpty()) token.afterBreak() else token)
+    private fun add(key: String, start: Int, end: Int) {
+        tokens.add(GrammarToken(key, start, end, breakBefore = terminatorSeen && tokens.isNotEmpty()))
         terminatorSeen = false
     }
 }
