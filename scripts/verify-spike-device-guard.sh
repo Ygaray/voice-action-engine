@@ -286,11 +286,11 @@ run_scenario() {
   if [ -n "${ANDROID_SERIAL_VALUE:-}" ]; then
     out="$(env -u BASH_ENV SCENARIO="$name" CALLS_LOG="$dir/calls.log" CURL_LOG="$dir/curl.log" STATE_DIR="$dir/state" ADB="$dir/adb" CURL="$dir/curl" \
       XDG_CACHE_HOME="$dir/cache" VAE_SPIKE_PHASE_DIR="$phase" VAE_SPIKE_MODEL_DIR="$models" VAE_SPIKE_PRIVATE_DIR="$dir/private" \
-      ANDROID_SERIAL="$ANDROID_SERIAL_VALUE" "$dir/repo/scripts/run-spike-ondevice.sh" "$@" 8>&- 2>&1)"; code=$?
+      ANDROID_SERIAL="$ANDROID_SERIAL_VALUE" timeout -k 5 120 "$dir/repo/scripts/run-spike-ondevice.sh" "$@" 8>&- 2>&1)"; code=$?
   else
     out="$(env -u BASH_ENV -u ANDROID_SERIAL SCENARIO="$name" CALLS_LOG="$dir/calls.log" CURL_LOG="$dir/curl.log" STATE_DIR="$dir/state" ADB="$dir/adb" CURL="$dir/curl" \
       XDG_CACHE_HOME="$dir/cache" VAE_SPIKE_PHASE_DIR="$phase" VAE_SPIKE_MODEL_DIR="$models" VAE_SPIKE_PRIVATE_DIR="$dir/private" \
-      "$dir/repo/scripts/run-spike-ondevice.sh" "$@" 8>&- 2>&1)"; code=$?
+      timeout -k 5 120 "$dir/repo/scripts/run-spike-ondevice.sh" "$@" 8>&- 2>&1)"; code=$?
   fi
   LAST_OUT="$out"
 
@@ -405,4 +405,153 @@ MUTATES=1 run_scenario pull_evidence_missing 2 "-" "ERROR sub=pull-evidence reas
 [ ! -e "$(evidence init.txt)" ] || die "pull_evidence_missing: an evidence file was written"
 
 # ---- Task 2: window-start, time-box, build-install, models, private inputs, run, meminfo, cooldown, cleanup -----------------
+
+# window-start: the first evidence ENV line (thresholds digest prefix, code head, time-box) and the window stamp.
+run_scenario window_start_ok 0 "-" "OK sub=window-start window_start=" window-start
+envf="$(evidence env.txt)"
+[ -f "$envf" ] || die "window_start_ok: no env.txt"
+grep -qxE 'VAE_SPIKE_ENV thresholds_sha=[0-9a-f]{8} head=[0-9a-f]{10} window_start=[0-9]+ timebox_s=14400 target=R5CT10XNKQN device_model=SM-S908U sdk=36' "$envf" \
+  || die "window_start_ok: bad ENV line ($(cat "$envf"))"
+[ "$(grep -c '' "$envf")" = 1 ] || die "window_start_ok: env.txt must hold exactly the first ENV line"
+want8="$(sha256sum "$LAST_DIR/repo/$PHASE_REL/13-THRESHOLDS.md" | cut -c1-8)"
+grep -q "thresholds_sha=$want8 " "$envf" || die "window_start_ok: thresholds_sha is not the prefix of the thresholds file digest"
+"$FILTER_SRC" <"$envf" >"$WORK/env.out" 2>/dev/null && cmp -s "$WORK/env.out" "$envf" || die "window_start_ok: the ENV line is not accepted by the filter"
+read -r ws wb <"$LAST_DIR/cache/vae-spike/window.ts" || die "window_start_ok: no window stamp"
+[ "$wb" = 14400 ] || die "window_start_ok: the stamp does not hold the granted time-box"
+# one window per grant: a second window-start is refused before any adb call.
+STAMP=fresh CALLS_EMPTY=1 run_scenario window_start_twice 2 "one window per grant" "ERROR sub=window-start reason=window_already_started" window-start
+# the recorded time-box is the granted value (a shorter window), and an out-of-range or non-numeric one is refused.
+TIMEBOX=3600 run_scenario window_start_short_box 0 "-" "OK sub=window-start window_start=" window-start
+grep -q ' timebox_s=3600 ' "$(evidence env.txt)" || die "window_start_short_box: timebox_s=3600 not recorded"
+TIMEBOX=14401 CALLS_EMPTY=1 run_scenario window_start_box_too_long 2 "-" "ERROR sub=window-start reason=bad_timebox" window-start
+TIMEBOX=4h CALLS_EMPTY=1 run_scenario window_start_box_not_numeric 2 "-" "ERROR sub=window-start reason=bad_timebox" window-start
+THR_DIRTY=1 CALLS_EMPTY=1 run_scenario window_start_thresholds_uncommitted 2 "commit it before the window starts" "ERROR sub=window-start reason=thresholds_uncommitted" window-start
+[ ! -e "$LAST_DIR/cache/vae-spike/window.ts" ] || die "window_start_thresholds_uncommitted: a stamp was written"
+
+# D-07 time-box: an expired (or never started) window refuses push-model, push-private and run before any adb call...
+STAMP=expired CALLS_EMPTY=1 run_scenario timebox_expired_run 3 "TIME-BOX EXPIRED" "INFRA sub=run reason=timebox_expired" run init
+STAMP=none CALLS_EMPTY=1 run_scenario timebox_no_stamp_run 3 "run window-start first" "INFRA sub=run reason=timebox_expired detail=no_window_stamp" run init
+STAMP=expired MODEL_FILES="cpu" CALLS_EMPTY=1 run_scenario timebox_expired_push_model 3 "TIME-BOX EXPIRED" "INFRA sub=push-model reason=timebox_expired" push-model e2b_cpu
+STAMP=expired PRIVATE=good CALLS_EMPTY=1 run_scenario timebox_expired_push_private 3 "TIME-BOX EXPIRED" "INFRA sub=push-private reason=timebox_expired" push-private
+# ...while preflight, pull-evidence, meminfo, cooldown and cleanup stay allowed (an unmeasured metric turns red, it is not an overrun).
+STAMP=expired run_scenario timebox_expired_allows_preflight 0 "-" "OK sub=preflight target=R5CT10XNKQN" preflight
+FAKE_EVIDENCE_FILE="$WORK/pull.in" STAMP=expired MUTATES=1 run_scenario timebox_expired_allows_pull 0 "-" "OK sub=pull-evidence stage=init kept=$kept_n" pull-evidence init
+STAMP=expired PRE_RUNNING=1 run_scenario timebox_expired_allows_meminfo 0 "-" "OK sub=meminfo stage=init total_pss_mb=1536" meminfo init
+STAMP=expired run_scenario timebox_expired_allows_cooldown 0 "-" "OK sub=cooldown status=0" cooldown
+STAMP=expired PRE_INSTALLED=1 MUTATES=1 run_scenario timebox_expired_allows_cleanup 0 "spike package, external model directory and staging files removed" "OK sub=cleanup" cleanup
+
+# build-install: a dirty tree is refused before Gradle is reached; a clean tree builds with the low-memory recipe and installs.
+DIRTY=1 CALLS_EMPTY=1 run_scenario build_install_dirty 2 "the APK must be exactly HEAD" "ERROR sub=build-install reason=dirty_tree" build-install
+FAKE_GRADLE_APK=1 MUTATES=1 run_scenario build_install_ok 0 "dirty=0" "OK sub=build-install target=R5CT10XNKQN apk_md5=" build-install
+assert_calls build_install_ok "-s R5CT10XNKQN install -r "
+assert_calls build_install_ok "-s R5CT10XNKQN shell cmd deviceidle whitelist +$PKG"
+[ -e "$LAST_DIR/gradle-reached" ] || die "build_install_ok: the Gradle build was not run"
+for frag in "-Dorg.gradle.daemon=false" "-Dorg.gradle.workers.max=2" "-Dorg.gradle.parallel=false" "-Dkotlin.compiler.execution.strategy=in-process" "-Xmx1536m" "--offline" ":spike-ondevice:assembleDebug"; do
+  grep -qF -- "$frag" "$LAST_DIR/gradle-reached" || die "build_install_ok: the Gradle call lacks '$frag' ($(cat "$LAST_DIR/gradle-reached"))"
+done
+MUTATES=1 run_scenario build_install_gradle_fails 2 "Gradle build failed" "ERROR sub=build-install reason=build_failed" build-install
+assert_no_calls build_install_gradle_fails " install "
+
+# push-model: digest on the host before the push, readback on the device after, the A8 fallback, storage, prepare-first.
+STAMP=fresh MODEL_FILES="cpu gpu" MUTATES=1 run_scenario push_model_ok 0 "-" "OK sub=push-model id=e2b_cpu sha=${CPU_SHA:0:8} bytes=${#CPU_CONTENT} path=external" push-model e2b_cpu
+assert_calls push_model_ok "-s R5CT10XNKQN push $LAST_DIR/models/$CPU_FILE $EXT_MODELS/$CPU_FILE"
+assert_calls push_model_ok "-s R5CT10XNKQN shell sha256sum $EXT_MODELS/$CPU_FILE"
+assert_no_calls push_model_ok "run-as"
+grep -qxF "VAE_SPIKE_MODEL id=e2b_cpu sha=${CPU_SHA:0:8} bytes=${#CPU_CONTENT} match=1 path=external" "$(evidence models.txt)" || die "push_model_ok: bad models.txt ($(cat "$(evidence models.txt)"))"
+"$FILTER_SRC" <"$(evidence models.txt)" >/dev/null 2>&1 || die "push_model_ok: the MODEL line is rejected by the filter"
+STAMP=fresh MODEL_FILES="cpu gpu" MUTATES=1 run_scenario push_model_gpu_ok 0 "-" "OK sub=push-model id=e2b_gpu sha=${GPU_SHA:0:8} bytes=${#GPU_CONTENT} path=external" push-model e2b_gpu
+assert_calls push_model_gpu_ok "$EXT_MODELS/$GPU_FILE"
+STAMP=fresh MODEL_FILES="cpu" MODEL_BAD=cpu CALLS_EMPTY=1 run_scenario push_model_host_sha_mismatch 1 "model digest mismatch on the host" "FAIL sub=push-model reason=model_sha_mismatch" push-model e2b_cpu
+[ ! -e "$(evidence models.txt)" ] || die "push_model_host_sha_mismatch: a models.txt line was written"
+STAMP=fresh MODEL_FILES="" CALLS_EMPTY=1 run_scenario push_model_missing_on_host 2 "fetch-model e2b_cpu" "ERROR sub=push-model reason=model_missing_on_host" push-model e2b_cpu
+STAMP=fresh MODEL_FILES="cpu" FAKE_READBACK_CORRUPT=1 MUTATES=1 run_scenario push_model_readback_mismatch 1 "-" "FAIL sub=push-model reason=model_readback_mismatch" push-model e2b_cpu
+assert_calls push_model_readback_mismatch "-s R5CT10XNKQN shell rm -f $EXT_MODELS/$CPU_FILE"
+[ ! -e "$LAST_DIR/state/extmodel" ] || die "push_model_readback_mismatch: the mismatching device file was not removed"
+[ ! -e "$(evidence models.txt)" ] || die "push_model_readback_mismatch: a models.txt line was written"
+STAMP=fresh MODEL_FILES="cpu" FAKE_REFUSE_DIRECT=1 MUTATES=1 run_scenario push_model_a8_fallback 0 "-" "OK sub=push-model id=e2b_cpu sha=${CPU_SHA:0:8} bytes=${#CPU_CONTENT} path=internal" push-model e2b_cpu
+assert_calls push_model_a8_fallback "-s R5CT10XNKQN push $LAST_DIR/models/$CPU_FILE /data/local/tmp/vae-spike-model-"
+assert_calls push_model_a8_fallback "run-as $PKG sh -c 'mkdir -p files/models && cat > files/models/$CPU_FILE' < /data/local/tmp/vae-spike-model-"
+assert_calls push_model_a8_fallback "-s R5CT10XNKQN shell rm -f /data/local/tmp/vae-spike-model-"
+assert_dev_clean push_model_a8_fallback
+[ -f "$LAST_DIR/state/appmodel" ] || die "push_model_a8_fallback: the model never reached the app's internal storage"
+grep -q 'match=1 path=internal$' "$(evidence models.txt)" || die "push_model_a8_fallback: models.txt does not say path=internal"
+STAMP=fresh MODEL_FILES="cpu" FAKE_AVAIL_KB=1000 MUTATES=1 run_scenario push_model_storage 3 "not enough free space on the device" "INFRA sub=push-model reason=storage" push-model e2b_cpu
+assert_no_calls push_model_storage " push "
+STAMP=fresh MODEL_FILES="cpu" FAKE_NO_MODELS_DIR=1 run_scenario push_model_prepare_first 2 "run prepare first" "ERROR sub=push-model reason=run_prepare_first" push-model e2b_cpu
+assert_no_calls push_model_prepare_first " push "
+# The model directory may never be inside the repository.
+STAMP=fresh MODEL_FILES="cpu" MODEL_DIR_IN_REPO=1 CALLS_EMPTY=1 run_scenario push_model_dir_in_repo 2 "inside the repository" "ERROR sub=push-model reason=model_dir_in_repo" push-model e2b_cpu
+# g3_1b: a file Yahir places himself. Refused when the grant says skip, or when it is not placed; digest recorded when pushed.
+STAMP=fresh MODEL_FILES="g3" CALLS_EMPTY=1 run_scenario push_model_g3_skipped_by_grant 2 "Gemma 3 1B control row is not pushed" "ERROR sub=push-model reason=gemma3_not_placed" push-model g3_1b
+STAMP=fresh G3=skip MODEL_FILES="g3" CALLS_EMPTY=1 run_scenario push_model_g3_skip 2 "-" "ERROR sub=push-model reason=gemma3_not_placed" push-model g3_1b
+STAMP=fresh G3=yes MODEL_FILES="" CALLS_EMPTY=1 run_scenario push_model_g3_not_placed 2 "Yahir downloads" "ERROR sub=push-model reason=gemma3_not_placed" push-model g3_1b
+g3sha="$(sha_of fake-g3-model)"
+STAMP=fresh G3=yes MODEL_FILES="g3" MUTATES=1 run_scenario push_model_g3_placed 0 "-" "OK sub=push-model id=g3_1b sha=${g3sha:0:8} bytes=13 path=external" push-model g3_1b
+grep -qxF "VAE_SPIKE_MODEL id=g3_1b sha=${g3sha:0:8} bytes=13 match=1 path=external" "$(evidence models.txt)" || die "push_model_g3_placed: the digest was not recorded"
+
+# push-private: both private files, digest-pinned to each other and to the grant, written only into app-private storage.
+STAMP=fresh PRIVATE=good GRANT_PIN=match MUTATES=1 run_scenario push_private_ok 0 "-" "OK sub=push-private private=sb fixture_sha=" push-private
+echo "$LAST_OUT" | tail -1 | grep -qE 'OK sub=push-private private=sb fixture_sha=[0-9a-f]{8} gold_sha=[0-9a-f]{8} target=' || die "push_private_ok: digests are not 8-hex prefixes only"
+assert_calls push_private_ok "-s R5CT10XNKQN push $LAST_DIR/private/sb-fixture.json /data/local/tmp/vae-spike-private-"
+assert_calls push_private_ok "run-as $PKG sh -c 'mkdir -p files/private && cat > files/private/sb-fixture.json'"
+assert_calls push_private_ok "run-as $PKG sh -c 'mkdir -p files/private && cat > files/private/sb-gold.json'"
+assert_calls push_private_ok "-s R5CT10XNKQN shell rm -f /data/local/tmp/vae-spike-private-"
+assert_dev_clean push_private_ok
+[ -f "$LAST_DIR/state/priv-sb-fixture.json" ] && [ -f "$LAST_DIR/state/priv-sb-gold.json" ] || die "push_private_ok: the files never reached app-private storage"
+grep -qxE 'VAE_SPIKE_ENV private=sb fixture_sha=[0-9a-f]{8} gold_sha=[0-9a-f]{8} match=1' "$(evidence env.txt)" || die "push_private_ok: bad ENV line"
+"$FILTER_SRC" <"$(evidence env.txt)" >/dev/null 2>&1 || die "push_private_ok: the private ENV line is rejected by the filter"
+STAMP=fresh PRIVATE=mismatch CALLS_EMPTY=1 run_scenario push_private_fixture_mismatch 1 "not pinned to this fixture" "FAIL sub=push-private reason=fixture_mismatch" push-private
+STAMP=fresh PRIVATE=good GRANT_PIN=bad CALLS_EMPTY=1 run_scenario push_private_grant_pin_mismatch 1 "does not match the digest prefix" "FAIL sub=push-private reason=fixture_pin_mismatch" push-private
+STAMP=fresh PRIVATE="" CALLS_EMPTY=1 run_scenario push_private_missing_on_host 2 "-" "ERROR sub=push-private reason=private_missing_on_host" push-private
+STAMP=fresh PRIVATE=good SB_LABELS=skip CALLS_EMPTY=1 run_scenario push_private_labels_skipped 2 "-" "ERROR sub=push-private reason=sb_labels_skipped" push-private
+STAMP=fresh PRIVATE=good SB_LABELS=whatever CALLS_EMPTY=1 run_scenario push_private_labels_invalid 2 "-" "ERROR sub=push-private reason=sb_labels_invalid" push-private
+STAMP=fresh PRIVATE=good SB_LABELS="$WORK/push_private_labels_path/private" MUTATES=1 run_scenario push_private_labels_path 0 "-" "OK sub=push-private private=sb" push-private
+
+# run <stage>: process-cold start, the stage line, a process that disappears, and the time-box expiring mid-stage.
+STAMP=fresh FAKE_STAGE_DONE=1 MUTATES=1 run_scenario run_ok 0 "-" "OK sub=run stage=init result=done" run init
+assert_calls run_ok "-s R5CT10XNKQN shell am force-stop $PKG"
+assert_calls run_ok "-s R5CT10XNKQN shell am start -n $PKG/.SpikeActivity --es stage init"
+fs="$(grep -n 'am force-stop' "$LAST_DIR/calls.log" | head -1 | cut -d: -f1)"
+st="$(grep -n 'am start' "$LAST_DIR/calls.log" | head -1 | cut -d: -f1)"
+[ -n "$fs" ] && [ -n "$st" ] && [ "$fs" -lt "$st" ] || die "run_ok: the process was not force-stopped before the start"
+STAMP=fresh FAKE_PROC_DIES=1 MUTATES=1 run_scenario run_process_gone 1 "-" "FAIL sub=run reason=process_gone stage=init" run init
+[ "$(cat "$(evidence init.host.txt)")" = "VAE_SPIKE_STAGE stage=init result=process_gone source=host" ] || die "run_process_gone: bad host STAGE line"
+"$FILTER_SRC" <"$(evidence init.host.txt)" >/dev/null 2>&1 || die "run_process_gone: the host STAGE line is rejected by the filter"
+STAMP=short MUTATES=1 run_scenario run_timebox_inflight 3 "-" "INFRA sub=run reason=timebox_expired stage=init" run init
+[ "$(cat "$(evidence init.host.txt)")" = "VAE_SPIKE_STAGE stage=init result=timeout source=host" ] || die "run_timebox_inflight: bad host STAGE line"
+[ "$(grep -c 'am force-stop' "$LAST_DIR/calls.log")" -ge 2 ] || die "run_timebox_inflight: the app was not force-stopped at expiry"
+
+# meminfo: a closed-grammar MEM line while the process runs, and a FAIL when it does not.
+PRE_RUNNING=1 run_scenario meminfo_ok 0 "-" "OK sub=meminfo stage=confirm_small total_pss_mb=1536" meminfo confirm_small
+[ "$(cat "$(evidence meminfo.host.txt)")" = "VAE_SPIKE_MEM source=dumpsys stage=confirm_small total_pss_mb=1536" ] || die "meminfo_ok: bad MEM line"
+"$FILTER_SRC" <"$(evidence meminfo.host.txt)" >/dev/null 2>&1 || die "meminfo_ok: the MEM line is rejected by the filter"
+run_scenario meminfo_not_running 1 "-" "FAIL sub=meminfo reason=not_running" meminfo confirm_small
+[ ! -e "$(evidence meminfo.host.txt)" ] || die "meminfo_not_running: a MEM line was written"
+
+# cooldown: waits while hot, and gives up at the cap.
+FAKE_THERMAL_HOT_CALLS=1 run_scenario cooldown_ok 0 "-" "OK sub=cooldown status=0 waited_s=" cooldown
+FAKE_THERMAL=3 COOL_CAP=2 run_scenario cooldown_not_cooling 3 "still warm" "INFRA sub=cooldown reason=not_cooling status=3" cooldown
+
+# cleanup: force-stop, private data, whitelist, uninstall, and the three proofs; a leftover of any kind is a FAIL.
+STAMP=fresh PRE_INSTALLED=1 PRE_EXT=1 PRE_TMP=1 MUTATES=1 run_scenario cleanup_ok 0 "spike package, external model directory and staging files removed" "OK sub=cleanup" cleanup
+assert_calls cleanup_ok "-s R5CT10XNKQN shell am force-stop $PKG"
+assert_calls cleanup_ok "run-as $PKG rm -rf files/private files/evidence files/models"
+assert_calls cleanup_ok "-s R5CT10XNKQN shell cmd deviceidle whitelist -$PKG"
+assert_calls cleanup_ok "-s R5CT10XNKQN uninstall $PKG"
+assert_calls cleanup_ok "-s R5CT10XNKQN shell rm -f /data/local/tmp/vae-spike-*"
+assert_calls cleanup_ok "-s R5CT10XNKQN shell pm list packages"
+assert_calls cleanup_ok "-s R5CT10XNKQN shell ls /sdcard/Android/data/$PKG"
+assert_calls cleanup_ok "-s R5CT10XNKQN shell ls -d /data/local/tmp/vae-spike-*"
+[ ! -e "$LAST_DIR/state/installed" ] || die "cleanup_ok: the package is still installed in the fake"
+[ ! -e "$LAST_DIR/state/extmodel" ] || die "cleanup_ok: the external model is still there"
+assert_dev_clean cleanup_ok
+[ ! -e "$LAST_DIR/cache/vae-spike/window.ts" ] || die "cleanup_ok: the window stamp was not removed"
+STAMP=fresh PRE_INSTALLED=1 FAKE_UNINSTALL_FAILS=1 MUTATES=1 run_scenario cleanup_uninstall_failed 1 "could not prove" "FAIL sub=cleanup reason=uninstall_failed" cleanup
+STAMP=fresh PRE_EXT=1 FAKE_EXT_RESIDUE=1 MUTATES=1 run_scenario cleanup_external_residue 1 "residue is left" "FAIL sub=cleanup reason=residue_present" cleanup
+STAMP=fresh PRE_TMP=1 FAKE_TMP_RESIDUE=1 MUTATES=1 run_scenario cleanup_staging_residue 1 "residue is left" "FAIL sub=cleanup reason=residue_present" cleanup
+[ ! -e "$LAST_DIR/cache/vae-spike/window.ts" ] || die "cleanup_staging_residue: the window stamp survived a cleanup"
+
+# The runner holds no HF token and no key handling at all.
+SCENARIOS=$((SCENARIOS + 1))
+! grep -qiE 'HF_TOKEN|HUGGING_?FACE_(HUB_)?TOKEN|Authorization' "$RUNNER_SRC" || die "no_token_handling: the runner mentions a token or an authorization header"
 echo "SPIKE DEVICE GUARD OK scenarios=$SCENARIOS"

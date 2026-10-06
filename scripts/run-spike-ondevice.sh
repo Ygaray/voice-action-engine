@@ -99,6 +99,7 @@ HOST_SIZE=""
 PRIVATE_FIXTURE=""
 PRIVATE_GOLD=""
 PUSHED_SHA=""
+NEW_STAGING=""
 
 # Every adb invocation goes through adb_t: a timeout, and fd 9 (the lock) closed so a daemonized adb server never
 # inherits and holds the lock. The caller supplies -s <target> (or `connect <wifi>`).
@@ -489,11 +490,11 @@ do_build_install() {
   finish 0 OK "target=$TARGET apk_md5=$md5 head=$head dirty=0"
 }
 
-# new_staging <tag>: a fresh device-side staging path, registered so every exit path removes it.
+# new_staging <tag>: a fresh device-side staging path in NEW_STAGING, registered so every exit path removes it. (Not a command
+# substitution: a subshell would lose the registration.)
 new_staging() {
-  local p="/data/local/tmp/vae-spike-$1-$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n')"
-  STAGINGS+=("$p")
-  echo "$p"
+  NEW_STAGING="/data/local/tmp/vae-spike-$1-$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n')"
+  STAGINGS+=("$NEW_STAGING")
 }
 
 # D-01: the host file was digest-checked in host_precheck; here it is pushed and read back on the device.
@@ -517,7 +518,8 @@ do_push_model() {
   else
     # A8 fallback: the direct push was refused, so stage under /data/local/tmp and copy in as the app (internal files dir).
     kind=internal
-    staging="$(new_staging model)"
+    new_staging model
+    staging="$NEW_STAGING"
     if ! adb_t 1800 -s "$TARGET" push "$host_file" "$staging" >/dev/null 2>&1; then
       finish 2 ERROR "reason=push_failed target=$TARGET"
     fi
@@ -544,7 +546,8 @@ do_push_model() {
 push_private_file() {
   local src="$1" name="$2" staging want got
   want="$(sha256sum "$src" | cut -d' ' -f1)"
-  staging="$(new_staging private)"
+  new_staging private
+  staging="$NEW_STAGING"
   if ! adbt push "$src" "$staging" >/dev/null 2>&1; then
     finish 2 ERROR "reason=push_failed target=$TARGET"
   fi
