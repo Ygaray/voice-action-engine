@@ -22,7 +22,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.ceilingReached
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.OutcomeHooks
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.decideResult
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
-import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
@@ -35,6 +35,10 @@ private const val PLAN_STEP_LIMIT = 8
 private const val NAME_TAKEN_CODE = "plan_tool_name_taken"
 private const val NO_TOOLS_CODE = "plan_no_tools"
 private const val LOOKUP_CODE = "plan_needs_lookup"
+private const val STEP_FAILED_REASON = "step_failed"
+
+// The replan is not a setting: a plan tier asks the model for a plan at most twice per command, never a third time.
+private const val REPLAN_LIMIT = 1
 
 /**
  * A tier that turns one spoken command into one planning call and then runs the plan's steps in order.
@@ -45,8 +49,11 @@ private const val LOOKUP_CODE = "plan_needs_lookup"
  * proposal, in plan order, so the gate sees every write. The tier never writes by itself and never combines steps.
  *
  * It is for commands that need no lookup: the model plans from the transcript alone. A step whose tool the snapshot
- * never offered, or that is terminal, is not run. The tier makes one provider call when the plan runs. A snapshot that
- * already offers a tool named `submit_plan`, or that offers no non-terminal tool, fails the command before any call.
+ * never offered, or that is terminal, is not run. The tier makes one provider call when the plan runs. When the plan
+ * is rejected before any step runs, or the first step fails before anything was applied or held, the tier asks once
+ * more in the same conversation and runs the second plan instead; it never asks a third time, and never asks again
+ * after a change was applied or held. A snapshot that already offers a tool named `submit_plan`, or that offers no
+ * non-terminal tool, fails the command before any call.
  *
  * Every action a step records carries the provider id of the planning call, at a distinct, rising position.
  *
@@ -100,7 +107,7 @@ public class PlanThenExecuteStrategy internal constructor(
     }
 
     private suspend fun ask(attempt: Attempt, model: BoundModel): StrategyOutcome =
-        answer(attempt, model.complete(request(attempt)))
+        PlanFlow(attempt, model, executor, hooks, maxSteps, request(attempt)).start()
 
     private suspend fun request(attempt: Attempt): ModelRequest {
         val context = UserTurnContext(attempt.input, ZonedDateTime.now(clock), attempt.session.carry)
@@ -116,45 +123,8 @@ public class PlanThenExecuteStrategy internal constructor(
         )
     }
 
-    private suspend fun answer(attempt: Attempt, result: ModelResult): StrategyOutcome {
-        val calls = (result as? ModelResult.Success)?.response?.message?.toolCalls.orEmpty()
-        return decideResult(result, hooks) ?: ceilingCrossed(attempt.session) ?: verdictOutcome(attempt, calls)
-    }
-
-    // decideResult returned null only for a successful answer that holds at least one tool call, so calls is not empty.
-    private suspend fun verdictOutcome(attempt: Attempt, calls: List<AssistantPart.ToolCall>): StrategyOutcome =
-        when (val verdict = parsePlan(calls, attempt.snapshot, maxSteps)) {
-            is PlanVerdict.Valid -> runPlan(attempt, verdict.plan, calls)
-            is PlanVerdict.Rejected -> rejection(attempt.session, verdict)
-            is PlanVerdict.NeedsLookup ->
-                StrategyOutcome.Escalate(EscalationReason.Other(LOOKUP_CODE), attempt.session.carry)
-        }
-
-    // Only the first call is ever acted on. Dropped extras make a Completed outcome partial; an Escalate is unchanged.
-    private suspend fun runPlan(
-        attempt: Attempt,
-        plan: ParsedPlan,
-        calls: List<AssistantPart.ToolCall>,
-    ): StrategyOutcome {
-        val dropped = calls.size > 1
-        if (dropped) attempt.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
-        val run = PlanRun(attempt.session, attempt.input, executor, attempt.snapshot, calls.first().id)
-        val outcome = outcomeOf(run.run(plan), attempt.session.carry)
-        return if (dropped && outcome is StrategyOutcome.Completed) {
-            StrategyOutcome.Completed(outcome.reply, outcome.terminalCall, true)
-        } else {
-            outcome
-        }
-    }
-
     /** Prints the id and the step limit only. */
     override fun toString(): String = "PlanThenExecuteStrategy(id=$id, maxSteps=$maxSteps)"
-
-    private class Attempt(
-        val input: CommandInput,
-        val session: CommandSession,
-        val snapshot: ToolingSnapshot,
-    )
 
     /** Collects the settings of one [PlanThenExecuteStrategy]. */
     public class Builder internal constructor() {
@@ -221,9 +191,80 @@ public class PlanThenExecuteStrategy internal constructor(
     }
 }
 
-// A plan that failed whole-plan validation ran nothing, so another tier may take the command with the same carry.
-private suspend fun rejection(session: CommandSession, verdict: PlanVerdict.Rejected): StrategyOutcome {
-    session.recordCode(TraceCode.PLAN_REJECTED)
-    if (verdict.unknownTool) session.recordCode(TraceCode.UNKNOWN_TOOL)
-    return StrategyOutcome.Escalate(EscalationReason.MalformedExtraction(), session.carry)
+private class Attempt(
+    val input: CommandInput,
+    val session: CommandSession,
+    val snapshot: ToolingSnapshot,
+)
+
+/**
+ * One command's conversation with the model: the first request, the answer's verdict, and at most one replan.
+ *
+ * A replan is allowed once, and only while nothing was applied or held and the token ceiling is not reached. It
+ * continues the same conversation (see [replanRequest]) and its answer goes through the same checks as the first, with
+ * a fresh [PlanRun] so the binding map starts empty: the second plan replaces the first, whole.
+ */
+private class PlanFlow(
+    private val attempt: Attempt,
+    private val model: BoundModel,
+    private val executor: ToolExecutor,
+    private val hooks: OutcomeHooks,
+    private val maxSteps: Int,
+    private val first: ModelRequest,
+) {
+    private val session: CommandSession = attempt.session
+    private var replans = 0
+
+    suspend fun start(): StrategyOutcome = handle(model.complete(first))
+
+    private suspend fun handle(result: ModelResult): StrategyOutcome {
+        val message = (result as? ModelResult.Success)?.response?.message
+        val early = decideResult(result, hooks) ?: ceilingCrossed(session)
+        // decideResult returned null only for a successful answer that holds at least one tool call.
+        return early ?: message?.let { verdictOutcome(it) } ?: malformed()
+    }
+
+    private suspend fun verdictOutcome(message: AssistantMessage): StrategyOutcome =
+        when (val verdict = parsePlan(message.toolCalls, attempt.snapshot, maxSteps)) {
+            is PlanVerdict.Valid -> runPlan(message, verdict.plan)
+            is PlanVerdict.Rejected -> rejected(message, verdict)
+            is PlanVerdict.NeedsLookup -> StrategyOutcome.Escalate(EscalationReason.Other(LOOKUP_CODE), session.carry)
+        }
+
+    // A plan that failed whole-plan validation ran nothing, so another tier may take the command with the same carry.
+    private suspend fun rejected(message: AssistantMessage, verdict: PlanVerdict.Rejected): StrategyOutcome {
+        session.recordCode(TraceCode.PLAN_REJECTED)
+        if (verdict.unknownTool) session.recordCode(TraceCode.UNKNOWN_TOOL)
+        return if (canReplan(false)) replan(message, verdict.code, verdict.stepIndex) else malformed()
+    }
+
+    // Only the first call is ever acted on. Dropped extras make a Completed outcome partial; an Escalate is unchanged.
+    private suspend fun runPlan(message: AssistantMessage, plan: ParsedPlan): StrategyOutcome {
+        val calls = message.toolCalls
+        val dropped = calls.size > 1
+        if (dropped) session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+        val run = PlanRun(session, attempt.input, executor, attempt.snapshot, calls.first().id)
+        val stop = run.run(plan)
+        if (stop is RunStop.StepFailed && canReplan(run.worked)) return replan(message, STEP_FAILED_REASON, stop.index)
+        val outcome = outcomeOf(stop, session.carry)
+        return if (dropped && outcome is StrategyOutcome.Completed) {
+            StrategyOutcome.Completed(outcome.reply, outcome.terminalCall, true)
+        } else {
+            outcome
+        }
+    }
+
+    // The one predicate: a replan is left, nothing was applied or held, and the run is still under its token ceiling.
+    private fun canReplan(worked: Boolean): Boolean =
+        replans < REPLAN_LIMIT && !worked && ceilingReached(session) == null
+
+    private suspend fun replan(message: AssistantMessage, reason: String, stepIndex: Int?): StrategyOutcome {
+        replans++
+        val request = replanRequest(first, message, rejectionDigest(reason, stepIndex)) ?: return malformed()
+        session.recordCode(TraceCode.PLAN_REPLANNED)
+        return handle(model.complete(request))
+    }
+
+    private fun malformed(): StrategyOutcome =
+        StrategyOutcome.Escalate(EscalationReason.MalformedExtraction(), session.carry)
 }
