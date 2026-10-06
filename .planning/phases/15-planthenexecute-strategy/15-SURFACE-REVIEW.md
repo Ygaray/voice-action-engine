@@ -187,4 +187,44 @@ recorded for the record.
 
 ## Gate results
 
-Filled in by Task 2 of this plan.
+Run once, alone, on the phase branch at HEAD `5c26b69` on 2026-10-06 (the review commit; no source file changed in this
+plan). Host-safe recipe: `GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false
+-Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m"`, `--offline -q`. No earlyoom kill, no
+retry.
+
+| Command | Exit | Final line | Duration |
+|---|---|---|---|
+| `scripts/review-api-surface.sh --out <scratch>/vae-15-core-dump.txt` (Task 1) | 0 | `API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=196` | under 60 s |
+| `./gradlew --offline -q -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false check` | 0 | exit 0 (quiet mode prints no task count; the detekt negative-control findings and the sample lint report line in the output are expected output, not failures) | 175 s |
+| `scripts/verify-docs-coverage.sh` | 0 | `DOC COVERAGE OK checks=25 types=104` | under 10 s |
+| `scripts/verify-repo-hygiene.sh` | 0 | `HYGIENE OK` | under 10 s |
+
+`check` covers detekt (zero baseline on main, test and testFixtures), the banned-construct scanner including CLN-02,
+`ApiShapeTest`, `NoHardCodedConstantsTest`, Metalava compatibility against the committed `core/api.txt`, and both OkHttp
+matrix legs.
+
+### Phase invariants (git, against `21e9547`)
+
+| Check | Result |
+|---|---|
+| `core/api.txt`, `providers/api.txt`, `keystore/api.txt` byte-identical | yes (`git diff --quiet 21e9547` exits 0; `git status --porcelain` on the three paths is empty) |
+| `strategy/StepSubmission.kt` and every file under `strategy/singleshot/` byte-identical | yes |
+| the only file changed under `strategy/agentic/` | `AgenticDispatch.kt` (plan 15-01: its `prepare` now delegates to the shared `prepareGuarded`) |
+
+Stated honestly: `core/api.txt` being byte-identical means only that no dump was committed early. The public surface did
+grow (the `core.strategy.plan` package, three `TraceCode`s and, per RT-01 point 4, `CommandOutcome.Completed.remainingStepIds`).
+Metalava's compatibility check inside `check` accepts those additions against the committed snapshot, and the block diff
+in "remainingStepIds is +-only" is the +-only proof until the v1.1.0 cut writes the new `api.txt`.
+
+### Main files changed since `21e9547` outside `strategy/plan/`, `PreparedStep.kt` and `telemetry/TraceCode.kt`
+
+| File | Plan | Reason |
+|---|---|---|
+| `core/strategy/agentic/AgenticDispatch.kt` | 15-01 | `prepare` delegates to the shared `prepareGuarded` (the fixed `tool_error` notice moved with it, byte-identical) |
+| `core/strategy/StrategyOutcome.kt` | 15-04 | internal primary constructors carrying the never-run ids; public constructors unchanged |
+| `core/pipeline/CommandOutcome.kt` | 15-04 | the one public addition, `Completed.remainingStepIds`, plus KDoc and a count-only `toString` |
+| `core/pipeline/TierWalk.kt` | 15-04 | passes the ids on when the tier ends the command, drops them on a hand-up |
+| `core/pipeline/HeldCommit.kt` | 15-04 | the `commitHeld` outcome passes an empty list |
+
+Nothing else changed in main; no file needs a report to the driver. `15-VALIDATION.md` was not
+edited (the Nyquist finalizer owns it).
