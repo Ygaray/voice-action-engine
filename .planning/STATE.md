@@ -5,11 +5,11 @@ milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 13
 current_phase_name: on-device-model-spike
 status: executing
-stopped_at: Phase 12 complete, ready to plan Phase 13
-last_updated: "2026-10-05T23:57:12.250Z"
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-10-06T00:04:04.923Z"
 last_activity: 2026-10-05
 last_activity_desc: Phase 12 complete, transitioned to Phase 13
-state_head: 981be38dc625343ce8065d4a6b80ee1cc9c4ac83
+state_head: 8f07fb51142703e9c780764b2a38dbf9bd404e78
 progress:
   total_phases: 9
   completed_phases: 1
@@ -103,6 +103,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 12 P05 | 20min | 3 tasks | 6 files |
 | Phase 12 P06 | 25min | 3 tasks | 17 files |
 | Phase 12 P07 | 20 min | 3 tasks | 4 files |
+| Phase 13 P01 | 9 min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,7 @@ Recent decisions affecting current work:
 - [Phase 12]: 12-02: ReasoningMode OFF and PROVIDER_DEFAULT are both the v1.0 wire; onFailed fires from the provider-failure else arm only
 - [Phase 12]: 12-03: cappedByPolicy = PolicyPreCheck dropped any tier (both skip sites, offline-only included); carryIn = walk carry non-null at tier start
 - [Phase 12]: 12-06: provider call id travels only via internal submit(step, providerCallId) + ActionDetails + HeldProposal field; public submit records null
+- [Phase 13]: 13-01: litertlm 0.17.1 builds on the pinned toolchain (no D-02 fallback); 13-THRESHOLDS.md locked sha256 ec4933fb (commit c793a3b)
 
 ### Pending Todos
 
@@ -150,8 +152,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-05T21:58:44.476Z
-Stopped at: Phase 12 complete, ready to plan Phase 13
+Last session: 2026-10-06T00:04:04.880Z
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
