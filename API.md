@@ -73,7 +73,7 @@ leaves), annotation class.
 | `CommandOutcome` | sealed class | closed | The typed result: `Completed`, `Failed` or `Unhandled`. |
 | `TierPolicy` | class | | The limits one command runs under (`TierPolicy { }` builder), including `pickerTimeoutMillis` (default 2,000 ms, engine-enforced). |
 | `TierPolicySource` | fun interface | | Supplies the policy for each command (`fixed(policy)`). |
-| `TierSelector` | abstract class | open | Which tier a command starts at: `Linear` (default), `Fixed(tier)`, `Custom(picker)` or the opt-in `Router { }`; zero-call tiers at the head always run first. |
+| `TierSelector` | abstract class | open | Which tier a command starts at: `Linear` (default), `Fixed(tier)`, `Custom(picker)` or the opt-in `Router { }`; for `Custom` and `Router` the zero-call tiers at the head always run first, while `Fixed` starts exactly at its tier and skips them. |
 | `StartTierPicker` | fun interface | | Your suspend choice of where the model walk starts: sees the command and the eligible model tiers, returns one id or null. |
 | `PickContext` | abstract class | | What a picker gets: run id, policy, tokens used, `model()` (bound for the picker's own id) and `recordTurn`; no write path. |
 | `StartTierSelection` | class | | The picker's entry in the trace: `outcome`, `picked`, `eligible`, `tiersBypassed`, its turns and usage. |

@@ -9,8 +9,9 @@ private const val ROUTER_PICKER_ID = "start_tier_router"
 /**
  * Decides which tier of the ladder a command starts at. Use [Linear] to start at the first tier that may run, [Fixed]
  * to start at one named tier and climb from there, [Custom] to let your own [StartTierPicker] choose among the
- * tiers that call a model, or [Router] to let the engine's own classifier choose. The tiers that need no model at the
- * head of the ladder always run first, whatever the selector.
+ * tiers that call a model, or [Router] to let the engine's own classifier choose. For [Custom] and [Router] the tiers
+ * that need no model at the head of the ladder always run first; [Fixed] starts exactly at its tier, so it skips that
+ * head, and [Linear] runs the ladder in order.
  *
  * This class is deliberately not sealed: new selectors can be added in later versions, so keep an `else` branch when
  * you switch on one.
