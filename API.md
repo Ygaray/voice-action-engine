@@ -218,8 +218,9 @@ has a stable `code`.
   non-terminal tool, fails before any call.
   A step can use an earlier step's result: an argument whose whole value is the string `$<stepId>.<key>` is replaced,
   before your executor sees the step, with that earlier step's committed `targetIds[key]` (the key names are yours: say
-  in each write tool's description which keys it returns). Step ids start with a letter and use letters, digits, `_`
-  and `-`. A reference inside a longer string, or `$` followed by a digit such as `$5.00`, stays literal; object keys
+  in each write tool's description which keys it returns). Step ids start with a letter, use letters, digits, `_`
+  and `-`, and have at most 64 characters: a plan with a longer id is rejected as a bad id (a tightening since v1.0.0),
+  and a `$<longer id>.key` reference can only fail as unresolved. A reference inside a longer string, or `$` followed by a digit such as `$5.00`, stays literal; object keys
   and values that are not strings are never changed. A reference to a step not listed earlier rejects the plan before
   any step runs; a key the earlier step did not return stops the plan before that step. A plan that sets
   `needs_lookup`, or lists a read tool as a step, hands the command to the next tier with nothing run, carrying the
