@@ -11,6 +11,7 @@ import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * How a selector asks a picker: the [picker], the id its model call is routed and recorded under, the providers it
@@ -74,7 +75,9 @@ internal class StartTierPicking(private val scope: RunScope) {
         }
         scope.recorder.selectionBook.started(spec.id, llm)
         val choice = guarded(onFault = { null }) {
-            spec.picker.pick(input, llm, RunPickContext(scope, spec.id, spec.capabilities.providers))
+            withTimeoutOrNull(scope.policy.pickerTimeoutMillis) {
+                spec.picker.pick(input, llm, RunPickContext(scope, spec.id, spec.capabilities.providers))
+            }
         }
         val picked = choice?.takeIf { it in llm }
         if (picked == null) scope.recorder.recordCode(TraceCode.ROUTER_FALLBACK)

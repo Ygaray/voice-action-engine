@@ -6,6 +6,7 @@ import io.github.ygaray.voiceactionengine.core.StrategyId
 private const val DEFAULT_MAX_ITERATIONS = 6
 private const val DEFAULT_TOKEN_CEILING = 60_000L
 private const val DEFAULT_MAX_TOKENS_PER_TURN = 4_096
+private const val DEFAULT_PICKER_TIMEOUT_MILLIS = 2_000L
 private const val MIN_ITERATIONS = 2
 
 /**
@@ -13,9 +14,9 @@ private const val MIN_ITERATIONS = 2
  * defaults, and new limits can be added later without breaking callers.
  *
  * The engine itself enforces only [offlineOnly], [maxTier], the static part of [allowedProviders] and
- * [commandTimeoutMillis]. [maxIterations], [tokenCeiling] and [maxTokensPerTurn] are advisory: the engine counts
- * tokens (`CommandSession.tokensUsed`) but never stops a tier for exceeding them, so a strategy that ignores
- * `session.policy` is unbounded. Set [commandTimeoutMillis] as the engine-enforced backstop.
+ * [commandTimeoutMillis] and [pickerTimeoutMillis]. [maxIterations], [tokenCeiling] and [maxTokensPerTurn] are
+ * advisory: the engine counts tokens (`CommandSession.tokensUsed`) but never stops a tier for exceeding them, so a
+ * strategy that ignores `session.policy` is unbounded. Set [commandTimeoutMillis] as the engine-enforced backstop.
  *
  * @property offlineOnly when true, no tier that needs the network may run.
  * @property maxTier the last tier allowed to run, by its stable [StrategyId] (never a ladder index), or null for
@@ -32,6 +33,9 @@ private const val MIN_ITERATIONS = 2
  * its provider.
  * @property commandTimeoutMillis the engine-imposed deadline for a whole command, or null for none. An app that sets
  * one accepts that it also bounds a gate that is suspended waiting for a person.
+ * @property pickerTimeoutMillis how long the engine waits for a start-tier picker before it starts the walk at the
+ * first eligible tier and records `router_fallback`, in milliseconds and at least 1. The command deadline still
+ * bounds the whole run, so the earlier of the two wins.
  */
 public class TierPolicy internal constructor(
     public val offlineOnly: Boolean,
@@ -41,6 +45,7 @@ public class TierPolicy internal constructor(
     public val tokenCeiling: Long,
     public val maxTokensPerTurn: Int,
     public val commandTimeoutMillis: Long?,
+    public val pickerTimeoutMillis: Long,
 ) {
     init {
         require(maxIterations >= MIN_ITERATIONS) {
@@ -51,12 +56,13 @@ public class TierPolicy internal constructor(
         require(commandTimeoutMillis == null || commandTimeoutMillis > 0) {
             "commandTimeoutMillis must be null or positive but was $commandTimeoutMillis"
         }
+        require(pickerTimeoutMillis > 0) { "pickerTimeoutMillis must be positive but was $pickerTimeoutMillis" }
     }
 
     override fun toString(): String =
         "TierPolicy(offlineOnly=$offlineOnly, maxTier=$maxTier, allowedProviders=$allowedProviders, " +
             "maxIterations=$maxIterations, tokenCeiling=$tokenCeiling, maxTokensPerTurn=$maxTokensPerTurn, " +
-            "commandTimeoutMillis=$commandTimeoutMillis)"
+            "commandTimeoutMillis=$commandTimeoutMillis, pickerTimeoutMillis=$pickerTimeoutMillis)"
 
     /** Mutable collector for a [TierPolicy]; every field starts at its default. */
     public class Builder internal constructor() {
@@ -81,6 +87,9 @@ public class TierPolicy internal constructor(
         /** See [TierPolicy.commandTimeoutMillis]. */
         public var commandTimeoutMillis: Long? = null
 
+        /** See [TierPolicy.pickerTimeoutMillis]. */
+        public var pickerTimeoutMillis: Long = DEFAULT_PICKER_TIMEOUT_MILLIS
+
         internal fun build(): TierPolicy = TierPolicy(
             offlineOnly = offlineOnly,
             maxTier = maxTier,
@@ -89,12 +98,16 @@ public class TierPolicy internal constructor(
             tokenCeiling = tokenCeiling,
             maxTokensPerTurn = maxTokensPerTurn,
             commandTimeoutMillis = commandTimeoutMillis,
+            pickerTimeoutMillis = pickerTimeoutMillis,
         )
     }
 
     /** Entry points for creating policies. */
     public companion object {
-        /** The default policy: 6 iterations, 60,000 tokens, 4,096 tokens per turn, no engine deadline. */
+        /**
+         * The default policy: 6 iterations, 60,000 tokens, 4,096 tokens per turn, no engine deadline, and a 2,000 ms
+         * picker timeout.
+         */
         public val DEFAULT: TierPolicy = Builder().build()
 
         /**

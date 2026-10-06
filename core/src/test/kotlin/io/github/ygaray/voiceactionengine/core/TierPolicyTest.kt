@@ -37,6 +37,7 @@ class TierPolicyTest {
         assertEquals(SIXTY_THOUSAND, policy.tokenCeiling)
         assertEquals(FOUR_K, policy.maxTokensPerTurn)
         assertNull(policy.commandTimeoutMillis)
+        assertEquals(2_000L, policy.pickerTimeoutMillis)
     }
 
     @Test
@@ -73,6 +74,15 @@ class TierPolicyTest {
         assertThrows(IllegalArgumentException::class.java) { TierPolicy { maxTokensPerTurn = 0 } }
         assertThrows(IllegalArgumentException::class.java) { TierPolicy { commandTimeoutMillis = 0 } }
         assertEquals(1L, TierPolicy { commandTimeoutMillis = 1 }.commandTimeoutMillis)
+        listOf(0L, -1L).forEach { bad ->
+            val failure = assertThrows(IllegalArgumentException::class.java) { TierPolicy { pickerTimeoutMillis = bad } }
+            assertTrue(failure.message.orEmpty(), failure.message.orEmpty().contains("pickerTimeoutMillis"))
+        }
+    }
+
+    @Test
+    fun pickerTimeoutIsOverridable() {
+        assertEquals(500L, TierPolicy { pickerTimeoutMillis = 500 }.pickerTimeoutMillis)
     }
 
     @Test
@@ -96,7 +106,7 @@ class TierPolicyTest {
         val text = TierPolicy.DEFAULT.toString()
         listOf(
             "offlineOnly", "maxTier", "allowedProviders", "maxIterations", "tokenCeiling", "maxTokensPerTurn",
-            "commandTimeoutMillis",
+            "commandTimeoutMillis", "pickerTimeoutMillis",
         ).forEach { assertTrue("$it missing from $text", text.contains(it)) }
     }
 
