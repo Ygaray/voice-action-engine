@@ -214,7 +214,7 @@ Plans:
   4. A slot's optional `normalize: (raw, language) -> String?` hook sees the raw slot text and the language before resolution, so an app-supplied synonym map (for example CT's cross-language names) changes what resolves. Library code still names no domain (the CLN-02 scan stays green).
   5. The grammar tier declares `NO_PROVIDER` capabilities, so it runs under `offlineOnly` and under any `allowedProviders`. Under offline-only, a no-match ends `Unhandled` with `cappedByPolicy = true` after zero provider calls.
 
-**Plans**: 4/10 plans executed (8 waves; 14-09 is non-autonomous, TESTER-window gated)
+**Plans**: 5/10 plans executed (8 waves; 14-09 is non-autonomous, TESTER-window gated)
 
 Plans:
 **Wave 1**
@@ -229,7 +229,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 14-05-PLAN.md — Typed slots (integer, decimal, choice, text) and slot validation; SC-1 bilingual proof
+- [x] 14-05-PLAN.md — Typed slots (integer, decimal, choice, text) and slot validation; SC-1 bilingual proof
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -363,7 +363,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 |-------|-----------|----------------|--------|-----------|
 | 12. Wave-1 Seams & W04 Fix | v1.1 | 8/8 | Complete    | 2026-10-05 |
 | 13. On-Device Model Spike | v1.1 | 11/11 | Complete    | 2026-10-06 |
-| 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 4/10 | In Progress|  |
+| 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 5/10 | In Progress|  |
 | 15. PlanThenExecute Strategy | v1.1 | 0/TBD | Not started | - |
 | 16. Start-Tier Selection | v1.1 | 0/TBD | Not started | - |
 | 17. Run-Level Undo | v1.1 | 0/TBD | Not started | - |

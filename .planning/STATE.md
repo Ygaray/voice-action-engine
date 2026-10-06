@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
-current_plan: 5
+current_plan: 6
 status: executing
-stopped_at: Completed 14-04-PLAN.md
-last_updated: "2026-10-06T15:34:44.031Z"
+stopped_at: Completed 14-05-PLAN.md
+last_updated: "2026-10-06T15:44:42.615Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 14 execution started
-state_head: 87c4637caf7b0b8ea36a4e48c713282ab90e4f26
+state_head: bacb5c49353888dc9e4d4d1f3e8983a6ea2be153
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 29
-  completed_plans: 23
+  completed_plans: 24
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
-Current Plan: 5
+Current Plan: 6
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 14 execution started
@@ -121,6 +121,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 14 P02 | 45min | 3 tasks | 6 files |
 | Phase 14 P03 | 40min | 3 tasks | 10 files |
 | Phase 14 P04 | 25min | 3 tasks | 11 files |
+| Phase 14 P05 | 40min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-03: Spanish cien is a complete group wherever nothing numeric follows (mil cien = 1100) so all of 0..999,999 round-trips; RAE rules R01-R11 confirmed, none contradicted
 - [Phase 14]: 14-03: longestPhrase derived from lexicon structure (EN 18, ES 16 tokens); word fraction digits bounded to the digit count of 999,999
 - [Phase 14]: Phase 14-04: no slots inside sub-rules (build-time IAE); keeps slot parity per intent checkable in 14-05
+- [Phase 14]: 14-05: same tool with different arguments from both packs under a null label is grammar_ambiguous; different tools stay no-code rejected (14-06 owns the final table)
 
 ### Pending Todos
 
@@ -181,8 +183,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T15:34:43.973Z
-Stopped at: Completed 14-04-PLAN.md
+Last session: 2026-10-06T15:44:42.551Z
+Stopped at: Completed 14-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
