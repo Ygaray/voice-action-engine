@@ -41,7 +41,7 @@ findings:
   warning: 3
   info: 5
   total: 8
-status: issues_found
+status: resolved
 ---
 
 # Phase 15: Code Review Report
