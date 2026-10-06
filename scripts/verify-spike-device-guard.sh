@@ -551,6 +551,32 @@ STAMP=fresh PRE_EXT=1 FAKE_EXT_RESIDUE=1 MUTATES=1 run_scenario cleanup_external
 STAMP=fresh PRE_TMP=1 FAKE_TMP_RESIDUE=1 MUTATES=1 run_scenario cleanup_staging_residue 1 "residue is left" "FAIL sub=cleanup reason=residue_present" cleanup
 [ ! -e "$LAST_DIR/cache/vae-spike/window.ts" ] || die "cleanup_staging_residue: the window stamp survived a cleanup"
 
+# ---- Task 3: fetch-model (host only: no grant, no lock, no adb) ------------------------------------------------------------
+PIN_REV="b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1"
+# The fetch needs no grant and no lock: it works with a pending grant while this guard holds the lock.
+flock -n 8 || die "fetch_model_ok: cannot take the lock"
+GRANT=pending CALLS_EMPTY=1 run_scenario fetch_model_ok 0 "-" "OK sub=fetch-model id=e2b_cpu sha=${CPU_SHA:0:8} bytes=${#CPU_CONTENT} cached=no" fetch-model e2b_cpu
+flock -u 8
+[ "$(sha256sum "$LAST_DIR/models/$CPU_FILE" | cut -d' ' -f1)" = "$CPU_SHA" ] || die "fetch_model_ok: the model file is missing or its digest differs"
+[ ! -e "$LAST_DIR/models/$CPU_FILE.part" ] || die "fetch_model_ok: a .part file was left"
+grep -qF -- "-L --fail --retry 3" "$LAST_DIR/curl.log" || die "fetch_model_ok: curl was not called with -L --fail --retry 3"
+grep -qF "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/$PIN_REV/$CPU_FILE" "$LAST_DIR/curl.log" || die "fetch_model_ok: the URL is not the revision-pinned one"
+CALLS_EMPTY=1 run_scenario fetch_model_gpu_ok 0 "-" "OK sub=fetch-model id=e2b_gpu sha=${GPU_SHA:0:8} bytes=${#GPU_CONTENT} cached=no" fetch-model e2b_gpu
+grep -qF "/resolve/$PIN_REV/$GPU_FILE" "$LAST_DIR/curl.log" || die "fetch_model_gpu_ok: the URL is not the revision-pinned one"
+MODEL_FILES="cpu" CALLS_EMPTY=1 run_scenario fetch_model_cached 0 "-" "OK sub=fetch-model id=e2b_cpu sha=${CPU_SHA:0:8} bytes=${#CPU_CONTENT} cached=yes" fetch-model e2b_cpu
+[ ! -s "$LAST_DIR/curl.log" ] || die "fetch_model_cached: curl was called for a cached file"
+FAKE_CURL_BAD=1 CALLS_EMPTY=1 run_scenario fetch_model_sha_mismatch 1 "removed" "FAIL sub=fetch-model reason=model_sha_mismatch" fetch-model e2b_cpu
+[ -z "$(ls -A "$LAST_DIR/models")" ] || die "fetch_model_sha_mismatch: a file was left in the model directory ($(ls -A "$LAST_DIR/models"))"
+FAKE_CURL_RC=22 CALLS_EMPTY=1 run_scenario fetch_model_download_failed 2 "-" "ERROR sub=fetch-model reason=download_failed" fetch-model e2b_cpu
+[ -z "$(ls -A "$LAST_DIR/models")" ] || die "fetch_model_download_failed: a file was left in the model directory"
+MODEL_DIR_IN_REPO=1 CALLS_EMPTY=1 run_scenario fetch_model_dir_in_repo 2 "inside the repository" "ERROR sub=fetch-model reason=model_dir_in_repo" fetch-model e2b_cpu
+[ ! -s "$LAST_DIR/curl.log" ] || die "fetch_model_dir_in_repo: curl was called"
+[ -z "$(ls -A "$LAST_DIR/repo/models")" ] || die "fetch_model_dir_in_repo: a file was written inside the repository"
+# g3_1b is gated: never downloaded, never a token. It is refused with the human-only instruction.
+CALLS_EMPTY=1 run_scenario fetch_model_g3_gated 2 "never reads a Hugging Face token" "ERROR sub=fetch-model reason=gated_human_download" fetch-model g3_1b
+[ ! -s "$LAST_DIR/curl.log" ] || die "fetch_model_g3_gated: curl was called for the gated model"
+[ -z "$(ls -A "$LAST_DIR/models")" ] || die "fetch_model_g3_gated: a file appeared in the model directory"
+
 # The runner holds no HF token and no key handling at all.
 SCENARIOS=$((SCENARIOS + 1))
 ! grep -qiE 'HF_TOKEN|HUGGING_?FACE_(HUB_)?TOKEN|Authorization' "$RUNNER_SRC" || die "no_token_handling: the runner mentions a token or an authorization header"
