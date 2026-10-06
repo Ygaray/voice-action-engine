@@ -79,23 +79,28 @@ internal class SpikeOnDeviceProvider(
         }
     }
 
-    // Route A with a forced tool: the schema is that tool's own input schema. Other shapes land in the next task.
+    // Dispatch on (route, tool choice): Route A forced, Route A auto, or Route B. Every shape carries the request's own
+    // per-turn token limit, so both routes are measured under the same output limit.
     private fun backendRequest(call: ProviderRequest): BackendRequest? {
-        val choice = call.request.toolChoice
-        val user = call.request.messages.filterIsInstance<UserMessage>().lastOrNull()?.text
-        val forced = (choice as? ToolChoice.Required)?.let { required ->
-            call.request.tools.firstOrNull { it.name == required.toolName }
-        }
-        return if (user == null || forced == null || route != ProviderRoute.CONSTRAINED_JSON) {
-            null
-        } else {
-            RouteA.forcedRequest(call.request.system, user, forced, call.request.maxTokens)
+        val request = call.request
+        val user = request.messages.filterIsInstance<UserMessage>().lastOrNull()?.text ?: return null
+        val choice = request.toolChoice
+        return when {
+            route == ProviderRoute.NATIVE_TOOLS ->
+                RouteB.nativeRequest(request.system, user, request.tools, request.maxTokens)
+            choice is ToolChoice.Required -> request.tools.firstOrNull { it.name == choice.toolName }
+                ?.let { RouteA.forcedRequest(request.system, user, it, request.maxTokens) }
+            else -> RouteA.autoRequest(request.system, user, request.tools, request.maxTokens)
         }
     }
 
     private fun parse(call: ProviderRequest, answer: BackendAnswer): ModelResult {
-        val required = (call.request.toolChoice as ToolChoice.Required).toolName
-        return RouteA.parseForced(answer, required)
+        val choice = call.request.toolChoice
+        return when {
+            route == ProviderRoute.NATIVE_TOOLS -> RouteB.parse(answer, call.request.tools)
+            choice is ToolChoice.Required -> RouteA.parseForced(answer, choice.toolName)
+            else -> RouteA.parseAuto(answer, call.request.tools)
+        }
     }
 
     /** The route only. */
