@@ -92,7 +92,7 @@ public sealed class CommandOutcome {
      *
      * @property reply text to show the user, or null.
      * @property terminalCall the terminal tool call that ended the run, or null.
-     * @property partial true when the command did some work and could not finish, in either of two cases. A tier
+     * @property partial true when the command did some work and could not finish, in any of three cases. A tier
      * committed or held a change and then asked for a later tier, which the engine blocks so nothing is written twice
      * ([reply] and [terminalCall] are null then, and the tier's reason is on its trace attempt as the suppressed
      * escalation). Or a tier acted on the model's first tool call and dropped the extra calls of the same answer, so
