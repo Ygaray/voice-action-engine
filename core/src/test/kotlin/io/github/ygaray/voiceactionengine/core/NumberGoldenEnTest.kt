@@ -92,9 +92,9 @@ class NumberGoldenEnTest {
 
     @Test
     fun aPrefixOrSuffixNeverReadsAsTheWholePhrase() {
-        val redundantArticle = setOf("a half", "one half", "a quarter", "one quarter")
+        val redundantLeadWord = setOf("a half", "one half", "a quarter", "one quarter", "zero point two five")
         val phrases = (englishIntegers.map { it.first } + englishDecimals.map { it.first })
-            .filterNot { it in redundantArticle }
+            .filterNot { it in redundantLeadWord }
         var checked = 0
         for (phrase in phrases) {
             val words = keys(phrase)

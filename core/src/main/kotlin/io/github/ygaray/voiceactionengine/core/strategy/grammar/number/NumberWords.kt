@@ -39,7 +39,7 @@ internal object NumberWords {
 
     fun longestPhrase(language: String): Int = lexicon(language)?.longestPhrase() ?: 0
 
-    private val lexicons: Map<String, WordNumbers> = emptyMap()
+    private val lexicons: Map<String, WordNumbers> = mapOf("en" to EnglishNumbers)
 
     private fun lexicon(language: String): WordNumbers? = lexicons[language]
 
