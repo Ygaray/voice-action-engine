@@ -63,13 +63,14 @@ private const val SELECTION_FALLBACK = "router_fallback"
 
 /**
  * Asks a picker where the model walk starts. The answer is accepted only when it names one of the eligible model
- * tiers; anything else starts at the first of them and is recorded as `router_fallback`.
+ * tiers; anything else starts at the first of them and is recorded as `router_fallback`. A picker the policy would not
+ * let run as a tier (by the same static rule) is not called either.
  */
-internal class StartTierPicking(private val scope: RunScope) {
+internal class StartTierPicking(private val scope: RunScope, private val ladder: Ladder) {
     /** The index in [rest] the walk starts at. [rest] is the ladder after the tiers that make no model call. */
     suspend fun startIn(rest: List<CommandStrategy>, spec: PickingSpec, input: CommandInput): Int {
         val llm = rest.filter { it.capabilities.providers.isNotEmpty() }.map { it.id }
-        if (llm.isEmpty()) {
+        if (llm.isEmpty() || !tierPermitted(spec.capabilities, scope.policy, ladder.onDeviceAvailable)) {
             scope.recorder.recordCode(TraceCode.ROUTER_FALLBACK)
             return 0
         }

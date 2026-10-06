@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.telemetry.RunRecorder
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 
@@ -15,7 +16,8 @@ private const val ON_DEVICE_CAUSE = "on_device_unavailable"
 internal class Ladder(
     val tiers: List<CommandStrategy>,
     val selector: TierSelector,
-    private val onDeviceAvailable: Boolean,
+    /** Whether on-device inference was ready when the policy was applied to this command. */
+    val onDeviceAvailable: Boolean,
     val refusal: FailureReason?,
     val cappedByPolicy: Boolean,
 ) {
@@ -50,7 +52,7 @@ internal class PolicyPreCheck(
         val within = if (capIndex == null) strategies else strategies.take(capIndex + 1)
         strategies.drop(within.size).forEach { recorder.tierSkipped(it.id, TraceCode.TIER_SKIPPED_POLICY) }
         val eligible = within.filter { tier ->
-            val allowed = permits(tier, policy, onDevice)
+            val allowed = tierPermitted(tier.capabilities, policy, onDevice)
             if (!allowed) recorder.tierSkipped(tier.id, TraceCode.TIER_SKIPPED_POLICY)
             allowed
         }
@@ -72,14 +74,18 @@ internal class PolicyPreCheck(
 
     private fun refused(reason: FailureReason, onDevice: Boolean): Ladder =
         Ladder(emptyList(), selector, onDevice, reason, cappedByPolicy = false)
+}
 
-    private fun permits(tier: CommandStrategy, policy: TierPolicy, onDevice: Boolean): Boolean {
-        val capabilities = tier.capabilities
-        val allowed = policy.allowedProviders
-        val providers = capabilities.providers
-        if (allowed != null && providers.isNotEmpty() && providers.none { it in allowed }) return false
-        // Offline means zero network: only a tier with no provider, or one that can use nothing but a ready on-device
-        // model, may run.
-        return !policy.offlineOnly || providers.isEmpty() || (capabilities.onDeviceOnly && onDevice)
-    }
+/**
+ * The one static "may run" rule: whether something declaring [capabilities] may run under [policy], given whether
+ * on-device inference is ([onDevice]) ready. The tiers and the start-tier picker are both held to it, so there is no
+ * second definition of what a policy allows.
+ */
+internal fun tierPermitted(capabilities: StrategyCapabilities, policy: TierPolicy, onDevice: Boolean): Boolean {
+    val allowed = policy.allowedProviders
+    val providers = capabilities.providers
+    if (allowed != null && providers.isNotEmpty() && providers.none { it in allowed }) return false
+    // Offline means zero network: only something with no provider, or one that can use nothing but a ready on-device
+    // model, may run.
+    return !policy.offlineOnly || providers.isEmpty() || (capabilities.onDeviceOnly && onDevice)
 }
