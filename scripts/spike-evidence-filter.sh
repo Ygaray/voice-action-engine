@@ -16,7 +16,8 @@ export LC_ALL=C
 
 ALLOW_RE='^VAE_SPIKE_(ENV|TOOLCHAIN|PREFLIGHT|MODEL|INIT|PREFILL|KVREUSE|SCHEMAPROBE|GPU|TRIAL|MEM|THERMAL|EXIT|STAGE)( [a-z0-9_]+=[A-Za-z0-9_.:/,-]{0,96})+$'
 # Key shapes and credential header words, assembled from fragments so no key-shaped literal sits in this file.
-KEY_RE="(^|[^A-Za-z0-9])(s""k-(ant|or|proj)-|s""k-[A-Za-z0-9_-]{20})|bearer|x-api-key|authorization"
+# Also covers Hugging Face (gated model downloads), Google, GitHub and AWS key shapes, and any 40+ character unbroken token.
+KEY_RE="(^|[^A-Za-z0-9])(s""k-(ant|or|proj)-|s""k-[A-Za-z0-9_-]{20}|h""f_[A-Za-z0-9]{20,}|A""Iza[0-9A-Za-z_-]{30,}|gh""p_[A-Za-z0-9]{30,}|AK""IA[0-9A-Z]{16})|bearer|x-api-key|authorization|=[A-Za-z0-9_-]{40,}( |$)"
 
 # True (0) when a kept line would expose SB content or a full digest. Command substitutions, not `grep -q` in a pipe: under
 # pipefail an early-exiting grep -q can turn a hit into a miss.
