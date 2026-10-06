@@ -82,11 +82,7 @@ public class PlanThenExecuteStrategy internal constructor(
     private val maxSteps: Int = settings.maxSteps.also {
         require(it >= 1) { "PlanThenExecuteStrategy: maxSteps must be at least 1" }
     }
-    private val hooks = OutcomeHooks(
-        { StrategyOutcome.Escalate(EscalationReason.NoToolCall()) },
-        { StrategyOutcome.Failed(FailureReason.Refusal()) },
-        settings.onFailed,
-    )
+    private val onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome = settings.onFailed
 
     override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome =
         ceilingReached(session) ?: withTooling(input, session)
@@ -113,7 +109,7 @@ public class PlanThenExecuteStrategy internal constructor(
     }
 
     private suspend fun ask(attempt: Attempt, model: BoundModel): StrategyOutcome =
-        PlanFlow(attempt, model, executor, hooks, maxSteps, request(attempt)).start()
+        PlanFlow(attempt, model, executor, onFailed, maxSteps, request(attempt)).start()
 
     private suspend fun request(attempt: Attempt): ModelRequest {
         val context = UserTurnContext(attempt.input, ZonedDateTime.now(clock), attempt.session.carry)
@@ -214,11 +210,19 @@ private class PlanFlow(
     private val attempt: Attempt,
     private val model: BoundModel,
     private val executor: ToolExecutor,
-    private val hooks: OutcomeHooks,
+    onFailed: suspend (FailureReason, FailureDetails?) -> StrategyOutcome,
     private val maxSteps: Int,
     private val first: ModelRequest,
 ) {
     private val session: CommandSession = attempt.session
+
+    // Built per command so a prose answer to the plan call escalates with the incoming carry, like every other plan
+    // escalation: the hook cannot be built at strategy construction, where no session exists.
+    private val hooks = OutcomeHooks(
+        { StrategyOutcome.Escalate(EscalationReason.NoToolCall(), session.carry) },
+        { StrategyOutcome.Failed(FailureReason.Refusal()) },
+        onFailed,
+    )
     private var replans = 0
 
     suspend fun start(): StrategyOutcome = handle(model.complete(first))

@@ -204,6 +204,30 @@ class PlanThenExecuteOutcomeMappingTest {
     }
 
     @Test
+    fun aNoToolCallFailureOrAProseAnswerEscalatesWithTheIncomingCarry() = runTest {
+        NoNetworkGuard.during {
+            val answers = listOf(
+                ModelResult.Failure(FailureReason.NoToolCall()),
+                FakeAiProvider.reply("prose", usage()),
+            )
+
+            answers.forEach { answer ->
+                val carried = Any()
+                val earlier = ScriptedStrategy(
+                    StrategyId("earlier"),
+                    { _, _ -> StrategyOutcome.Escalate(EscalationReason.NoToolCall(), carried) },
+                )
+                val rig = rigOf(answer) {}
+
+                val outcome = rig.run(earlier)
+
+                assertEquals(EscalationReason.NoToolCall(), planAttempt(outcome).escalationReason)
+                assertEquals(listOf(carried), rig.next.receivedCarries)
+            }
+        }
+    }
+
+    @Test
     fun aRefusalFailureOrAStopFailsRefusalWithoutEscalatingAndTheHookIsNotCalled() = runTest {
         NoNetworkGuard.during {
             val answers = listOf(
