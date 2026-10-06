@@ -78,16 +78,26 @@ internal class TierWalk(
         return when (val outcome = executeGuarded(strategy, input, session)) {
             is StrategyOutcome.Completed -> {
                 recorder.tierFinished(strategy.id, ATTEMPT_COMPLETED, null, null, null)
-                CommandOutcome.Completed(effects(), outcome.reply, outcome.terminalCall, partial = outcome.partial)
+                CommandOutcome.Completed(
+                    effects(),
+                    outcome.reply,
+                    outcome.terminalCall,
+                    partial = outcome.partial,
+                    remainingStepIds = outcome.remainingStepIds,
+                )
             }
             is StrategyOutcome.Failed -> {
                 recorder.tierFinished(strategy.id, ATTEMPT_FAILED, null, outcome.reason, null)
                 CommandOutcome.Failed(effects(), outcome.reason, outcome.details)
             }
             is StrategyOutcome.Escalate ->
-                if (hasWorked()) suppressed(strategy, outcome.reason) else handUp(strategy, outcome)
+                if (hasWorked()) {
+                    suppressed(strategy, outcome.reason, outcome.remainingStepIds)
+                } else {
+                    handUp(strategy, outcome)
+                }
             is StrategyOutcome.NoMatch ->
-                if (hasWorked()) suppressed(strategy, null) else startFresh(strategy)
+                if (hasWorked()) suppressed(strategy, null, emptyList()) else startFresh(strategy)
         }
     }
 
@@ -114,10 +124,15 @@ internal class TierWalk(
     /**
      * The tier asked to hand the command up after the run had already written or held something, so no later tier may
      * run: it would repeat the write. The command ends as a partial completion with the handed-up reason in the trace.
+     * The tier's never-run step ids, if any, go on that outcome: this tier ended the command.
      */
-    private suspend fun suppressed(strategy: CommandStrategy, reason: EscalationReason?): CommandOutcome {
+    private suspend fun suppressed(
+        strategy: CommandStrategy,
+        reason: EscalationReason?,
+        remainingStepIds: List<String>,
+    ): CommandOutcome {
         recorder.recordCode(TraceCode.ESCALATION_SUPPRESSED)
         recorder.tierFinished(strategy.id, ATTEMPT_SUPPRESSED, null, null, reason)
-        return CommandOutcome.Completed(effects(), reply = null, terminalCall = null, partial = true)
+        return CommandOutcome.Completed(effects(), null, null, partial = true, remainingStepIds = remainingStepIds)
     }
 }

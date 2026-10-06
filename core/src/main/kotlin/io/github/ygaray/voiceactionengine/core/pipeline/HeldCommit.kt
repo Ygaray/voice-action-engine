@@ -69,7 +69,7 @@ internal class HeldCommit(
             recorder.commandStarted()
             outcome = guarded(onFault = { child.failed(it) }) {
                 child.coordinator.applyWithoutGate(mutations, child.held.providerCallId)
-                CommandOutcome.Completed(child.effects(), null, null, partial = false)
+                CommandOutcome.Completed(child.effects(), null, null, partial = false, remainingStepIds = emptyList())
             }
             return outcome
         } catch (e: CancellationException) {

@@ -97,18 +97,27 @@ public sealed class CommandOutcome {
      * ([reply] and [terminalCall] are null then, and the tier's reason is on its trace attempt as the suppressed
      * escalation). Or a tier acted on the model's first tool call and dropped the extra calls of the same answer, so
      * the user may have asked for more than was done ([reply] and [terminalCall] are those of the first call, and the
-     * trace holds `extra_tool_calls_dropped`). Render it as "did X, couldn't finish" and never as full success;
-     * [commits] and [held] say what was done.
+     * trace holds `extra_tool_calls_dropped`). Or a tier that runs planned steps stopped at a held step after
+     * committing earlier steps: it keeps those commits, never asks a later tier, and [held] holds the proposal that
+     * waits for confirmation. Render it as "did X, couldn't finish" and never as full success; [commits], [held] and
+     * [remainingStepIds] say what was done, what waits for confirmation and what never ran.
+     * @property remainingStepIds the ids, in plan order, of the planned steps a tier that plans steps never handed to
+     * your executor because it stopped early: at a held step (not listed; it is in [held]), at a failed step (not
+     * listed; it is in [executed]), or at a step whose reference to an earlier result could not be resolved (listed,
+     * since it never ran). Empty when the plan ran to its end, for the outcome of `commitHeld` (the remaining steps
+     * are never resumed) and for every tier that does not plan steps. The ids are model-written text: show them as
+     * data. [toString] prints only their count.
      */
     public class Completed internal constructor(
         internal override val effects: RunEffects,
         public val reply: String?,
         public val terminalCall: TerminalCall?,
         public val partial: Boolean,
+        public val remainingStepIds: List<String>,
     ) : CommandOutcome() {
         override fun toString(): String =
             "Completed(runId=$runId, replyLength=${reply?.length}, terminalCall=$terminalCall, partial=$partial, " +
-                "executed=${executed.size}, held=${held.size})"
+                "executed=${executed.size}, held=${held.size}, remainingSteps=${remainingStepIds.size})"
     }
 
     /**

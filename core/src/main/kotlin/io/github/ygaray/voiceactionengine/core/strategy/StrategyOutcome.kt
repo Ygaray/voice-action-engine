@@ -16,11 +16,20 @@ public sealed class StrategyOutcome {
      * extra tool calls it never acted on), so the user may have asked for more than was done. The engine reports the
      * command as a partial completion. False for a clean finish.
      */
-    public class Completed(
+    public class Completed internal constructor(
         public val reply: String?,
         public val terminalCall: TerminalCall?,
         public val partial: Boolean,
+        /**
+         * The ids of the planned steps this tier never ran because it stopped early. The engine reports them on the
+         * command's outcome when this tier ends the command. Internal: no public constructor takes them.
+         */
+        internal val remainingStepIds: List<String>,
     ) : StrategyOutcome() {
+        /** Finished with [reply] and [terminalCall], with [partial] saying whether part of the ask was dropped. */
+        public constructor(reply: String?, terminalCall: TerminalCall?, partial: Boolean) :
+            this(reply, terminalCall, partial, emptyList())
+
         /** Finished with [reply] and [terminalCall] and nothing dropped. */
         public constructor(reply: String?, terminalCall: TerminalCall?) : this(reply, terminalCall, false)
 
@@ -41,10 +50,19 @@ public sealed class StrategyOutcome {
      * @property reason why it handed up.
      * @property carry an opaque object for the next tier to start from, or null. The engine never inspects it.
      */
-    public class Escalate(
+    public class Escalate internal constructor(
         public val reason: EscalationReason,
         public val carry: Any?,
+        /**
+         * The ids of the planned steps this tier never ran because it stopped early. The engine reports them on the
+         * command's outcome when it ends the command instead of moving on (a suppressed escalation), and drops them
+         * when the command moves to the next tier. Internal: no public constructor takes them.
+         */
+        internal val remainingStepIds: List<String>,
     ) : StrategyOutcome() {
+        /** Escalate with [reason] and [carry]. */
+        public constructor(reason: EscalationReason, carry: Any?) : this(reason, carry, emptyList())
+
         /** Escalate with nothing to carry. */
         public constructor(reason: EscalationReason) : this(reason, null)
 
