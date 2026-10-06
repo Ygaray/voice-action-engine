@@ -147,5 +147,11 @@ public value class TraceCode internal constructor(public val value: String) {
          * A step referred to an earlier step's result that did not provide the key; the step did not run.
          */
         public val PLAN_BINDING_UNRESOLVED: TraceCode = TraceCode("plan_binding_unresolved")
+
+        /**
+         * The start-tier picker gave no usable answer (null, an id that is not eligible, a throw or a timeout), or no
+         * tier that calls a model was left after the head; the walk started at the first eligible tier.
+         */
+        public val ROUTER_FALLBACK: TraceCode = TraceCode("router_fallback")
     }
 }

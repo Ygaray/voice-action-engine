@@ -20,7 +20,8 @@ private const val ATTEMPT_SUPPRESSED = "escalation_suppressed"
 
 /**
  * Runs the ladder once, starting at the tier the selector picks. A completed or failed tier ends the walk; an
- * escalating tier hands its carry to the next; a tier with no match hands over nothing. Used for one command only.
+ * escalating tier hands its carry to the next; a tier with no match hands over nothing. When the selector asks a
+ * picker, the tiers that make no model call run first and the picker chooses among the rest. Used for one command only.
  */
 internal class TierWalk(
     private val ladder: Ladder,
@@ -41,8 +42,19 @@ internal class TierWalk(
         if (start == null) {
             return CommandOutcome.Failed(effects(), ladder.refusal ?: FailureReason.NoEligibleTier(), null)
         }
-        return climb(ladder.tiers.drop(start), input)
-            ?: CommandOutcome.Unhandled(effects(), lastReason, ladder.cappedByPolicy)
+        val picking = ladder.selector.picking
+        val outcome = if (picking == null) climb(ladder.tiers.drop(start), input) else walkPicked(picking, input)
+        return outcome ?: CommandOutcome.Unhandled(effects(), lastReason, ladder.cappedByPolicy)
+    }
+
+    /**
+     * The zero-call head runs through [runTier] exactly like any tier (gate, suppression, trace), and its carry passes
+     * unchanged to the picked tier. The picker then chooses among the tiers that call a model.
+     */
+    private suspend fun walkPicked(picking: PickingSpec, input: CommandInput): CommandOutcome? {
+        val head = ladder.tiers.takeWhile { it.capabilities.providers.isEmpty() }
+        val rest = ladder.tiers.drop(head.size)
+        return climb(head, input) ?: climb(rest.drop(StartTierPicking(scope).startIn(rest, picking, input)), input)
     }
 
     private suspend fun climb(tiers: List<CommandStrategy>, input: CommandInput): CommandOutcome? {
