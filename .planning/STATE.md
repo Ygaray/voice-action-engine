@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 13
 current_phase_name: on-device-model-spike
-current_plan: 4
+current_plan: 5
 status: executing
-stopped_at: Completed 13-03-PLAN.md
-last_updated: "2026-10-06T00:30:05.493Z"
+stopped_at: Completed 13-04-PLAN.md
+last_updated: "2026-10-06T00:38:33.735Z"
 last_activity: 2026-10-05
 last_activity_desc: Phase 12 complete, transitioned to Phase 13
-state_head: 8ee7b18c4dbb1f60a7f9dacf17fa80c7b1fc324b
+state_head: 8735acb2d5d7b63a7353aae409df6c445a67ab4e
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 19
-  completed_plans: 11
+  completed_plans: 12
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 13 (on-device-model-spike) — READY TO EXECUTE
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 11
 Status: Ready to execute
 Last activity: 2026-10-05 — Phase 12 complete, transitioned to Phase 13
@@ -108,6 +108,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P01 | 9 min | 3 tasks | 7 files |
 | Phase 13 P02 | 14min | 3 tasks | 6 files |
 | Phase 13 P03 | 17 min | 3 tasks | 19 files |
+| Phase 13 P04 | 10 min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,7 @@ Recent decisions affecting current work:
 - [Phase 13]: 13-01: litertlm 0.17.1 builds on the pinned toolchain (no D-02 fallback); 13-THRESHOLDS.md locked sha256 ec4933fb (commit c793a3b)
 - [Phase 13]: 13-02: ML denial is a module-name-scoped verifyNoMlArtifacts (core/providers/keystore), never a shared rule, so a later :ondevice module is not blocked
 - [Phase 13]: 13-03: verdict is a pure function of closed-grammar evidence; unmeasured gating metric is always red; 13-VERDICT reproducible via scripts/verify-spike-verdict.sh --check (worktree fallback at recorded code SHA) — SPIKE-02 reproducibility; time-box expiry becomes a code path, not a judgment
+- [Phase 13]: 13-04: constrained-decoding flag follows the ON/OFF arm; Route B keeps Required as offered-tools; no :core change — Pitfall 1: an unset engine flag could make the ON arm silently unconstrained; JNI behavior is verified only on the TESTER
 
 ### Pending Todos
 
@@ -158,8 +160,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T00:30:05.449Z
-Stopped at: Completed 13-03-PLAN.md
+Last session: 2026-10-06T00:38:30.628Z
+Stopped at: Completed 13-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
