@@ -1,0 +1,185 @@
+package io.github.ygaray.voiceactionengine.undo
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.lang.reflect.Modifier
+import kotlin.coroutines.cancellation.CancellationException
+
+/** The optional store hears every change and every drop, and can never change what the journal does. */
+class JournalStoreTest {
+
+    private class RecordingStore : JournalStore {
+        val saved = ArrayList<UndoGroup>()
+        val deleted = ArrayList<String>()
+        var saveFault: Throwable? = null
+        var deleteFault: Throwable? = null
+
+        override suspend fun save(group: UndoGroup) {
+            saved.add(group)
+            saveFault?.let { throw it }
+        }
+
+        override suspend fun delete(groupKey: String) {
+            deleted.add(groupKey)
+            deleteFault?.let { throw it }
+        }
+    }
+
+    private fun rigWith(store: RecordingStore, configure: UndoJournal.Builder.() -> Unit = {}) =
+        Rig(configure = {
+            this.store = store
+            configure()
+        })
+
+    private fun record(rig: Rig, group: String, position: Int = 0) = runSuspending {
+        val ticket = rig.journal.newTicket().also { it.nothingWritten() }
+        rig.journal.record(group, null, EntryRef(group, position, "t"), false, ticket)
+    }
+
+    @Test
+    fun theStoreIsToldAfterEveryChangeWithRisingRevisions() {
+        val store = RecordingStore()
+        val rig = rigWith(store)
+        rig.store.put("a", "v0")
+
+        rig.edit("g", 0, "a", "v1")
+        assertEquals(1, store.saved.size)
+        val afterRecord = store.saved.last()
+        assertEquals(1, afterRecord.count)
+
+        runSuspending { rig.journal.runClosed("g", "g", setOf(0)) }
+        assertEquals(2, store.saved.size)
+        assertTrue(store.saved.last().revision > afterRecord.revision)
+
+        assertTrue(rig.undoAll("g") is UndoResult.Complete)
+        assertEquals(3, store.saved.size)
+        assertEquals(0, store.saved.last().count)
+
+        runSuspending { rig.journal.withhold("h") }
+        assertEquals(4, store.saved.size)
+        assertTrue(store.saved.last().withheld)
+        assertEquals("h", store.saved.last().groupKey)
+        assertEquals(0, rig.journal.storeFaults)
+    }
+
+    @Test
+    fun aRefusedUndoWritesNothingSoTheStoreHearsNothing() {
+        val store = RecordingStore()
+        val rig = rigWith(store)
+        rig.store.put("a", "v0")
+        rig.edit("g", 0, "a", "v1")
+        rig.store.put("a", "later")
+        val before = store.saved.size
+
+        assertTrue(rig.undoAll("g") is UndoResult.Refused)
+
+        assertEquals(before, store.saved.size)
+    }
+
+    @Test
+    fun theStoreIsToldWhenTheCountDropsAGroup() {
+        val store = RecordingStore()
+        val rig = rigWith(store) { maxGroups = 1 }
+        record(rig, "g1")
+        record(rig, "g2")
+
+        assertEquals(listOf("g1"), store.deleted)
+    }
+
+    @Test
+    fun theStoreIsToldWhenTheAgeDropsAGroup() {
+        val store = RecordingStore()
+        var now = 0L
+        val rig = rigWith(store) {
+            maxAgeMillis = 1000
+            clock = { now }
+        }
+        record(rig, "g")
+
+        now = 1001
+        assertEquals(null, rig.group("g"))
+
+        assertEquals(listOf("g"), store.deleted)
+    }
+
+    @Test
+    fun aStoreThatThrowsChangesNothingAndEveryFaultIsCounted() {
+        val store = RecordingStore().apply {
+            saveFault = IllegalStateException(CANARY)
+            deleteFault = IllegalStateException(CANARY)
+        }
+        val rig = rigWith(store) { maxGroups = 1 }
+        rig.store.put("a", "v0")
+
+        rig.edit("g", 0, "a", "v1")
+        assertEquals(1, rig.journal.storeFaults)
+        assertEquals(1, rig.groupOf("g").count)
+
+        val result = rig.undoAll("g")
+        assertTrue(result.toString(), result is UndoResult.Complete)
+        assertEquals("v0", rig.store.get("a")?.value)
+        assertEquals(2, rig.journal.storeFaults)
+
+        record(rig, "other")
+        assertEquals(4, rig.journal.storeFaults)
+        assertFalse(rig.journal.toString().contains("canary"))
+    }
+
+    @Test
+    fun aCancellationFromTheStoreReachesTheCallerAndIsNotAFault() {
+        val store = RecordingStore().apply { saveFault = CancellationException(CANARY) }
+        val rig = rigWith(store)
+
+        try {
+            record(rig, "g")
+            throw AssertionError("the cancellation must propagate")
+        } catch (expected: CancellationException) {
+            assertNotNull(expected)
+        }
+
+        assertEquals(0, rig.journal.storeFaults)
+        assertEquals(1, rig.groupOf("g").count)
+    }
+
+    @Test
+    fun aCancellationFromADeleteReachesTheCallerToo() {
+        val store = RecordingStore().apply { deleteFault = CancellationException(CANARY) }
+        val rig = rigWith(store) { maxGroups = 1 }
+        record(rig, "g1")
+
+        try {
+            record(rig, "g2")
+            throw AssertionError("the cancellation must propagate")
+        } catch (expected: CancellationException) {
+            assertNotNull(expected)
+        }
+
+        assertEquals(0, rig.journal.storeFaults)
+    }
+
+    @Test
+    fun withoutAStoreNothingIsCalledAndThereAreNoFaults() {
+        val rig = Rig()
+        record(rig, "g")
+        rig.undoAll("g")
+
+        assertEquals(0, rig.journal.storeFaults)
+    }
+
+    @Test
+    fun theStoreSeamHasNoWayBackInAndTheViewCarriesNoUserData() {
+        val seam = JournalStore::class.java.declaredMethods.map { it.name }.toSet()
+        assertEquals(setOf("save", "delete"), seam)
+
+        val allowed = setOf(String::class.java, Long::class.javaPrimitiveType, Boolean::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType, List::class.java)
+        val surprising = UndoGroup::class.java.declaredMethods
+            .filter { Modifier.isPublic(it.modifiers) && !it.isSynthetic && it.name != "toString" }
+            .filter { it.returnType !in allowed }
+            .map { it.name }
+        assertTrue("members that could carry user data: $surprising", surprising.isEmpty())
+    }
+}

@@ -3,6 +3,7 @@ package io.github.ygaray.voiceactionengine.undo
 import io.github.ygaray.voiceactionengine.undo.internal.JournalState
 import io.github.ygaray.voiceactionengine.undo.internal.Recorded
 import io.github.ygaray.voiceactionengine.undo.internal.Retention
+import io.github.ygaray.voiceactionengine.undo.internal.StoreMirror
 import io.github.ygaray.voiceactionengine.undo.internal.UndoPass
 import io.github.ygaray.voiceactionengine.undo.internal.guardedCall
 import io.github.ygaray.voiceactionengine.undo.internal.requireToken
@@ -37,6 +38,7 @@ public class UndoJournal internal constructor(settings: Builder) {
     private val adapters: Map<String, EntityAdapter> = settings.adapters.toMap()
     private val compensators: Map<String, Compensator> = settings.compensators.toMap()
     private val clock: () -> Long = settings.clock
+    private val mirror = StoreMirror(settings.store)
     private val state: JournalState
     private val pass: UndoPass
 
@@ -46,7 +48,7 @@ public class UndoJournal internal constructor(settings: Builder) {
     init {
         require(settings.maxGroups >= 1) { "maxGroups must be at least 1" }
         require(settings.maxAgeMillis >= 1) { "maxAgeMillis must be at least 1" }
-        state = JournalState(Retention(settings.maxGroups, settings.maxAgeMillis), mirrored = false)
+        state = JournalState(Retention(settings.maxGroups, settings.maxAgeMillis), mirrored = mirror.enabled)
         pass = UndoPass(state, adapters, compensators)
     }
 
@@ -66,6 +68,12 @@ public class UndoJournal internal constructor(settings: Builder) {
          * hour. Must be at least 1.
          */
         public var maxAgeMillis: Long = AGE_LIMIT_MILLIS
+
+        /**
+         * An optional mirror of the journal, told about every change and every dropped group. The journal still lives
+         * in memory only: see [JournalStore]. Default none.
+         */
+        public var store: JournalStore? = null
 
         /** The time source for [maxAgeMillis], in milliseconds. Tests replace it; the default is the system clock. */
         public var clock: () -> Long = { System.currentTimeMillis() }
@@ -123,6 +131,7 @@ public class UndoJournal internal constructor(settings: Builder) {
         if (parentGroupKey != null) requireToken("parentGroupKey", parentGroupKey)
         val data = ticket?.takeIf { it.owner === this }?.freeze()
         state.append(groupKey, parentGroupKey, Recorded(entry, failed, data), now())
+        publish(groupKey)
     }
 
     /**
@@ -138,6 +147,7 @@ public class UndoJournal internal constructor(settings: Builder) {
         requireToken("groupKey", groupKey)
         requireToken("runId", runId)
         state.runClosed(groupKey, runId, appliedPositions.toSet(), now())
+        publish(groupKey)
     }
 
     /**
@@ -149,6 +159,7 @@ public class UndoJournal internal constructor(settings: Builder) {
     public suspend fun withhold(groupKey: String) {
         requireToken("groupKey", groupKey)
         state.withhold(groupKey, now())
+        publish(groupKey)
     }
 
     /**
@@ -158,7 +169,9 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun group(groupKey: String): UndoGroup? {
         requireToken("groupKey", groupKey)
-        return state.view(groupKey, now())
+        val view = state.view(groupKey, now())
+        publish(null)
+        return view
     }
 
     /**
@@ -172,7 +185,7 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun undoAll(groupKey: String): UndoResult {
         requireToken("groupKey", groupKey)
-        return pass.run(groupKey, null, now())
+        return undone(groupKey, pass.run(groupKey, null, now()))
     }
 
     /**
@@ -188,7 +201,23 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun undoEntry(groupKey: String, entry: EntryRef): UndoResult {
         requireToken("groupKey", groupKey)
-        return pass.run(groupKey, entry, now())
+        return undone(groupKey, pass.run(groupKey, entry, now()))
+    }
+
+    /** How many store calls threw. Always 0 without a [Builder.store]. A store fault never changes a result. */
+    public val storeFaults: Int
+        get() = mirror.faultCount
+
+    // A refusal wrote nothing, so there is no change for the store to hear about.
+    private suspend fun undone(groupKey: String, result: UndoResult): UndoResult {
+        publish(if (result is UndoResult.Refused) null else groupKey)
+        return result
+    }
+
+    // The store is app code: it is called here, after the journal's lock was given back.
+    private suspend fun publish(groupKey: String?) {
+        if (!mirror.enabled) return
+        mirror.deliver(state.drainDropped(), groupKey?.let(state::mirrorView))
     }
 
     // The time source is app code, so a fault in it never reaches the caller: the last good reading stands in.

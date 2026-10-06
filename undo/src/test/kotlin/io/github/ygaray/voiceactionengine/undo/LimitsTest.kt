@@ -66,6 +66,7 @@ class LimitsTest {
         assertNotNull(rig.group("g"))
         now = 1001
         assertNull(rig.group("g"))
+        assertEquals(UndoReason.UNKNOWN_GROUP, reason(rig.undoAll("g")))
     }
 
     @Test
