@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phase gate (NOT part of `check`): prove that every ML-denial gate (SC4, D-09) goes RED, and for the RIGHT reason, when an
 # on-device ML runtime or private spike artifact is planted, and GREEN on the clean tree.
-#   Part A  an ML dependency declared on :core, :providers and :keystore trips verifyNoMlArtifacts
+#   Part A  an ML dependency declared on any published module (scripts/modules.list) trips verifyNoMlArtifacts
 #   Part B  an ML token in :core main code trips the NoHardCodedConstantsTest on-device scan
 #   Part C  a model file, a private gold-label file and the private spike fixture file (temporary-index plants, the real index is never touched) and a
 #           jitpack.yml line naming the spike module trip scripts/verify-repo-hygiene.sh
@@ -9,6 +9,9 @@
 # Never commit a plant. Run:  scripts/verify-ml-denial-controls.sh   (a few minutes warm)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=lib/modules.sh
+. scripts/lib/modules.sh || { echo "ML DENIAL CONTROLS FAIL: cannot load scripts/lib/modules.sh" >&2; exit 1; }
+MODULES="$(vae_modules)" || { echo "ML DENIAL CONTROLS FAIL: module manifest unreadable" >&2; exit 1; }
 PLANTS=(); RESTORE=(); LOG="$(mktemp)"; BAK="$(mktemp -d)"
 key() { echo "${1//\//_}"; }
 cleanup() {
@@ -52,7 +55,7 @@ expect_task_green() { # <label> <gradle args...>
 }
 
 echo "== Part A: an ML dependency on a published module"
-for m in core providers keystore; do
+for m in $MODULES; do
   backup "$m/build.gradle.kts"
   printf '\ndependencies { implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.1") }\n' >> "$m/build.gradle.kts"
   expect_task_red "$m gains an ML dependency" "resolves ML artifacts" ":$m:verifyNoMlArtifacts"

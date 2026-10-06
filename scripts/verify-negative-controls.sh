@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Phase gate (NOT part of `check`): prove that every gate goes RED, and for the RIGHT reason, when its constraint is violated.
-#   Part 1  source plants: one construct per banned rule in each published module (base text tested on the research prototype)
-#   Part 2  build-file plants: each structural gate, with backup + restore of the touched build file
+#   Part 1  source plants: one construct per banned rule in each published module listed in scripts/modules.list (base text
+#           tested on the research prototype), plus the api.txt-missing control for each of them
+#   Part 2  build-file plants: each structural gate, with backup + restore of the touched build file; includes the three
+#           :undo zero-dependency plants (a project edge to :core, a library dependency, core testFixtures on its test classpath)
 #   Part 3  matrix guard: a wrong expected OkHttp version must fail each leg
 #   Part 4  opt-in seam: KeyAccess and its ApiKeyStore constructor need @OptIn from another module (scripts/verify-keyaccess-opt-in.sh)
 #   Part 5  ML denial (D-09): scripts/verify-ml-denial-controls.sh
@@ -9,6 +11,9 @@
 # Never commit a plant. Run:  scripts/verify-negative-controls.sh   (a few minutes warm)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# shellcheck source=lib/modules.sh
+. scripts/lib/modules.sh || { echo "NEGATIVE CONTROLS FAIL: cannot load scripts/lib/modules.sh" >&2; exit 1; }
+MODULES="$(vae_modules)" || { echo "NEGATIVE CONTROLS FAIL: module manifest unreadable" >&2; exit 1; }
 PLANTS=(); RESTORE=(); LOG="$(mktemp)"; BAK="$(mktemp -d)"
 key() { echo "${1//\//_}"; }
 cleanup() {
@@ -36,9 +41,10 @@ expect_task_red() { # <label> <marker> <gradle args...>
 
 expect_red() { # <label> <module> <kotlin-body> <gradle-task>...   (source plant in <module>/src/main)
   local label=$1 mod=$2 body=$3; shift 3
-  local dir="$mod/src/main/kotlin/io/github/ygaray/voiceactionengine/$mod"
+  local pkg; pkg="$(vae_module_field "$mod" kotlinPackage)" || { echo "FAIL  [$label] no kotlinPackage for $mod"; fails=$((fails+1)); return; }
+  local dir="$mod/src/main/kotlin/io/github/ygaray/voiceactionengine/$pkg"
   local f="$dir/ZzPlant.kt"; PLANTS+=("$f")
-  printf 'package io.github.ygaray.voiceactionengine.%s\n\n%s\n' "$mod" "$body" > "$f"
+  printf 'package io.github.ygaray.voiceactionengine.%s\n\n%s\n' "$pkg" "$body" > "$f"
   for task in "$@"; do
     local marker; case "$task" in
       *compile*Kotlin) marker="Visibility must be specified in explicit API mode" ;;
@@ -52,8 +58,8 @@ expect_red() { # <label> <module> <kotlin-body> <gradle-task>...   (source plant
 }
 
 echo "== Part 1: source plants"
-for m in core providers keystore; do
-  compile=":$m:compileKotlin"; [ "$m" = keystore ] && compile=":$m:compileReleaseKotlin"
+for m in $MODULES; do
+  compile=":$m:compileKotlin"; [ "$(vae_module_field "$m" packaging)" = aar ] && compile=":$m:compileReleaseKotlin"
   expect_red "public without modifier ($m)"  $m 'class NoVisibility(val x: Int)'                          "$compile"
   expect_red "DI import ($m)"                $m 'import javax.inject.Inject'                              ":$m:detekt" ":$m:scanBannedConstructs"
   expect_red "okhttp internal import ($m)"   $m 'import okhttp3.internal.Util'                            ":$m:detekt" ":$m:scanBannedConstructs"
@@ -74,7 +80,8 @@ fx="core/src/testFixtures/kotlin/io/github/ygaray/voiceactionengine/core/testing
 printf 'package io.github.ygaray.voiceactionengine.core.testing\n\ninternal const val P = "log_food"\n' > "$fx"
 expect_task_red "app-domain name (core testFixtures)" "Banned constructs" :core:scanBannedConstructs
 rm -f "$fx"
-for m in core providers; do   # :keystore compiles against android.jar, which legitimately carries newer JDK APIs
+for m in $MODULES; do   # aar modules (:keystore) compile against android.jar, which legitimately carries newer JDK APIs
+  [ "$(vae_module_field "$m" packaging)" = jar ] || continue
   MARKER="Unresolved reference" expect_red "JDK 16 API (Stream.toList) in a JVM-11 module ($m)" $m 'internal fun p(): List<Int> = java.util.stream.Stream.of(1).toList()' ":$m:compileKotlin"
 done
 MARKER="creates a DataStore" expect_red "DataStore creation in keystore main" keystore 'internal val p = androidx.datastore.preferences.core.PreferenceDataStoreFactory' ":keystore:verifyNoDataStoreCreation"
@@ -89,8 +96,12 @@ printf '\n// planted wiring: baseline.set(file("zz.xml"))\n' >> keystore/build.g
 expect_task_red "baseline wired via property set" "baseline wiring" :core:verifyNoDetektBaseline
 restore keystore/build.gradle.kts
 
-for m in core providers keystore; do
+# Every module tracks its api.txt since v1.0.0, so the control plants the absence itself and restores the file afterwards.
+for m in $MODULES; do
+  backup "$m/api.txt"
+  rm -f "$m/api.txt"
   expect_task_red "api.txt missing once released ($m)" "api.txt is missing" ":$m:verifyApiDumpPresent" -PvaeAssumeReleased
+  restore "$m/api.txt"
 done
 
 echo "== Part 2: build-file plants (backup + restore)"
@@ -129,6 +140,20 @@ restore core/build.gradle.kts
 sed -i '/testFixtures\(Api\|Runtime\)Elements/d' core/build.gradle.kts
 expect_task_red "testFixtures leak into the published component" "testFixtures leaked" :core:verifyNoTestFixturesPublished
 restore core/build.gradle.kts
+
+# :undo promises nothing but the Kotlin standard library: three ways to break that, each caught by its own gate.
+backup undo/build.gradle.kts
+printf '\ndependencies { implementation(project(":core")) }\n' >> undo/build.gradle.kts
+expect_task_red "forbidden project edge undo -> core" "forbidden project dependencies" :undo:verifyModuleGraph
+restore undo/build.gradle.kts
+
+printf '\ndependencies { implementation(libs.coroutines.core) }\n' >> undo/build.gradle.kts
+expect_task_red "undo gains a library dependency" "depends on more than the Kotlin standard library" :undo:verifyUndoZeroDeps
+restore undo/build.gradle.kts
+
+printf '\ndependencies { testImplementation(testFixtures(project(":core"))) }\n' >> undo/build.gradle.kts
+expect_task_red "undo test classpath gains core testFixtures" "forbidden project dependencies" :undo:verifyModuleGraph
+restore undo/build.gradle.kts
 
 echo "== Part 3: matrix guard rejects a wrong expected OkHttp version (the marker also proves which version each leg really ran)"
 VERBOSE=1 expect_task_red "guard, 4.12.0 leg" "OKHTTP_RUNTIME=4.12.0 expected=9.9.9" :providers:cleanTest :providers:test -PvaeExpectedOkhttp=9.9.9
