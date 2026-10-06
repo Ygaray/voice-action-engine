@@ -104,4 +104,44 @@ class SchemaSubsetTest {
         val schema = obj("""{"type":"null"}""")
         assertTrue(check(schema, "null") is UnknownKeyword)
     }
+
+    @Test
+    fun theSbFixtureKeywordsAreSupportedOrAnnotations() {
+        val schema = obj(
+            """{"type":"object","properties":{"id":{"type":"string","format":"uuid","pattern":"^[0-9a-f-]+$"},""" +
+                """"n":{"type":"integer","minimum":0,"maximum":10,"default":3},"s":{"type":"string","minLength":1,"maxLength":3},""" +
+                """"a":{"type":"array","maxItems":2,"items":{"type":"string"}}}}""",
+        )
+        assertTrue(SchemaSubset.keywordsIn(schema).unknown.isEmpty())
+    }
+
+    @Test
+    fun boundsAreEnforcedForStringsNumbersAndArrays() {
+        val schema = obj(
+            """{"type":"object","properties":{"n":{"type":"integer","minimum":0,"maximum":10},""" +
+                """"s":{"type":"string","minLength":1,"maxLength":3},"a":{"type":"array","maxItems":2}}}""",
+        )
+        assertEquals(SchemaResult.Valid, check(schema, """{"n":10,"s":"abc","a":[1,2]}"""))
+        assertEquals(SchemaResult.Invalid(SchemaSubset.OUT_OF_RANGE), check(schema, """{"n":11}"""))
+        assertEquals(SchemaResult.Invalid(SchemaSubset.OUT_OF_RANGE), check(schema, """{"n":-1}"""))
+        assertEquals(SchemaResult.Invalid(SchemaSubset.LENGTH), check(schema, """{"s":""}"""))
+        assertEquals(SchemaResult.Invalid(SchemaSubset.LENGTH), check(schema, """{"s":"abcd"}"""))
+        assertEquals(SchemaResult.Invalid(SchemaSubset.TOO_MANY_ITEMS), check(schema, """{"a":[1,2,3]}"""))
+    }
+
+    @Test
+    fun patternAndUuidFormatAreEnforced() {
+        val schema = obj("""{"type":"object","properties":{"id":{"type":"string","format":"uuid"},"c":{"type":"string","pattern":"^[a-z]+$"}}}""")
+        assertEquals(SchemaResult.Valid, check(schema, """{"id":"3f2504e0-4f89-41d3-9a0c-0305e82c3301","c":"abc"}"""))
+        assertEquals(SchemaResult.Invalid(SchemaSubset.FORMAT_MISMATCH), check(schema, """{"id":"not-a-uuid"}"""))
+        assertEquals(SchemaResult.Invalid(SchemaSubset.PATTERN_MISMATCH), check(schema, """{"c":"ABC"}"""))
+    }
+
+    @Test
+    fun anUnknownFormatOrABrokenPatternIsStillUnknown() {
+        val format = obj("""{"type":"string","format":"date-time"}""")
+        val pattern = obj("""{"type":"string","pattern":"(["}""")
+        assertEquals(listOf(UnknownKeyword("format:date-time")), SchemaSubset.keywordsIn(format).unknown)
+        assertEquals(listOf(UnknownKeyword("pattern:invalid")), SchemaSubset.keywordsIn(pattern).unknown)
+    }
 }
