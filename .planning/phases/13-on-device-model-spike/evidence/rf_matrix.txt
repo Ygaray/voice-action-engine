@@ -1,0 +1,22 @@
+# spike stage=rf_matrix captured_utc=2026-10-06T03:02:37Z target=R5CT10XNKQN head=da22d3ea85
+VAE_SPIKE_THERMAL stage=rf_matrix status=none point=start
+VAE_SPIKE_SCHEMAPROBE feature=flat constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=flat constraint=on_noflag trials=5 invalid=1
+VAE_SPIKE_SCHEMAPROBE feature=flat constraint=on trials=5 invalid=1 disposition=ignored constrained_flag=na
+VAE_SPIKE_SCHEMAPROBE feature=required constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=required constraint=on trials=5 invalid=0 disposition=enforced
+VAE_SPIKE_SCHEMAPROBE feature=enum constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=enum constraint=on trials=5 invalid=0 disposition=enforced
+VAE_SPIKE_SCHEMAPROBE feature=nested constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=nested constraint=on trials=5 invalid=0 disposition=enforced
+VAE_SPIKE_SCHEMAPROBE feature=array constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=array constraint=on trials=5 invalid=0 disposition=enforced
+VAE_SPIKE_SCHEMAPROBE feature=anyof constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=anyof constraint=on trials=5 invalid=0 disposition=enforced
+VAE_SPIKE_SCHEMAPROBE feature=bounds constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=bounds constraint=on trials=5 invalid=1 disposition=ignored
+VAE_SPIKE_SCHEMAPROBE feature=addl_false constraint=off trials=5 invalid=5
+VAE_SPIKE_SCHEMAPROBE feature=addl_false constraint=on trials=5 invalid=0 disposition=enforced
+VAE_SPIKE_MEM stage=rf_matrix peak_pss_mb=2478 interval_ms=250 samples=4210
+VAE_SPIKE_THERMAL stage=rf_matrix status=none point=end
+VAE_SPIKE_STAGE stage=rf_matrix result=done trials=0 planned=0
