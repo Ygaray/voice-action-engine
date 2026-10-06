@@ -3,7 +3,7 @@
 # on-device ML runtime or private spike artifact is planted, and GREEN on the clean tree.
 #   Part A  an ML dependency declared on :core, :providers and :keystore trips verifyNoMlArtifacts
 #   Part B  an ML token in :core main code trips the NoHardCodedConstantsTest on-device scan
-#   Part C  a model file, a private gold-label file (temporary-index plants, the real index is never touched) and a
+#   Part C  a model file, a private gold-label file and the private spike fixture file (temporary-index plants, the real index is never touched) and a
 #           jitpack.yml line naming the spike module trip scripts/verify-repo-hygiene.sh
 # Every plant is removed on exit (trap); the script then asserts the touched build files are byte-identical to their backups.
 # Never commit a plant. Run:  scripts/verify-ml-denial-controls.sh   (a few minutes warm)
@@ -86,7 +86,7 @@ else
   real_index="$(git rev-parse --git-path index)"
   tmp_index="$(mktemp)"; PLANTS+=("$tmp_index")
   cp "$real_index" "$tmp_index"
-  for plant in zz-plant.litertlm zz-plant-sb-gold.json; do
+  for plant in zz-plant.litertlm zz-plant-sb-gold.json zz-plant-sb-fixture.json; do
     PLANTS+=("$plant"); : > "$plant"
     GIT_INDEX_FILE="$tmp_index" git add -f -- "$plant"
     GIT_INDEX_FILE="$tmp_index" expect_hygiene_red "hygiene sees $plant" "c: forbidden file(s) present"
