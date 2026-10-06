@@ -92,9 +92,9 @@ internal fun routerRequest(
     listOf(routerToolSpec(eligible)),
     ToolChoice.Required(ROUTER_TOOL),
     policy.maxTokensPerTurn,
-    CacheDirective(false),
-    true,
-    ReasoningMode.OFF,
+    cache = CacheDirective(false),
+    singleToolCall = true,
+    reasoning = ReasoningMode.OFF,
 )
 
 /**

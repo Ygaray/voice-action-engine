@@ -6,6 +6,9 @@ import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 private const val CUSTOM_PICKER_ID = "start_tier_picker"
 private const val ROUTER_PICKER_ID = "start_tier_router"
 
+// The start index shared by every selector that starts at the first eligible tier: null when there is none.
+private fun firstIfAny(eligible: List<StrategyId>): Int? = if (eligible.isEmpty()) null else 0
+
 /**
  * Decides which tier of the ladder a command starts at. Use [Linear] to start at the first tier that may run, [Fixed]
  * to start at one named tier and climb from there, [Custom] to let your own [StartTierPicker] choose among the
@@ -28,7 +31,7 @@ public abstract class TierSelector internal constructor() {
 
     /** Starts at the first tier that may run. This is the default. */
     public object Linear : TierSelector() {
-        override fun startIndex(eligible: List<StrategyId>): Int? = if (eligible.isEmpty()) null else 0
+        override fun startIndex(eligible: List<StrategyId>): Int? = firstIfAny(eligible)
 
         override fun toString(): String = "Linear"
     }
@@ -61,7 +64,7 @@ public abstract class TierSelector internal constructor() {
 
         override val picking: PickingSpec = PickingSpec(picker, id, settings.capabilities, false)
 
-        override fun startIndex(eligible: List<StrategyId>): Int? = if (eligible.isEmpty()) null else 0
+        override fun startIndex(eligible: List<StrategyId>): Int? = firstIfAny(eligible)
 
         override fun toString(): String = "Custom(id=$id)"
 
@@ -108,7 +111,7 @@ public abstract class TierSelector internal constructor() {
         override val picking: PickingSpec =
             PickingSpec(RouterPicker(descriptions), id, settings.capabilities, skipsSingleTier = true)
 
-        override fun startIndex(eligible: List<StrategyId>): Int? = if (eligible.isEmpty()) null else 0
+        override fun startIndex(eligible: List<StrategyId>): Int? = firstIfAny(eligible)
 
         override fun toString(): String = "Router(id=$id, tierDescriptions=${descriptions.size})"
 
