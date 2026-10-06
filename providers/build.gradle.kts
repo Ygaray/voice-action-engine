@@ -109,6 +109,22 @@ tasks.register<Test>("liveChatCompletionsCapture") {
     testLogging { showStandardStreams = true }
 }
 
+// Opt-in live probe of the plan tier's D-04 binding syntax: never a dependency of check, never up to date, and skipped
+// unless VAE_LIVE_PLAN is 1. The class name contains Live, so test and both matrix legs keep excluding it.
+tasks.register<Test>("livePlanProbe") {
+    group = "verification"
+    description = "Opt-in: bounded real calls of the plan tier's binding syntax (claude-haiku-4-5 and gpt-5.4-mini, " +
+        "two scenarios each; at most 8 requests; needs VAE_LIVE_PLAN=1 and the two keys)"
+    val testSet = liveTestSet
+    testClassesDirs = testSet.output.classesDirs
+    classpath = testSet.runtimeClasspath
+    filter { includeTestsMatching("*PlanBindingLiveProbeTest") }
+    outputs.upToDateWhen { false }
+    val optIn = providers.environmentVariable("VAE_LIVE_PLAN")
+    onlyIf { optIn.orNull == "1" }
+    testLogging { showStandardStreams = true }
+}
+
 okhttpLegs.forEach { (legName, legVersion) ->
     val legClasspath = configurations.create("test${legName}RuntimeClasspath") {
         isCanBeConsumed = false
