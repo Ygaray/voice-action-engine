@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 17
 current_phase_name: Run-Level Undo
-current_plan: 6
+current_plan: 7
 status: executing
-stopped_at: Completed 17-05-PLAN.md
-last_updated: "2026-10-06T23:11:19.994Z"
+stopped_at: Completed 17-06-PLAN.md
+last_updated: "2026-10-06T23:18:56.047Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 17 execution started
-state_head: 151f3fe6a7d31b7e9595247cecdfa9f8b9d86e90
+state_head: bb3d5296b47df362aa43d8d05d47cab8f0059b93
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 53
-  completed_plans: 48
+  completed_plans: 49
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 17 (Run-Level Undo) — EXECUTING
-Current Plan: 6
+Current Plan: 7
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 17 execution started
@@ -142,6 +142,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17 P03 | 25min | 3 tasks | 7 files |
 | Phase 17 P04 | 15min | 3 tasks | 8 files |
 | Phase 17 P05 | 40min | 3 tasks | 17 files |
+| Phase 17 P06 | 40min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -186,6 +187,8 @@ Recent decisions affecting current work:
 - [Phase 16]: 16-06: Router model comes only from the app's selection for start_tier_router; single-model-tier skip lives in StartTierPicking (skipsSingleTier), no call, no record
 - [Phase 17]: 17-01: :undo scaffold lands with stdlib-only gates; module list is data in scripts/modules.list read by verify-module-manifest.sh
 - [Phase 17]: 17-02: compositeSink runs all children then throws one fixed-text counts-only fault (sink_error visible, outcome unchanged); heldRunId set only by commitHeld
+- [Phase 17]: 17-06: compensators are independent of each other (one failing never stops the rest); effects of an action run in reverse declaration order; an unrestored action's effects are SKIPPED_AFTER_FAILURE
+- [Phase 17]: 17-06: JournalState.claim is the single place deciding group refusal reasons (unknown, in progress, withheld); the undoing flag is released in finally
 
 ### Pending Todos
 
@@ -213,8 +216,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T23:11:19.906Z
-Stopped at: Completed 17-05-PLAN.md
+Last session: 2026-10-06T23:18:55.963Z
+Stopped at: Completed 17-06-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
