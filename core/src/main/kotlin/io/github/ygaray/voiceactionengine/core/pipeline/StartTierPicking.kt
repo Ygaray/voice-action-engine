@@ -64,7 +64,9 @@ private const val SELECTION_FALLBACK = "router_fallback"
 /**
  * Asks a picker where the model walk starts. The answer is accepted only when it names one of the eligible model
  * tiers; anything else starts at the first of them and is recorded as `router_fallback`. A picker the policy would not
- * let run as a tier (by the same static rule) is not called either.
+ * let run as a tier (by the same static rule) is not called either. A picker that skips a single eligible tier (the
+ * engine router) is not called, and nothing is recorded, when exactly one model tier is eligible: there is nothing to
+ * choose.
  */
 internal class StartTierPicking(private val scope: RunScope, private val ladder: Ladder) {
     /** The index in [rest] the walk starts at. [rest] is the ladder after the tiers that make no model call. */
@@ -74,6 +76,15 @@ internal class StartTierPicking(private val scope: RunScope, private val ladder:
             scope.recorder.recordCode(TraceCode.ROUTER_FALLBACK)
             return 0
         }
+        return if (spec.skipsSingleTier && llm.size == 1) 0 else ask(rest, spec, input, llm)
+    }
+
+    private suspend fun ask(
+        rest: List<CommandStrategy>,
+        spec: PickingSpec,
+        input: CommandInput,
+        llm: List<StrategyId>,
+    ): Int {
         scope.recorder.selectionBook.started(spec.id, llm)
         val choice = guarded(onFault = { null }) {
             withTimeoutOrNull(scope.policy.pickerTimeoutMillis) {
