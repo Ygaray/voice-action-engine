@@ -28,7 +28,9 @@ import io.github.ygaray.voiceactionengine.spike.ladder.Ladder
 import io.github.ygaray.voiceactionengine.spike.ladder.LadderEnv
 import io.github.ygaray.voiceactionengine.spike.ladder.ModelFile
 import io.github.ygaray.voiceactionengine.spike.ladder.Probes
+import io.github.ygaray.voiceactionengine.spike.ladder.RfProbes
 import io.github.ygaray.voiceactionengine.spike.ladder.StateStore
+import io.github.ygaray.voiceactionengine.spike.verdict.VerdictRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
@@ -959,5 +961,50 @@ class LadderTest {
 
         assertFalse(text.contains("pos en"))
         assertFalse(text.contains("milk", ignoreCase = true))
+    }
+
+    // ---- the verdict reader ------------------------------------------------------------------------------------------
+
+    @Test
+    fun theLadderEvidenceIsReadByTheVerdictCodeWithEveryMetricMeasuredAndTheWinnerConsistent() = runTest {
+        val probes = FakeProbes()
+        val rig = LadderRig(
+            tmp.root,
+            probes = probes,
+            backend = {
+                RecordingBackend(BackendLog()) { request, _ ->
+                    when {
+                        request.system == RfProbes.SYSTEM -> answerOf(if (request.constraintOn) obeying(request) else "no json here")
+                        request.user == "Say ok." -> answerOf("ok", request.system.length / 4, 900.0, 800.0)
+                        else -> {
+                            probes.clockMs += 1000L
+                            trialAnswer(request)
+                        }
+                    }
+                }
+            },
+            smallGold = { trialGold(posEn = 50, posEs = 50, neg = 30, forced = 3) },
+            screenN = 20,
+        )
+        rig.placeModel(ModelFile.E2B_GENERIC)
+        rig.placeModel(ModelFile.E2B_GPU)
+
+        val order = listOf(
+            Stage.PREPARE, Stage.PREFLIGHT, Stage.INIT, Stage.PREFILL, Stage.KV_REUSE, Stage.RF_MATRIX,
+            Stage.SCREEN_SMALL, Stage.CONFIRM_SMALL, Stage.SUSTAINED_SMALL, Stage.EXIT_REASONS,
+        )
+        for (stage in order) rig.ladder.run(stage)
+
+        val lines = order.flatMap { rig.sink.lines(it) }
+        val small = VerdictRules.evaluate(lines).render().first { it.startsWith("SPIKE_VERDICT envelope=small") }
+        assertFalse(small, small.contains("unmeasured"))
+        assertFalse(small, small.contains("inconsistent"))
+        assertFalse(small, small.contains("incomplete_stage"))
+        assertFalse(small, small.contains("early_exit"))
+        assertTrue(small, small.contains("cell=e2b.cpu.a.auto") || small.contains("cell=e2b.gpu.a.auto"))
+        assertTrue(small, small.contains("deaths=0"))
+        assertTrue(small, small.contains("kv_reuse=not_reused"))
+        assertTrue(small, small.contains("rf_enforced=enforced"))
+        assertTrue(small, small.contains("gpu_adreno730=gpu_ok"))
     }
 }

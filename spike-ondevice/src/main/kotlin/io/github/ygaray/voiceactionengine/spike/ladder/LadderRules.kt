@@ -106,7 +106,7 @@ internal object LadderRules {
     const val THERMAL_BLOCK_TRIALS = 10
 
     /** A sustained run is cut off at this many trials or this much time even if it is not done (it then reads incomplete). */
-    const val SUSTAINED_MAX_TRIALS = 1000
+    const val SUSTAINED_MAX_TRIALS = 5000
     const val SUSTAINED_MAX_MS = 900_000L
 
     /**
