@@ -12,7 +12,8 @@ class DigitGroupingTest {
 
     private fun integer(language: String, vararg keys: String): Long? = NumberWords.integer(keys.toList(), language)
 
-    private fun decimal(language: String, vararg keys: String): BigDecimal? = NumberWords.decimal(keys.toList(), language)
+    private fun decimal(language: String, vararg keys: String): BigDecimal? =
+        NumberWords.decimal(keys.toList(), language)
 
     private fun assertInteger(expected: Long, language: String, vararg keys: String) {
         assertEquals("integer ${keys.toList()} in $language", expected, integer(language, *keys))
