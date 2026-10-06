@@ -29,8 +29,8 @@
 #   4  clean        nothing staged; no uncommitted or untracked file outside the orchestrator bookkeeping paths
 #   5  pushed       HEAD equals origin/main exactly
 #   6  wiring       the wiring SHA is an ancestor of HEAD and 11-WIRING-RERUN.md (read from HEAD) passes for exactly it
-#   7  diff         since the wiring SHA only the three api.txt files, paths under .planning/ and (ledger rows only) the
-#                   contract's section 11 table changed
+#   7  diff         since the wiring SHA only the module api.txt files (scripts/modules.list), paths under .planning/ and
+#                   (ledger rows only) the contract's section 11 table changed
 #   8  waiver       a PATCH release may carry, in HEAD, a no-waiver statement .planning/releases/<tag>/NO-WAIVERS.md (the
 #                   lines "tag: <tag>" and "no waivers: patch release"): then there is nothing to answer. Otherwise the
 #                   waiver packet in HEAD is accepted with no pending row, at least one pre-freeze (category C) row exists
@@ -38,14 +38,15 @@
 #   -- the six ROADMAP SC1 release gates, all on the content of HEAD --
 #   9  check        ./gradlew check green in a clean archive of HEAD
 #   10 api-dump     a fresh apiDump of HEAD (made in an isolated copy, so no tracked file is ever rewritten) equals the
-#                   three api.txt committed in HEAD, byte for byte
+#                   module api.txt files committed in HEAD, byte for byte
 #   11 hygiene      PRE_RELEASE=0 repository hygiene (api.txt tracked, no fixture, no baseline)
 #   12 api-check    the committed api.txt is checked against the one released in the previous release tag (a patch release
 #                   must be byte-identical to it, a minor or major release may only add lines), then ./gradlew apiCheck is
 #                   green AND every module's compatibility task actually executed
 #   13 dry-run      clean-clone JitPack dry run from jitpack.yml's install list (never :sample), VERSION=<tag>
 #   14 leak         tracked-content scan for the A10 fixture name and key-shaped strings
-#   15 version      the published coordinates carry the tag version (POM, .module, providers/keystore -> core)
+#   15 version      the published coordinates carry the tag version (POM, .module; every dependsOnCore=yes module depends on
+#                   core at the tag, every other non-core module does not depend on core)
 # That is 15 gates; the PREFLIGHT OK line lists the gates it ran, in order. One more gate exists only as a DIAGNOSTIC and is
 # not part of preflight (waiver already covers it): `prefreeze`, run before the api.txt baseline is dumped (plan 11-07).
 # It requires every category C (pre-freeze API confirmation) row of the waiver packet to be answered ok, accept or waive,
@@ -78,8 +79,15 @@ NO_WAIVER_LINE="no waivers: patch release"
 WIRING_RECORD=".planning/phases/11-cut-v1-0-0/11-WIRING-RERUN.md"
 # The waiver packet and its answer block (grammar from 11-01). Used when a release has no no-waiver statement.
 WAIVER_PACKET=".planning/phases/11-cut-v1-0-0/11-WAIVER-PACKET.md"
-# The three Metalava dumps committed with the first release and kept from then on as the released-API baseline.
-MODULES="core providers keystore"
+# The api.txt dumps of every published module (HEAD's scripts/modules.list), committed with the first release that carries
+# each module and kept from then on as the released-API baseline.
+HEAD_MANIFEST="$(git show HEAD:scripts/modules.list 2>/dev/null)" || { echo "RELEASE USAGE: HEAD has no scripts/modules.list" >&2; exit 2; }
+# Module names (first column) of the non-comment 5-field rows of a manifest read on stdin, in file order.
+manifest_names() { awk '{ sub(/#.*/, "") } NF == 5 { printf "%s%s", (n++ ? " " : ""), $1 } END { print "" }'; }
+MODULES="$(manifest_names <<<"$HEAD_MANIFEST")"
+# The artifactId (third column) of module $1 in HEAD's manifest.
+vae_artifact_of() { awk -v m="$1" '{ sub(/#.*/, "") } NF == 5 && $1 == m { print $3; exit }' <<<"$HEAD_MANIFEST"; }
+[ -n "$MODULES" ] || { echo "RELEASE USAGE: HEAD's scripts/modules.list lists no module" >&2; exit 2; }
 CONTRACT="CROSS-REPO-SCOPE-CONTRACT.md"
 # Paths excluded from the clean gate. Each is orchestrator bookkeeping that never reaches an artifact, because every
 # gate below builds from the content of HEAD, never from the working tree:
@@ -97,6 +105,10 @@ GATE_ORDER=(tag-format tags-absent create-tag clean pushed wiring diff waiver ch
 TMPROOT=""
 DRY_M2=""
 mk_tmp() { if [ -z "$TMPROOT" ]; then TMPROOT="$(mktemp -d)"; fi; }
+# Writes HEAD's manifest into the temp root (for the python helper) and prints its path.
+manifest_head_file() { mk_tmp; printf '%s\n' "$HEAD_MANIFEST" >"$TMPROOT/modules.list"; printf '%s\n' "$TMPROOT/modules.list"; }
+# True when $1 is the api.txt of a manifest module (exact paths, no glob).
+is_module_api() { local m; for m in $MODULES; do [ "$1" = "$m/api.txt" ] && return 0; done; return 1; }
 # One temp root holds all work. Gradle homes created by the probe may symlink wrapper to the real ~/.gradle/wrapper, so the
 # symlinks are unlinked before the recursive remove can ever reach through them. KEEP_WORK=1 keeps the root for debugging.
 cleanup() {
@@ -312,9 +324,9 @@ gate_diff() {
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     case "$f" in
-      core/api.txt | providers/api.txt | keystore/api.txt | .planning/*) ;;
+      .planning/*) ;;
       "$CONTRACT") if ! contract_change_is_ledger_only "$full"; then offenders+=("$f"); fi ;;
-      *) offenders+=("$f") ;;
+      *) is_module_api "$f" || offenders+=("$f") ;;
     esac
   done <<<"$names"
   if [ "${#offenders[@]}" -gt 0 ]; then
@@ -324,7 +336,7 @@ gate_diff() {
         echo "  a peer or orchestrator commit after the wiring SHA changed the contract outside the section 11 ledger rows: relay to yahir-gsd-control-plane-f2; resolution is an isolated wiring rerun on a SHA that contains it" >&2
       fi
     done
-    gate_fail diff "${#offenders[@]} path(s) changed since the wiring SHA ${full:0:10} outside core|providers|keystore/api.txt and .planning/ (the wiring pass would be void)"
+    gate_fail diff "${#offenders[@]} path(s) changed since the wiring SHA ${full:0:10} outside the module api.txt files (scripts/modules.list) and .planning/ (the wiring pass would be void)"
   fi
   gate_ok diff
 }
@@ -470,6 +482,10 @@ gate_hygiene() {
     gate_fail hygiene "PRE_RELEASE=0 scripts/verify-repo-hygiene.sh failed"
   fi
   grep -q '^HYGIENE OK$' <<<"$out" || gate_fail hygiene "no HYGIENE OK line"
+  if ! out="$("$REPO/scripts/verify-module-manifest.sh" 2>&1)" || ! grep -q 'MODULE MANIFEST OK' <<<"$out"; then
+    echo "$out" >&2
+    gate_fail hygiene "scripts/verify-module-manifest.sh failed"
+  fi
   gate_ok hygiene
 }
 
@@ -661,7 +677,7 @@ PY
 
 # The published coordinates carry the tag. JitPack exports VERSION=<tag> for a tag build (it exported the commit SHA for the
 # Phase 1 SHA builds), the root build reads VERSION into engineVersion, and the dry run exports VERSION=<tag> the same way.
-# So when every POM, .module and the providers/keystore -> core dependency in the dry run's maven-local carry <tag>, the
+# So when every POM, .module and the core dependency of every dependsOnCore=yes module in the dry run's maven-local carry <tag>, the
 # coordinates JitPack serves for the tag build carry exactly that string. engineVersion's 0.0.0-local default is a local
 # placeholder that never reaches a publication.
 # The static half of the version gate: HEAD's build files must let JitPack's VERSION decide the coordinates. It needs no build
@@ -684,47 +700,8 @@ gate_version() {
   version_static_checks "$tag"
   group="$(git show HEAD:gradle.properties | awk -F= '/^engineGroup=/ { print $2; exit }')"
   [ -n "$group" ] || gate_fail version "engineGroup is missing from gradle.properties"
-  python3 - "$DRY_M2" "$group" "$tag" <<'PY' || gate_fail version "a published artifact does not carry version $tag (reason above)"
-import json, os, sys
-import xml.etree.ElementTree as ET
-
-m2, group, tag = sys.argv[1:4]
-core = "voice-action-engine-core"
-bad = []
-for m in ("core", "providers", "keystore"):
-    art = "voice-action-engine-" + m
-    d = os.path.join(m2, *group.split("."), art, tag)
-    pom = os.path.join(d, "%s-%s.pom" % (art, tag))
-    mod = os.path.join(d, "%s-%s.module" % (art, tag))
-    if not os.path.isfile(pom):
-        bad.append("%s: POM %s-%s.pom is missing" % (m, art, tag))
-        continue
-    root = ET.parse(pom).getroot()
-    ns = root.tag[: root.tag.index("}") + 1] if root.tag.startswith("{") else ""
-    ver = root.find(ns + "version")
-    if ver is None or (ver.text or "").strip() != tag:
-        bad.append("%s: the POM project version is not %s" % (m, tag))
-    if m != "core":
-        deps = [x for x in root.iter(ns + "dependency") if (x.findtext(ns + "artifactId") or "").strip() == core]
-        if not deps:
-            bad.append("%s: the POM does not depend on %s" % (m, core))
-        for x in deps:
-            if (x.findtext(ns + "version") or "").strip() != tag:
-                bad.append("%s: the POM depends on %s at a version other than %s" % (m, core, tag))
-    if not os.path.isfile(mod):
-        bad.append("%s: %s-%s.module is missing" % (m, art, tag))
-        continue
-    doc = json.load(open(mod, encoding="utf-8"))
-    if doc.get("component", {}).get("version") != tag:
-        bad.append("%s: the .module component version is not %s" % (m, tag))
-    for variant in doc.get("variants", []):
-        for dep in variant.get("dependencies", []):
-            if dep.get("module") == core and dep.get("version", {}).get("requires") != tag:
-                bad.append("%s: a .module dependency on %s is not at %s" % (m, core, tag))
-for b in bad:
-    sys.stderr.write("  " + b + "\n")
-sys.exit(1 if bad else 0)
-PY
+  python3 "$REPO/scripts/lib/published_versions.py" "$DRY_M2" "$group" "$tag" "$(manifest_head_file)" \
+    || gate_fail version "a published artifact does not carry version $tag (reason above)"
   gate_ok version
 }
 
@@ -794,12 +771,13 @@ run_cut() {
   [ "$(git rev-parse HEAD)" = "$full" ] || cut_fail "HEAD moved during the preflight"
   gate_tags_absent "$tag"
   group="$(awk -F= '/^engineGroup=/ { print $2; exit }' gradle.properties)"
+  coords=""
+  for m in $MODULES; do coords="${coords:+$coords
+}  $group:$(vae_artifact_of "$m"):$tag"; done
   msg="voice-action-engine $tag
 
 Coordinates (JitPack, per module):
-  $group:voice-action-engine-core:$tag
-  $group:voice-action-engine-providers:$tag
-  $group:voice-action-engine-keystore:$tag
+$coords
 Wiring-tested SHA: $(full_sha "$wiring")
 Contract: CROSS-REPO-SCOPE-CONTRACT.md (the section 11 ledger row for $tag lists what this release contains).
 Section 11 ledger row: messaged to the orchestrator, the sole ledger writer (A14)."
@@ -910,15 +888,18 @@ EOF
   git -C "$SB_CLONE" add -- "$WIRING_RECORD" "$WAIVER_PACKET"
   git -C "$SB_CLONE" commit --quiet -m "selftest: synthetic wiring record and accepted packet"
 
-  # 4. The three api.txt dumps. Once a release exists they are tracked in HEAD and a fresh dump must not change them; a
+  # 4. The module api.txt dumps. Once a release exists they are tracked in HEAD and a fresh dump must not change them; a
   #    HEAD that predates the first release has none yet, and the dump becomes the freeze (committed here).
   if [ -f "$REPO/local.properties" ]; then cp "$REPO/local.properties" "$SB_CLONE/"; fi
   (cd "$SB_CLONE" && ./gradlew apiDump --console=plain) >"$sb/apidump.log" 2>&1 || { tail -20 "$sb/apidump.log" >&2; sf "apiDump failed in the sandbox clone"; }
-  if git -C "$SB_CLONE" ls-files --error-unmatch -- core/api.txt providers/api.txt keystore/api.txt >/dev/null 2>&1; then
-    git -C "$SB_CLONE" diff --quiet -- core/api.txt providers/api.txt keystore/api.txt \
+  # The module list is the sandbox's own manifest (overlaid above), so a module added to it is dumped and committed here too.
+  SB_APIS=()
+  for m in $(manifest_names <"$SB_CLONE/scripts/modules.list"); do SB_APIS+=("$m/api.txt"); done
+  if git -C "$SB_CLONE" ls-files --error-unmatch -- "${SB_APIS[@]}" >/dev/null 2>&1; then
+    git -C "$SB_CLONE" diff --quiet -- "${SB_APIS[@]}" \
       || sf "apiDump changed an api.txt that is already tracked: the released baseline must not move"
   else
-    git -C "$SB_CLONE" add -- core/api.txt providers/api.txt keystore/api.txt
+    git -C "$SB_CLONE" add -- "${SB_APIS[@]}"
     git -C "$SB_CLONE" commit --quiet -m "selftest: commit the api.txt baseline"
   fi
 
