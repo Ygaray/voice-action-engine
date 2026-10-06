@@ -1,0 +1,9 @@
+# The single list of published modules. Every script reads it through scripts/lib/modules.sh.
+# Columns, separated by whitespace:
+#   name packaging artifactId kotlinPackage dependsOnCore
+# packaging is jar or aar. kotlinPackage is the last segment under io.github.ygaray.voiceactionengine.
+# dependsOnCore is yes or no. The :sample app is never listed.
+core jar voice-action-engine-core core no
+providers jar voice-action-engine-providers providers yes
+keystore aar voice-action-engine-keystore keystore yes
+undo jar voice-action-engine-undo undo no

@@ -3,4 +3,4 @@ jdk:
 install:
   # Explicit per-module list in ONE gradlew invocation. NEVER name the app module here:
   # it has no maven-publish, and a mismatch is only discovered after JitPack caches the ref.
-  - ./gradlew :core:publishReleasePublicationToMavenLocal :providers:publishReleasePublicationToMavenLocal :keystore:publishReleasePublicationToMavenLocal
+  - ./gradlew :core:publishReleasePublicationToMavenLocal :providers:publishReleasePublicationToMavenLocal :keystore:publishReleasePublicationToMavenLocal :undo:publishReleasePublicationToMavenLocal
