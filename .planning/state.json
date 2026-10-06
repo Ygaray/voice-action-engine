@@ -1,0 +1,58 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": "v1.1 — Grammar, Plan, Router, Undo, Spike, Adapter",
+  "phases": [
+    {
+      "number": "12",
+      "name": "Wave-1 Seams & W04 Fix",
+      "status": "complete"
+    },
+    {
+      "number": "13",
+      "name": "On-Device Model Spike",
+      "status": "complete"
+    },
+    {
+      "number": "14",
+      "name": "LocalGrammar & Bilingual GrammarPack",
+      "status": "pending"
+    },
+    {
+      "number": "15",
+      "name": "PlanThenExecute Strategy",
+      "status": "pending"
+    },
+    {
+      "number": "16",
+      "name": "Start-Tier Selection",
+      "status": "pending"
+    },
+    {
+      "number": "17",
+      "name": "Run-Level Undo",
+      "status": "pending"
+    },
+    {
+      "number": "18",
+      "name": "Voice Adapter",
+      "status": "pending"
+    },
+    {
+      "number": "19",
+      "name": "Sample Gate-1 & Docs",
+      "status": "pending"
+    },
+    {
+      "number": "20",
+      "name": "Cut v1.1.0",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step (plan phase 14)",
+    "reason": "Phase 14 of 9 — needs a plan"
+  },
+  "updated_at": "2026-10-06T06:31:15.490Z"
+}

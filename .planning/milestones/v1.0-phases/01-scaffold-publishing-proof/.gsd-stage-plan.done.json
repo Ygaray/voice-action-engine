@@ -1,0 +1,8 @@
+{
+  "stage": "plan",
+  "phase": "01",
+  "exit_kind": "plan-phase",
+  "anchor_mtime_at_write": 1790801609323.944,
+  "head_sha": "00ced22",
+  "written_at": "2026-09-30T20:54:29.671Z"
+}

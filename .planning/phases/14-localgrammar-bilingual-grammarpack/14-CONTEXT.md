@@ -106,3 +106,7 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 14-localgrammar-bilingual-grammarpack*
+
+## Runtime Decisions
+
+- **D-01 refreshed [submission] (2026-10-06, ai-auto, dependency Phase 12 complete):** Full move as commit 1, refreshed against P12 HEAD 6fa22cc. Move resolutionOutcome (singleshot/SingleShotOutcomes.kt:59) and SingleShotStrategy.submitAll (SingleShotStrategy.kt:154) into strategy/StepSubmission.kt as submitSteps(session, steps, providerCallId: String?). The parameter is NULLABLE: SingleShot passes call.id, grammar passes null, matching P12 CommitCoordinator.submit(step, providerCallId: String?). No function named prepareGuarded exists at HEAD, so the planner moves whatever guarded-prepare logic submitAll calls along with it, under its real name. 14 and 15 never edit the same functions, and grammar inherits SingleShot submit semantics exactly.
