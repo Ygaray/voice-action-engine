@@ -28,11 +28,11 @@ import java.util.concurrent.TimeUnit
  * Opt-in capture tool (a tool, not a test), plan 14-09 / D-12: what does the platform speech recognizer emit for the
  * synthetic Phase 14 prompts (digits versus words, accents, punctuation, decimal marks)?
  *
- * Every row of `stt-capture/stt-prompts.tsv` (in the app's external files dir) is synthesized with the on-device
+ * Every row of `stt-prompts.tsv` (in the app's own external files dir, where `adb push` leaves it readable) is synthesized with the on-device
  * text-to-speech, strictly one utterance at a time (the locale is engine-global), then fed to the platform recognizer
  * as file audio through [RecognizerIntent.EXTRA_AUDIO_SOURCE]. One JSON line per prompt is appended to
- * `stt-capture/stt-forms.jsonl`: `id`, `lang`, `status` (`ok`, `error:<code>`, `tts_unavailable`) and, for `ok`,
- * `recognized`. A header line names the device model, the SDK and the recognizer service.
+ * `stt-forms.jsonl` (same dir): `id`, `lang`, `status` (`ok`, `error`, `tts_unavailable`) and, for `ok`,
+ * `recognized` (for `error`, a short `code`). A header line names the device model, the SDK and the recognizer service.
  *
  * It does nothing unless run with `-e captureSttForms true`, so any ordinary connected run skips it. The only sanctioned
  * driver is `scripts/run-stt-capture.sh`. No log line is ever written (prompt and recognized text stay in the JSONL on
@@ -51,7 +51,7 @@ class SttFormsCaptureTool {
 
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        val dir = File(requireNotNull(context.getExternalFilesDir(null)) { "external files dir unavailable" }, CAPTURE_DIR)
+        val dir = requireNotNull(context.getExternalFilesDir(null)) { "external files dir unavailable" }
         val prompts = readPrompts(File(dir, PROMPTS_FILE))
         check(prompts.isNotEmpty()) { "no prompts found" }
         val results = File(dir, RESULTS_FILE)
@@ -78,11 +78,12 @@ class SttFormsCaptureTool {
                 return row.put("status", "tts_unavailable")
             }
             if (!speaker.synthesize(prompt.text, wav)) {
-                return row.put("status", "error:tts")
+                return row.put("status", "error").put("code", "tts")
             }
-            val audio = readWav(wav) ?: return row.put("status", "error:wav")
+            val audio = readWav(wav) ?: return row.put("status", "error").put("code", "wav")
             val outcome = recognize(context, "${prompt.lang}-US", audio)
             row.put("status", outcome.status)
+            if (outcome.code != null) row.put("code", outcome.code)
             if (outcome.text != null) row.put("recognized", outcome.text)
             return row
         } finally {
@@ -133,9 +134,9 @@ class SttFormsCaptureTool {
                 if (!ok || rate <= 0) return null
                 // A streamed WAV may carry a zero or oversized length: take what is there.
                 val end = if (size <= 0 || body + size > bytes.size) bytes.size else body + size
-                val data = bytes.copyOfRange(body, end)
-                val tail = ByteArray(rate / 2 * 2) // half a second of silence so the recognizer sees an endpoint
-                return Audio(data + tail, rate)
+                val pcm = resample(bytes.copyOfRange(body, end), rate)
+                // Lead-in and a half second of trailing silence so the recognizer sees both endpoints.
+                return Audio(ByteArray(LEAD_SILENCE_BYTES) + pcm + ByteArray(TAIL_SILENCE_BYTES), TARGET_RATE)
             }
             if (size < 0) return null
             pos = body + size + (size and 1)
@@ -143,17 +144,38 @@ class SttFormsCaptureTool {
         return null
     }
 
-    private class Outcome(val status: String, val text: String?)
+    /** Linear-interpolation resample of PCM16 mono little-endian audio to [TARGET_RATE]. */
+    private fun resample(pcm: ByteArray, rate: Int): ByteArray {
+        if (rate == TARGET_RATE) return pcm
+        val src = ByteBuffer.wrap(pcm).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+        val count = src.limit()
+        if (count == 0) return pcm
+        val outCount = (count.toLong() * TARGET_RATE / rate).toInt()
+        val out = ByteBuffer.allocate(outCount * 2).order(ByteOrder.LITTLE_ENDIAN)
+        for (i in 0 until outCount) {
+            val pos = i.toDouble() * rate / TARGET_RATE
+            val i0 = minOf(pos.toInt(), count - 1)
+            val a = src.get(i0).toInt()
+            val b = src.get(minOf(i0 + 1, count - 1)).toInt()
+            out.putShort((a + (b - a) * (pos - i0)).toInt().toShort())
+        }
+        return out.array()
+    }
+
+    private class Outcome(val status: String, val code: String?, val text: String?)
 
     private class Holder {
-        @Volatile var status = "error:timeout"
+        @Volatile var status = "error"
+
+        @Volatile var code: String? = "timeout"
 
         @Volatile var text: String? = null
+        val segments = java.util.Collections.synchronizedList(mutableListOf<String>())
         val done = CountDownLatch(1)
     }
 
     private fun recognize(context: Context, languageTag: String, audio: Audio): Outcome {
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) return Outcome("error:no_recognizer", null)
+        if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) return Outcome("error", "no_on_device_recognizer", null)
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val pipe = ParcelFileDescriptor.createPipe()
         val reader = pipe[0]
@@ -172,14 +194,16 @@ class SttFormsCaptureTool {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
+            .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, reader)
             .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
             .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, android.media.AudioFormat.ENCODING_PCM_16BIT)
             .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, audio.rate)
             .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            .putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_AUDIO_SOURCE)
         try {
             instrumentation.runOnMainSync {
-                val created = SpeechRecognizer.createSpeechRecognizer(context)
+                val created = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
                 recognizer = created
                 created.setRecognitionListener(listener(holder))
                 created.startListening(intent)
@@ -194,7 +218,7 @@ class SttFormsCaptureTool {
             runCatching { reader.close() }
             feeder.join(FEEDER_JOIN_MS)
         }
-        return Outcome(holder.status, holder.text)
+        return Outcome(holder.status, holder.code, holder.text)
     }
 
     private fun listener(holder: Holder) = object : RecognitionListener {
@@ -206,19 +230,33 @@ class SttFormsCaptureTool {
         override fun onPartialResults(partialResults: Bundle?) = Unit
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
 
+        override fun onSegmentResults(segmentResults: Bundle) {
+            val first = segmentResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            if (!first.isNullOrBlank()) holder.segments.add(first.trim())
+        }
+
+        override fun onEndOfSegmentedSession() = finish(holder.segments.joinToString(" "))
+
         override fun onResults(results: Bundle?) {
             val first = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-            if (first.isNullOrBlank()) {
-                holder.status = "error:empty"
-            } else {
-                holder.status = "ok"
-                holder.text = first
-            }
-            holder.done.countDown()
+            finish(if (first.isNullOrBlank()) holder.segments.joinToString(" ") else first)
         }
 
         override fun onError(error: Int) {
-            holder.status = "error:$error"
+            holder.status = "error"
+            holder.code = error.toString()
+            holder.done.countDown()
+        }
+
+        private fun finish(text: String) {
+            if (text.isBlank()) {
+                holder.status = "error"
+                holder.code = "empty"
+            } else {
+                holder.status = "ok"
+                holder.code = null
+                holder.text = text
+            }
             holder.done.countDown()
         }
     }
@@ -283,7 +321,6 @@ class SttFormsCaptureTool {
     }
 
     private companion object {
-        const val CAPTURE_DIR = "stt-capture"
         const val PROMPTS_FILE = "stt-prompts.tsv"
         const val RESULTS_FILE = "stt-forms.jsonl"
         const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
@@ -298,5 +335,8 @@ class SttFormsCaptureTool {
         const val PCM_FORMAT = 1
         const val WAVE_EXTENSIBLE = 0xFFFE
         const val PCM_BITS = 16
+        const val TARGET_RATE = 16_000
+        const val LEAD_SILENCE_BYTES = 9_600 // 0.3 s of 16 kHz PCM16
+        const val TAIL_SILENCE_BYTES = 16_000 // 0.5 s of 16 kHz PCM16
     }
 }

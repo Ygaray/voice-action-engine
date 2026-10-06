@@ -16,7 +16,7 @@
 #   build                     host only, no grant needed: assemble the :sample debug and androidTest APKs, print their paths
 #   preflight                 grant + lock + TESTER identity, then print target, model, sdk and install state
 #   install                   install both APKs (-r) and grant RECORD_AUDIO to the app
-#   push-prompts              push core/src/test/resources/grammar/stt-prompts.tsv into the app's external files dir
+#   push-prompts              push core/src/test/resources/grammar/stt-prompts.tsv into the app's external files dir (app-owned, no subdirectory)
 #   run                       am instrument the capture tool (bounded), print only the pass/fail verdict
 #   pull <host-dir>           pull the tool's JSONL into <host-dir> (refused inside the repository)
 #   filter <jsonl> <out.tsv>  host only: allow-list by prompt id and status ok, write the labeled TSV
@@ -42,7 +42,10 @@ ADB="${ADB:-adb}"
 PHASE_DIR="${VAE_STT_PHASE_DIR:-.planning/phases/14-localgrammar-bilingual-grammarpack}"
 GRANT_FILE="$PHASE_DIR/14-WINDOW-GRANT.md"
 PROMPTS="core/src/test/resources/grammar/stt-prompts.tsv"
-REMOTE_DIR="/sdcard/Android/data/$APP_PKG/files/stt-capture"
+# The app's own external files dir itself, NOT a subdirectory: an adb mkdir creates the subdirectory owned by shell (mode 2770,
+# group ext_data_rw), which the app process cannot read through (observed on the TESTER: "prompt list missing"). A file pushed
+# straight into the app-owned files dir is readable by the app, which is also how the stt-engine file-fed runs worked.
+REMOTE_DIR="/sdcard/Android/data/$APP_PKG/files"
 REMOTE_OUT="$REMOTE_DIR/stt-forms.jsonl"
 APK_APP_DIR="sample/build/outputs/apk/debug"
 APK_TEST_DIR="sample/build/outputs/apk/androidTest/debug"
@@ -306,7 +309,7 @@ do_install() {
 
 do_push_prompts() {
   [ -f "$PROMPTS" ] || finish 2 ERROR "reason=prompts_missing target=$TARGET"
-  adbt shell mkdir -p "$REMOTE_DIR" >/dev/null 2>&1 || finish 2 ERROR "reason=mkdir_failed target=$TARGET"
+  adbt shell test -d "$REMOTE_DIR" >/dev/null 2>&1 || finish 2 ERROR "reason=files_dir_missing target=$TARGET"
   adbt push "$PROMPTS" "$REMOTE_DIR/stt-prompts.tsv" >/dev/null 2>&1 || finish 2 ERROR "reason=push_failed target=$TARGET"
   finish 0 OK "target=$TARGET prompts=$(($(grep -c '' "$PROMPTS") - 1))"
 }
@@ -349,7 +352,8 @@ do_pull() {
 
 do_cleanup() {
   adbt shell am force-stop "$APP_PKG" >/dev/null 2>&1 || true
-  adbt shell rm -rf "$REMOTE_DIR" >/dev/null 2>&1 || true
+  adbt shell rm -f "$REMOTE_DIR/stt-prompts.tsv" "$REMOTE_OUT" >/dev/null 2>&1 || true
+  adbt shell rm -rf "$REMOTE_DIR/stt-capture" >/dev/null 2>&1 || true
   adb_t 60 -s "$TARGET" uninstall "$TEST_PKG" >/dev/null 2>&1 || true
   adb_t 60 -s "$TARGET" uninstall "$APP_PKG" >/dev/null 2>&1 || true
   local listing

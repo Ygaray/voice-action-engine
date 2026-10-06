@@ -63,6 +63,8 @@ case "${1:-}" in
       "pm grant "*"android.permission.RECORD_AUDIO") exit 0 ;;
       "am force-stop "*) exit 0 ;;
       "mkdir -p "*) mkdir -p "$STATE_DIR/dev"; exit 0 ;;
+      "test -d "*) mkdir -p "$STATE_DIR/dev"; exit 0 ;;
+      "rm -f "*) exit 0 ;;
       "rm -rf "*) rm -rf "$STATE_DIR/dev"; exit 0 ;;
       "am instrument -w -e class "*)
         case "${RUN_MODE:-ok}" in
@@ -237,7 +239,7 @@ assert_calls preflight_happy "-s R5CT10XNKQN shell pm list packages"
 CALLS_EMPTY=1 run_scenario pull_into_repo 2 "refusing to pull raw recognizer output" "ERROR sub=pull reason=dest_in_repo" pull "$WORK/pull_into_repo/repo/captured"
 CALLS_EMPTY=1 run_scenario pull_into_repo_root 2 "refusing to pull raw recognizer output" "ERROR sub=pull reason=dest_in_repo" pull "$WORK/pull_into_repo_root/repo"
 MUTATES=1 run_scenario pull_outside_repo 0 "-" "OK sub=pull target=R5CT10XNKQN" pull "$WORK/host-private"
-assert_calls pull_outside_repo "-s R5CT10XNKQN pull /sdcard/Android/data/$APP_PKG/files/stt-capture/stt-forms.jsonl"
+assert_calls pull_outside_repo "-s R5CT10XNKQN pull /sdcard/Android/data/$APP_PKG/files/stt-forms.jsonl"
 [ -f "$WORK/host-private/stt-forms.jsonl" ] || die "pull_outside_repo: the JSONL was not pulled"
 
 run_scenario install_without_apks 2 "run scripts/run-stt-capture.sh build first" "ERROR sub=install reason=apk_missing" install
@@ -247,7 +249,7 @@ assert_calls install_happy "-s R5CT10XNKQN shell pm grant $APP_PKG android.permi
 [ -e "$LAST_DIR/state/installed_app" ] && [ -e "$LAST_DIR/state/installed_test" ] || die "install_happy: both packages must be installed in the fake"
 
 MUTATES=1 run_scenario push_prompts_happy 0 "-" "OK sub=push-prompts target=R5CT10XNKQN prompts=88" push-prompts
-assert_calls push_prompts_happy "-s R5CT10XNKQN push core/src/test/resources/grammar/stt-prompts.tsv /sdcard/Android/data/$APP_PKG/files/stt-capture/stt-prompts.tsv"
+assert_calls push_prompts_happy "-s R5CT10XNKQN push core/src/test/resources/grammar/stt-prompts.tsv /sdcard/Android/data/$APP_PKG/files/stt-prompts.tsv"
 [ -f "$LAST_DIR/state/dev/stt-prompts.tsv" ] || die "push_prompts_happy: the prompt list never reached the fake device"
 
 MUTATES=1 run_scenario run_happy 0 "-" "OK sub=run target=R5CT10XNKQN tests=1" run
