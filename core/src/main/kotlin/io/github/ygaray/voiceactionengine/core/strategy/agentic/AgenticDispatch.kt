@@ -4,13 +4,13 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.commit.FinishedKind
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
-import io.github.ygaray.voiceactionengine.core.internal.guarded
 import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
 import io.github.ygaray.voiceactionengine.core.strategy.ToolExecutor
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
+import io.github.ygaray.voiceactionengine.core.strategy.prepareGuarded
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.ToolResult
@@ -18,7 +18,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 private const val UNKNOWN_TOOL_CONTENT = """{"status":"error","reason":"unknown_tool"}"""
-private const val TOOL_ERROR_CONTENT = """{"status":"error","reason":"tool_error"}"""
 private const val STRIKES_TO_ABORT = 2
 private const val NOT_A_MUTATING_TOOL_CONTENT = """{"status":"error","reason":"not_a_mutating_tool"}"""
 
@@ -122,15 +121,8 @@ private fun asRead(step: ToolStep.Finished): ToolStep {
     return ToolStep.Finished(step.toolName, FinishedKind.READ, kept, step.context)
 }
 
-// An executor fault is answered with a fixed notice, never the exception text. A failed attempt on a mutating tool is
-// recorded as an error action; a failed read leaves no record.
-private suspend fun prepare(context: DispatchContext, spec: ToolSpec, call: AssistantPart.ToolCall): ToolStep =
-    guarded(onFault = {
-        context.session.recordCode(TraceCode.TOOL_PREPARE_ERROR)
-        faultStep(spec)
-    }) { context.executor.prepare(Extraction(call.name, call.arguments, call.id), context.input) }
-
-private fun faultStep(spec: ToolSpec): ToolStep {
-    val kind = if (spec.mutating) FinishedKind.ERROR else FinishedKind.READ
-    return ToolStep.Finished(spec.name, kind, StepResult(TOOL_ERROR_CONTENT, true))
+// The guarded prepare is shared with the plan tier: a fault is answered with a fixed notice, never the exception text.
+private suspend fun prepare(context: DispatchContext, spec: ToolSpec, call: AssistantPart.ToolCall): ToolStep {
+    val extraction = Extraction(call.name, call.arguments, call.id)
+    return prepareGuarded(context.session, spec, context.executor, context.input, extraction)
 }
