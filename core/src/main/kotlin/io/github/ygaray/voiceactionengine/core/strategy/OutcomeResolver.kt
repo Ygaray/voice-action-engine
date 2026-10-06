@@ -20,28 +20,39 @@ public fun interface OutcomeResolver {
 }
 
 /**
- * What the model extracted: the tool it called, that call's arguments and the provider's id for the call.
+ * What a tier extracted from the command: the tool to call, that call's arguments and, for a model tier, the provider's
+ * id for the call.
  *
- * Later versions add members (for example an intent and slots from a grammar tier) with a new constructor, so this one
- * keeps working.
+ * Later versions add members with a new constructor, so the existing constructors keep working.
  *
- * @property toolName the tool the model called.
+ * @property toolName the tool the tier chose: the model's call, or the tool a grammar rule names.
  * @property arguments the call's arguments, untouched.
  * @property callId the provider's id for this tool call, byte for byte, or null when no provider call produced it
  * (for example a grammar tier).
- * @throws IllegalArgumentException when [toolName] is blank, or [callId] is present but blank.
+ * @property matchedLanguage "en" or "es" when a grammar tier matched in that language; null for a model tier, and for
+ * a grammar match both language packs agreed on without a language label.
+ * @throws IllegalArgumentException when [toolName] is blank, [callId] is present but blank, or [matchedLanguage] is
+ * neither null, "en" nor "es".
  */
-public class Extraction(
+public class Extraction internal constructor(
     public val toolName: String,
     public val arguments: JsonObject,
     public val callId: String?,
+    public val matchedLanguage: String?,
 ) {
-    /** An extraction no provider call produced: [callId] is null. */
-    public constructor(toolName: String, arguments: JsonObject) : this(toolName, arguments, null)
+    /** An extraction a model call produced, or one no call produced when [callId] is null; [matchedLanguage] is null. */
+    public constructor(toolName: String, arguments: JsonObject, callId: String?) :
+        this(toolName, arguments, callId, null)
+
+    /** An extraction no provider call produced: [callId] and [matchedLanguage] are null. */
+    public constructor(toolName: String, arguments: JsonObject) : this(toolName, arguments, null, null)
 
     init {
         require(toolName.isNotBlank()) { "an extraction's tool name must not be blank" }
         require(callId == null || callId.isNotBlank()) { "an extraction's call id must not be blank" }
+        require(matchedLanguage == null || matchedLanguage == "en" || matchedLanguage == "es") {
+            "an extraction's matched language must be null, en or es"
+        }
     }
 
     /** Prints the tool name and the number of arguments, never the argument values. */
