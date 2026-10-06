@@ -168,7 +168,7 @@ internal class TrialRunner(
             }
             item.kind == ItemKind.POS -> {
                 toolMatch = GoldMatcher.toolMatch(item.expectTool, call?.name)
-                argsMatch = toolMatch && call != null && GoldMatcher.argsMatch(item.expectArgs, call.arguments)
+                argsMatch = toolMatch && call != null && GoldMatcher.argsMatch(item.expectArgs, call.arguments, item.id)
             }
             else -> {
                 // A negative is right when the model declines or calls a tool that cannot write.

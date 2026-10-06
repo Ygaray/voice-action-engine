@@ -5,6 +5,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import java.text.Normalizer
 import java.util.Locale
 
@@ -20,6 +22,74 @@ private val WHITESPACE = Regex("\\s+")
  * argument, or a defaulted flag inside a list item) is ignored, while a missing or different expected key is a miss.
  */
 internal object GoldMatcher {
+    /**
+     * RT-03 grading tolerance (a tolerance on how an answer is graded, never a relabel: the gold labels are unchanged).
+     * `find_tags` does not fold plurals, so for the five find_tags items in [PLURAL_QUERY_ITEMS] a singular-stem tag query
+     * scores as equally correct as the plural. List-item articles ("a scarf" vs "scarf") are acceptable either way for the
+     * SB-envelope items (ids starting `b_`). Both sides are folded the same way, then compared by the strict rules above.
+     * An item outside these sets (every small-envelope item) is graded strictly, exactly as before.
+     */
+    private val PLURAL_QUERY_ITEMS = setOf("b_en_041", "b_en_044", "b_es_041", "b_es_042", "b_es_044")
+    private const val SB_ITEM_PREFIX = "b_"
+    private const val PLURAL_MIN_LENGTH = 4
+    private val LEADING_ARTICLE = Regex("^(a|an|the|el|la|los|las|un|una|unos|unas)\\s+")
+
+    /**
+     * True when every expected argument is present in [actual] with an equal value after normalization, under the RT-03
+     * tolerance for [itemId] (null or an item outside the tolerance sets grades strictly, like the two-argument form).
+     */
+    fun argsMatch(expected: JsonObject, actual: JsonObject, itemId: String?): Boolean {
+        if (itemId == null) return argsMatch(expected, actual)
+        val plural = itemId in PLURAL_QUERY_ITEMS
+        val articles = itemId.startsWith(SB_ITEM_PREFIX)
+        if (!plural && !articles) return argsMatch(expected, actual)
+        return argsMatch(fold(expected, plural, articles), fold(actual, plural, articles))
+    }
+
+    // Folds only the two places the tolerance covers: a `query` string (plural to singular stem) and the `text` of list
+    // items inside an `items` array (a leading article dropped). Everything else passes through unchanged.
+    private fun fold(obj: JsonObject, plural: Boolean, articles: Boolean): JsonObject = buildJsonObject {
+        for ((key, value) in obj) {
+            put(
+                key,
+                when {
+                    plural && key == "query" && value is JsonPrimitive && value.isString ->
+                        JsonPrimitive(singularStem(value.content))
+                    articles && key == "items" && value is JsonArray -> foldItems(value)
+                    else -> value
+                },
+            )
+        }
+    }
+
+    private fun foldItems(items: JsonArray): JsonArray = buildJsonArray {
+        for (item in items) {
+            add(
+                when {
+                    item is JsonObject -> foldItemText(item)
+                    item is JsonPrimitive && item.isString -> JsonPrimitive(dropArticle(item.content))
+                    else -> item
+                },
+            )
+        }
+    }
+
+    private fun foldItemText(item: JsonObject): JsonObject = buildJsonObject {
+        for ((key, value) in item) {
+            val isText = key == "text" && value is JsonPrimitive && value.isString
+            put(key, if (isText) JsonPrimitive(dropArticle((value as JsonPrimitive).content)) else value)
+        }
+    }
+
+    private fun dropArticle(text: String): String = LEADING_ARTICLE.replace(normalize(text), "")
+
+    // One trailing "s" is the whole plural rule (movies/movie, recipes/recipe, películas/película, viajes/viaje); a word of
+    // three letters or fewer is left alone.
+    private fun singularStem(text: String): String {
+        val normalized = normalize(text)
+        return if (normalized.length >= PLURAL_MIN_LENGTH && normalized.endsWith("s")) normalized.dropLast(1) else normalized
+    }
+
     /** Trim, Unicode NFC, lower case with the root locale, and every run of whitespace collapsed to one space. */
     fun normalize(text: String): String =
         WHITESPACE.replace(Normalizer.normalize(text.trim(), Normalizer.Form.NFC).lowercase(Locale.ROOT), " ")

@@ -48,11 +48,19 @@ tasks.withType<Test>().configureEach {
     val verdictOut = providers.gradleProperty("vaeSpikeVerdictOut").orElse("")
     systemProperty("vae.spike.evidenceDir", evidenceDir.get())
     systemProperty("vae.spike.verdictOut", verdictOut.get())
+    // Host-private re-score of the raw sb answers (RT-03): paths only; the files live outside the repository.
+    systemProperty("vae.spike.rawFile", providers.gradleProperty("vaeSpikeRawFile").orElse("").get())
+    systemProperty("vae.spike.goldFile", providers.gradleProperty("vaeSpikeGoldFile").orElse("").get())
+    systemProperty("vae.spike.rescoreOut", providers.gradleProperty("vaeSpikeRescoreOut").orElse("").get())
     systemProperty(
         "vae.spike.thresholdsFile",
         rootProject.layout.projectDirectory
             .file(".planning/phases/13-on-device-model-spike/13-THRESHOLDS.md").asFile.absolutePath,
     )
+    if (providers.gradleProperty("vaeSpikeRawFile").isPresent) {
+        outputs.upToDateWhen { false }
+        outputs.cacheIf { false }
+    }
     if (evidenceDir.get().isNotEmpty()) {
         // A verdict recomputation must never be served stale from up-to-date checks or the build cache.
         inputs.dir(evidenceDir.get())

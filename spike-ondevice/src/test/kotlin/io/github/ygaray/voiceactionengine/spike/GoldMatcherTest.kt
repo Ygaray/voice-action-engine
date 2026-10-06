@@ -97,4 +97,35 @@ class GoldMatcherTest {
     fun aRepeatedPredictedElementCannotStandInForTwoExpectedOnes() {
         assertFalse(GoldMatcher.argsMatch(obj("""{"tags":["a","b"]}"""), obj("""{"tags":["a","a"]}""")))
     }
+
+    @Test
+    fun theRt03PluralToleranceAcceptsASingularStemQueryOnlyForTheFiveFindTagsItems() {
+        val plural = obj("""{"query":"recipes"}""")
+        for (id in listOf("b_en_041", "b_en_044", "b_es_041", "b_es_042", "b_es_044")) {
+            assertTrue(id, GoldMatcher.argsMatch(plural, obj("""{"query":"Recipe"}"""), id))
+            assertTrue(id, GoldMatcher.argsMatch(plural, obj("""{"query":"recipes"}"""), id))
+        }
+        assertTrue(GoldMatcher.argsMatch(obj("""{"query":"películas"}"""), obj("""{"query":"película"}"""), "b_es_041"))
+        assertTrue(GoldMatcher.argsMatch(obj("""{"query":"viajes"}"""), obj("""{"query":"viaje"}"""), "b_es_042"))
+        // A different word is still a miss, and the tolerance never reaches another item or the strict form.
+        assertFalse(GoldMatcher.argsMatch(plural, obj("""{"query":"recipe book"}"""), "b_en_044"))
+        assertFalse(GoldMatcher.argsMatch(plural, obj("""{"query":"recipe"}"""), "b_en_042"))
+        assertFalse(GoldMatcher.argsMatch(plural, obj("""{"query":"recipe"}""")))
+        assertFalse(GoldMatcher.argsMatch(plural, obj("""{"query":"recipe"}"""), null))
+        assertFalse(GoldMatcher.argsMatch(plural, obj("""{"query":"recipe"}"""), "s_en_001"))
+    }
+
+    @Test
+    fun theRt03ArticleToleranceAcceptsAListItemWithOrWithoutItsArticleOnSbItemsOnly() {
+        val gold = obj("""{"title":"gifts","items":[{"text":"a scarf"},{"text":"a book"}]}""")
+        val bare = obj("""{"title":"gifts","items":[{"text":"Scarf"},{"text":"book"}]}""")
+        assertTrue(GoldMatcher.argsMatch(gold, bare, "b_en_026"))
+        assertTrue(GoldMatcher.argsMatch(bare, gold, "b_en_026"))
+        assertTrue(GoldMatcher.argsMatch(obj("""{"items":[{"text":"un libro"}]}"""), obj("""{"items":[{"text":"libro"}]}"""), "b_es_026"))
+        assertFalse(GoldMatcher.argsMatch(gold, bare, "s_en_001"))
+        assertFalse(GoldMatcher.argsMatch(gold, bare))
+        // The tolerance is not a free pass: a different noun, a missing item, or a different title is still a miss.
+        assertFalse(GoldMatcher.argsMatch(gold, obj("""{"title":"gifts","items":[{"text":"scarf"},{"text":"hat"}]}"""), "b_en_026"))
+        assertFalse(GoldMatcher.argsMatch(gold, obj("""{"title":"gift","items":[{"text":"scarf"},{"text":"book"}]}"""), "b_en_026"))
+    }
 }
