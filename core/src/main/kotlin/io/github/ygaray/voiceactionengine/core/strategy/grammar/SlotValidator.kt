@@ -23,6 +23,29 @@ internal fun validateSlotDeclarations(intents: List<IntentSpec>) {
     }
 }
 
+/**
+ * Every normalize hook names a `text` or `choice` slot its intent declares, once. Number slots already bind a typed
+ * value, so a hook there would only change its type. Messages carry the tool and slot names only.
+ */
+internal fun validateNormalizers(intents: List<IntentSpec>) {
+    for (intent in intents) {
+        val seen = HashSet<String>()
+        for (normalizer in intent.normalizers) {
+            val declared = intent.slots.firstOrNull { it.name == normalizer.slot }
+            require(declared != null) {
+                "GrammarPack: tool ${intent.toolName} normalizes the slot ${normalizer.slot}, which it does not declare"
+            }
+            require(declared.spec is SlotSpec.TextSlot || declared.spec is SlotSpec.ChoiceSlot) {
+                "GrammarPack: tool ${intent.toolName} normalizes the slot ${normalizer.slot}, " +
+                    "which is a number slot; normalize applies to text and choice slots only"
+            }
+            require(seen.add(normalizer.slot)) {
+                "GrammarPack: tool ${intent.toolName} declares a normalize hook for the slot ${normalizer.slot} twice"
+            }
+        }
+    }
+}
+
 private fun validateSpec(intent: IntentSpec, declared: SlotDecl) {
     val where = "tool ${intent.toolName} slot ${declared.name}"
     when (val spec = declared.spec) {

@@ -1,6 +1,10 @@
 package io.github.ygaray.voiceactionengine.core.strategy.grammar
 
+import io.github.ygaray.voiceactionengine.core.internal.guardedPlain
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 private const val EN = "en"
 private const val ES = "es"
@@ -10,7 +14,15 @@ internal class IntentSpec(
     val en: List<String>,
     val es: List<String>,
     val slots: List<SlotDecl>,
+    val terminal: Boolean = false,
+    val normalizers: List<NormalizerDecl> = emptyList(),
 )
+
+/** The app's hook for one slot: it sees the raw words and the matched pack's language, and answers the value to use. */
+internal class NormalizerDecl(val slot: String, val hook: (String, String) -> String?)
+
+// What one hook call came to: the value to use, or the code that refuses the match. A fault never keeps the exception.
+private class HookAnswer(val value: String?, val refusal: TraceCode?)
 
 /** What a pack decided for one transcript. Internal: the public surface is [GrammarPack.match]. */
 internal sealed class GrammarResult {
@@ -67,15 +79,24 @@ internal sealed class GrammarResult {
  */
 public class GrammarPack internal constructor(settings: Builder) {
     private val matchers: Map<String, RuleMatcher>
+    private val hooks: Map<String, Map<String, (String, String) -> String?>>
+    private val terminalTools: Set<String>
     private val intentCount: Int
     private val tryOtherLanguage: Boolean
     private val inputCap: Int
+
+    /** True when some intent is not terminal, so a tier over this pack needs a resolver. */
+    internal val hasNonTerminalIntent: Boolean
 
     init {
         val intents = settings.intents.toList()
         validateIntents(intents)
         validateSlotDeclarations(intents)
+        validateNormalizers(intents)
         intentCount = intents.size
+        hooks = intents.associate { intent -> intent.toolName to intent.normalizers.associate { it.slot to it.hook } }
+        terminalTools = intents.filter { it.terminal }.map { it.toolName }.toSet()
+        hasNonTerminalIntent = intents.any { !it.terminal }
         tryOtherLanguage = settings.tryOtherLanguage
         val enFillers = foldFillers(EN, settings.enFillers.toList())
         val esFillers = foldFillers(ES, settings.esFillers.toList())
@@ -125,19 +146,62 @@ public class GrammarPack internal constructor(settings: Builder) {
         else -> null
     }
 
-    // The one place the per-language verdicts become a result: a language that reads two ways ends it, one reading
-    // is the answer, and two readings must be the same call.
+    // The one place the per-language verdicts become a result: a language that reads two ways ends it, each reading
+    // goes through the app's normalize hooks (labeled language first, the first refusal wins), one reading is the
+    // answer, and two readings must be the same call.
     private fun decide(label: String?, verdicts: List<Pair<String, RuleVerdict>>): GrammarResult {
-        val hits = verdicts.mapNotNull { (language, verdict) ->
-            (verdict as? RuleVerdict.One)?.let { matchOf(it, language) }
+        val readings = verdicts.mapNotNull { (language, verdict) ->
+            (verdict as? RuleVerdict.One)?.let { language to it }
         }
+        val ambiguous = verdicts.any { it.second is RuleVerdict.Ambiguous }
+        // An ambiguous transcript is refused before any app hook sees it.
+        val results = readings.filter { !ambiguous }.map { (language, reading) -> normalized(reading, language) }
+        val refusal = results.filterIsInstance<GrammarResult.Rejected>().firstOrNull()
+        val hits = results.filterIsInstance<GrammarResult.Matched>().map { it.match }
         return when {
-            verdicts.any { it.second is RuleVerdict.Ambiguous } -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
+            ambiguous -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
+            refusal != null -> refusal
             hits.size == 1 -> GrammarResult.Matched(hits.single())
             hits.size > 1 -> agreed(label, hits)
             else -> GrammarResult.Rejected(unmatchedCode(verdicts))
         }
     }
+
+    // One reading with the app's hooks applied to its bound slots: the hook sees the words as spoken and the language
+    // of the pack that matched, and its answer replaces the slot value. No answer (null or blank) refuses the match; a
+    // throwing hook refuses it too and only the fault code is kept, never the exception.
+    private fun normalized(verdict: RuleVerdict.One, language: String): GrammarResult {
+        val tool = verdict.rule.toolName
+        val toolHooks = hooks[tool].orEmpty()
+        val values = LinkedHashMap<String, JsonElement>(verdict.arguments)
+        var refusal: TraceCode? = null
+        for (binding in verdict.bindings) {
+            val hook = toolHooks[binding.name]
+            if (hook != null && refusal == null) {
+                val answer = ask(hook, binding.raw, language)
+                refusal = answer.refusal
+                answer.value?.let { values[binding.name] = JsonPrimitive(it) }
+            }
+        }
+        val terminal = tool in terminalTools
+        return if (refusal != null) {
+            GrammarResult.Rejected(refusal)
+        } else {
+            GrammarResult.Matched(GrammarMatch(tool, JsonObject(values), language, terminal, verdict.rule.ruleId))
+        }
+    }
+
+    private fun ask(hook: (String, String) -> String?, raw: String, language: String): HookAnswer =
+        guardedPlain(
+            onFault = { HookAnswer(null, TraceCode.GRAMMAR_NORMALIZE_ERROR) },
+            block = {
+                val answer = hook(raw, language)
+                when {
+                    answer.isNullOrBlank() -> HookAnswer(null, TraceCode.GRAMMAR_SLOT_REJECTED)
+                    else -> HookAnswer(answer, null)
+                }
+            },
+        )
 
     private fun unmatchedCode(verdicts: List<Pair<String, RuleVerdict>>): TraceCode? =
         if (verdicts.any { it.second is RuleVerdict.TooLong }) TraceCode.GRAMMAR_INPUT_TOO_LONG else null
@@ -155,9 +219,6 @@ public class GrammarPack internal constructor(settings: Builder) {
             GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
         }
     }
-
-    private fun matchOf(verdict: RuleVerdict.One, language: String): GrammarMatch =
-        GrammarMatch(verdict.rule.toolName, verdict.arguments, language, false, verdict.rule.ruleId)
 
     /** Prints the number of intents and phrasings per language only. */
     override fun toString(): String =
@@ -187,7 +248,16 @@ public class GrammarPack internal constructor(settings: Builder) {
          */
         public fun intent(toolName: String, block: IntentBuilder.() -> Unit) {
             val settings = IntentBuilder().apply(block)
-            intents.add(IntentSpec(toolName, settings.en.toList(), settings.es.toList(), settings.slots.toList()))
+            intents.add(
+                IntentSpec(
+                    toolName,
+                    settings.en.toList(),
+                    settings.es.toList(),
+                    settings.slots.toList(),
+                    settings.terminal,
+                    settings.normalizers.toList(),
+                ),
+            )
         }
 
         /**
@@ -230,6 +300,37 @@ public class GrammarPack internal constructor(settings: Builder) {
         internal val en: MutableList<String> = mutableListOf()
         internal val es: MutableList<String> = mutableListOf()
         internal val slots: MutableList<SlotDecl> = mutableListOf()
+        internal val normalizers: MutableList<NormalizerDecl> = mutableListOf()
+        internal var terminal: Boolean = false
+
+        /**
+         * Marks this intent terminal: a navigation or question intent that writes nothing. When it matches, the tier
+         * ends handled with a call to the app carrying the tool name and the slot values (`terminalCall` on the
+         * outcome), runs no resolver and asks no gate, and no action is recorded. It works under an offline-only
+         * policy like every grammar match.
+         */
+        public fun terminal() {
+            terminal = true
+        }
+
+        /**
+         * Declares the app's hook for the `text` or `choice` slot [slot] of this intent. After a phrasing has matched
+         * and before the tool call is built, [hook] receives the slot's words as spoken (case and accents kept) and the
+         * language of the pack that matched ("en" or "es", never null), and answers the value to use in their place,
+         * for example a canonical word an app synonym map maps both languages onto. Answering null or blank rejects the
+         * match, so the command goes to the next tier; a hook that throws rejects it too and only a code is recorded,
+         * never the message.
+         *
+         * The hook runs once for each language pack that matched the transcript, before the packs are compared, so a
+         * match in both languages must still agree after it. One refusal refuses the command: no pack is preferred
+         * over the other. It is not a suspend function and must not block.
+         *
+         * Checked when the pack is built: [slot] must be a declared `text` or `choice` slot of this intent, with one
+         * hook at most.
+         */
+        public fun normalize(slot: String, hook: (String, String) -> String?) {
+            normalizers.add(NormalizerDecl(slot, hook))
+        }
 
         /**
          * Declares the whole-number slot [name], written `{name}` in this intent's phrasings in either language, with
