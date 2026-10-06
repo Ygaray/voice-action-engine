@@ -21,6 +21,19 @@ recognizer actually emitted; the difference is the finding.
 Columns: `id	lang	text	expect	recognized	provenance`. `recognized` is the final text the platform recognizer
 returned for the prompt. Every captured row is labeled `provenance=synthetic-tts`.
 
+### Capture record (2026-10-06, plan 14-09)
+
+- Date: 2026-10-06, window 16:18:54Z to 16:25:43Z, under the relayed D-12 grant (14-WINDOW-GRANT.md).
+- Device: Samsung SM-S908U (TESTER R5CT10XNKQN), Android 15 (SDK 35).
+- Recognizer: the on-device platform recognizer (`SpeechRecognizer.createOnDeviceSpeechRecognizer`, offline preferred,
+  segmented session over `EXTRA_AUDIO_SOURCE`, 16 kHz mono PCM16). The device's configured recognition service
+  (`voice_recognition_service`) is `com.google.android.tts/com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService`.
+- Speech: on-device Google TTS, en-US and es-US, one utterance at a time.
+- Counts over the 88 prompts: ok=88, error=0, tts_unavailable=0 (the filter also dropped the 1 header line).
+- Observed (not a claim about people): the recognizer emits digits for most numbers (67 of the 88 recognized rows contain a digit: `page 12`, `2.5`, es `2,5`),
+  keeps sentence-initial capitalization, and on the Spanish TTS audio sometimes mishears carrier words
+  (`pon` as `con` or `un`, `cero` as `serio`). Plan 14-10 reads the file for the exact forms.
+
 ## Caveats
 
 - Speech here is synthesized by the on-device text-to-speech engine. It exercises the recognizer's text formatting

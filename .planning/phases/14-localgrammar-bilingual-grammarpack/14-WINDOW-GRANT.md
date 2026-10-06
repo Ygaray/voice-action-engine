@@ -6,13 +6,14 @@ until the first block of lines below holds the exact line `grant: open`. Only th
 closes, or `grant: deferred` plus a `deferred_obligation:` line if the relayed answer is that no window comes before
 Phase 14 closes. Until then the grant is pending and no device step can run. Touch no device while `grant: pending`.
 
-grant: open
+grant: consumed
 requested: 2026-10-06
 timebox_s: 3600
 device: R5CT10XNKQN
 relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
 date: 2026-10-06
 opened: 2026-10-06T16:18:47Z
+closed: 2026-10-06T16:25:43Z
 
 ## Relay log (verbatim)
 

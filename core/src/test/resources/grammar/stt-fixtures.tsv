@@ -1,0 +1,89 @@
+id	lang	text	expect	recognized	provenance
+en-01	en	set the counter to zero	0	Set the counter to zero	synthetic-tts
+en-02	en	set the counter to three	3	Set the counter to three	synthetic-tts
+en-03	en	set the timer to seven	7	Set the timer to seven	synthetic-tts
+en-04	en	set the level to nine	9	Set the level to nine	synthetic-tts
+en-05	en	go to page twelve	12	Go to page 12	synthetic-tts
+en-06	en	set the volume to fifteen	15	Set the volume to 15	synthetic-tts
+en-07	en	set the counter to sixteen	16	Set the counter to 16	synthetic-tts
+en-08	en	set the timer to seventeen	17	Set the timer to 17	synthetic-tts
+en-09	en	set the level to eighteen	18	Set the level to 18	synthetic-tts
+en-10	en	set the volume to nineteen	19	Set the volume to 19	synthetic-tts
+en-11	en	set the counter to twenty	20	Set the counter to 20	synthetic-tts
+en-12	en	set the counter to twenty one	21	Set the counter to 21	synthetic-tts
+en-13	en	set the timer to thirty	30	Set the timer to 30	synthetic-tts
+en-14	en	set the level to forty five	45	Set the level to 45	synthetic-tts
+en-15	en	go to page ninety nine	99	Go to page 99	synthetic-tts
+en-16	en	set the volume to sixty	60	Set the volume to 60	synthetic-tts
+en-17	en	set the counter to one hundred	100	Set the counter to 100	synthetic-tts
+en-18	en	set the counter to a hundred	100	Set the counter 200	synthetic-tts
+en-19	en	set the timer to one hundred five	105	Set the timer to 105	synthetic-tts
+en-20	en	set the level to two hundred	200	Set the level to 200	synthetic-tts
+en-21	en	set the volume to five hundred	500	Set the volume to 500	synthetic-tts
+en-22	en	go to page nine hundred ninety nine	999	Go to page 999	synthetic-tts
+en-23	en	set the counter to a thousand	1000	Set the counter 2000	synthetic-tts
+en-24	en	set the counter to two thousand	2000	Set the counter to 2000	synthetic-tts
+en-25	en	set the timer to two thousand five hundred	2500	Set the timer to 2500	synthetic-tts
+en-26	en	set the level to one thousand and five	1005	Set the level to 1005	synthetic-tts
+en-27	en	set the volume to twenty thousand	20000	Set the volume to 20 000	synthetic-tts
+en-28	en	go to page fifteen thousand	15000	Builder page 15 000	synthetic-tts
+en-29	en	set the timer to one and a half	1.5	Set the timer to one and a half	synthetic-tts
+en-30	en	set the counter to two and a quarter	2.25	Set the counter to two and a quarter	synthetic-tts
+en-31	en	set the volume to three quarters	0.75	Set the volume to three quarters	synthetic-tts
+en-32	en	set the level to half	0.5	Set the level to half	synthetic-tts
+en-33	en	set the volume to point five	0.5	Set the volume to 0.5	synthetic-tts
+en-34	en	set the timer to two point five	2.5	Set the timer to 2.5	synthetic-tts
+en-35	en	set the level to zero point two five	0.25	Set the level to 0.25	synthetic-tts
+en-36	en	set the counter to three point one four	3.14	Set the counter to 3.14	synthetic-tts
+en-37	en	set the counter to twenty and five	reject	Set the counter to 20 and 5	synthetic-tts
+en-38	en	set the timer to fourty	reject	Set the timer to 14	synthetic-tts
+en-39	en	set the level to a million	reject	Set the level to a million	synthetic-tts
+en-40	en	set the volume to ten hundred	reject	Set the volume to 1000	synthetic-tts
+en-41	en	set the counter to one thousand thousand	reject	Set the counter to one thousand	synthetic-tts
+es-01	es	pon el contador en cero	0	con el contador en serio	synthetic-tts
+es-02	es	pon el contador en tres	3	un el contador en tres	synthetic-tts
+es-03	es	pon el temporizador en siete	7	con el temporizador en 7	synthetic-tts
+es-04	es	pon el nivel en nueve	9	Ponle el nivel en nueve	synthetic-tts
+es-05	es	ve a la página doce	12	Mira la página 12	synthetic-tts
+es-06	es	pon el volumen en quince	15	Pon el volumen en 15	synthetic-tts
+es-07	es	pon el contador en dieciséis	16	con el contador en 16	synthetic-tts
+es-08	es	pon el temporizador en diecisiete	17	con el temporizador en 17	synthetic-tts
+es-09	es	pon el nivel en dieciocho	18	Pon el nivel en 18	synthetic-tts
+es-10	es	pon el volumen en diecinueve	19	Pon el volumen en 19	synthetic-tts
+es-11	es	pon el contador en veinte	20	con el contador en 20	synthetic-tts
+es-12	es	pon el contador en veintiuno	21	con el contador en 21	synthetic-tts
+es-13	es	pon el temporizador en veintiún	21	con el temporizador en 21	synthetic-tts
+es-14	es	pon el nivel en treinta y uno	31	Pon el nivel en 31	synthetic-tts
+es-15	es	ve a la página cuarenta y cinco	45	Mira la página 45	synthetic-tts
+es-16	es	pon el volumen en noventa y nueve	99	Pon el volumen en 99	synthetic-tts
+es-17	es	pon el contador en cien	100	con el contador en 100	synthetic-tts
+es-18	es	pon el contador en ciento cinco	105	con el contador en 105	synthetic-tts
+es-19	es	pon el temporizador en doscientos	200	con el temporizador en	synthetic-tts
+es-20	es	pon el nivel en quinientos	500	Pon el nivel en 500	synthetic-tts
+es-21	es	pon el volumen en setecientas	700	Pon el volumen en 700	synthetic-tts
+es-22	es	ve a la página novecientos noventa y nueve	999	miren la página 999	synthetic-tts
+es-23	es	pon el contador en mil	1000	con el contador en	synthetic-tts
+es-24	es	pon el contador en dos mil	2000	con el contador en 2000	synthetic-tts
+es-25	es	pon el temporizador en dos mil veinte	2020	con el temporizador en 2020	synthetic-tts
+es-26	es	pon el nivel en mil quinientos	1500	Ponle el nivel en 1500	synthetic-tts
+es-27	es	pon el volumen en veintiún mil	21000	Pon el volumen en 21.000	synthetic-tts
+es-28	es	ve a la página cien mil	100000	Mira la página 100 mil	synthetic-tts
+es-29	es	pon el temporizador en dos y medio	2.5	con el temporizador en dos y medio	synthetic-tts
+es-30	es	pon el contador en tres y cuarto	3.25	con el contador en tres y cuarto	synthetic-tts
+es-31	es	pon el volumen en tres cuartos	0.75	Pon el volumen en tres cuartos	synthetic-tts
+es-32	es	pon el nivel en medio	0.5	Pon el nivel en medio	synthetic-tts
+es-33	es	pon el volumen en coma cinco	reject	Pon el volumen en coma cinco	synthetic-tts
+es-34	es	pon el temporizador en dos coma cinco	2.5	con el temporizador en 2,5	synthetic-tts
+es-35	es	pon el nivel en tres punto cinco	3.5	Pon el nivel en 3.5	synthetic-tts
+es-36	es	pon el contador en cero coma veinticinco	0.25	con el contador en 0,25	synthetic-tts
+es-37	es	pon la luz en veintidós	22	Pon la luz en 22	synthetic-tts
+es-38	es	ve a la página veintitrés	23	miren la página 23	synthetic-tts
+es-39	es	pon el volumen en veintiséis	26	Pon el volumen en 26	synthetic-tts
+es-40	es	ve a la página mil ciento dieciséis	1116	miren la página 116	synthetic-tts
+es-41	es	pon el contador en dieciseis	16	con el contador en 16	synthetic-tts
+es-42	es	pon la luz en veintitres	23	Pon la luz en 23	synthetic-tts
+es-43	es	pon el contador en veinte uno	reject	con el contador en 20 1	synthetic-tts
+es-44	es	pon el temporizador en treinta y cero	reject	con el temporizador en 36	synthetic-tts
+es-45	es	pon el nivel en ciento y cinco	reject	Pon el nivel en 105	synthetic-tts
+es-46	es	pon el volumen en un mil	reject	Pon el volumen en un mil	synthetic-tts
+es-47	es	pon el contador en veintiuno mil	reject	con el contador en 21.000	synthetic-tts
