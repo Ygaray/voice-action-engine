@@ -75,7 +75,9 @@ class TierPolicyTest {
         assertThrows(IllegalArgumentException::class.java) { TierPolicy { commandTimeoutMillis = 0 } }
         assertEquals(1L, TierPolicy { commandTimeoutMillis = 1 }.commandTimeoutMillis)
         listOf(0L, -1L).forEach { bad ->
-            val failure = assertThrows(IllegalArgumentException::class.java) { TierPolicy { pickerTimeoutMillis = bad } }
+            val failure = assertThrows(IllegalArgumentException::class.java) {
+                TierPolicy { pickerTimeoutMillis = bad }
+            }
             assertTrue(failure.message.orEmpty(), failure.message.orEmpty().contains("pickerTimeoutMillis"))
         }
     }
