@@ -94,3 +94,8 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 13-on-device-model-spike*
+
+## Runtime Decisions
+
+- **RT-01 [tester-window] (2026-10-05):** GRANT, from orchestrator yahir-gsd-control-plane-3b. TESTER R5CT10XNKQN is granted for one window of at most 14400 s, covering 13-08 and then 13-09. `adb -s R5CT10XNKQN` only. The window is released right after 13-08 cleanup, and the master messages "device done tester". Earlier inputs: sb_labels is the current SB fixture 8bc739ed (19 tools, tool count reported); gemma3_1b is skipped_gated (orchestrator ruling).
+- **RT-02 [sb-gold-labels] (2026-10-05):** Use the VAE-authored SB gold labels, because SB has no sb-gold.json. In the 13-09 verdict, label SB-envelope accuracy "VAE-authored labels, SB review pending". SB reviews the labels in parallel and raises objections only. Keep the raw per-item outputs host-private (never committed) so the SB rows can be re-scored on the host, with no device re-run, if SB objects.
