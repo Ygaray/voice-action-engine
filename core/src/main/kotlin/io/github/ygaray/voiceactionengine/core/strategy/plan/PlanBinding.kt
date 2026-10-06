@@ -13,6 +13,9 @@ private const val ID_FRAGMENT = "[A-Za-z][A-Za-z0-9_-]*"
 private val REFERENCE = Regex("[\$]($ID_FRAGMENT)\\.(\\S+)")
 private val STEP_ID = Regex(ID_FRAGMENT)
 
+// The longest step id a plan may use; a longer one is a malformed plan, not a longer name.
+private const val STEP_ID_CAP = 64
+
 // A parsed reference: the step id and the result key it names. The grammar is described on [bindArguments].
 private class Reference(val stepId: String, val key: String)
 
@@ -22,8 +25,11 @@ private fun referenceOf(element: JsonElement): Reference? =
         ?.let { REFERENCE.matchEntire(it.content) }
         ?.let { Reference(it.groupValues[1], it.groupValues[2]) }
 
-/** True when [text] is a valid step id. */
-internal fun isStepId(text: String): Boolean = STEP_ID.matches(text)
+/**
+ * True when [text] is a valid step id: it starts with a letter, uses letters, digits, `_` or `-`, and has at most 64
+ * characters.
+ */
+internal fun isStepId(text: String): Boolean = text.length <= STEP_ID_CAP && STEP_ID.matches(text)
 
 /** Every step id named by a reference in [arguments]'s values, depth first, in document order, duplicates kept. */
 internal fun referencedStepIds(arguments: JsonObject): List<String> {

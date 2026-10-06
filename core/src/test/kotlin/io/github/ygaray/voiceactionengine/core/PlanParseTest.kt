@@ -145,6 +145,17 @@ class PlanParseTest {
     }
 
     @Test
+    fun aStepIdLongerThanSixtyFourCharactersIsABadId() {
+        val atCap = "s" + "a".repeat(63)
+        val overCap = "s" + "a".repeat(64)
+        assertEquals(64, atCap.length)
+        assertEquals(65, overCap.length)
+        assertTrue(parse(planArguments(create(atCap))) is PlanVerdict.Valid)
+        assertRejected("bad_id", 0, parse(planArguments(create(overCap))))
+        assertRejected("bad_id", 1, parse(planArguments(create(), create(overCap))))
+    }
+
+    @Test
     fun aReferenceToAnUndeclaredLaterOrOwnStepIsRejected() {
         assertRejected("bad_reference", 0, parse(planArguments(tagOf("s1", "\$s9.item_id"))))
         assertRejected("bad_reference", 0, parse(planArguments(tagOf("s1", "\$s1.item_id"))))
