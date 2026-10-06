@@ -1,0 +1,89 @@
+id	lang	text	expect	class
+en-01	en	set the counter to zero	0	units
+en-02	en	set the counter to three	3	units
+en-03	en	set the timer to seven	7	units
+en-04	en	set the level to nine	9	units
+en-05	en	go to page twelve	12	units
+en-06	en	set the volume to fifteen	15	units
+en-07	en	set the counter to sixteen	16	teens
+en-08	en	set the timer to seventeen	17	teens
+en-09	en	set the level to eighteen	18	teens
+en-10	en	set the volume to nineteen	19	teens
+en-11	en	set the counter to twenty	20	tens
+en-12	en	set the counter to twenty one	21	tens
+en-13	en	set the timer to thirty	30	tens
+en-14	en	set the level to forty five	45	tens
+en-15	en	go to page ninety nine	99	tens
+en-16	en	set the volume to sixty	60	tens
+en-17	en	set the counter to one hundred	100	hundreds
+en-18	en	set the counter to a hundred	100	hundreds
+en-19	en	set the timer to one hundred five	105	hundreds
+en-20	en	set the level to two hundred	200	hundreds
+en-21	en	set the volume to five hundred	500	hundreds
+en-22	en	go to page nine hundred ninety nine	999	hundreds
+en-23	en	set the counter to a thousand	1000	thousands
+en-24	en	set the counter to two thousand	2000	thousands
+en-25	en	set the timer to two thousand five hundred	2500	thousands
+en-26	en	set the level to one thousand and five	1005	thousands
+en-27	en	set the volume to twenty thousand	20000	thousands
+en-28	en	go to page fifteen thousand	15000	thousands
+en-29	en	set the timer to one and a half	1.5	fraction
+en-30	en	set the counter to two and a quarter	2.25	fraction
+en-31	en	set the volume to three quarters	0.75	fraction
+en-32	en	set the level to half	0.5	fraction
+en-33	en	set the volume to point five	0.5	decimal
+en-34	en	set the timer to two point five	2.5	decimal
+en-35	en	set the level to zero point two five	0.25	decimal
+en-36	en	set the counter to three point one four	3.14	decimal
+en-37	en	set the counter to twenty and five	reject	nearmiss
+en-38	en	set the timer to fourty	reject	nearmiss
+en-39	en	set the level to a million	reject	nearmiss
+en-40	en	set the volume to ten hundred	reject	nearmiss
+en-41	en	set the counter to one thousand thousand	reject	nearmiss
+es-01	es	pon el contador en cero	0	units
+es-02	es	pon el contador en tres	3	units
+es-03	es	pon el temporizador en siete	7	units
+es-04	es	pon el nivel en nueve	9	units
+es-05	es	ve a la página doce	12	units
+es-06	es	pon el volumen en quince	15	units
+es-07	es	pon el contador en dieciséis	16	teens
+es-08	es	pon el temporizador en diecisiete	17	teens
+es-09	es	pon el nivel en dieciocho	18	teens
+es-10	es	pon el volumen en diecinueve	19	teens
+es-11	es	pon el contador en veinte	20	tens
+es-12	es	pon el contador en veintiuno	21	tens
+es-13	es	pon el temporizador en veintiún	21	tens
+es-14	es	pon el nivel en treinta y uno	31	tens
+es-15	es	ve a la página cuarenta y cinco	45	tens
+es-16	es	pon el volumen en noventa y nueve	99	tens
+es-17	es	pon el contador en cien	100	hundreds
+es-18	es	pon el contador en ciento cinco	105	hundreds
+es-19	es	pon el temporizador en doscientos	200	hundreds
+es-20	es	pon el nivel en quinientos	500	hundreds
+es-21	es	pon el volumen en setecientas	700	hundreds
+es-22	es	ve a la página novecientos noventa y nueve	999	hundreds
+es-23	es	pon el contador en mil	1000	thousands
+es-24	es	pon el contador en dos mil	2000	thousands
+es-25	es	pon el temporizador en dos mil veinte	2020	thousands
+es-26	es	pon el nivel en mil quinientos	1500	thousands
+es-27	es	pon el volumen en veintiún mil	21000	thousands
+es-28	es	ve a la página cien mil	100000	thousands
+es-29	es	pon el temporizador en dos y medio	2.5	fraction
+es-30	es	pon el contador en tres y cuarto	3.25	fraction
+es-31	es	pon el volumen en tres cuartos	0.75	fraction
+es-32	es	pon el nivel en medio	0.5	fraction
+es-33	es	pon el volumen en coma cinco	reject	decimal
+es-34	es	pon el temporizador en dos coma cinco	2.5	decimal
+es-35	es	pon el nivel en tres punto cinco	3.5	decimal
+es-36	es	pon el contador en cero coma veinticinco	0.25	decimal
+es-37	es	pon la luz en veintidós	22	accent
+es-38	es	ve a la página veintitrés	23	accent
+es-39	es	pon el volumen en veintiséis	26	accent
+es-40	es	ve a la página mil ciento dieciséis	1116	accent
+es-41	es	pon el contador en dieciseis	16	accent
+es-42	es	pon la luz en veintitres	23	accent
+es-43	es	pon el contador en veinte uno	reject	nearmiss
+es-44	es	pon el temporizador en treinta y cero	reject	nearmiss
+es-45	es	pon el nivel en ciento y cinco	reject	nearmiss
+es-46	es	pon el volumen en un mil	reject	nearmiss
+es-47	es	pon el contador en veintiuno mil	reject	nearmiss
