@@ -2,6 +2,7 @@
 # Phase gate (NOT part of `check`): prove that every ML-denial gate (SC4, D-09) goes RED, and for the RIGHT reason, when an
 # on-device ML runtime or private spike artifact is planted, and GREEN on the clean tree.
 #   Part A  an ML dependency declared on :core, :providers and :keystore trips verifyNoMlArtifacts
+#   Part B  an ML token in :core main code trips the NoHardCodedConstantsTest on-device scan
 # Every plant is removed on exit (trap); the script then asserts the touched build files are byte-identical to their backups.
 # Never commit a plant. Run:  scripts/verify-ml-denial-controls.sh   (a few minutes warm)
 set -uo pipefail
@@ -56,6 +57,12 @@ for m in core providers keystore; do
   restore "$m/build.gradle.kts"
   expect_task_green ":$m clean tree" ":$m:verifyNoMlArtifacts"
 done
+
+echo "== Part B: an ML token in :core main code trips the on-device scan"
+plant="core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/ZzMlPlant.kt"; PLANTS+=("$plant")
+printf 'package io.github.ygaray.voiceactionengine.core\n\ninternal const val ZZ_ML_PLANT: String = "litertlm"\n' > "$plant"
+VERBOSE=1 expect_task_red ":core on-device scan sees an ML token" "noOnDeviceImplementationCode FAILED" :core:test --tests '*NoHardCodedConstantsTest*'
+rm -f "$plant"
 
 for f in "${RESTORE[@]:-}"; do
   [ -z "$f" ] && continue

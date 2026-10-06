@@ -59,6 +59,10 @@ private object ScanRules {
         Regex("(?i)mlkit"),
         Regex("(?i)(?<![A-Za-z0-9])nano(?![A-Za-z0-9])"),
         Regex("Nano(?![a-z])"),
+        Regex("(?i)litert"),
+        Regex("(?i)mediapipe"),
+        Regex("(?i)tflite"),
+        Regex("com\\.google\\.ai\\.edge"),
     )
 
     fun modelIdHit(line: String): Boolean =
@@ -133,7 +137,8 @@ class NoHardCodedConstantsTest {
 
     @Test
     fun noOnDeviceImplementationCode() {
-        assertNoHits("v1.0 ships no on-device implementation", ScanRules.scan(sources, rule = ScanRules::onDeviceHit))
+        val hits = ScanRules.scan(sources, rule = ScanRules::onDeviceHit)
+        assertNoHits(":core ships no on-device implementation (SC4)", hits)
     }
 
     @Test
@@ -229,10 +234,18 @@ class NoHardCodedConstantsTest {
             "const val GEMINI_NANO = 1",
             "val nano = 1",
             "import com.google.android.gms.aicore.Foo",
+            "import com.google.ai.edge.litertlm.Engine",
+            "val e = LiteRtEngine()",
+            "import com.google.mediapipe.tasks.genai.llminference.LlmInference",
+            "val i = TfLiteInterpreter()",
+            "val p = \"litertlm\"",
         ).forEach { assertTrue("should flag: $it", ScanRules.onDeviceHit(it)) }
         listOf(
             "// no AICore code in v1.0",
             " * ML Kit GenAI is not shipped",
+            "// LiteRT is not shipped in :core",
+            " * no MediaPipe here",
+            "/* TFLite */",
             "/* Nano */",
             "val a = banano",
             "val n = nanoseconds",
