@@ -64,7 +64,7 @@ alone to keep one.
 - [x] **UNDO-01**: a `:undo` module (`voice-action-engine-undo`) depends on nothing, not even `:core`, and a non-voice app can use it alone.
 - [ ] **UNDO-02**: a journal/memento design with per-entity adapters (read, write back, re-insert if deleted) and explicit compensators for out-of-DB side effects.
 - [ ] **UNDO-03**: an unchanged-since-commit check runs before every restore. A changed entity makes the undo refuse loudly and never clobber. An undo either completes or reports exactly what it couldn't restore.
-- [ ] **UNDO-04**: the pipeline journals each command's committed actions by `runId`, so an app can offer "Undo all (N)" for a whole command, entangled actions included.
+- [x] **UNDO-04**: the pipeline journals each command's committed actions by `runId`, so an app can offer "Undo all (N)" for a whole command, entangled actions included.
 
 ### Voice adapter (§6.2 step 12, V11-06)
 
@@ -136,7 +136,7 @@ alone to keep one.
 | UNDO-01 | Phase 17 | Complete |
 | UNDO-02 | Phase 17 | Pending |
 | UNDO-03 | Phase 17 | Pending |
-| UNDO-04 | Phase 17 | Pending |
+| UNDO-04 | Phase 17 | Complete |
 | ADPT-01 | Phase 18 | Pending |
 | DOC-01 | Phase 12 | Complete |
 | DOC-02 | Phase 19 | Pending |
