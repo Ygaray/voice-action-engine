@@ -5,16 +5,8 @@ import kotlinx.serialization.json.JsonObject
 
 private const val EN = "en"
 private const val ES = "es"
-private const val SYNTAX_CHARACTERS = "[](){}<>|"
-
-/** The one fold both declared phrasings and transcripts go through: [tokenize], keys only. */
-private fun foldWords(text: String): List<String> = tokenize(text).tokens.map { it.key }
 
 internal class IntentSpec(val toolName: String, val en: List<String>, val es: List<String>)
-
-private class Rule(val toolName: String, val language: String, val templateIndex: Int) {
-    val id: String get() = "$toolName:$language:$templateIndex"
-}
 
 /** What a pack decided for one transcript. Internal: the public surface is [GrammarPack.match]. */
 internal sealed class GrammarResult {
@@ -40,20 +32,34 @@ internal sealed class GrammarResult {
  * matches a transcript without them and the other way round. A sentence terminator (`. ! ? ;`) between two words
  * means the transcript holds more than one command, so it matches nothing.
  *
- * Build one with `GrammarPack { intent("tool") { en("..."); es("...") } }`. A phrasing here is a plain sequence of
- * words; a phrasing that uses any of the characters `[ ] ( ) { } < > |` is refused when the pack is built.
+ * Build one with `GrammarPack { intent("tool") { en("..."); es("...") } }`. A phrasing is written from these parts, in
+ * either language, and no regular expression is involved:
+ *
+ * - words, matched one for one after the fold above;
+ * - `[the]`, an optional part: zero or one of its alternatives (`[the|a]`);
+ * - `(turn|switch)`, a group: exactly one of its alternatives;
+ * - `<name>`, a named sub-rule of the same language declared with [Builder.enRule] or [Builder.esRule]; sub-rules may
+ *   refer to other sub-rules (never to themselves) and may not hold slots.
+ *
+ * Every phrasing needs at least one literal word on every path, so an optional-only phrasing is refused. A phrasing
+ * that expands to more than 256 sequences is refused too: split it with sub-rules. Anything wrong in the declarations
+ * (bad syntax, an unknown or looping rule, two tools reading the same words in one language) throws when the pack is
+ * built, never when a transcript is matched.
  *
  * The pack is immutable once built, so it is safe to share between commands and threads.
  */
 public class GrammarPack internal constructor(settings: Builder) {
-    private val index: Map<String, Map<List<String>, Rule>>
+    private val matchers: Map<String, RuleMatcher>
     private val intentCount: Int
 
     init {
         val intents = settings.intents.toList()
         validate(intents)
         intentCount = intents.size
-        index = mapOf(EN to rulesFor(EN, intents) { it.en }, ES to rulesFor(ES, intents) { it.es })
+        matchers = mapOf(
+            EN to RuleMatcher(compileLanguage(EN, intents, settings.enRules.toList()) { it.en }),
+            ES to RuleMatcher(compileLanguage(ES, intents, settings.esRules.toList()) { it.es }),
+        )
     }
 
     /**
@@ -69,44 +75,52 @@ public class GrammarPack internal constructor(settings: Builder) {
 
     internal fun matchDetailed(transcript: String, language: String?): GrammarResult {
         val tokens = tokenize(transcript)
-        val words = tokens.tokens.map { it.key }
+        val keys = tokens.tokens.map { it.key }
         return when {
             tokens.clauseBreak -> GrammarResult.Rejected(null)
-            language == null -> matchBoth(words)
-            language == EN || language == ES -> matchOne(language, words)
+            language == null -> matchBoth(keys)
+            language == EN || language == ES -> matchOne(language, keys)
             else -> GrammarResult.Rejected(null)
         }
     }
 
-    private fun matchOne(language: String, words: List<String>): GrammarResult =
-        index[language]?.get(words)?.let { GrammarResult.Matched(matchOf(it, language)) }
-            ?: GrammarResult.Rejected(null)
+    private fun matchOne(language: String, keys: List<String>): GrammarResult =
+        when (val verdict = verdictOf(language, keys)) {
+            is RuleVerdict.One -> GrammarResult.Matched(matchOf(verdict.rule, language))
+            is RuleVerdict.Ambiguous -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
+            is RuleVerdict.None -> GrammarResult.Rejected(null)
+        }
 
-    private fun matchBoth(words: List<String>): GrammarResult {
-        val en = index[EN]?.get(words)
-        val es = index[ES]?.get(words)
+    private fun matchBoth(keys: List<String>): GrammarResult {
+        val en = verdictOf(EN, keys)
+        val es = verdictOf(ES, keys)
         return when {
-            en != null && es != null -> agreed(en, es)
-            en != null -> GrammarResult.Matched(matchOf(en, EN))
-            es != null -> GrammarResult.Matched(matchOf(es, ES))
+            en is RuleVerdict.Ambiguous || es is RuleVerdict.Ambiguous ->
+                GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
+            en is RuleVerdict.One && es is RuleVerdict.One -> agreed(en.rule, es.rule)
+            en is RuleVerdict.One -> GrammarResult.Matched(matchOf(en.rule, EN))
+            es is RuleVerdict.One -> GrammarResult.Matched(matchOf(es.rule, ES))
             else -> GrammarResult.Rejected(null)
         }
     }
+
+    private fun verdictOf(language: String, keys: List<String>): RuleVerdict =
+        matchers[language]?.match(keys) ?: RuleVerdict.None()
 
     // Both languages produce the same words: the same tool is one reading, different tools are never guessed between.
-    private fun agreed(en: Rule, es: Rule): GrammarResult =
+    private fun agreed(en: FlatRule, es: FlatRule): GrammarResult =
         if (en.toolName == es.toolName) {
             GrammarResult.Matched(GrammarMatch(en.toolName, JsonObject(emptyMap()), null, false, null))
         } else {
             GrammarResult.Rejected(null)
         }
 
-    private fun matchOf(rule: Rule, language: String): GrammarMatch =
-        GrammarMatch(rule.toolName, JsonObject(emptyMap()), language, false, rule.id)
+    private fun matchOf(rule: FlatRule, language: String): GrammarMatch =
+        GrammarMatch(rule.toolName, JsonObject(emptyMap()), language, false, rule.ruleId)
 
     /** Prints the number of intents and phrasings per language only. */
     override fun toString(): String =
-        "GrammarPack(intents=$intentCount, enRules=${index[EN]?.size}, esRules=${index[ES]?.size})"
+        "GrammarPack(intents=$intentCount, enRules=${matchers[EN]?.size}, esRules=${matchers[ES]?.size})"
 
     private fun validate(intents: List<IntentSpec>) {
         val names = HashSet<String>()
@@ -119,41 +133,11 @@ public class GrammarPack internal constructor(settings: Builder) {
         }
     }
 
-    private fun rulesFor(
-        language: String,
-        intents: List<IntentSpec>,
-        templatesOf: (IntentSpec) -> List<String>,
-    ): Map<List<String>, Rule> {
-        val rules = LinkedHashMap<List<String>, Rule>()
-        for (intent in intents) {
-            templatesOf(intent).forEachIndexed { position, template ->
-                val words = wordsOf(intent.toolName, language, template)
-                val existing = rules[words]
-                if (existing == null) {
-                    rules[words] = Rule(intent.toolName, language, position)
-                } else {
-                    // The same phrasing twice for one tool collapses to one rule; for two tools it would be a guess.
-                    require(existing.toolName == intent.toolName) {
-                        "GrammarPack: tools ${existing.toolName} and ${intent.toolName} declare the same " +
-                            "$language phrasing: $template"
-                    }
-                }
-            }
-        }
-        return rules
-    }
-
-    private fun wordsOf(toolName: String, language: String, template: String): List<String> {
-        require(template.isNotBlank()) { "GrammarPack: tool $toolName declares a blank $language phrasing" }
-        require(template.none { it in SYNTAX_CHARACTERS }) {
-            "GrammarPack: tool $toolName $language phrasing uses template syntax that is not supported yet: $template"
-        }
-        return foldWords(template)
-    }
-
-    /** Collects the intents of one [GrammarPack]. */
+    /** Collects the intents and sub-rules of one [GrammarPack]. */
     public class Builder internal constructor() {
         internal val intents: MutableList<IntentSpec> = mutableListOf()
+        internal val enRules: MutableList<RuleSpec> = mutableListOf()
+        internal val esRules: MutableList<RuleSpec> = mutableListOf()
 
         /**
          * Declares the phrasings that mean the app's tool [toolName], from [block].
@@ -164,6 +148,21 @@ public class GrammarPack internal constructor(settings: Builder) {
         public fun intent(toolName: String, block: IntentBuilder.() -> Unit) {
             val settings = IntentBuilder().apply(block)
             intents.add(IntentSpec(toolName, settings.en.toList(), settings.es.toList()))
+        }
+
+        /**
+         * Declares the English sub-rule [name], written `<name>` in the English phrasings of any intent. Each of
+         * [templates] is one way to say it, so `enRule("article", "the", "a")` is the same as `(the|a)`. The name is
+         * lower case letters, digits and underscores, starting with a letter, and may be declared once per language.
+         * A sub-rule may refer to other sub-rules but not to itself, and may not hold slots.
+         */
+        public fun enRule(name: String, vararg templates: String) {
+            enRules.add(RuleSpec(name, templates.toList()))
+        }
+
+        /** Declares the Spanish sub-rule [name]; the same as [enRule] for the Spanish phrasings. */
+        public fun esRule(name: String, vararg templates: String) {
+            esRules.add(RuleSpec(name, templates.toList()))
         }
     }
 
@@ -189,8 +188,8 @@ public class GrammarPack internal constructor(settings: Builder) {
          * Builds a pack from [block].
          *
          * @throws IllegalArgumentException naming the tool and phrasing when an intent is blank, declared twice, has
-         * no phrasing, declares a blank or unsupported phrasing, or when two tools declare the same phrasing in one
-         * language.
+         * no phrasing, declares a blank or malformed phrasing, refers to an unknown or looping sub-rule, or when two
+         * tools declare the same phrasing in one language.
          */
         public operator fun invoke(block: Builder.() -> Unit): GrammarPack = GrammarPack(Builder().apply(block))
     }

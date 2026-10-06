@@ -102,7 +102,10 @@ class GrammarTemplateTest {
 
     @Test
     fun syntaxFaultsFailAtBuildNamingTheTemplate() {
-        listOf("(a|)", "[]", "()", "a | b", "[open", "open]", "{Count}", "<missing>", "(a|b", "go }", "go >", "").forEach {
+        val faulty = listOf(
+            "(a|)", "[]", "()", "a | b", "[open", "open]", "{Count}", "<missing>", "(a|b", "go }", "go >",
+        )
+        (faulty + "").forEach {
             val fault = assertThrows("template: '$it'", IllegalArgumentException::class.java) { enPack(it) }
             assertTrue("template '$it' message: ${fault.message}", it in fault.message.orEmpty())
         }

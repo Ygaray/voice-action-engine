@@ -180,7 +180,7 @@ class LocalGrammarPipelineTest {
                 intent("b") { en("GO") }
             }
         }
-        assertThrows(IllegalArgumentException::class.java) { GrammarPack { intent("a") { en("go [now]") } } }
+        assertThrows(IllegalArgumentException::class.java) { GrammarPack { intent("a") { en("go [now") } } }
         assertThrows(IllegalArgumentException::class.java) { GrammarPack { intent("a") { } } }
         assertThrows(IllegalArgumentException::class.java) {
             GrammarPack {
