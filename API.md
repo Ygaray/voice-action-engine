@@ -212,6 +212,14 @@ has a stable `code`.
   carries the planning call's id. `maxSteps` defaults to 8 and must be at least 1. `onFailed` fires and defaults
   exactly like `SingleShotStrategy`'s. A snapshot that already offers a tool named `submit_plan`, or offers no
   non-terminal tool, fails before any call.
+  A step can use an earlier step's result: an argument whose whole value is the string `$<stepId>.<key>` is replaced,
+  before your executor sees the step, with that earlier step's committed `targetIds[key]` (the key names are yours: say
+  in each write tool's description which keys it returns). Step ids start with a letter and use letters, digits, `_`
+  and `-`. A reference inside a longer string, or `$` followed by a digit such as `$5.00`, stays literal; object keys
+  and values that are not strings are never changed. A reference to a step not listed earlier rejects the plan before
+  any step runs; a key the earlier step did not return stops the plan before that step. A plan that sets
+  `needs_lookup`, or lists a read tool as a step, hands the command to the next tier with nothing run, carrying the
+  incoming carry unchanged (`plan_needs_lookup`).
 - `LocalGrammarStrategy(id) { pack, resolver }`: the free, offline grammar tier (no provider call, `NO_PROVIDER`).
   `GrammarPack { tryOtherLanguage; enFillers/esFillers; enRule/esRule; intent(tool) { integer, decimal, choice, text,
   normalize, terminal, en, es } }` declares the phrasings. A template is words, `[optional]`, `(a|b)`, `{slot}` and
@@ -321,6 +329,7 @@ engaged, tier ended, closed. `CommandOutcome.trace` is a `CommandTrace` of `Tier
 `TraceCode`s (**open**) and `Usage`. Events and traces carry ids, codes, counts and tool names only; never log keys,
 transcripts or tool arguments. The grammar tier records `grammar_ambiguous`, `grammar_language_unsupported`,
 `grammar_slot_rejected`, `grammar_normalize_error`, `grammar_input_too_long` and `grammar_resolver_rejected`.
+The plan tier records `plan_rejected`, `plan_replanned` and `plan_binding_unresolved`.
 
 <!-- doc-snippet: telemetry -->
 ```kotlin

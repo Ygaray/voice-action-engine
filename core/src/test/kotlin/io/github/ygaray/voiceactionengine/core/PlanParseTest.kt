@@ -134,7 +134,8 @@ class PlanParseTest {
     @Test
     fun perStepChecksRunInTheDocumentedOrder() {
         assertRejected("unknown_tool", 1, parse(planArguments(create(), planStep("s2", "nope", buildJsonObject {}))))
-        assertRejected("terminal_tool", 1, parse(planArguments(create(), planStep("s2", "ask_user", buildJsonObject {}))))
+        val terminal = planStep("s2", "ask_user", buildJsonObject {})
+        assertRejected("terminal_tool", 1, parse(planArguments(create(), terminal)))
         assertRejected("bad_id", 1, parse(planArguments(create(), create("1a"))))
         assertRejected("duplicate_id", 1, parse(planArguments(create(), create("s1"))))
         // an unknown tool wins over a bad id on the same step
