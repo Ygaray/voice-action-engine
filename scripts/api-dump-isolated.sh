@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
-# Metalava dump of core, providers and keystore in an ISOLATED COPY, so the real tree never receives an api.txt
-# (dumps are committed only at the v1.0.0 cut; a stray api.txt would arm the compat gate early). Each module's dump is
-# written as <out>/<module>.api.sig, never as api.txt.
-#   --out <dir>   required; must not end in api.txt and must not lie under core/, providers/ or keystore/
+# Metalava dump of every published module (scripts/modules.list) in an ISOLATED COPY, so the api.txt files committed in
+# the real tree (the released baselines) are never rewritten. Each module's dump is written as <out>/<module>.api.sig,
+# never as api.txt.
+#   --out <dir>   required; must not end in api.txt and must not lie under any module directory
 #   --head        copy `git archive HEAD` instead of the working tree (the release gate dumps exactly what is committed)
 # The default copy is every tracked and untracked non-ignored file of the working tree (minus graphify-out/ and
 # .planning/graphs/), with a completeness count. Any api.txt inside the copy is deleted before dumping, so a stale file
 # can never compare equal to itself. KEEP_WORK=1 keeps the copy for debugging.
 # Usage: scripts/api-dump-isolated.sh --out <dir> [--head]
-# Prints "API DUMP ISOLATED OK out=<dir> core=<n> providers=<n> keystore=<n>" (line counts) or
+# Prints "API DUMP ISOLATED OK out=<dir> <module>=<n> ..." (line counts, one per module in manifest order) or
 # "API DUMP ISOLATED FAIL: <reason>" (exit 1).
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 PKG_ROOT="io.github.ygaray.voiceactionengine"
-MODULES="core providers keystore"
+# The manifest is read from the real tree: the isolated copy is not a git repository, so the reader cannot discover it there.
+export VAE_MODULES_FILE="${VAE_MODULES_FILE:-$ROOT/scripts/modules.list}"
+# shellcheck source=lib/modules.sh
+. "$ROOT/scripts/lib/modules.sh" || { echo "API DUMP ISOLATED FAIL: cannot load scripts/lib/modules.sh" >&2; exit 1; }
+MODULES="$(vae_modules)" || { echo "API DUMP ISOLATED FAIL: module manifest unreadable" >&2; exit 1; }
 OUT=""
 HEAD_MODE=0
 fail() { echo "API DUMP ISOLATED FAIL: $1" >&2; exit 1; }
@@ -28,7 +32,7 @@ done
 [ -n "$OUT" ] || fail "--out <dir> is required"
 
 OUT_ABS="$(realpath -m "$OUT")"
-case "$(basename "$OUT_ABS")" in *api.txt) fail "--out must not end in api.txt (the hygiene gate forbids api.txt before the cut)" ;; esac
+case "$(basename "$OUT_ABS")" in *api.txt) fail "--out must not end in api.txt (it would shadow a module's committed baseline)" ;; esac
 for m in $MODULES; do
   case "$OUT_ABS" in "$ROOT/$m"/*|"$ROOT/$m") fail "--out must not lie under $m/" ;; esac
 done
@@ -61,7 +65,8 @@ for m in $MODULES; do
   dump="$COPY/$m/api.txt"
   [ -f "$dump" ] || fail "$m/api.txt was not produced"
   head -1 "$dump" | grep -q 'Signature format' || fail "$m/api.txt lacks a Signature format header"
-  grep -q "^package $PKG_ROOT\\.$m" "$dump" || fail "$m/api.txt lacks the $m package (vacuous dump)"
+  pkg="$(vae_module_field "$m" kotlinPackage)" || fail "no kotlinPackage for $m"
+  grep -q "^package $PKG_ROOT\\.$pkg" "$dump" || fail "$m/api.txt lacks the $m package (vacuous dump)"
 done
 
 cd "$ROOT"

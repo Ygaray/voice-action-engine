@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Metalava wiring proof (BLD-05, D-07) in an ISOLATED COPY of the working tree: the real tree never receives an api.txt
-# (dumps are committed only at the v1.0.0 cut; a stray dump would arm the compat gate early and freeze an interim API).
+# Metalava wiring proof (BLD-05, D-07) in an ISOLATED COPY of the working tree, so the api.txt baselines committed in
+# the real tree are never rewritten. It covers every published module listed in scripts/modules.list.
 #   a. apiDump on the real (possibly empty) public surface: report, do not require (see the contingency note below)
 #   b. plant a public class per module -> apiDump -> every module's api.txt names it -> apiCheck green
 #   c. add a second public class (additive change) -> apiCheck still green
@@ -20,10 +20,14 @@ before_status="$(tree_status)"
   | tar --null --ignore-failed-read -T - -cf -) | tar -x -C "$COPY"
 if [ -f "$ROOT/local.properties" ]; then cp "$ROOT/local.properties" "$COPY/"; fi
 cd "$COPY"
-MODULES="core providers keystore"
-pkgdir() { echo "$1/src/main/kotlin/io/github/ygaray/voiceactionengine/$1"; }
+# The manifest is read from the real tree: the isolated copy is not a git repository, so the reader cannot discover it there.
+export VAE_MODULES_FILE="${VAE_MODULES_FILE:-$ROOT/scripts/modules.list}"
+# shellcheck source=lib/modules.sh
+. "$ROOT/scripts/lib/modules.sh" || { echo "API DUMP PROOF FAIL: cannot load scripts/lib/modules.sh" >&2; exit 1; }
+MODULES="$(vae_modules)" || { echo "API DUMP PROOF FAIL: module manifest unreadable" >&2; exit 1; }
+pkgdir() { echo "$1/src/main/kotlin/io/github/ygaray/voiceactionengine/$(vae_module_field "$1" kotlinPackage)"; }
 plant() { # <module> <ClassName>
-  printf 'package io.github.ygaray.voiceactionengine.%s\n\npublic class %s\n' "$1" "$2" > "$(pkgdir "$1")/$2.kt"
+  printf 'package io.github.ygaray.voiceactionengine.%s\n\npublic class %s\n' "$(vae_module_field "$1" kotlinPackage)" "$2" > "$(pkgdir "$1")/$2.kt"
 }
 fail() { echo "API DUMP PROOF FAIL: $1" >&2; exit 1; }
 
@@ -37,7 +41,7 @@ if ./gradlew -q apiDump >/dev/null 2>"$COPY/a.err"; then
 else
   echo "EMPTY-SURFACE DUMP FAILED: $(tail -5 "$COPY/a.err" | tr '\n' ' ')"
 fi
-rm -f core/api.txt providers/api.txt keystore/api.txt
+for m in $MODULES; do rm -f "$m/api.txt"; done
 
 echo "== b. planted public class -> dump -> check"
 for m in $MODULES; do plant "$m" ZzApiProbe; done

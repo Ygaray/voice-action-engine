@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Public-surface review over the REAL Metalava dump, produced in an ISOLATED COPY of the working tree so the real tree
-# never receives an api.txt (dumps are committed only at the v1.0.0 cut; a stray dump would arm the compat gate early).
+# Public-surface review over the REAL Metalava dump, produced in an ISOLATED COPY of the working tree so the api.txt
+# baselines committed in the real tree are never rewritten. It reviews core's dump; the other published modules' dumps
+# are reviewed in their phase's SURFACE-REVIEW from api-dump-isolated.sh output.
 #   fails when core's dump:
 #     a. is missing, lacks the "Signature format" header, or lacks the core package (non-vacuity)
 #     b. has a sealed type outside {StrategyOutcome, CommandOutcome, RunTermination, GateDecision, ToolStep, Message,
@@ -29,8 +30,11 @@ done
 
 if [ -n "$OUT" ]; then
   OUT_ABS="$(realpath -m "$OUT")"
-  case "$(basename "$OUT_ABS")" in *api.txt) fail "--out must not end in api.txt (the hygiene gate forbids api.txt before the cut)" ;; esac
-  for m in core providers keystore; do
+  case "$(basename "$OUT_ABS")" in *api.txt) fail "--out must not end in api.txt (it would shadow a module's committed baseline)" ;; esac
+  # shellcheck source=lib/modules.sh
+  . "$ROOT/scripts/lib/modules.sh" || fail "cannot load scripts/lib/modules.sh"
+  REVIEW_MODULES="$(vae_modules)" || fail "module manifest unreadable"
+  for m in $REVIEW_MODULES; do
     case "$OUT_ABS" in "$ROOT/$m"/*|"$ROOT/$m") fail "--out must not lie under $m/" ;; esac
   done
 fi
