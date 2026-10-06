@@ -180,7 +180,7 @@ class GrammarTemplateTest {
     private fun flat(tool: String, vararg words: String): FlatRule =
         FlatRule(tool, "en", words.map { RuleElement.Word(it) }, "$tool:en:0", words.joinToString(" "))
 
-    private fun RuleMatcher.match(keys: List<String>): RuleVerdict = match(tokenize(keys.joinToString(" ")))
+    private fun RuleMatcher.match(keys: List<String>): RuleVerdict = match(tokenize(keys.joinToString(" ")), span)
 
     private fun matcherOf(vararg rules: FlatRule): RuleMatcher = RuleMatcher(rules.toList(), emptyList(), emptyMap())
 
@@ -201,7 +201,7 @@ class GrammarTemplateTest {
         assertTrue(verdict is RuleVerdict.One)
         assertSame(first, (verdict as RuleVerdict.One).rule)
         assertTrue(matcher.match(listOf("go")) is RuleVerdict.None)
-        assertTrue(matcher.match(listOf("go", "now", "now")) is RuleVerdict.None)
+        assertTrue(matcher.match(listOf("go", "now", "now")) is RuleVerdict.TooLong)
         assertTrue(matcher.match(emptyList()) is RuleVerdict.None)
     }
 }

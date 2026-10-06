@@ -137,7 +137,7 @@ class GrammarSlotsTest {
         )
         val matcher = RuleMatcher(listOf(rule), emptyList(), mapOf(OPEN_PAGE to mapOf("title" to SlotSpec.TextSlot(3))))
 
-        val verdict = matcher.match(tokenize("open page  Release,  Plan."))
+        val verdict = matcher.match(tokenize("open page  Release,  Plan."), matcher.span)
 
         assertTrue(verdict is RuleVerdict.One)
         val binding = (verdict as RuleVerdict.One).bindings.single()

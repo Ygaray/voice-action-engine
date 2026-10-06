@@ -64,7 +64,8 @@ class GrammarAmbiguityTest {
         val first = FlatRule(ADD, "en", elements, "add:en:0", "{count} units")
         val second = FlatRule(ADD, "en", elements, "add:en:1", "{count} units")
 
-        val verdict = RuleMatcher(listOf(first, second), emptyList(), slots).match(tokenize("5 units"))
+        val matcher = RuleMatcher(listOf(first, second), emptyList(), slots)
+        val verdict = matcher.match(tokenize("5 units"), matcher.span)
 
         assertTrue(verdict.toString(), verdict is RuleVerdict.One)
     }

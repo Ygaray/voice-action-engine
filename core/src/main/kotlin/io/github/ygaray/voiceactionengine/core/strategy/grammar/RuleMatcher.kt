@@ -1,5 +1,6 @@
 package io.github.ygaray.voiceactionengine.core.strategy.grammar
 
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.number.NumberWords
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -19,6 +20,9 @@ internal sealed class RuleVerdict {
 
     /** Two or more distinct results: the transcript is read two ways and the matcher never picks one. */
     class Ambiguous : RuleVerdict()
+
+    /** The transcript, once its fillers are stripped, has more words than any declared phrasing can span. */
+    class TooLong : RuleVerdict()
 }
 
 /** One parse of one rule over an example: the [rule] that read it and the [arguments] its slots bound. */
@@ -54,6 +58,33 @@ internal class RuleMatcher(
     val size: Int get() = rules.size
 
     /**
+     * The most tokens any one rule can account for: its literal words plus, for each slot, the longest span that slot
+     * can bind in this language (a number phrase, a synonym, `maxWords`). Worked out from the rules, never configured.
+     */
+    val span: Int = rules.maxOfOrNull { rule ->
+        rule.elements.sumOf { element ->
+            when (element) {
+                is RuleElement.Word -> 1
+                is RuleElement.Slot -> slotSpan(slots[rule.toolName]?.get(element.name), rule.language)
+            }
+        }
+    } ?: 0
+
+    /**
+     * The verdict for one transcript's [tokens], after its leading and trailing fillers are stripped. A transcript with
+     * a sentence break holds more than one command and matches nothing; more than [cap] kept tokens is
+     * [RuleVerdict.TooLong]. Both are decided before any rule is walked.
+     */
+    fun match(tokens: GrammarTokens, cap: Int): RuleVerdict {
+        val kept = strip(tokens)
+        return when {
+            tokens.clauseBreak -> RuleVerdict.None()
+            kept.tokens.size > cap -> RuleVerdict.TooLong()
+            else -> walkAll(kept)
+        }
+    }
+
+    /**
      * Every parse of [tokens] by each rule on its own, fillers not stripped. This is how the build-time self-check runs
      * a rule's own example through the real walk and sees every rule that reads it, and how.
      */
@@ -69,15 +100,22 @@ internal class RuleMatcher(
         return found
     }
 
-    /** The verdict for one transcript's [tokens], after its leading and trailing fillers are stripped. */
-    fun match(tokens: GrammarTokens): RuleVerdict {
-        val kept = strip(tokens)
+    private fun walkAll(kept: GrammarTokens): RuleVerdict {
         val hits = ArrayList<RuleVerdict.One>()
         for (rule in rules) {
             val walk = RuleWalk(rule, slots[rule.toolName].orEmpty(), kept) { admit(hits, it) }
             if (walk.run()) return RuleVerdict.Ambiguous()
         }
         return hits.firstOrNull() ?: RuleVerdict.None()
+    }
+
+    private fun slotSpan(spec: SlotSpec?, language: String): Int = when (spec) {
+        is SlotSpec.IntegerSlot, is SlotSpec.DecimalSlot -> NumberWords.longestPhrase(language)
+        is SlotSpec.ChoiceSlot -> spec.options.maxOfOrNull { option ->
+            option.synonyms(language).maxOfOrNull { it.keys.size } ?: 1
+        } ?: 1
+        is SlotSpec.TextSlot -> spec.maxWords
+        null -> 1
     }
 
     // True when [hit] is a second distinct result. The same tool with equal arguments is one reading however reached.

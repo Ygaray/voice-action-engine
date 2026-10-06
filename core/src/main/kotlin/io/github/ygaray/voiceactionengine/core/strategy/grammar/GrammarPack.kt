@@ -53,7 +53,7 @@ internal sealed class GrammarResult {
  * The command's language label picks the phrasings read: "en" the English ones, "es" the Spanish ones (both with
  * [Builder.tryOtherLanguage]), no label both, anything else none. When two languages match they must agree on the tool
  * and the arguments. The pack never guesses: two readings of one transcript, in one language or across the two, match
- * nothing.
+ * nothing, and so does a transcript with more words (fillers aside) than the longest phrasing can span.
  *
  * Every phrasing needs at least one literal word on every path, so an optional-only phrasing is refused. A phrasing
  * that expands to more than 256 sequences is refused too: split it with sub-rules. Anything wrong in the declarations
@@ -69,6 +69,7 @@ public class GrammarPack internal constructor(settings: Builder) {
     private val matchers: Map<String, RuleMatcher>
     private val intentCount: Int
     private val tryOtherLanguage: Boolean
+    private val inputCap: Int
 
     init {
         val intents = settings.intents.toList()
@@ -87,6 +88,7 @@ public class GrammarPack internal constructor(settings: Builder) {
         validateNoOverlap(enRules, en, slots, enFillers)
         validateNoOverlap(esRules, es, slots, esFillers)
         matchers = mapOf(EN to en, ES to es)
+        inputCap = maxOf(en.span, es.span)
     }
 
     /**
@@ -98,11 +100,11 @@ public class GrammarPack internal constructor(settings: Builder) {
      * - any other label, including "EN", "en-US", "" or "fr", matches nothing.
      *
      * When one language matches, its phrasing is the answer. When both match they must agree on the tool and the
-     * arguments, otherwise the transcript is ambiguous and matches nothing. Two readings in one language match
-     * nothing too: the match is never a best guess.
+     * arguments, otherwise the transcript is ambiguous and matches nothing. Two readings in one language, or a
+     * transcript with more words than any phrasing can span, match nothing too: the match is never a best guess.
      *
-     * Returns the match, or null when nothing matches, the match is not unambiguous or the label is not
-     * supported. It never throws for any transcript, never logs, and has no effect.
+     * Returns the match, or null when nothing matches, the match is not unambiguous, the input is too long or the label
+     * is not supported. It never throws for any transcript, never logs, and has no effect.
      */
     public fun match(transcript: String, language: String?): GrammarMatch? =
         (matchDetailed(transcript, language) as? GrammarResult.Matched)?.match
@@ -111,8 +113,7 @@ public class GrammarPack internal constructor(settings: Builder) {
         val candidates = candidatesFor(language)
             ?: return GrammarResult.Rejected(TraceCode.GRAMMAR_LANGUAGE_UNSUPPORTED)
         val tokens = tokenize(transcript)
-        if (tokens.clauseBreak) return GrammarResult.Rejected(null)
-        val verdicts = candidates.map { it to (matchers[it]?.match(tokens) ?: RuleVerdict.None()) }
+        val verdicts = candidates.map { it to (matchers[it]?.match(tokens, inputCap) ?: RuleVerdict.None()) }
         return decide(language, verdicts)
     }
 
@@ -134,9 +135,12 @@ public class GrammarPack internal constructor(settings: Builder) {
             verdicts.any { it.second is RuleVerdict.Ambiguous } -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
             hits.size == 1 -> GrammarResult.Matched(hits.single())
             hits.size > 1 -> agreed(label, hits)
-            else -> GrammarResult.Rejected(null)
+            else -> GrammarResult.Rejected(unmatchedCode(verdicts))
         }
     }
+
+    private fun unmatchedCode(verdicts: List<Pair<String, RuleVerdict>>): TraceCode? =
+        if (verdicts.any { it.second is RuleVerdict.TooLong }) TraceCode.GRAMMAR_INPUT_TOO_LONG else null
 
     // Both languages read the transcript: the same tool, terminal flag and arguments is one reading, labeled with the
     // command's label (null without one); anything else is two readings and the pack never picks between them.
