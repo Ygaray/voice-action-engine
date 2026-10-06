@@ -217,7 +217,7 @@ Copy as `livePlanProbe` with `VAE_LIVE_PLAN`, `includeTestsMatching("*PlanBindin
 **Source:** `MAIN/internal/Guarded.kt` (`guarded(onFault, block)`). **Apply to:** all executor calls (via `prepareGuarded`). Never `catch (e: Exception)` elsewhere; no `runCatching`/`println`.
 
 ### Escalate-after-work suppression
-**Source:** `MAIN/pipeline/TierWalk.kt:87-88,112,118-122`. **Apply to:** every Plan stop after any apply/hold: return `Escalate`, never `Failed`.
+**Source:** `MAIN/pipeline/TierWalk.kt:87-88,112,118-122`. **Apply to:** every Plan stop after any apply/hold: return `Escalate`, never `Failed`, with one exception from RT-01 (15-CONTEXT.md "## Runtime Decisions"): a hold after at least one committed step returns a terminal `Completed(partial = true)` and never escalates; a hold with nothing committed still returns `Escalate(Other("plan_step_held"))`. Every early stop also carries the never-run step ids (internal constructors, surfaced as `CommandOutcome.Completed.remainingStepIds`; plan 15-04).
 
 ### Outcome hooks / failure routing
 **Source:** `MAIN/strategy/singleshot/SingleShotOutcomes.kt:17-47` (`OutcomeHooks`, `decideResult`, internal, import in place). **Apply to:** Plan execute (with MAX_TOKENS pre-intercept).
