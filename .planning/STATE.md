@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
-current_plan: 7
+current_plan: 8
 status: executing
-stopped_at: Completed 14-06-PLAN.md
-last_updated: "2026-10-06T15:57:13.865Z"
+stopped_at: Completed 14-07-PLAN.md
+last_updated: "2026-10-06T16:07:50.247Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 14 execution started
-state_head: 8175ab20c8b2dcb94fc91c38139195d2e19d82d1
+state_head: 39615db7052782807f1de65482005e267b31da4d
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 29
-  completed_plans: 25
+  completed_plans: 26
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
-Current Plan: 7
+Current Plan: 8
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 14 execution started
@@ -123,6 +123,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 14 P04 | 25min | 3 tasks | 11 files |
 | Phase 14 P05 | 40min | 3 tasks | 11 files |
 | Phase 14 P06 | 45min | 3 tasks | 12 files |
+| Phase 14 P07 | 35min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -158,6 +159,8 @@ Recent decisions affecting current work:
 - [Phase 14]: Phase 14-04: no slots inside sub-rules (build-time IAE); keeps slot parity per intent checkable in 14-05
 - [Phase 14]: 14-05: same tool with different arguments from both packs under a null label is grammar_ambiguous; different tools stay no-code rejected (14-06 owns the final table)
 - [Phase 14]: 14-06: different tools across EN and ES packs report grammar_ambiguous; sentence break is checked before the input cap; cap is the larger of the two languages' longest rule span
+- [Phase 14]: 14-07: normalize hook answers replace the slot value; null/blank rejects, throw = grammar_normalize_error; ambiguity is decided before hooks run
+- [Phase 14]: 14-07: terminal intents end handled with Completed(null, TerminalCall) before resolver and gate; resolver optional only for all-terminal packs
 
 ### Pending Todos
 
@@ -185,8 +188,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T15:57:13.787Z
-Stopped at: Completed 14-06-PLAN.md
+Last session: 2026-10-06T16:07:50.186Z
+Stopped at: Completed 14-07-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
