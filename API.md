@@ -20,7 +20,8 @@ Import each type from its own package (Kotlin has no wildcard re-export). Root `
 core                    CommandInput, Credential, ProviderId, StrategyId
 core.commit             ActionEvent, ActionKind, AwaitingConfirmGate, CommitProposal, CommitSink, ConfirmAmendHook,
                         ConfirmationPolicy, DispatchResult, ExecutedAction, FinishedKind, GateDecision, HeldProposal,
-                        PendingConfirmation, PendingMutation, PreApplyGate, RunTermination, StepResult, ToolStep
+                        PendingConfirmation, PendingMutation, PreApplyGate, RunTermination, StepResult, ToolStep, and the function
+                        compositeSink
 core.failure            BudgetBound, EscalationReason, FailureDetails, FailureReason
 core.pipeline           CommandOutcome, CommandPipeline, PickContext, PipelineBuilder, PipelineDsl, StartTierPicker,
                         TierPolicy, TierPolicySource, TierSelector, and the function commandPipeline
@@ -112,8 +113,8 @@ leaves), annotation class.
 | `ConfirmAmendHook` | fun interface | | Runs after a confirm; may replace the changes to apply. |
 | `PendingConfirmation` | class | | A confirmation waiting for the user's answer. |
 | `HeldProposal` | class | | Changes the gate held; commit later with `commitHeld`. |
-| `CommitSink` | interface | | Hears every action and every run close (undo journal, audit). |
-| `ActionEvent` | class | | One action reaching the sink. |
+| `CommitSink` | interface | | Hears every action and every run close (undo journal, audit); combine several with `compositeSink(a, b)`. |
+| `ActionEvent` | class | | One action reaching the sink: `runId`, `parentRunId`, `heldRunId` (set only when `commitHeld` applied it), `action`. |
 | `ExecutedAction` | class | | One recorded action: `kind`, `applied`, `mutating`, tool name, ids (including `providerCallId`, the provider's id for the call, or null), context. |
 | `ActionKind` | value class | open | `COMMITTED`, `HELD`, `PREVIEW`, `IS_ERROR`. |
 | `RunTermination` | sealed class | closed | How a run ended for the sink: `Done`, `Failed`, `Exhausted`, `Cancelled`. |
@@ -181,7 +182,7 @@ leaves), annotation class.
 | `KeystoreCauseCodes` | object | open | The stable cause codes of an unreadable key, each documented with the UX it calls for: re-enter the key, or transient, retry. |
 | `KeystoreCredentialSource` | class | | Adapts an `ApiKeyStore` to the engine's `CredentialSource`. |
 
-The one public function is `commandPipeline { }`, which composes a `CommandPipeline`.
+The public functions are `commandPipeline { }`, which composes a `CommandPipeline`, and `compositeSink(a, b)`, which puts several sinks in the one `commitSink` slot.
 
 ## Pipeline and outcomes
 
@@ -257,6 +258,7 @@ is no default gate and no default sink. Suspend mode: `AwaitingConfirmGate` (obs
 
 `CommitSink.onAction(event: ActionEvent)` hears every `ExecutedAction`; `onRunClosed(runId: String, termination:
 RunTermination)` hears a `RunTermination` (**closed**) exactly once. Both are `suspend`.
+Group a command's actions by `heldRunId ?: runId`; a clarification reply is its own run and keeps `parentRunId`.
 An action's `kind` is an `ActionKind` (**open**):
 
 | Kind | `applied` | `mutating` | Meaning |
