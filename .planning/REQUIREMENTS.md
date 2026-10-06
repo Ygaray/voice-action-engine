@@ -34,7 +34,7 @@ alone to keep one.
 - [x] **GRAM-01**: `LocalGrammarStrategy` resolves a matching transcript to the app's tool call with zero provider calls, then submits it through the session (gate → commit → sink like every tier).
 - [ ] **GRAM-02**: a bilingual `GrammarPack` DSL lets an app declare EN and ES rules with typed slots, number words in both languages, and per-language phrasing for one intent.
 - [x] **GRAM-03**: a transcript no rule matches, or a slot the app resolver rejects, ends `NoMatch`, so the ladder hands over to the next tier with carry cleared. A grammar tier never guesses.
-- [ ] **GRAM-04**: an optional per-slot `normalize: (raw, language) -> String?` hook lets the app plug in a synonym map (for example CT cross-language food names) without the engine naming any domain.
+- [x] **GRAM-04**: an optional per-slot `normalize: (raw, language) -> String?` hook lets the app plug in a synonym map (for example CT cross-language food names) without the engine naming any domain.
 - [x] **GRAM-05**: the grammar tier declares `NO_PROVIDER` capabilities, so it runs offline-only and under any provider policy.
 
 ### PlanThenExecute (§6.2 step 9, V11-02)
@@ -118,7 +118,7 @@ alone to keep one.
 | GRAM-01 | Phase 14 | Complete |
 | GRAM-02 | Phase 14 | Pending |
 | GRAM-03 | Phase 14 | Complete |
-| GRAM-04 | Phase 14 | Pending |
+| GRAM-04 | Phase 14 | Complete |
 | GRAM-05 | Phase 14 | Complete |
 | PLAN-01 | Phase 15 | Pending |
 | PLAN-02 | Phase 15 | Pending |
