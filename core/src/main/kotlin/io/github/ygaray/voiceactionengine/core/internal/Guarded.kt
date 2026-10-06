@@ -48,8 +48,8 @@ internal suspend inline fun <T> guarded(onFault: (EngineFault) -> T, block: () -
 internal suspend inline fun <T> guardedUncancellable(onFault: (EngineFault) -> T, block: () -> T): T =
     guardedCore(cancellationIsFault = true, onFault = onFault, block = block)
 
-// The engine's never-throw collapse points (this one and guardedPlain below); the file-level suppression is the
-// repository's only one, and every app callback is routed through here.
+// The engine's never-throw collapse points (this one and guardedPlain below); every app callback is routed through
+// here. The file-level suppression is this module's only one (`:undo` has its own in internal/Guard.kt).
 internal suspend inline fun <T> guardedCore(
     cancellationIsFault: Boolean,
     onFault: (EngineFault) -> T,
