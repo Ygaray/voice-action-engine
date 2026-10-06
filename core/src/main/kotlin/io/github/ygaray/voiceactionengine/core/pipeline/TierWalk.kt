@@ -54,7 +54,10 @@ internal class TierWalk(
     private suspend fun walkPicked(picking: PickingSpec, input: CommandInput): CommandOutcome? {
         val head = ladder.tiers.takeWhile { it.capabilities.providers.isEmpty() }
         val rest = ladder.tiers.drop(head.size)
-        return climb(head, input) ?: climb(rest.drop(StartTierPicking(scope, ladder).startIn(rest, picking, input)), input)
+        return climb(head, input) ?: run {
+            val start = StartTierPicking(scope, ladder).startIn(rest, picking, input)
+            climb(rest.drop(start), input)
+        }
     }
 
     private suspend fun climb(tiers: List<CommandStrategy>, input: CommandInput): CommandOutcome? {
