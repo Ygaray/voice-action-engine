@@ -123,3 +123,20 @@ already compiled against it, so overturn before the cut if at all. The driver re
 | CONTEXT | D-12 | TESTER STT fixture capture plus RAE check | 14-02, 14-09, 14-10 | PARTIAL: RAE check and the capture runner done (14-02); capture awaits a relayed window (OI-5) |
 | RESEARCH | n/a | Six trace codes, API.md rows, redaction canary, surface review, Metalava compat | 14-01, 14-07, 14-08 | DONE |
 | RESEARCH | n/a | Clause-terminator hardening (A11), derived word cap, ambiguity self-check, near-miss corpus | 14-04, 14-06 | DONE |
+
+## Gate results
+
+Run once, alone, on the phase branch at HEAD `a48f473` (the `API.md` commit is `7f06be7`; no source file changed in this
+plan). Host-safe recipe: `GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false
+-Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m"`, `--offline -q`. No earlyoom kill, no
+retry.
+
+| Command | Exit | Final line | Duration |
+|---|---|---|---|
+| `./gradlew --offline -q -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false check` | 0 | exit 0 (quiet mode prints no task count; the detekt negative-control findings in the output are the expected output of the controls, not failures) | 160 s |
+| `scripts/review-api-surface.sh --out /tmp/vae-14-core-dump.txt` (Task 2) | 0 | `API SURFACE OK sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=193` | 23 s |
+| `scripts/verify-docs-coverage.sh` | 0 | `DOC COVERAGE OK checks=25 types=103` | under 10 s |
+| `scripts/verify-repo-hygiene.sh` | 0 | `HYGIENE OK` | under 10 s |
+
+`check` covers detekt (zero baseline), the banned-construct scanner, `ApiShapeTest`, Metalava compatibility against the
+committed `core/api.txt`, and the OkHttp matrix legs. `14-VALIDATION.md` was not edited (the Nyquist finalizer owns it).
