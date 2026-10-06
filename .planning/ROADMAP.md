@@ -56,7 +56,7 @@ documents them so an agent can wire them. Phase 20 cuts the tag.
 - [x] **Phase 13: On-Device Model Spike** - §6.2 step 11: time-boxed bundled ~2B model measurement on the TESTER, verdict to the orchestrator early, ships `@Experimental` only if green (completed 2026-10-06)
 - [x] **Phase 14: LocalGrammar & Bilingual GrammarPack** - §6.2 step 8: a free, offline EN/ES grammar tier with typed slots, number words and a per-slot `normalize` hook (completed 2026-10-06)
 - [x] **Phase 15: PlanThenExecute Strategy** - §6.2 step 9: one planning call, ordered gated steps, write-output step binding, at most one replan (completed 2026-10-06)
-- [ ] **Phase 16: Start-Tier Selection** - §6.2 step 10: `TierSelector.Custom(StartTierPicker)` + opt-in `TierSelector.Router`, grammar pre-pass, loud fallback to Linear
+- [x] **Phase 16: Start-Tier Selection** - §6.2 step 10: `TierSelector.Custom(StartTierPicker)` + opt-in `TierSelector.Router`, grammar pre-pass, loud fallback to Linear (completed 2026-10-06)
 - [ ] **Phase 17: Run-Level Undo** - A18: standalone `:undo` journal (entity adapters, compensators, refuse-loudly check) + pipeline integration for "Undo all (N)"
 - [ ] **Phase 18: Voice Adapter** - §6.2 step 12: `:stt` v0.7.0 final segment → `CommandInput`, `:core` still hub-free
 - [ ] **Phase 19: Sample Gate-1 & Docs** - grammar, plan, router and undo-all proven end to end on the TESTER; docs an agent can wire from
@@ -425,7 +425,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 13. On-Device Model Spike | v1.1 | 11/11 | Complete    | 2026-10-06 |
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
-| 16. Start-Tier Selection | v1.1 | 7/7 | In Progress|  |
+| 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 0/TBD | Not started | - |
 | 18. Voice Adapter | v1.1 | 0/TBD | Not started | - |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
