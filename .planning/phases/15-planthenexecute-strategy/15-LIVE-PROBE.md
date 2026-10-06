@@ -1,6 +1,9 @@
 # Phase 15 live-probe request (D-04, binding syntax)
 
-decision: pending
+decision: approved
+relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
+date: 2026-10-06
+relayed_answer: "GO on 15-07: the host-only D-04 binding probe (S1 + S2) on claude-haiku-4-5 + gpt-5.4-mini. Hard ceiling 8 requests / USD 0.05, run once, no retries, keys only via with-test-keys --only anthropic,openai, output PLAN_PROBE lines only. This falls under Yahir's live-smoke approval (relayed by 3b)."
 
 requested: 2026-10-06
 requested_by: executor of plan 15-03, for the orchestrator relay that plan 15-07 waits on
