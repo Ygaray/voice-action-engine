@@ -157,7 +157,7 @@ Plans:
   3. Green: an on-device provider ships `@Experimental` in its own published module behind the `ON_DEVICE` capability gate, and where the gate reports unavailable, the run falls back exactly as in v1.0 (declared fallback or a loud typed failure). Red: no module and no code ship, SPIKE-03 is dispositioned N/A-deferred, and `v1.1.0` isn't blocked (L10).
   4. Whatever the verdict, `:core` and `:providers` gain no on-device or ML dependency: the `:core` classpath allowlist and the no-on-device-implementation scan still pass. Agentic on-device stays out of scope.
 
-**Plans:** 4/11 plans executed
+**Plans:** 5/11 plans executed
 
 Plans:
 **Wave 1**
@@ -172,7 +172,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 13-05-PLAN.md — trial path scored against gold labels, small committed EN/ES/negative set, private SB-sized labels (SPIKE-01)
+- [x] 13-05-PLAN.md — trial path scored against gold labels, small committed EN/ES/negative set, private SB-sized labels (SPIKE-01)
 - [ ] 13-06-PLAN.md — guarded TESTER runner + fake-adb guard proof, window-grant gate, time-box, pinned model fetch (SPIKE-01)
 
 **Wave 4** *(blocked on Wave 3 completion)*
@@ -326,7 +326,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 12. Wave-1 Seams & W04 Fix | v1.1 | 8/8 | Complete    | 2026-10-05 |
-| 13. On-Device Model Spike | v1.1 | 4/11 | In Progress|  |
+| 13. On-Device Model Spike | v1.1 | 5/11 | In Progress|  |
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 0/TBD | Not started | - |
 | 15. PlanThenExecute Strategy | v1.1 | 0/TBD | Not started | - |
 | 16. Start-Tier Selection | v1.1 | 0/TBD | Not started | - |
