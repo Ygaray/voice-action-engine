@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 17
-current_phase_name: run-level-undo
-current_plan: Not started
+current_phase_name: Run-Level Undo
+current_plan: 2
 status: executing
-stopped_at: Phase 16 complete, ready to plan Phase 17
-last_updated: "2026-10-06T22:39:47.118Z"
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-10-06T22:45:34.163Z"
 last_activity: 2026-10-06
-last_activity_desc: Phase 16 complete, transitioned to Phase 17
-state_head: 147a959522edf6fbbbbe6fdc60b2c199df803028
+last_activity_desc: Phase 17 execution started
+state_head: 74e1e84b813d7e866a869ddde47a01cfcf8b0d84
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 53
-  completed_plans: 43
+  completed_plans: 44
   percent: 11
 ---
 
@@ -30,11 +30,11 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 
 ## Current Position
 
-Phase: 17 (run-level-undo) — READY TO EXECUTE
-Current Plan: Not started
+Phase: 17 (Run-Level Undo) — EXECUTING
+Current Plan: 2
 Total Plans in Phase: 10
 Status: Ready to execute
-Last activity: 2026-10-06 — Phase 16 complete, transitioned to Phase 17
+Last activity: 2026-10-06 — Phase 17 execution started
 
 Progress: [█░░░░░░░░░] 11%
 
@@ -137,6 +137,7 @@ Progress: [█░░░░░░░░░] 11%
 | Phase 16 P05 | 25min | 3 tasks | 5 files |
 | Phase 16 P06 | 25min | 3 tasks | 6 files |
 | Phase 16 P07 | 25min | 3 tasks | 3 files |
+| Phase 17 P01 | 25min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -179,6 +180,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-10: no recognizer form promoted (space groups, ES 21.000, ES 100 mil fail D-08); GrammarSttFixturesTest pins 88 rows
 - [Phase 16]: 16-04: picker timeout is withTimeoutOrNull inside guarded; expiry is a router_fallback, caller/command cancellation still propagates
 - [Phase 16]: 16-06: Router model comes only from the app's selection for start_tier_router; single-model-tier skip lives in StartTierPicking (skipsSingleTier), no call, no record
+- [Phase 17]: 17-01: :undo scaffold lands with stdlib-only gates; module list is data in scripts/modules.list read by verify-module-manifest.sh
 
 ### Pending Todos
 
@@ -206,8 +208,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T21:01:50.242Z
-Stopped at: Phase 16 complete, ready to plan Phase 17
+Last session: 2026-10-06T22:45:34.056Z
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
