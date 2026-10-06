@@ -12,3 +12,8 @@ Source: SB via orchestrator yahir-gsd-control-plane-3b; master re-verified the s
 - Record this sb_labels answer in 13-WINDOW-GRANT.md when the grant lands.
 - gemma3_1b: Yahir's call, pending. If unanswered when device plans run, record `skipped_gated`.
 - timebox_s=14400 (one TESTER window, at most 4 h; requested at 13-08 start, released when device work is done).
+
+## gemma3_1b ruling (relayed by master, 2026-10-05)
+- `gemma3_1b: skipped_gated`, source: orchestrator ruling (yahir-gsd-control-plane-3b). No Hugging Face download; the E2B verdict is unaffected.
+- Record in 13-WINDOW-GRANT.md as `gemma3_1b: skipped_gated` with source "orchestrator ruling".
+- All grant inputs now settled: timebox_s=14400, sb_labels = SB current fixture 8bc739ed..., gemma3_1b skipped_gated. Only the window grant itself remains (master requests it when 13-08 is reached).
