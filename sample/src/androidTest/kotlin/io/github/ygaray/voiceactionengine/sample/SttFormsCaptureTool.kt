@@ -18,6 +18,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Locale
@@ -61,13 +62,34 @@ class SttFormsCaptureTool {
         val speaker = Speaker(context)
         try {
             for (prompt in prompts) {
-                val row = captureOne(context, speaker, dir, prompt)
-                results.appendText(row.toString() + "\n")
+                results.appendText(captureContained(context, speaker, dir, prompt).toString() + "\n")
             }
         } finally {
             speaker.close()
         }
     }
+
+    /**
+     * One prompt's row, whatever the platform does: a failure of this prompt becomes an `error` row (the code is the
+     * exception class name only, never its message, which could echo prompt text) and the run goes on with the next one.
+     */
+    private fun captureContained(context: Context, speaker: Speaker, dir: File, prompt: Prompt): JSONObject =
+        try {
+            captureOne(context, speaker, dir, prompt)
+        } catch (e: IOException) {
+            failedRow(prompt, e)
+        } catch (e: SecurityException) {
+            failedRow(prompt, e)
+        } catch (e: IllegalStateException) {
+            failedRow(prompt, e)
+        } catch (e: IllegalArgumentException) {
+            failedRow(prompt, e)
+        } catch (e: IndexOutOfBoundsException) {
+            failedRow(prompt, e)
+        }
+
+    private fun failedRow(prompt: Prompt, fault: Exception): JSONObject =
+        JSONObject().put("id", prompt.id).put("lang", prompt.lang).put("status", "error").put("code", fault.javaClass.simpleName)
 
     private fun captureOne(context: Context, speaker: Speaker, dir: File, prompt: Prompt): JSONObject {
         val row = JSONObject().put("id", prompt.id).put("lang", prompt.lang)
@@ -125,6 +147,8 @@ class SttFormsCaptureTool {
             val size = buf.getInt(pos + 4)
             val body = pos + CHUNK_HEADER
             if (id == "fmt ") {
+                // The fixed part of a fmt chunk is 16 bytes; a truncated file ends the parse instead of throwing.
+                if (body + FMT_FIXED_BYTES > bytes.size) return null
                 val format = buf.getShort(body).toInt() and 0xFFFF
                 val channels = buf.getShort(body + 2).toInt()
                 rate = buf.getInt(body + 4)
@@ -191,6 +215,7 @@ class SttFormsCaptureTool {
         }
         val holder = Holder()
         var recognizer: SpeechRecognizer? = null
+        var feederStarted = false
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
@@ -209,6 +234,7 @@ class SttFormsCaptureTool {
                 created.startListening(intent)
             }
             feeder.start()
+            feederStarted = true
             holder.done.await(RECOGNIZE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         } finally {
             instrumentation.runOnMainSync {
@@ -216,7 +242,8 @@ class SttFormsCaptureTool {
                 recognizer?.destroy()
             }
             runCatching { reader.close() }
-            feeder.join(FEEDER_JOIN_MS)
+            // The feeder owns the write end; if it never started (setup threw), close it here so the pipe does not leak.
+            if (feederStarted) feeder.join(FEEDER_JOIN_MS) else runCatching { writer.close() }
         }
         return Outcome(holder.status, holder.code, holder.text)
     }
@@ -332,6 +359,7 @@ class SttFormsCaptureTool {
         const val WAV_HEADER_MIN = 44
         const val RIFF_PREAMBLE = 12
         const val CHUNK_HEADER = 8
+        const val FMT_FIXED_BYTES = 16
         const val PCM_FORMAT = 1
         const val WAVE_EXTENSIBLE = 0xFFFE
         const val PCM_BITS = 16
