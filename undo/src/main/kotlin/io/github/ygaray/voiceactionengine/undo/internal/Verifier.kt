@@ -65,8 +65,13 @@ private class PlanBuilder {
  * - otherwise every write must be settled and each must have started from where the previous one left the entity,
  *   and the live state must equal the newest after-fingerprint, which is then restored;
  * - anything else blocks, and one blocker is enough to refuse the whole undo.
+ *
+ * An effect outside the database with no registered compensator blocks too.
  */
-internal class Verifier(private val adapters: Map<String, EntityAdapter>) {
+internal class Verifier(
+    private val adapters: Map<String, EntityAdapter>,
+    private val compensatorKinds: Set<String>,
+) {
 
     suspend fun verify(pending: List<PendingEntry>): Plan {
         val plan = PlanBuilder()
@@ -75,6 +80,10 @@ internal class Verifier(private val adapters: Map<String, EntityAdapter>) {
             // A failed action may have written; with nothing captured and no word that it wrote nothing, it is unknown.
             if (entry.failed && !entry.data.nothingWritten && entry.data.captures.isEmpty()) {
                 plan.block(entry, null, UndoReason.UNVERIFIABLE)
+            }
+            // An effect outside the database that nothing is registered to reverse: refuse before anything is written.
+            if (p.pendingCompensations().any { (_, compensation) -> compensation.kind !in compensatorKinds }) {
+                plan.block(entry, null, UndoReason.NO_ADAPTER)
             }
         }
         for ((key, links) in chainsOf(pending)) checkKey(key, links, plan)

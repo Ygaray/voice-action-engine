@@ -24,9 +24,9 @@ import io.github.ygaray.voiceactionengine.undo.internal.requireToken
  */
 public class UndoJournal internal constructor(settings: Builder) {
     private val adapters: Map<String, EntityAdapter> = settings.adapters.toMap()
-    internal val compensators: Map<String, Compensator> = settings.compensators.toMap()
+    private val compensators: Map<String, Compensator> = settings.compensators.toMap()
     private val state = JournalState()
-    private val pass = UndoPass(state, adapters)
+    private val pass = UndoPass(state, adapters, compensators)
 
     /** Collects the adapters and compensators of a journal. */
     public class Builder internal constructor() {

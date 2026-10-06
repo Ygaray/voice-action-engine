@@ -1,6 +1,7 @@
 package io.github.ygaray.voiceactionengine.undo.internal
 
 import io.github.ygaray.voiceactionengine.undo.Blocker
+import io.github.ygaray.voiceactionengine.undo.Compensator
 import io.github.ygaray.voiceactionengine.undo.EntityAdapter
 import io.github.ygaray.voiceactionengine.undo.EntityKey
 import io.github.ygaray.voiceactionengine.undo.EntryRef
@@ -10,7 +11,8 @@ import io.github.ygaray.voiceactionengine.undo.UndoResult
 
 /**
  * One recorded action. [sequence] is journal-wide and monotonic, so a held change applied by a later run still orders
- * after the actions of the run that proposed it. [undone] and [restoredKeys] change only under the journal's lock.
+ * after the actions of the run that proposed it. [undone], [restoredKeys] and [compensated] (the positions of the
+ * declared effects already reversed) change only under the journal's lock.
  */
 internal class Entry(
     val ref: EntryRef,
@@ -20,6 +22,7 @@ internal class Entry(
 ) {
     var undone: Boolean = false
     val restoredKeys: MutableSet<EntityKey> = HashSet()
+    val compensated: MutableSet<Int> = HashSet()
 
     val keys: Set<EntityKey>
         get() = data.captures.map { it.key }.toSet()
@@ -31,8 +34,12 @@ internal class Entry(
     override fun toString(): String = "Entry(sequence=$sequence, failed=$failed, undone=$undone)"
 }
 
-/** An entry together with the entities of it already restored by an earlier pass. */
-internal class PendingEntry(val entry: Entry, val restored: Set<EntityKey>)
+/** An entry together with the entities and effects of it already undone by an earlier pass. */
+internal class PendingEntry(val entry: Entry, val restored: Set<EntityKey>, val compensated: Set<Int>) {
+    /** The declared effects still to reverse, each with its position in the action's declarations. */
+    fun pendingCompensations(): List<Pair<Int, Compensation>> =
+        entry.data.compensations.withIndex().filter { it.index !in compensated }.map { it.index to it.value }
+}
 
 /** One command's actions. Withheld when the journal missed or rejected any of them. */
 internal class Group(val key: String, val parentGroupKey: String?) {
@@ -75,31 +82,48 @@ internal class JournalState {
         when {
             group == null -> Scope(UndoReason.UNKNOWN_GROUP, emptyList())
             group.withheld -> Scope(UndoReason.JOURNAL_WITHHELD, emptyList())
-            else -> Scope(null, group.entries.filter { !it.undone }.map { PendingEntry(it, it.restoredKeys.toSet()) })
+            else -> Scope(null, group.entries.filter { !it.undone }.map(::pendingOf))
         }
     }
 
-    /** Marks [done] restored on each of [entries]. An entry with every entity restored is undone. */
+    private fun pendingOf(entry: Entry) = PendingEntry(entry, entry.restoredKeys.toSet(), entry.compensated.toSet())
+
+    /** Marks [done] restored on each of [entries]. An entry with everything restored and reversed is undone. */
     fun markRestored(entries: List<Entry>, done: Set<EntityKey>) {
         synchronized(lock) {
             for (entry in entries) {
                 entry.restoredKeys.addAll(entry.keys.filter { it in done })
-                if (entry.restoredKeys.containsAll(entry.keys)) entry.undone = true
+                refresh(entry)
             }
         }
+    }
+
+    /** Marks the effect at [index] of [entry] as reversed. */
+    fun markCompensated(entry: Entry, index: Int) {
+        synchronized(lock) {
+            entry.compensated.add(index)
+            refresh(entry)
+        }
+    }
+
+    private fun refresh(entry: Entry) {
+        val effectsDone = entry.data.compensations.indices.all { it in entry.compensated }
+        if (effectsDone && entry.restoredKeys.containsAll(entry.keys)) entry.undone = true
     }
 
     /** The entries of [entries] that are now fully undone. */
     fun finished(entries: List<Entry>): List<Entry> = synchronized(lock) { entries.filter { it.undone } }
 }
 
-/** The journal's undo of one group: verify the whole scope, restore the entities, and report exactly what happened. */
+/** The journal's undo of one group: verify the whole scope, restore, reverse the effects, and report what happened. */
 internal class UndoPass(
     private val state: JournalState,
     adapters: Map<String, EntityAdapter>,
+    compensators: Map<String, Compensator>,
 ) {
-    private val verifier = Verifier(adapters)
+    private val verifier = Verifier(adapters, compensators.keys)
     private val restorer = Restorer(state)
+    private val compensating = Compensating(compensators, state)
 
     suspend fun run(groupKey: String): UndoResult {
         val scope = state.scopeOf(groupKey)
@@ -117,12 +141,13 @@ internal class UndoPass(
         val entries = pending.map { it.entry }
         state.markRestored(entries, plan.satisfied)
         val outcome = restorer.run(plan.steps, entries, Footprints(entries))
-        val restored = state.finished(entries).sortedByDescending { it.sequence }.map { it.ref }
-        return if (outcome.notRestored.isEmpty()) {
-            UndoResult.Complete(restored)
-        } else {
-            UndoResult.Partial(restored, outcome.notRestored)
+        val restoredKeys = HashSet<EntityKey>(plan.satisfied).apply {
+            addAll(outcome.restored)
+            pending.forEach { addAll(it.restored) }
         }
+        val notRestored = outcome.notRestored + compensating.run(pending, restoredKeys)
+        val restored = state.finished(entries).sortedByDescending { it.sequence }.map { it.ref }
+        return if (notRestored.isEmpty()) UndoResult.Complete(restored) else UndoResult.Partial(restored, notRestored)
     }
 
     private fun refusal(reason: UndoReason): UndoResult =
