@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":providers"))
     implementation(project(":keystore"))
+    implementation(project(":undo"))
     // The only place a 5.x OkHttp pin may live: runs the 4.12-compiled library bytecode on the real 5.x android variant.
     implementation("com.squareup.okhttp3:okhttp:5.2.1")
 

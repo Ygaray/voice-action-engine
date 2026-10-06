@@ -275,8 +275,8 @@ val allowedEdges = mapOf(
     ":keystore" to setOf(":core"),
     ":undo" to emptySet<String>(),
 )
-val sampleRequiredEdges = setOf(":providers", ":keystore")
-val sampleAllowedEdges = setOf(":core", ":providers", ":keystore")
+val sampleRequiredEdges = setOf(":providers", ":keystore", ":undo")
+val sampleAllowedEdges = setOf(":core", ":providers", ":keystore", ":undo")
 val verifyModuleGraph = tasks.register("verifyModuleGraph") {
     group = "verification"
     val modulePath = project.path
@@ -297,12 +297,12 @@ val verifyModuleGraph = tasks.register("verifyModuleGraph") {
         if (extra.isNotEmpty()) throw GradleException("$modulePath has forbidden project dependencies $extra")
         val sample = sampleEdges.orNull
             ?: throw GradleException(
-                ":sample is missing required project edges $sampleRequiredEdges (graph :sample -> {:providers, :keystore} -> :core)" +
+                ":sample is missing required project edges $sampleRequiredEdges (graph :sample -> {:providers, :keystore, :undo} -> :core; :undo -> nothing)" +
                     " - :sample or its implementation configuration was not found",
             )
         val missing = sampleRequiredEdges - sample
         if (missing.isNotEmpty()) {
-            throw GradleException(":sample is missing required project edges $missing (graph :sample -> {:providers, :keystore} -> :core)")
+            throw GradleException(":sample is missing required project edges $missing (graph :sample -> {:providers, :keystore, :undo} -> :core; :undo -> nothing)")
         }
         val sampleExtra = sample - sampleAllowedEdges
         if (sampleExtra.isNotEmpty()) throw GradleException(":sample has forbidden project dependencies $sampleExtra")
