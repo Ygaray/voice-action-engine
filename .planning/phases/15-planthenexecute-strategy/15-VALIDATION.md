@@ -40,7 +40,26 @@ Filled by the planner from the plan task list; the requirement-to-test map is in
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 15-xx-xx | xx | x | PLAN-01..05 | see plans | per-step gate, bounded plan, no leaks | unit / pipeline / wire | see plans | ❌ W0 | ⬜ pending |
+| 15-01-01 | 01 | 1 | PLAN-01 (tracer) | T-15-01, T-15-02 | one gate proposal per step, planning call id on every action | pipeline | `:core:test --tests '*PlanThenExecuteRunTest*' --tests '*ApiShapeTest*' --tests '*NoHardCodedConstantsTest*'` | ❌ W0 (created by the task) | ⬜ pending |
+| 15-01-02 | 01 | 1 | (move) | T-15-05 | fault bytes exactly once, agentic unchanged | unit | `:core:test --tests '*AgenticLoop*' --tests '*ToolExecutorSeamTest*' --tests '*RedactionCanaryTest*' --tests '*PlanThenExecuteRunTest*'` | ✅ | ⬜ pending |
+| 15-01-03 | 01 | 1 | PLAN-01, PLAN-05 | T-15-03, T-15-04 | guards before any call, byte-stable schema | unit + pipeline + docs | `:core:test --tests '*PlanSchemaTest*' --tests '*PlanThenExecuteRunTest*'`; `scripts/verify-docs-coverage.sh --only C20,C21` | ❌ W0 | ⬜ pending |
+| 15-02-01 | 02 | 2 | PLAN-02 (D-04) | T-15-08 | literals never rewritten, no guessed value | unit (TDD) | `:core:test --tests '*PlanBindingTest*' --tests '*ApiShapeTest*'` | ❌ W0 | ⬜ pending |
+| 15-02-02 | 02 | 2 | PLAN-02, PLAN-03 | T-15-07, T-15-09, T-15-11 | whole-plan validation before step 1, fixed codes | unit (TDD) | `:core:test --tests '*PlanParseTest*' --tests '*TraceTest*' --tests '*PlanThenExecuteRunTest*' --tests '*PlanSchemaTest*'` | ❌ W0 | ⬜ pending |
+| 15-02-03 | 02 | 2 | PLAN-02, PLAN-03 | T-15-07, T-15-10 | committed-only binding, zero-side-effect lookup | pipeline + docs | `:core:test --tests '*PlanThenExecute*' --tests '*PlanBindingTest*' --tests '*PlanParseTest*'`; `scripts/verify-docs-coverage.sh --only C20,C21` | ❌ W0 | ⬜ pending |
+| 15-03-01 | 03 | 3 | PLAN-03 (D-08) | T-15-13, T-15-14, T-15-15 | one replan, only before any write; fixed digest | pipeline (TDD) | `:core:test --tests '*PlanThenExecute*' --tests '*PlanParseTest*' --tests '*PlanBindingTest*' --tests '*NoHardCodedConstantsTest*'` | ❌ W0 | ⬜ pending |
+| 15-03-02 | 03 | 3 | PLAN-03 (D-08 byte test) | T-15-16 | every call id answered | wire | `:providers:test --tests '*PlanThenExecuteWireTest*' --tests '*AgenticLoopWireTest*'` | ❌ W0 | ⬜ pending |
+| 15-03-03 | 03 | 3 | PLAN-02 (D-04 probe harness) | T-15-17, T-15-18 | opt-in, outside check, ≤ 8 requests, counts only | build + skip proof | `:providers:compileTestKotlin :providers:livePlanProbe` (skipped without VAE_LIVE_PLAN) + check dry-run excludes it | ❌ W0 | ⬜ pending |
+| 15-04-01 | 04 | 4 | PLAN-01, PLAN-04 (D-07) | T-15-20, T-15-21 | stop at first hold, held never success | pipeline (TDD) | `:core:test --tests '*PlanThenExecuteHoldTest*' --tests '*PlanThenExecuteBindingTest*' --tests '*HeldReportingTest*'` | ❌ W0 | ⬜ pending |
+| 15-04-02 | 04 | 4 | PLAN-04 | T-15-19 | no later tier after a commit | pipeline | `:core:test --tests '*PlanThenExecuteSuppressionTest*' --tests '*EscalationSafetyTest*'` | ❌ W0 | ⬜ pending |
+| 15-05-01 | 05 | 5 | PLAN-05, D-09 | T-15-23, T-15-26 | truncated plan never acted on | pipeline (TDD) | `:core:test --tests '*PlanThenExecuteOutcomeMappingTest*' --tests '*SingleShotOutcomeMappingTest*' --tests '*PlanThenExecuteReplanTest*'` | ❌ W0 | ⬜ pending |
+| 15-05-02 | 05 | 5 | PLAN-03 (call count), D-12 | T-15-24 | ceilings before and after each call | pipeline | `:core:test --tests '*PlanThenExecuteLimitsTest*' --tests '*PlanThenExecute*'` | ❌ W0 | ⬜ pending |
+| 15-05-03 | 05 | 5 | security (V7) | T-15-25 | no canary in any sink or digest | pipeline | `:core:test --tests '*PlanThenExecuteRedactionTest*' --tests '*RedactionCanaryTest*'` | ❌ W0 | ⬜ pending |
+| 15-06-01 | 06 | 6 | PLAN-01..05 (surface) | T-15-27, T-15-28 | only intended public members | dump review | `scripts/review-api-surface.sh --out <scratch>` (API SURFACE OK) | ✅ | ⬜ pending |
+| 15-06-02 | 06 | 6 | PLAN-01..05 (phase gate) | T-15-28 | api.txt unchanged, invariants intact | gate | `./gradlew check`; `scripts/verify-docs-coverage.sh`; `scripts/verify-repo-hygiene.sh`; git invariants | ✅ | ⬜ pending |
+| 15-07-01 | 07 | 7 | PLAN-02 (D-04) | T-15-32 | no live call without a relayed approval | checkpoint (relay) | n/a (blocking relay) | n/a | ⬜ pending |
+| 15-07-02 | 07 | 7 | PLAN-02 (D-04) | T-15-31, T-15-33, T-15-34 | ≤ 8 requests, keys only via with-test-keys | opt-in live / deferral | `with-test-keys --only anthropic,openai -- env VAE_LIVE_PLAN=1 ... :providers:livePlanProbe` (or recorded deferral) | ✅ (from 15-03) | ⬜ pending |
+
+All Gradle commands use the host-safe recipe (`GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m" ./gradlew --offline -q -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false ...`); the exact commands are in each plan's `<verify>`.
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

@@ -268,7 +268,36 @@ Plans:
   4. Once any step has committed, a later failure or escalation ends as a partial `Completed` with `escalation_suppressed`, and no later tier runs. A Plan-specific test proves it (escalate after step 1 committed → suppressed).
   5. `PlanThenExecuteStrategy.Builder.onFailed` behaves exactly like SingleShot's from Phase 12: it fires for provider failures only and defaults to `Failed(reason, details)`.
 
-**Plans**: TBD
+**Plans**: 7 plans (7 waves, serial; 15-07 is non-autonomous, gated on the orchestrator's relayed live-probe approval)
+
+Plans:
+**Wave 1**
+
+- [ ] 15-01-PLAN.md — End-to-end tracer (one submit_plan call -> two steps through executor, gate, apply, sink with the planning call id), shared prepareGuarded dedupe commit, Builder guards, schema/request pins, API.md rows
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 15-02-PLAN.md — D-04 reference grammar + JsonObject-space binding (SC2), whole-plan validation with the needs-lookup verdict, three plan trace codes, lookup escape end to end
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 15-03-PLAN.md — The one replan (prefix-identical continuation, fixed digest, single predicate), wire byte proof on Anthropic/OpenAI/OpenRouter, opt-in live probe harness + pending request
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 15-04-PLAN.md — Stop at first hold (last-step hold = Completed), Plan-specific no-escalation-after-commit test (PLAN-04)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 15-05-PLAN.md — onFailed parity with SingleShot, truncated plan -> MalformedExtraction, step cap/ceilings/call accounting, redaction sweep
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 15-06-PLAN.md — Frozen-surface review vs the real Metalava dump, frozen model-facing strings, open items OI-1..OI-7, full phase gate
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 15-07-PLAN.md — D-04 live probe under the relayed approval (at most 8 requests, host only) or recorded deferral to Phase 19
 **Research flag**: yes. Open items: the plan schema and binding syntax; how a step that "needs a lookup" is detected before any step runs.
 
 #### Phase 16: Start-Tier Selection
