@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarPack
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.RuleElement
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.RuleMatcher
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.RuleVerdict
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.tokenize
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -118,7 +119,7 @@ class GrammarTemplateTest {
     }
 
     @Test
-    fun aSlotIsNotSupportedYetAndNeverAppearsInASubRule() {
+    fun aSlotNeverAppearsInASubRuleAndAnUndeclaredSlotFails() {
         assertRefused("{x}") { enPack("add {x}") }
         assertRefused("{x}") {
             GrammarPack {
@@ -177,9 +178,11 @@ class GrammarTemplateTest {
     }
 
     private fun flat(tool: String, vararg words: String): FlatRule =
-        FlatRule(tool, "en", words.map { RuleElement.Word(it) }, "$tool:en:0")
+        FlatRule(tool, "en", words.map { RuleElement.Word(it) }, "$tool:en:0", words.joinToString(" "))
 
-    private fun matcherOf(vararg rules: FlatRule): RuleMatcher = RuleMatcher(rules.toList(), emptyList())
+    private fun RuleMatcher.match(keys: List<String>): RuleVerdict = match(tokenize(keys.joinToString(" ")))
+
+    private fun matcherOf(vararg rules: FlatRule): RuleMatcher = RuleMatcher(rules.toList(), emptyList(), emptyMap())
 
     @Test
     fun twoDistinctResultsInOneLanguageAreAmbiguous() {

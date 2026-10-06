@@ -19,6 +19,12 @@ internal class GrammarToken(val key: String, val start: Int, val end: Int)
 internal class GrammarTokens(val nfc: String, val tokens: List<GrammarToken>, val clauseBreak: Boolean) {
     /** The original text from token [from] up to but excluding token [to]: case, accents and inner punctuation kept. */
     fun surface(from: Int, to: Int): String = nfc.substring(tokens[from].start, tokens[to - 1].end)
+
+    /** The folded keys of tokens [from] up to but excluding [to]. */
+    fun keys(from: Int, to: Int): List<String> = tokens.subList(from, to).map { it.key }
+
+    /** The same text restricted to tokens [from] up to but excluding [to]; surface indices count from the new start. */
+    fun slice(from: Int, to: Int): GrammarTokens = GrammarTokens(nfc, tokens.subList(from, to), clauseBreak)
 }
 
 /**

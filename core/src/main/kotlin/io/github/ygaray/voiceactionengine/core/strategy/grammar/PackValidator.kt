@@ -32,14 +32,10 @@ internal fun foldFillers(language: String, phrases: List<String>): List<List<Str
     }.distinct().sortedByDescending { it.size }
 
 /**
- * Checks one flat rule of [toolName]'s [template]: it uses no slot (none exists yet), it holds a literal word on every
- * path, and it neither begins nor ends with a declared filler, which stripping would remove from the transcript and so
+ * Checks one flat rule of [toolName]'s [template]: it holds a literal word on every path, and it neither begins nor ends with a declared filler, which stripping would remove from the transcript and so
  * leave the rule unable to match.
  */
 internal fun validateFlat(flat: FlatRule, template: String, fillers: List<List<String>>) {
-    require(flat.elements.none { it is RuleElement.Slot }) {
-        "GrammarPack: tool ${flat.toolName} template \"$template\" uses a slot, and no slot kind is available yet"
-    }
     require(flat.elements.any { it is RuleElement.Word }) {
         "GrammarPack: tool ${flat.toolName} template \"$template\" can match with no literal word"
     }
@@ -48,6 +44,18 @@ internal fun validateFlat(flat: FlatRule, template: String, fillers: List<List<S
     for (filler in fillers) {
         require(leading.take(filler.size) != filler) { fillerFault(flat, template, filler, "begins") }
         require(trailing.takeLast(filler.size) != filler) { fillerFault(flat, template, filler, "ends") }
+    }
+}
+
+/** Every `{slot}` of [flat] must be one [intent] declares. */
+internal fun validateSlotRefs(flat: FlatRule, template: String, intent: IntentSpec) {
+    for (element in flat.elements) {
+        if (element is RuleElement.Slot) {
+            require(intent.slots.any { it.name == element.name }) {
+                "GrammarPack: tool ${flat.toolName} template \"$template\" uses the slot {${element.name}}, " +
+                    "which the intent does not declare"
+            }
+        }
     }
 }
 

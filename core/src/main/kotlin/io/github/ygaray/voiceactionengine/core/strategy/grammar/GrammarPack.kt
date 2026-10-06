@@ -1,12 +1,16 @@
 package io.github.ygaray.voiceactionengine.core.strategy.grammar
 
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
-import kotlinx.serialization.json.JsonObject
 
 private const val EN = "en"
 private const val ES = "es"
 
-internal class IntentSpec(val toolName: String, val en: List<String>, val es: List<String>)
+internal class IntentSpec(
+    val toolName: String,
+    val en: List<String>,
+    val es: List<String>,
+    val slots: List<SlotDecl>,
+)
 
 /** What a pack decided for one transcript. Internal: the public surface is [GrammarPack.match]. */
 internal sealed class GrammarResult {
@@ -58,9 +62,14 @@ public class GrammarPack internal constructor(settings: Builder) {
         intentCount = intents.size
         val enFillers = foldFillers(EN, settings.enFillers.toList())
         val esFillers = foldFillers(ES, settings.esFillers.toList())
+        val slots = intents.associate { intent -> intent.toolName to intent.slots.associate { it.name to it.spec } }
         matchers = mapOf(
-            EN to RuleMatcher(compileLanguage(EN, intents, settings.enRules.toList(), enFillers) { it.en }, enFillers),
-            ES to RuleMatcher(compileLanguage(ES, intents, settings.esRules.toList(), esFillers) { it.es }, esFillers),
+            EN to RuleMatcher(
+                compileLanguage(EN, intents, settings.enRules.toList(), enFillers) { it.en }, enFillers, slots,
+            ),
+            ES to RuleMatcher(
+                compileLanguage(ES, intents, settings.esRules.toList(), esFillers) { it.es }, esFillers, slots,
+            ),
         )
     }
 
@@ -77,48 +86,47 @@ public class GrammarPack internal constructor(settings: Builder) {
 
     internal fun matchDetailed(transcript: String, language: String?): GrammarResult {
         val tokens = tokenize(transcript)
-        val keys = tokens.tokens.map { it.key }
         return when {
             tokens.clauseBreak -> GrammarResult.Rejected(null)
-            language == null -> matchBoth(keys)
-            language == EN || language == ES -> matchOne(language, keys)
+            language == null -> matchBoth(tokens)
+            language == EN || language == ES -> matchOne(language, tokens)
             else -> GrammarResult.Rejected(null)
         }
     }
 
-    private fun matchOne(language: String, keys: List<String>): GrammarResult =
-        when (val verdict = verdictOf(language, keys)) {
-            is RuleVerdict.One -> GrammarResult.Matched(matchOf(verdict.rule, language))
+    private fun matchOne(language: String, tokens: GrammarTokens): GrammarResult =
+        when (val verdict = verdictOf(language, tokens)) {
+            is RuleVerdict.One -> GrammarResult.Matched(matchOf(verdict, language))
             is RuleVerdict.Ambiguous -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
             is RuleVerdict.None -> GrammarResult.Rejected(null)
         }
 
-    private fun matchBoth(keys: List<String>): GrammarResult {
-        val en = verdictOf(EN, keys)
-        val es = verdictOf(ES, keys)
+    private fun matchBoth(tokens: GrammarTokens): GrammarResult {
+        val en = verdictOf(EN, tokens)
+        val es = verdictOf(ES, tokens)
         return when {
             en is RuleVerdict.Ambiguous || es is RuleVerdict.Ambiguous ->
                 GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
-            en is RuleVerdict.One && es is RuleVerdict.One -> agreed(en.rule, es.rule)
-            en is RuleVerdict.One -> GrammarResult.Matched(matchOf(en.rule, EN))
-            es is RuleVerdict.One -> GrammarResult.Matched(matchOf(es.rule, ES))
+            en is RuleVerdict.One && es is RuleVerdict.One -> agreed(en, es)
+            en is RuleVerdict.One -> GrammarResult.Matched(matchOf(en, EN))
+            es is RuleVerdict.One -> GrammarResult.Matched(matchOf(es, ES))
             else -> GrammarResult.Rejected(null)
         }
     }
 
-    private fun verdictOf(language: String, keys: List<String>): RuleVerdict =
-        matchers[language]?.match(keys) ?: RuleVerdict.None()
+    private fun verdictOf(language: String, tokens: GrammarTokens): RuleVerdict =
+        matchers[language]?.match(tokens) ?: RuleVerdict.None()
 
-    // Both languages produce the same words: the same tool is one reading, different tools are never guessed between.
-    private fun agreed(en: FlatRule, es: FlatRule): GrammarResult =
-        if (en.toolName == es.toolName) {
-            GrammarResult.Matched(GrammarMatch(en.toolName, JsonObject(emptyMap()), null, false, null))
-        } else {
-            GrammarResult.Rejected(null)
-        }
+    // Both languages read the transcript: the same tool with equal arguments is one reading, a different tool is never
+    // guessed between, and the same tool with different arguments is two readings.
+    private fun agreed(en: RuleVerdict.One, es: RuleVerdict.One): GrammarResult = when {
+        en.rule.toolName != es.rule.toolName -> GrammarResult.Rejected(null)
+        en.arguments != es.arguments -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
+        else -> GrammarResult.Matched(GrammarMatch(en.rule.toolName, en.arguments, null, false, null))
+    }
 
-    private fun matchOf(rule: FlatRule, language: String): GrammarMatch =
-        GrammarMatch(rule.toolName, JsonObject(emptyMap()), language, false, rule.ruleId)
+    private fun matchOf(verdict: RuleVerdict.One, language: String): GrammarMatch =
+        GrammarMatch(verdict.rule.toolName, verdict.arguments, language, false, verdict.rule.ruleId)
 
     /** Prints the number of intents and phrasings per language only. */
     override fun toString(): String =
@@ -140,7 +148,7 @@ public class GrammarPack internal constructor(settings: Builder) {
          */
         public fun intent(toolName: String, block: IntentBuilder.() -> Unit) {
             val settings = IntentBuilder().apply(block)
-            intents.add(IntentSpec(toolName, settings.en.toList(), settings.es.toList()))
+            intents.add(IntentSpec(toolName, settings.en.toList(), settings.es.toList(), settings.slots.toList()))
         }
 
         /**
@@ -182,6 +190,34 @@ public class GrammarPack internal constructor(settings: Builder) {
     public class IntentBuilder internal constructor() {
         internal val en: MutableList<String> = mutableListOf()
         internal val es: MutableList<String> = mutableListOf()
+        internal val slots: MutableList<SlotDecl> = mutableListOf()
+
+        /**
+         * Declares the whole-number slot [name], written `{name}` in this intent's phrasings in either language, with
+         * a value from [min] to [max]. The speaker may say it in digits or in words, read by the rules of the language
+         * of the phrasing that matched (`twenty one` or `1,000` in English, `veintiuno` in Spanish, where a comma
+         * group is not a number), and the match carries it as a JSON number with a whole value. A value outside the
+         * range is not a candidate, so the phrasing does not match. Declared once per intent and shared by its
+         * English and Spanish phrasings.
+         *
+         * The bounds must satisfy `0 <= min <= max <= 999,999`; checked when the pack is built.
+         */
+        public fun integer(name: String, min: Long, max: Long) {
+            slots.add(SlotDecl(name, SlotSpec.IntegerSlot(min, max)))
+        }
+
+        /**
+         * Declares the decimal slot [name] with a value from [min] to [max]. Whole numbers, spoken fractions (`two and
+         * a half`, `dos y medio`) and digits with the language's decimal separator are read in the language of the
+         * phrasing that matched, and the match always carries a JSON number with a fractional type, so `2` and `2.0`
+         * never differ between languages. A digit group that could mean a thousands separator in Spanish (`1.000`) is
+         * not a number there.
+         *
+         * The bounds must be finite and satisfy `0 <= min <= max <= 999,999`; checked when the pack is built.
+         */
+        public fun decimal(name: String, min: Double, max: Double) {
+            slots.add(SlotDecl(name, SlotSpec.DecimalSlot(min, max)))
+        }
 
         /** Adds English phrasings. */
         public fun en(vararg templates: String) {

@@ -13,12 +13,16 @@ internal sealed class RuleElement {
     class Slot(val name: String) : RuleElement()
 }
 
-/** One flat phrasing: a tool, a language and the elements a transcript must equal, with an opaque [ruleId]. */
+/**
+ * One flat phrasing: a tool, a language and the elements a transcript must equal, with an opaque [ruleId] and the
+ * [template] text it was expanded from (authoring data, used in build-time messages).
+ */
 internal class FlatRule(
     val toolName: String,
     val language: String,
     val elements: List<RuleElement>,
     val ruleId: String,
+    val template: String,
 ) {
     /** The elements as one comparable string; two rules with equal signatures read the same phrasing. */
     val signature: String
@@ -43,7 +47,7 @@ internal class TemplateExpander(private val language: String, private val rules:
     /** The flat rules of one template of tool [toolName]; sequences that read the same are kept once. */
     fun expand(toolName: String, index: Int, template: String): List<FlatRule> {
         val sequences = Walk(template, rules).sequences(parseTemplate(template), false)
-        return sequences.map { FlatRule(toolName, language, it, "$toolName:$language:$index") }
+        return sequences.map { FlatRule(toolName, language, it, "$toolName:$language:$index", template) }
             .distinctBy { it.signature }
     }
 
@@ -139,6 +143,7 @@ internal fun compileLanguage(
             validateTemplateText(intent.toolName, language, template)
             for (flat in expander.expand(intent.toolName, index, template)) {
                 validateFlat(flat, template, fillers)
+                validateSlotRefs(flat, template, intent)
                 admitFlat(compiled, flat, template)
             }
         }
