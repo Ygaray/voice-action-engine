@@ -6,6 +6,10 @@ package io.github.ygaray.voiceactionengine.core.strategy.grammar
 // The number words and digits read by the number parsers reach this far, so a bound beyond it could never be met.
 private const val LARGEST_NUMBER = 999_999L
 
+// A text slot is bounded, so `maxWords` has a ceiling: an "unbounded" Int.MAX_VALUE would overflow the span sums and
+// the window arithmetic and silently stop matching. Far above any real spoken field.
+private const val MAX_TEXT_WORDS = 64
+
 /** Checks every slot declaration of [intents]: names, bounds and choice options. */
 internal fun validateSlotDeclarations(intents: List<IntentSpec>) {
     for (intent in intents) {
@@ -64,7 +68,9 @@ private fun validateSpec(intent: IntentSpec, declared: SlotDecl) {
                 "GrammarPack: $where must stay within 0..$LARGEST_NUMBER"
             }
         }
-        is SlotSpec.TextSlot -> require(spec.maxWords >= 1) { "GrammarPack: $where needs maxWords of at least 1" }
+        is SlotSpec.TextSlot -> require(spec.maxWords in 1..MAX_TEXT_WORDS) {
+            "GrammarPack: $where needs maxWords from 1 to $MAX_TEXT_WORDS"
+        }
         is SlotSpec.ChoiceSlot -> validateChoice(intent, declared.name, spec)
     }
 }

@@ -48,7 +48,7 @@ internal sealed class SlotSpec {
         override val openSpan: Boolean = true
 
         override fun candidates(language: String, tokens: GrammarTokens, position: Int): List<SlotCandidate> =
-            (position + 1..minOf(tokens.tokens.size, position + maxWords)).map { end ->
+            (position + 1..minOf(tokens.tokens.size.toLong(), position.toLong() + maxWords).toInt()).map { end ->
                 SlotCandidate(end, JsonPrimitive(tokens.surface(position, end)))
             }
     }

@@ -235,6 +235,25 @@ class GrammarPackValidationTest {
     }
 
     @Test
+    fun aTextSlotWithAnUnboundedWordCountIsRefusedAtBuild() {
+        // Int.MAX_VALUE as an "unbounded" idiom would overflow the span sums and silently stop every match.
+        val fault = assertThrows(IllegalArgumentException::class.java) {
+            GrammarPack { intent(TOOL_A) { text("title", Int.MAX_VALUE); en("open {title}") } }
+        }
+        assertNamed(fault, TOOL_A, "title")
+        val above = assertThrows(IllegalArgumentException::class.java) {
+            GrammarPack { intent(TOOL_A) { text("title", 65); en("open {title}") } }
+        }
+        assertNamed(above, TOOL_A, "title")
+    }
+
+    @Test
+    fun aTextSlotAtTheCeilingStillMatchesAfterALeadingWord() {
+        val pack = GrammarPack { intent(TOOL_A) { text("title", 64); en("open {title} now") } }
+        assertNotNull(pack.match("open one two three now", "en"))
+    }
+
+    @Test
     fun aDeclaredSlotNoTemplateUsesIsRefused() {
         val fault = assertThrows(IllegalArgumentException::class.java) {
             GrammarPack { intent(TOOL_A) { integer("count", 0, 9); en("go") } }

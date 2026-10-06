@@ -376,7 +376,7 @@ public class GrammarPack internal constructor(settings: Builder) {
          * Declares the bounded free-text slot [name] of one to [maxWords] words. The words are whatever the speaker
          * said up to the next literal word of the phrasing or the end of the transcript, never across a sentence
          * break, and the match carries them as a JSON string exactly as spoken: case, accents and inner punctuation
-         * kept. [maxWords] must be at least 1; checked when the pack is built.
+         * kept. [maxWords] must be from 1 to 64; checked when the pack is built.
          */
         public fun text(name: String, maxWords: Int) {
             slots.add(SlotDecl(name, SlotSpec.TextSlot(maxWords)))
