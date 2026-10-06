@@ -813,6 +813,53 @@ Wire it as `commitSink = compositeSink(UndoCommitSink(journal), yourSink)`, with
 up-to-date count when it reacts. The reference wiring is
 `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/undo/UndoCommitSink.kt`.
 
+**Grouping and "Undo all (N)".** The bridge groups by `heldRunId ?: runId`, so a change confirmed later with `commitHeld`
+joins the command that held it, and a clarification reply is its own group whose `parentGroupKey` names the group it
+continues. N is `journal.group(key)?.count`: the applied actions not yet undone, which includes an action that reported an
+error after it may have written and an action that wrote nothing. Show proposals that are still waiting for
+confirmation apart from N, with `bridge.pendingHeld(key)`; they are never counted. When `group.withheld` is true the
+journal missed an action: show "undo unavailable". It never offers N-1. `UndoGroup` is a snapshot, so ask again when the
+screen refreshes. The bridge's three small maps are keyed by run id and are never pruned, so an app that runs for days
+should drop entries as the journal drops groups.
+
+**Undo and refusals.** `journal.undoAll(key)` verifies every entity the group touched before it writes anything. If any
+entity changed, was deleted or was recreated since the command, the whole group is refused and nothing is written.
+Otherwise it restores newest action first, then runs the compensators, once each, after all the restores. A compensator
+may be retried, so make it idempotent. A second tap while an undo runs gets `UndoReason.IN_PROGRESS`.
+`journal.undoEntry(key, entry)` undoes one action and only when it shares no entity with another action not yet undone
+(it is in `group.isolated`); otherwise it is refused with `UndoReason.ENTANGLED` and nothing is written, and `undoAll` is
+the way. A retry after a `Partial` result touches only what is left.
+
+**Results.** `UndoResult` is a closed set: switch over it exhaustively, with no `else`.
+
+| Result | Meaning | Carries |
+|---|---|---|
+| `UndoResult.Complete` | Every action in scope was restored. | `restored`, newest first |
+| `UndoResult.Refused` | Nothing was written. | `blockers`, newest action first, never empty |
+| `UndoResult.Partial` | Some was restored and some was not. | `restored` and `notRestored`, exact lists with the reason |
+| `UndoResult.AlreadyUndone` | There was nothing left to undo. | nothing |
+
+`UndoReason` is an open set (`CHANGED_SINCE`, `CHAIN_BROKEN`, `UNVERIFIABLE`, `ENTANGLED`, `JOURNAL_WITHHELD`,
+`UNKNOWN_GROUP`, `UNKNOWN_ENTRY`, `IN_PROGRESS`, `NO_ADAPTER`, `RESTORE_FAILED`, `COMPENSATOR_FAILED`,
+`SKIPPED_AFTER_FAILURE`): keep an `else` when you switch over it. A result carries class names, keys and counts only,
+never an entity's content, and the library never logs.
+
+To show the result in an undo status of your own, map it like this:
+
+| `UndoResult` | Your status |
+|---|---|
+| `Complete` | `Undone(restored.size)` |
+| `Refused` | `Refused(reason, entity id of the first blocker)`, where the blockers are ordered newest action first (no entity id when the first blocker names none, for example a withheld group) |
+| `Partial` | `Failed`; show `notRestored` so the user knows what is still changed |
+| `AlreadyUndone` | `NothingToUndo` |
+
+**Limits and the store.** The journal lives in memory and does not survive process death. It keeps at most 50 groups and
+drops a group idle for an hour by default (`maxGroups`, `maxAgeMillis` in the `UndoJournal { }` builder), so snapshots of
+user data neither pile up nor linger. An optional `JournalStore` (`store = ...` in the builder) is told about each
+group's view and about every dropped group, so you can show history somewhere else. It receives keys, references, flags
+and counts, never a snapshot or a fingerprint, so it cannot restore the journal. A store that throws never changes what the
+journal does; `journal.storeFaults` counts its faults.
+
 ## Notes and gotchas
 
 - **Unsupported and uncached combinations.** OpenRouter model ids of the form `anthropic/<id>` are uncached in v1.0:
@@ -847,5 +894,7 @@ up-to-date count when it reacts. The reference wiring is
 - **A held change lives in memory only** and does not survive the process.
 - **Model ids match exactly.** Built-in capability tables key Anthropic ids exactly and OpenAI ids by family pattern;
   anything else gets the unknown-model default until you override it.
+- **Undo journal order and footprint.** Put the journal's sink first in `compositeSink(...)`, so it holds an action when
+  your own sink reacts, and never derive the footprint from a tool's `targetIds`: declare it on the ticket inside `apply`.
 - **Working example.** The `:sample` app (`sample/`) is the reference wiring and is never published; its tool names
   are synthetic.

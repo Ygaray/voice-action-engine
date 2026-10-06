@@ -45,6 +45,8 @@ providers.chat          ChatCompletionsAttempt, ChatCompletionsAttemptKind, Chat
                         ChatCompletionsProvider (openAi { } and openRouter { } are on its companion)
 keystore                ApiKeyStore, DelicateKeyAccess, KeyAccess, KeySlot, KeyState, KeystoreCauseCodes,
                         KeystoreCredentialSource
+undo                    Blocker, Compensator, EntityAdapter, EntityKey, EntryRef, JournalStore, NotRestored, UndoGroup,
+                        UndoJournal, UndoReason, UndoResult, UndoTicket
 ```
 
 For example `import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline` and
@@ -56,7 +58,7 @@ so they reach your compile classpath through it (import `kotlinx.serialization.j
 
 ## Surface at a glance
 
-Every public top-level type of the three published modules. Kinds: class, interface, fun interface (a single-method
+Every public top-level type of the four published modules. Kinds: class, interface, fun interface (a single-method
 interface you can pass as a lambda), value class (a typed string id), sealed class, abstract class (engine-created
 leaves), annotation class.
 
@@ -183,6 +185,26 @@ leaves), annotation class.
 | `KeystoreCredentialSource` | class | | Adapts an `ApiKeyStore` to the engine's `CredentialSource`. |
 
 The public functions are `commandPipeline { }`, which composes a `CommandPipeline`, and `compositeSink(a, b)`, which puts several sinks in the one `commitSink` slot.
+
+### `undo` (pure Kotlin, no dependency)
+
+| Type | Kind | Set | Purpose |
+|---|---|---|---|
+| `UndoJournal` | class | | A journal of what each command changed: `newTicket()`, `record`, `runClosed`, `withhold`, `group(key)`, `undoAll(key)`, `undoEntry(key, entry)`; built with `UndoJournal { }`. |
+| `UndoTicket` | class | | What the app tells the journal while one action is applied: `capture`, `settle`, `created`, `touches`, `compensate`, `nothingWritten`. |
+| `EntityAdapter` | interface | | The app's window onto one entity type: read it, fingerprint it, restore it atomically. |
+| `Compensator` | fun interface | | Reverses one effect outside the database; idempotent. |
+| `EntryRef` | class | | One recorded action: run id, position and tool name. |
+| `EntityKey` | class | | One entity an action touched: type and id. |
+| `UndoResult` | sealed class | closed | The outcome of an undo: `Complete`, `Refused`, `Partial`, `AlreadyUndone`. |
+| `Blocker` | class | | One reason an undo was refused: the action, the entity and an `UndoReason`. |
+| `NotRestored` | class | | One thing an undo could not restore, with its reason and the class name of the fault. |
+| `UndoReason` | value class | open | Why an undo could not restore something (`CHANGED_SINCE`, `ENTANGLED`, `JOURNAL_WITHHELD` and more). |
+| `UndoGroup` | class | | A snapshot of one command's group: `count` (the N of "Undo all (N)"), `withheld`, `entries`, `pending`, `isolated`. |
+| `JournalStore` | interface | | An optional mirror of the journal's groups; it cannot restore them. |
+
+The journal depends on nothing but the Kotlin standard library, lives in memory and does not survive process death.
+Its coordinate is `voice-action-engine-undo:<version>`; see INTEGRATION.md section 11.
 
 ## Pipeline and outcomes
 
@@ -403,6 +425,9 @@ Everything you implement or pass; each seam is a small interface you give the en
 | `TierPolicySource` | limits per command | builder `policy` |
 | `PipelineEventListener` | live events | builder `listener` |
 | `OnDeviceCapability` | on-device availability | builder `onDevice` |
+| `EntityAdapter` | read, fingerprint and restore one entity type | `UndoJournal { adapter(...) }` |
+| `Compensator` | reverse one out-of-database effect | `UndoJournal { compensator(kind, ...) }` |
+| `JournalStore` | mirror the journal's groups | `UndoJournal { store = ... }` |
 | `capabilities(provider, model) { }` | facts about one exact model id | builder, once per pair |
 | `AiProvider` | a whole provider (also your test fake) | builder `provider(...)` |
 | `CommandStrategy` | a whole tier | builder `tier(...)` |
