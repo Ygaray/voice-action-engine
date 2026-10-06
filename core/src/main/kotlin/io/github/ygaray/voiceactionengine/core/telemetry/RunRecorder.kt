@@ -31,6 +31,9 @@ internal class RunRecorder(
     private val lock = Any()
     /** The run's clock: its first reading may throw, later readings never do. */
     val runClock = GuardedClock(clock)
+
+    /** The run's start-tier pick, kept apart from the tiers' attempts. */
+    val selectionBook: SelectionBook = SelectionBook(lock, runClock)
     private val startedAt = runClock.read()
     private val codes = mutableListOf<TraceCode>()
     private val book = TierBook(startedAt)
@@ -72,7 +75,7 @@ internal class RunRecorder(
     /** Attaches [turn], reported by [strategy], to the tier now running, and adds its tokens to the run total. */
     suspend fun turnRecorded(strategy: StrategyId, turn: TurnRecord) {
         synchronized(lock) {
-            book.turns.add(turn)
+            if (!selectionBook.take(strategy, turn)) book.turns.add(turn)
             tokenTotal = saturatedAdd(tokenTotal, turn.usage.total)
         }
         dispatch.send(PipelineEvent.ProviderCall(runId, strategy, turn))
@@ -157,6 +160,7 @@ internal class RunRecorder(
                 durationMillis = now - startedAt,
                 attempts = book.attempts.toList(),
                 codes = codes.toList(),
+                selection = selectionBook.current,
             )
         }
     }

@@ -27,7 +27,8 @@ internal fun startTierPipeline(
     selector: TierSelector?,
     fake: FakeAiProvider,
     listener: RecordingEventListener = RecordingEventListener(),
-    selection: ScriptedSelectionSource = ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ANTHROPIC, "test-model")),
+    selection: ScriptedSelectionSource =
+        ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ANTHROPIC, "test-model")),
     policy: TierPolicy = TierPolicy.DEFAULT,
     onDevice: OnDeviceCapability? = null,
     gate: ScriptedGate = ScriptedGate.admitAll(),

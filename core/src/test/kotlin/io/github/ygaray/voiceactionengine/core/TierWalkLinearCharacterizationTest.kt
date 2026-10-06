@@ -28,6 +28,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -62,6 +63,9 @@ class TierWalkLinearCharacterizationTest {
             get() = listener.events.filterIsInstance<PipelineEvent.TierSkipped>()
                 .map { it.strategy.value to it.code.value }
     }
+
+    /** A walk that never asked a picker has no selection record. */
+    private fun assertNoSelection(outcome: CommandOutcome) = assertNull(outcome.trace.selection)
 
     private fun fakeProvider(): FakeAiProvider =
         FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("r", Usage(3, 0, 0, 2)))
@@ -118,6 +122,7 @@ class TierWalkLinearCharacterizationTest {
             )
 
             val result = run(listOf(grammar, single, agentic))
+            assertNoSelection(result.outcome)
 
             val outcome = result.outcome as CommandOutcome.Completed
             assertEquals("done", outcome.reply)
@@ -169,6 +174,7 @@ class TierWalkLinearCharacterizationTest {
             )
 
             val result = run(listOf(only))
+            assertNoSelection(result.outcome)
 
             assertEquals("ok", (result.outcome as CommandOutcome.Completed).reply)
             assertEquals(listOf(Triple("only", "completed", false)), result.triples)
@@ -196,6 +202,7 @@ class TierWalkLinearCharacterizationTest {
             val agentic = completing("agentic")
 
             val result = run(listOf(grammar, single, agentic))
+            assertNoSelection(result.outcome)
 
             assertEquals("g", (result.outcome as CommandOutcome.Completed).reply)
             assertEquals(listOf(Triple("grammar", "completed", false)), result.triples)
@@ -223,6 +230,7 @@ class TierWalkLinearCharacterizationTest {
             val agentic = completing("agentic")
 
             val result = run(listOf(grammar, single, agentic), selector = TierSelector.Fixed(StrategyId("single")))
+            assertNoSelection(result.outcome)
 
             assertEquals("ok", (result.outcome as CommandOutcome.Completed).reply)
             assertEquals(
@@ -256,6 +264,7 @@ class TierWalkLinearCharacterizationTest {
             val agentic = completing("agentic")
 
             val result = run(listOf(grammar, single, agentic), policy = TierPolicy { offlineOnly = true })
+            assertNoSelection(result.outcome)
 
             val outcome = result.outcome as CommandOutcome.Unhandled
             assertEquals(true, outcome.cappedByPolicy)
@@ -290,6 +299,7 @@ class TierWalkLinearCharacterizationTest {
             val agentic = completing("agentic")
 
             val result = run(listOf(grammar, single, agentic), policy = TierPolicy { maxTier = StrategyId("single") })
+            assertNoSelection(result.outcome)
 
             val outcome = result.outcome as CommandOutcome.Unhandled
             assertEquals(true, outcome.cappedByPolicy)
@@ -327,6 +337,7 @@ class TierWalkLinearCharacterizationTest {
             val agentic = completing("agentic")
 
             val result = run(listOf(single, mid, agentic))
+            assertNoSelection(result.outcome)
 
             assertEquals("ok", (result.outcome as CommandOutcome.Completed).reply)
             assertSame(carry, mid.receivedCarries.single())
@@ -372,6 +383,7 @@ class TierWalkLinearCharacterizationTest {
             val agentic = completing("agentic")
 
             val result = run(listOf(grammar, writer, agentic))
+            assertNoSelection(result.outcome)
 
             val outcome = result.outcome as CommandOutcome.Completed
             assertEquals(true, outcome.partial)
@@ -407,6 +419,7 @@ class TierWalkLinearCharacterizationTest {
             val agentic = completing("agentic")
 
             val result = run(listOf(single, agentic), policy = TierPolicy { offlineOnly = true })
+            assertNoSelection(result.outcome)
 
             val outcome = result.outcome as CommandOutcome.Failed
             assertEquals(FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, "offline_unavailable"), outcome.reason)
@@ -439,6 +452,7 @@ class TierWalkLinearCharacterizationTest {
             val last = completing("last")
 
             val linear = run(listOf(dropped, kept, last), policy = policy)
+            assertNoSelection(linear.outcome)
 
             assertEquals("ok", (linear.outcome as CommandOutcome.Completed).reply)
             assertEquals(listOf(Triple("kept", "completed", false)), linear.triples)
@@ -450,6 +464,7 @@ class TierWalkLinearCharacterizationTest {
                 selector = TierSelector.Fixed(StrategyId("dropped")),
                 policy = policy,
             )
+            assertNoSelection(fixed.outcome)
 
             assertEquals(FailureReason.NoEligibleTier(), (fixed.outcome as CommandOutcome.Failed).reason)
             assertEquals(emptyList<Triple<String, String, Boolean>>(), fixed.triples)

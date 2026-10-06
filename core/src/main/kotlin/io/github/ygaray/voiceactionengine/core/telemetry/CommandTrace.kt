@@ -14,7 +14,9 @@ import io.github.ygaray.voiceactionengine.core.failure.FailureReason
  * @property transcriptLength how many characters the transcript had.
  * @property attempts one entry per tier that ran, in order.
  * @property codes the engine codes recorded during the run, in order.
- * @property usage the tokens used across all attempts' reported turns, summed bucket by bucket.
+ * @property selection the start-tier pick, when a Custom or Router selector asked its picker, else null. Its turns are
+ * not in [attempts], which still means one entry per tier that ran.
+ * @property usage the tokens used across all attempts' reported turns and the selection's, summed bucket by bucket.
  * @property startedAtMillis when the run started, on the pipeline's clock.
  * @property durationMillis how long the run had been going when this trace was taken.
  */
@@ -27,14 +29,17 @@ public class CommandTrace internal constructor(
     public val durationMillis: Long,
     public val attempts: List<TierAttempt> = emptyList(),
     public val codes: List<TraceCode> = emptyList(),
+    public val selection: StartTierSelection? = null,
 ) {
-    /** The tokens used across all attempts' reported turns. */
-    public val usage: Usage = attempts.fold(Usage.ZERO) { sum, attempt -> sum + attempt.usage }
+    /** The tokens used across all attempts' reported turns and the start-tier selection's. */
+    public val usage: Usage =
+        attempts.fold(Usage.ZERO) { sum, attempt -> sum + attempt.usage } + (selection?.usage ?: Usage.ZERO)
 
     override fun toString(): String =
         "CommandTrace(runId=$runId, parentRunId=$parentRunId, language=$language, " +
             "transcriptLength=$transcriptLength, attempts=${attempts.size}, codes=$codes, usage=$usage, " +
-            "startedAtMillis=$startedAtMillis, durationMillis=$durationMillis)"
+            "startedAtMillis=$startedAtMillis, durationMillis=$durationMillis" +
+            (selection?.let { ", selection=$it" } ?: "") + ")"
 }
 
 /**

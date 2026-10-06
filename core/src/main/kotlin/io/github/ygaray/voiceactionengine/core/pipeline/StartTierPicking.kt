@@ -57,6 +57,9 @@ internal class RunPickContext(
     }
 }
 
+private const val SELECTION_PICKED = "picked"
+private const val SELECTION_FALLBACK = "router_fallback"
+
 /**
  * Asks a picker where the model walk starts. The answer is accepted only when it names one of the eligible model
  * tiers; anything else starts at the first of them and is recorded as `router_fallback`.
@@ -69,11 +72,17 @@ internal class StartTierPicking(private val scope: RunScope) {
             scope.recorder.recordCode(TraceCode.ROUTER_FALLBACK)
             return 0
         }
+        scope.recorder.selectionBook.started(spec.id, llm)
         val choice = guarded(onFault = { null }) {
             spec.picker.pick(input, llm, RunPickContext(scope, spec.id, spec.capabilities.providers))
         }
         val picked = choice?.takeIf { it in llm }
         if (picked == null) scope.recorder.recordCode(TraceCode.ROUTER_FALLBACK)
+        scope.recorder.selectionBook.finished(
+            if (picked != null) SELECTION_PICKED else SELECTION_FALLBACK,
+            picked,
+            picked?.let { llm.indexOf(it) } ?: 0,
+        )
         return picked?.let { id -> rest.indexOfFirst { it.id == id } } ?: 0
     }
 }

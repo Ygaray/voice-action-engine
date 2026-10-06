@@ -249,6 +249,15 @@ class TraceTest {
         TraceCode.PLAN_BINDING_UNRESOLVED to "plan_binding_unresolved",
     )
 
+    private val startTierCodes = mapOf(
+        TraceCode.ROUTER_FALLBACK to "router_fallback",
+    )
+
+    @Test
+    fun theStartTierCodesHaveTheirSnakeCaseWireValues() {
+        startTierCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
+    }
+
     @Test
     fun thePlanCodesHaveTheirSnakeCaseWireValues() {
         assertEquals(THREE, planCodes.size)
@@ -266,7 +275,7 @@ class TraceTest {
         assertEquals(THREE, agenticLoopCodes.size)
         agenticLoopCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
         val existing = phaseTwoCodes + routerCodes.keys + TraceCode.EXTRA_TOOL_CALLS_DROPPED
-        val all = existing + agenticLoopCodes.keys + grammarCodes.keys + planCodes.keys
+        val all = existing + agenticLoopCodes.keys + grammarCodes.keys + planCodes.keys + startTierCodes.keys
         val wireValues = all.map { it.value }
         assertEquals(wireValues.size, wireValues.toSet().size)
         assertEquals(declaredWireValues(), wireValues.toSet())
