@@ -91,7 +91,7 @@ and fold in the Wave-1 additive seams SB 176–179 and CT 75 are blocked on. Cut
 - [ ] W04 fix: a direct Responses-only model never gets `reasoning_effort: "none"`, and the `unsupported_value` 400 maps to `ModelUnsupported`.
 - [x] `LocalGrammarStrategy` + bilingual EN/ES `GrammarPack` DSL, with an optional per-slot `normalize` hook (V11-01). Shipped in Phase 14.
 - [x] `PlanThenExecuteStrategy` with write-output step binding (V11-02). Shipped in Phase 15 (RT-01: a hold after a commit ends a partial Completed with `remainingStepIds`; D-04 binding syntax confirmed by the live probe).
-- [ ] `TierSelector.Custom(StartTierPicker)` + `TierSelector.Router` (default off; grammar is a free pre-pass) (V11-03).
+- [x] `TierSelector.Custom(StartTierPicker)` + `TierSelector.Router` (default off; grammar is a free pre-pass) (V11-03). Shipped in Phase 16 (a picker or fallback always leaves the walk on Linear with a `router_fallback` trace code; offline-only never pays for a picker call; `trace.selection` records the pick; the Router prompt wording is live-checked in the Phase 19 Gate-1 router leg).
 - [ ] Bundled on-device model spike; verdict to the orchestrator (V11-04).
 - [ ] Standalone `:undo` module + pipeline integration (A18/E7, V11-05).
 - [ ] `:voice-adapter` (`:stt` v0.7.0 → `CommandInput`) (V11-06).
@@ -166,4 +166,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-10-06 after Phase 15*
+*Last updated: 2026-10-06 after Phase 16*
