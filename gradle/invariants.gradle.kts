@@ -328,6 +328,44 @@ val verifyNoDi = tasks.register("verifyNoDiArtifacts") {
 }
 tasks.named("check") { dependsOn(verifyNoDi) }
 
+// SC4: no ML runtime on a published module's compile or runtime classpath. Scoped by module name (never a shared
+// rule) so a dedicated on-device module is not blocked by its own gates.
+if (project.name in setOf("core", "providers", "keystore")) {
+    val deniedMlGroupPrefixes = listOf("com.google.ai.edge", "com.google.mediapipe", "org.tensorflow", "com.google.mlkit")
+    val deniedMlNameTokens = listOf("litert", "tflite")
+    val verifyNoMl = tasks.register("verifyNoMlArtifacts") {
+        group = "verification"
+        val modulePath = project.path
+        val classpathNames = if (plugins.hasPlugin("com.android.library")) {
+            listOf("releaseCompileClasspath", "releaseRuntimeClasspath")
+        } else {
+            listOf("compileClasspath", "runtimeClasspath")
+        }
+        val classpaths = classpathNames.map { configurations.named(it) }
+        doLast {
+            fun denied(group: String?, name: String?): Boolean =
+                (group != null && deniedMlGroupPrefixes.any { group.startsWith(it) }) ||
+                    (name != null && deniedMlNameTokens.any { name.contains(it, ignoreCase = true) })
+            val hits = classpaths.flatMap { cp ->
+                val result = cp.get().incoming.resolutionResult
+                // Requested selectors too: an unresolved or offline declaration must still be caught.
+                val resolved = result.allComponents
+                    .mapNotNull { it.moduleVersion }
+                    .filter { denied(it.group, it.name) }
+                    .map { "${cp.name}: ${it.group}:${it.name}:${it.version}" }
+                val requested = result.allDependencies
+                    .map { it.requested }
+                    .filterIsInstance<org.gradle.api.artifacts.component.ModuleComponentSelector>()
+                    .filter { denied(it.group, it.module) }
+                    .map { "${cp.name}: requested ${it.group}:${it.module}" }
+                resolved + requested
+            }.distinct()
+            if (hits.isNotEmpty()) throw GradleException("$modulePath resolves ML artifacts:\n" + hits.joinToString("\n") { "  $it" })
+        }
+    }
+    tasks.named("check") { dependsOn(verifyNoMl) }
+}
+
 // Repo-wide checks, hosted on :core so they run once.
 if (project.name == "core") {
     // :core has no HTTP, Android, DI or other-hub dependency by classpath, not by convention (L7/A7).
