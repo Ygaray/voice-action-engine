@@ -23,6 +23,30 @@ class GrammarFillersTest {
     }
 
     @Test
+    fun aTerminatorNextToAStrippedFillerDoesNotVetoTheMatch() {
+        val pack = GrammarPack {
+            enFillers("okay", "thanks")
+            intent(LIGHT_ON) { en("turn on the light") }
+        }
+
+        assertEquals(LIGHT_ON, pack.match("Okay. Turn on the light", "en")?.toolName)
+        assertEquals(LIGHT_ON, pack.match("Turn on the light. Thanks.", "en")?.toolName)
+        assertEquals(LIGHT_ON, pack.match("Okay! Turn on the light? Thanks!", "en")?.toolName)
+    }
+
+    @Test
+    fun aTerminatorBetweenKeptWordsStillVetoesTheMatch() {
+        val pack = GrammarPack {
+            enFillers("okay", "thanks")
+            intent(LIGHT_ON) { en("turn on the light") }
+        }
+
+        assertNull(pack.match("Okay. Turn on. The light", "en"))
+        assertNull(pack.match("Turn on the light. Turn on the light", "en"))
+        assertNull(pack.match("Turn on the light. Okay turn on the light", "en"))
+    }
+
+    @Test
     fun anInteriorFillerIsNotStripped() {
         assertNull(enPack.match("turn please on the light", "en"))
         assertNull(enPack.match("turn on the please light", "en"))

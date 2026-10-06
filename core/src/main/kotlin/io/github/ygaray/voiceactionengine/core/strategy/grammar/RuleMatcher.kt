@@ -71,14 +71,15 @@ internal class RuleMatcher(
     } ?: 0
 
     /**
-     * The verdict for one transcript's [tokens], after its leading and trailing fillers are stripped. A transcript with
-     * a sentence break holds more than one command and matches nothing; more than [cap] kept tokens is
+     * The verdict for one transcript's [tokens], after its leading and trailing fillers are stripped. Kept words with a
+     * sentence break between them hold more than one command and match nothing (a terminator next to a stripped filler,
+     * as in "okay. turn on the light", is not between kept words); more than [cap] kept tokens is
      * [RuleVerdict.TooLong]. Both are decided before any rule is walked.
      */
     fun match(tokens: GrammarTokens, cap: Int): RuleVerdict {
         val kept = strip(tokens)
         return when {
-            tokens.clauseBreak -> RuleVerdict.None()
+            kept.clauseBreak -> RuleVerdict.None()
             kept.tokens.size > cap -> RuleVerdict.TooLong()
             else -> walkAll(kept)
         }
