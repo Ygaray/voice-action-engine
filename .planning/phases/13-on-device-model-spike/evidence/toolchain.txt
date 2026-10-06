@@ -2,3 +2,6 @@
 VAE_SPIKE_TOOLCHAIN kind=compile pin=0.17.1 result=ok kotlin=2.3.20 agp=9.2.1
 VAE_SPIKE_TOOLCHAIN kind=dex pin=0.17.1 result=ok min_api=35
 VAE_SPIKE_TOOLCHAIN kind=zipalign pin=0.17.1 result=ok page=16k
+VAE_SPIKE_TOOLCHAIN kind=stdlib pin=0.17.1 runtime_stdlib=2.4.0 runtime_reflect=2.4.0 runtime_coroutines_android=1.11.0 uplift=yes
+VAE_SPIKE_TOOLCHAIN kind=apk pin=0.17.1 abi=arm64-v8a so_bytes=21802960 so_deflated_bytes=9497418 so_stored=yes apk_bytes=30771293
+VAE_SPIKE_TOOLCHAIN kind=compile_leak pin=0.17.1 disposition=assumed_runtime_only
