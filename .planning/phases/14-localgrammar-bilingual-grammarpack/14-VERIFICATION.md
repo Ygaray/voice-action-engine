@@ -4,7 +4,26 @@ verified: 2026-10-06T18:00:00Z
 status: passed
 score: 5/5 must-haves verified
 covered_files:
-  - ".planning/REQUIREMENTS.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-01-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-01-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-02-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-02-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-03-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-03-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-04-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-04-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-05-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-05-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-06-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-06-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-07-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-07-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-08-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-08-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-09-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-09-SUMMARY.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-10-PLAN.md"
+  - ".planning/phases/14-localgrammar-bilingual-grammarpack/14-10-SUMMARY.md"
   - "API.md"
   - "core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/strategy/OutcomeResolver.kt"
   - "core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/strategy/StepSubmission.kt"
@@ -55,7 +74,7 @@ covered_files:
   - "core/src/test/resources/grammar/README.md"
   - "core/src/test/resources/grammar/stt-fixtures.tsv"
   - "core/src/test/resources/grammar/stt-prompts.tsv"
-covered_digest: "v1:sha256:63e51b125ea67ad972959326bf5e20a0a8cd70516b2970a0a53c102b6ab2be0c"
+covered_digest: "v1:sha256:4cbf7af04ee625c11042ade2220a68dd2075c24cbda6f240f923e51b49f012f6"
 behavior_unverified: 0
 overrides_applied: 0
 ---
