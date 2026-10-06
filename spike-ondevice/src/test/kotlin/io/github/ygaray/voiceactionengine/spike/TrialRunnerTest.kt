@@ -15,6 +15,7 @@ import io.github.ygaray.voiceactionengine.spike.evidence.SpikeLine
 import io.github.ygaray.voiceactionengine.spike.evidence.TrialRecord
 import io.github.ygaray.voiceactionengine.spike.gate.SpikeOnDeviceCapability
 import io.github.ygaray.voiceactionengine.spike.gold.GoldItem
+import io.github.ygaray.voiceactionengine.spike.trial.PrivateRawSink
 import io.github.ygaray.voiceactionengine.spike.trial.TrialRunner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -188,5 +189,31 @@ class TrialRunnerTest {
         val out = File("build/spike-trial-lines.txt")
         out.parentFile.mkdirs()
         out.writeText(records.joinToString("\n", postfix = "\n") { it.toLine().render() })
+    }
+
+    @Test
+    fun theSbEnvelopeKeepsItsRawAnswerPrivatelyAndTheSmallEnvelopeDoesNot() = runTest {
+        val dir = kotlin.io.path.createTempDirectory("vae-raw").toFile()
+        try {
+            val backend = FakeLlmBackend(
+                wrapper(CREATE, """{"title":"milk"}"""),
+                wrapper(CREATE, """{"title":"milk"}"""),
+            )
+            val trials = TrialRunner({ backend }, capability, Dispatchers.Unconfined, fakeClock(), PrivateRawSink(dir))
+            val sb = EnvelopeSnapshot(Envelope.SB, envelope.system, envelope.tools)
+
+            trials.run(cell, envelope, positive(), firstInProcess = true)
+            assertEquals(0, dir.listFiles().orEmpty().size)
+
+            val record = trials.run(cell, sb, positive(), firstInProcess = false)
+            val file = File(dir, "${record.stage.wire}.jsonl")
+            val rows = file.readLines()
+            assertEquals(1, rows.size)
+            assertTrue(rows[0].contains("\"item\":\"$ITEM_POS\""))
+            assertTrue(rows[0].contains("milk"))
+            assertTrue(rows[0].contains("\"first_call_name\":\"$CREATE\""))
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 }

@@ -158,7 +158,7 @@ internal class TrialStages(private val env: LadderEnv, private val opener: Engin
                 continue
             }
             ran += cell
-            TrialRunner({ backend }, capability(opened.outcome), env.dispatcher, env.nanoClock).use { runner ->
+            TrialRunner({ backend }, capability(opened.outcome), env.dispatcher, env.nanoClock, env.rawSink).use { runner ->
                 val sampler = PssSampler(env.probes)
                 try {
                     sampler.around {
@@ -205,7 +205,7 @@ internal class TrialStages(private val env: LadderEnv, private val opener: Engin
         val opened = opener.open(opener.fileFor(cell.model, cell.backend), cell.backend == BackendKind.GPU, inputs.maxTokens)
         emitInit(stage, cell, PROCESS, opened)
         val backend = opened.backend ?: return StageOutcome.error(opened.outcome.failureCode ?: "init_failed", 0, plan.planned)
-        TrialRunner({ backend }, capability(opened.outcome), env.dispatcher, env.nanoClock).use { runner ->
+        TrialRunner({ backend }, capability(opened.outcome), env.dispatcher, env.nanoClock, env.rawSink).use { runner ->
             val sampler = PssSampler(env.probes)
             try {
                 sampler.around {
@@ -246,7 +246,7 @@ internal class TrialStages(private val env: LadderEnv, private val opener: Engin
         emitInit(stage, cell, PROCESS, opened)
         val backend = opened.backend ?: return StageOutcome.error(opened.outcome.failureCode ?: "init_failed", 0, progress.planned)
         val start = env.probes.monotonicMs()
-        TrialRunner({ backend }, capability(opened.outcome), env.dispatcher, env.nanoClock).use { runner ->
+        TrialRunner({ backend }, capability(opened.outcome), env.dispatcher, env.nanoClock, env.rawSink).use { runner ->
             val sampler = PssSampler(env.probes)
             try {
                 sampler.around {

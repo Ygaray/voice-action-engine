@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.spike.backend.BackendRequest
 import io.github.ygaray.voiceactionengine.spike.backend.BenchFacts
 import io.github.ygaray.voiceactionengine.spike.backend.InitOutcome
 import io.github.ygaray.voiceactionengine.spike.backend.LlmBackend
+import io.github.ygaray.voiceactionengine.spike.backend.RawToolCall
 
 /**
  * Decorates an [LlmBackend] and keeps the last generation's [BenchFacts] and failure code, so a trial can report the
@@ -22,10 +23,20 @@ internal class MeteredBackend(private val delegate: LlmBackend) : LlmBackend {
     var lastFailureCode: String? = null
         private set
 
+    /** The raw answer text of the last successful generation since [reset], or null. Host-private data only. */
+    var lastText: String? = null
+        private set
+
+    /** The native tool calls of the last successful generation since [reset]. Host-private data only. */
+    var lastRawToolCalls: List<RawToolCall> = emptyList()
+        private set
+
     /** Forgets the last call; a trial starts from here. */
     fun reset() {
         lastBench = null
         lastFailureCode = null
+        lastText = null
+        lastRawToolCalls = emptyList()
     }
 
     override suspend fun initialize(config: BackendConfig): InitOutcome = delegate.initialize(config)
@@ -35,6 +46,8 @@ internal class MeteredBackend(private val delegate: LlmBackend) : LlmBackend {
             val answer = delegate.generate(request)
             lastBench = answer.bench
             lastFailureCode = null
+            lastText = answer.text
+            lastRawToolCalls = answer.rawToolCalls
             return answer
         } catch (e: BackendFailure) {
             lastBench = null

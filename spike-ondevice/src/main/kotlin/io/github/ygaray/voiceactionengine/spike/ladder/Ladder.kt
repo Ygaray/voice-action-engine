@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.spike.evidence.SpikeKind
 import io.github.ygaray.voiceactionengine.spike.evidence.SpikeLine
 import io.github.ygaray.voiceactionengine.spike.evidence.Stage
 import io.github.ygaray.voiceactionengine.spike.gold.GoldSet
+import io.github.ygaray.voiceactionengine.spike.trial.RawItemSink
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
@@ -26,6 +27,7 @@ private val NOT_CODE_CHAR = Regex("[^a-z0-9]+")
  * @property smallGold the committed small gold set; @property sbState the private SB envelope state (loaded on demand).
  * @property dispatcher the dispatcher blocking native calls run on.
  * @property screenN items per screen cell; tests lower it.
+ * @property rawSink the host-private per-item raw answers of the sb envelope (RT-02), or null.
  */
 internal class LadderEnv(
     val sink: EvidenceSink,
@@ -37,6 +39,7 @@ internal class LadderEnv(
     val sbState: () -> SbState,
     val dispatcher: CoroutineDispatcher,
     val screenN: Int = LadderRules.SCREEN_N,
+    val rawSink: RawItemSink? = null,
 ) {
     /** A monotonic nanosecond clock for [TrialRunner], read from the probes so a fake clock drives every latency. */
     val nanoClock: () -> Long = { probes.monotonicMs() * NANOS_PER_MILLI }

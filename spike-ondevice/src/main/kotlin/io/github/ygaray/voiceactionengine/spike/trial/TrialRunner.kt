@@ -55,12 +55,14 @@ private val STABLE_OUTCOME = Regex("[a-z0-9_]+")
  * @property onDevice the real on-device gate the router consults before it binds the on-device provider.
  * @property dispatcher the dispatcher blocking native calls run on.
  * @property nanoClock a monotonic clock in nanoseconds; latency is read from it around the pipeline call (THRESHOLDS (d)).
+ * @property rawSink when set, receives every sb-envelope trial's raw answer for host-private re-scoring (RT-02); never evidence.
  */
 internal class TrialRunner(
     private val backendFor: (Cell) -> LlmBackend,
     private val onDevice: OnDeviceCapability,
     private val dispatcher: CoroutineDispatcher,
     private val nanoClock: () -> Long = System::nanoTime,
+    private val rawSink: RawItemSink? = null,
 ) : AutoCloseable {
     private val backends = HashMap<Cell, MeteredBackend>()
     private val rigs = HashMap<Pair<Cell, Envelope>, Rig>()
@@ -119,7 +121,21 @@ internal class TrialRunner(
             null
         }
         val latencyMs = (nanoClock() - started) / NANOS_PER_MILLI
-        return score(rig, envelope, item, cell, stage, latencyMs, firstInProcess, outcome)
+        val record = score(rig, envelope, item, cell, stage, latencyMs, firstInProcess, outcome)
+        if (envelope.env == Envelope.SB) rawSink?.record(stage, cell, record, rawAnswer(rig))
+        return record
+    }
+
+    private fun rawAnswer(rig: Rig): RawItemAnswer {
+        val call = rig.provider.firstCall
+        return RawItemAnswer(
+            text = rig.metered.lastText,
+            rawToolCalls = rig.metered.lastRawToolCalls,
+            firstCallName = call?.name,
+            firstCallArguments = call?.arguments,
+            stopReason = rig.provider.stopReason?.toString(),
+            failureCode = rig.provider.failureCode ?: rig.metered.lastFailureCode,
+        )
     }
 
     @Suppress("LongParameterList")

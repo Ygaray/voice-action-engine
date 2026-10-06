@@ -15,15 +15,18 @@ import io.github.ygaray.voiceactionengine.spike.ladder.Ladder
 import io.github.ygaray.voiceactionengine.spike.ladder.LadderEnv
 import io.github.ygaray.voiceactionengine.spike.ladder.StateStore
 import io.github.ygaray.voiceactionengine.spike.ladder.loadSbState
+import io.github.ygaray.voiceactionengine.spike.trial.PrivateRawSink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.io.File
 
 private const val EXTRA_STAGE = "stage"
 private const val SMALL_GOLD_ASSET = "gold/small-gold.json"
 private const val MODELS_DIR = "models"
+private const val RAW_DIR = "raw"
 
 /**
  * The stage host: `am start -n <pkg>/.SpikeActivity --es stage <wire>` runs one ladder stage in a fresh process, with the
@@ -71,6 +74,7 @@ class SpikeActivity : Activity() {
                 smallGold = { GoldSet.load(assets.open(SMALL_GOLD_ASSET).use { it.readBytes().toString(Charsets.UTF_8) }, SmallEnvelope.tools) },
                 sbState = { loadSbState(files) },
                 dispatcher = Dispatchers.IO,
+                rawSink = PrivateRawSink(File(files.privateDir, RAW_DIR)),
             ),
         )
     }
