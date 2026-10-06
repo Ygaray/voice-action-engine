@@ -217,4 +217,27 @@ class PlanThenExecuteSuppressionTest {
             assertTrue(outcome.commits.isEmpty())
         }
     }
+
+    @Test
+    fun aPreviewOrReadAsTheFirstStepIsAFailedStepSoItReplansOnceThenHandsUp() = runTest {
+        NoNetworkGuard.during {
+            listOf(FinishedKind.PREVIEW, FinishedKind.READ).forEach { kind ->
+                val step = finished(kind, false)
+                val rig = SuppressionRig(
+                    listOf(step, step),
+                    ScriptedGate.admitAll(),
+                    planAnswer(plan(2)),
+                    planAnswer(plan(2), "plan-2"),
+                )
+                val outcome = rig.run()
+                val attempt = outcome.trace.attempts.first()
+                assertEquals("escalated", attempt.outcome)
+                assertEquals(EscalationReason.Other(FAILED_CODE), attempt.escalationReason)
+                assertTrue(TraceCode.PLAN_REPLANNED in outcome.trace.codes)
+                assertEquals(2, rig.fake.callCount)
+                assertEquals(1, rig.next.executions)
+                assertTrue(outcome.commits.isEmpty())
+            }
+        }
+    }
 }

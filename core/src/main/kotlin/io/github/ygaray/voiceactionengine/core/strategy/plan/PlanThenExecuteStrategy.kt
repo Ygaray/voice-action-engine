@@ -56,6 +56,11 @@ private const val REPLAN_LIMIT = 1
  * after a change was applied or held. A snapshot that already offers a tool named `submit_plan`, or that offers no
  * non-terminal tool, fails the command before any call.
  *
+ * A step counts as run only when its changes were committed. A step that ends with a preview, a read result, no action
+ * or an error is a failed step: nothing it produced can be bound, the plan stops there, and the failure rules above
+ * apply, including the one replan when nothing was applied or held before it. An app that previews inside a plan sees
+ * its plan stop and escalate, or end as a partial completion after earlier commits.
+ *
  * Every action a step records carries the provider id of the planning call, at a distinct, rising position.
  *
  * The tier is gate-per-step with no resume: steps after a hold are not run. A hold with nothing committed hands the
