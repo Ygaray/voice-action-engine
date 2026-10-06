@@ -1,0 +1,7 @@
+# spike stage=kv_reuse captured_utc=2026-10-06T02:19:51Z target=R5CT10XNKQN head=75de61a25e
+VAE_SPIKE_THERMAL stage=kv_reuse status=none point=start
+VAE_SPIKE_KVREUSE preface=sb backend=cpu preface_on_init=0 first_prefill_tokens=4852 second_prefill_tokens=4852 first_ttft_ms=215736 second_ttft_ms=211812 disposition=not_reused
+VAE_SPIKE_KVREUSE preface=sb backend=cpu preface_on_init=1 first_prefill_tokens=11 second_prefill_tokens=11 first_ttft_ms=213665 second_ttft_ms=210872 disposition=not_reused
+VAE_SPIKE_MEM stage=kv_reuse peak_pss_mb=5669 interval_ms=250 samples=1448
+VAE_SPIKE_THERMAL stage=kv_reuse status=none point=end
+VAE_SPIKE_STAGE stage=kv_reuse result=done trials=0 planned=0
