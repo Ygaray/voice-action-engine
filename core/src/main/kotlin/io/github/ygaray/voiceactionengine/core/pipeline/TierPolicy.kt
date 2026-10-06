@@ -35,7 +35,9 @@ private const val MIN_ITERATIONS = 2
  * one accepts that it also bounds a gate that is suspended waiting for a person.
  * @property pickerTimeoutMillis how long the engine waits for a start-tier picker before it starts the walk at the
  * first eligible tier and records `router_fallback`, in milliseconds and at least 1. The command deadline still
- * bounds the whole run, so the earlier of the two wins.
+ * bounds the whole run, so the earlier of the two wins. A call cut off by the timeout is cancelled and produces no turn
+ * record, though the provider may still bill it, so that spend is not in `tokensUsed` or the trace. Set it high enough
+ * for a cold connection to your router's provider.
  */
 public class TierPolicy internal constructor(
     public val offlineOnly: Boolean,

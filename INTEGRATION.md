@@ -109,7 +109,9 @@ that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named
 - **Mistakes never fail or pay.** A null, an id that is not eligible, a throw or a timeout starts the walk at the first
   eligible model tier and records `router_fallback`. It is never a failure of the command, and your coroutine's
   cancellation still propagates. When the policy leaves no model tier, or forbids every provider the picker declares
-  (offline-only, for example), the picker is never called, so it costs nothing.
+  (offline-only, for example), the picker is never called, so it costs nothing. A call cut off by
+  `pickerTimeoutMillis` (2,000 ms by default) is cancelled with no turn record, and the provider may still bill it; that
+  spend is not in `trace.usage` or `tokensUsed`, so raise the timeout if a cold connection makes it fire often.
 - **The engine's own classifier.** `TierSelector.Router { tierDescriptions = mapOf(...) }` is opt-in and off unless you
   set it. After the head it makes one forced call, only when two or more model tiers are eligible, and starts the walk at
   the tier the answer names. Map `start_tier_router` (or the `id` you give the Router) to a small, fast model; the engine
