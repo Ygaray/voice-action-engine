@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Repository hygiene gate (BLD-07, BLD-08 and the Phase 1 prohibitions). Runnable at any time, not part of `check`.
-#   a. package root io.github.ygaray.voiceactionengine everywhere; every published module has a main source
+#   a. package root io.github.ygaray.voiceactionengine everywhere; every published module listed in scripts/modules.list has a main source
 #   b. docs list the per-module coordinates and never the retired two-segment aggregator coordinate; ignore rules hold
-#   c. no api.txt / A10 fixture / detekt baseline / on-device model weight / private gold-label / spike fixture file tracked or untracked-not-ignored
+#   c. every published module listed in scripts/modules.list tracks its api.txt (release mode); no A10 fixture / detekt baseline / on-device model weight / private gold-label / spike fixture file tracked or untracked-not-ignored
 #   d. no git tags
 #   e. gradlew committed 100755
 #   f. jitpack.yml never names the app module
@@ -18,13 +18,18 @@ set -euo pipefail
 PRE_RELEASE="${PRE_RELEASE:-0}"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
+# shellcheck source=lib/modules.sh
+. "$ROOT/scripts/lib/modules.sh" || { echo "HYGIENE FAIL: cannot load scripts/lib/modules.sh" >&2; exit 1; }
+MODULES="$(vae_modules)" || { echo "HYGIENE FAIL: module manifest unreadable" >&2; exit 1; }
+ARTIFACTS="$(vae_artifacts)" || { echo "HYGIENE FAIL: module manifest unreadable" >&2; exit 1; }
 violations=()
 violate() { violations+=("$1"); }
 
 # a. BLD-07 package root
 PKG_ROOT="io/github/ygaray/voiceactionengine"
 PKG_DOT="io.github.ygaray.voiceactionengine"
-kt_files="$(find core providers keystore sample spike-ondevice ondevice -type f -name '*.kt' -path '*/src/*/kotlin/*' -not -path '*/build/*' 2>/dev/null | sort || true)"
+# shellcheck disable=SC2086
+kt_files="$(find $(printf '%s\n' $MODULES sample spike-ondevice ondevice | sort -u) -type f -name '*.kt' -path '*/src/*/kotlin/*' -not -path '*/build/*' 2>/dev/null | sort || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in
@@ -35,13 +40,13 @@ while IFS= read -r f; do
     violate "a: $f does not declare a package starting $PKG_DOT"
   fi
 done <<< "$kt_files"
-for m in core providers keystore; do
-  main_count="$(find "$m/src/main/kotlin" -type f -name '*.kt' 2>/dev/null | wc -l)"
+for m in $MODULES; do
+  main_count="$({ find "$m/src/main/kotlin" -type f -name '*.kt' 2>/dev/null || true; } | wc -l)"
   if [ "$main_count" -lt 1 ]; then violate "a: $m has no main Kotlin source"; fi
 done
 
 # b. BLD-08 docs and ignore rules
-for art in voice-action-engine-core voice-action-engine-providers voice-action-engine-keystore; do
+for art in $ARTIFACTS; do
   grep -q "$art" ECOSYSTEM.md || violate "b: ECOSYSTEM.md does not name $art"
 done
 if grep -Eq 'com\.github\.Ygaray:voice-action-engine([^-]|$)' ECOSYSTEM.md README.md; then
@@ -60,7 +65,7 @@ if [ "$PRE_RELEASE" = 1 ]; then forbidden_specs+=('*api.txt'); fi
 forbidden="$(git ls-files -co --exclude-standard -- "${forbidden_specs[@]}")"
 if [ -n "$forbidden" ]; then violate "c: forbidden file(s) present: $(echo "$forbidden" | tr '\n' ' ')"; fi
 if [ "$PRE_RELEASE" != 1 ]; then
-  for m in core providers keystore; do
+  for m in $MODULES; do
     git ls-files --error-unmatch -- "$m/api.txt" >/dev/null 2>&1 || violate "c: release mode: $m/api.txt is not tracked"
   done
 fi

@@ -27,8 +27,9 @@ Consumers depend on the per-module coordinates only. The old two-segment aggrega
 | `:core` | jar, pure Kotlin/JVM | `com.github.Ygaray.voice-action-engine:voice-action-engine-core:<version>` | nothing in the hub |
 | `:providers` | jar | `com.github.Ygaray.voice-action-engine:voice-action-engine-providers:<version>` | `api` on `:core` and on OkHttp (4.12.0 compile floor; consumers keep their own OkHttp) |
 | `:keystore` | aar | `com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:<version>` | `api` on `:core` |
+| `:undo` | jar, pure Kotlin/JVM | `com.github.Ygaray.voice-action-engine:voice-action-engine-undo:<version>` | nothing, not even `:core` (only the Kotlin standard library) |
 
-Planned for v1.1, **not yet published**: `voice-action-engine-undo` and `voice-action-engine-voice-adapter`.
+`voice-action-engine-undo` (above) and `voice-action-engine-voice-adapter` are planned for v1.1 and **not yet published**; the first tag that carries them is v1.1.0.
 The `:sample` app module is never published.
 
 **Phase 1 proof:** all three modules resolve from an empty Gradle cache by commit SHA (first proven at
