@@ -2,7 +2,7 @@
 # Repository hygiene gate (BLD-07, BLD-08 and the Phase 1 prohibitions). Runnable at any time, not part of `check`.
 #   a. package root io.github.ygaray.voiceactionengine everywhere; every published module has a main source
 #   b. docs list the per-module coordinates and never the retired two-segment aggregator coordinate; ignore rules hold
-#   c. no api.txt / A10 fixture / detekt baseline file tracked or untracked-not-ignored
+#   c. no api.txt / A10 fixture / detekt baseline / on-device model weight / private gold-label file tracked or untracked-not-ignored
 #   d. no git tags
 #   e. gradlew committed 100755
 #   f. jitpack.yml never names the app module
@@ -24,7 +24,7 @@ violate() { violations+=("$1"); }
 # a. BLD-07 package root
 PKG_ROOT="io/github/ygaray/voiceactionengine"
 PKG_DOT="io.github.ygaray.voiceactionengine"
-kt_files="$(find core providers keystore sample -type f -name '*.kt' -path '*/src/*/kotlin/*' -not -path '*/build/*' 2>/dev/null | sort)"
+kt_files="$(find core providers keystore sample spike-ondevice ondevice -type f -name '*.kt' -path '*/src/*/kotlin/*' -not -path '*/build/*' 2>/dev/null | sort || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in
@@ -47,12 +47,14 @@ done
 if grep -Eq 'com\.github\.Ygaray:voice-action-engine([^-]|$)' ECOSYSTEM.md README.md; then
   violate "b: ECOSYSTEM.md or README.md still contains the retired two-segment aggregator coordinate"
 fi
-for p in sample/src/debug/assets/sb-a10-fixture.json sample/src/debug/assets/sb-a10-fixture.v2.json graphify-out/x/graph.json; do
+for p in sample/src/debug/assets/sb-a10-fixture.json sample/src/debug/assets/sb-a10-fixture.v2.json graphify-out/x/graph.json \
+  spike-ondevice/src/main/assets/x.litertlm spike-ondevice/src/main/assets/x.task spike-ondevice/src/main/assets/x.tflite \
+  spike-ondevice/src/main/assets/x.bin spike-ondevice/src/main/assets/zz-sb-gold.json; do
   git check-ignore -q "$p" || violate "b: $p is not gitignored"
 done
 
 # c. forbidden files, tracked or untracked-not-ignored
-forbidden_specs=('*sb-a10-fixture*' '*baseline*.xml')
+forbidden_specs=('*sb-a10-fixture*' '*baseline*.xml' '*.litertlm' '*.task' '*.tflite' '*.bin' '*sb-gold*')
 if [ "$PRE_RELEASE" = 1 ]; then forbidden_specs+=('*api.txt'); fi
 forbidden="$(git ls-files -co --exclude-standard -- "${forbidden_specs[@]}")"
 if [ -n "$forbidden" ]; then violate "c: forbidden file(s) present: $(echo "$forbidden" | tr '\n' ' ')"; fi
@@ -79,6 +81,9 @@ esac
 jitpack_cmds="$(grep -Ev '^[[:space:]]*#' jitpack.yml || true)"
 if echo "$jitpack_cmds" | grep -Eq '(^|[^[:alnum:]_-]):?sample([^[:alnum:]_-]|$)'; then
   violate "f: jitpack.yml names the sample module in a command"
+fi
+if echo "$jitpack_cmds" | grep -Eq '(^|[^[:alnum:]_-]):?spike-ondevice([^[:alnum:]_-]|$)'; then
+  violate "f: jitpack.yml names the spike module in a command"
 fi
 
 # g. toolchain pins

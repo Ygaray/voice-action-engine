@@ -47,5 +47,12 @@ captures/
 # SB-derived A10 fixture must never be committed (this repo is public)
 sb-a10-fixture*.json
 
+# On-device model weights and private spike gold labels never enter git (this repo is public)
+*.litertlm
+*.task
+*.tflite
+*.bin
+*sb-gold*
+
 # graphify output
 /graphify-out/

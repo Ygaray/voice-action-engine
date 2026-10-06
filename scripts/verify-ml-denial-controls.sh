@@ -3,6 +3,8 @@
 # on-device ML runtime or private spike artifact is planted, and GREEN on the clean tree.
 #   Part A  an ML dependency declared on :core, :providers and :keystore trips verifyNoMlArtifacts
 #   Part B  an ML token in :core main code trips the NoHardCodedConstantsTest on-device scan
+#   Part C  a model file, a private gold-label file (temporary-index plants, the real index is never touched) and a
+#           jitpack.yml line naming the spike module trip scripts/verify-repo-hygiene.sh
 # Every plant is removed on exit (trap); the script then asserts the touched build files are byte-identical to their backups.
 # Never commit a plant. Run:  scripts/verify-ml-denial-controls.sh   (a few minutes warm)
 set -uo pipefail
@@ -63,6 +65,41 @@ plant="core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/ZzMlPlant.kt
 printf 'package io.github.ygaray.voiceactionengine.core\n\ninternal const val ZZ_ML_PLANT: String = "litertlm"\n' > "$plant"
 VERBOSE=1 expect_task_red ":core on-device scan sees an ML token" "noOnDeviceImplementationCode FAILED" :core:test --tests '*NoHardCodedConstantsTest*'
 rm -f "$plant"
+
+echo "== Part C: model weights, private gold labels and the spike module in jitpack.yml trip repo hygiene"
+expect_hygiene_red() { # <label> <marker>   (runs scripts/verify-repo-hygiene.sh with the caller's environment)
+  local label=$1 marker=$2
+  plants=$((plants+1))
+  if scripts/verify-repo-hygiene.sh >"$LOG" 2>&1; then
+    echo "FAIL  [$label] stayed GREEN"; fails=$((fails+1))
+  elif ! grep -qF -- "$marker" "$LOG"; then
+    echo "FAIL  [$label] went red for the WRONG reason (missing '$marker')"; fails=$((fails+1))
+  else
+    echo "ok    [$label] went red ($marker)"
+  fi
+}
+if ! scripts/verify-repo-hygiene.sh >"$LOG" 2>&1 || ! grep -qx 'HYGIENE OK' "$LOG"; then
+  echo "FAIL  [hygiene clean tree] INCONCLUSIVE: verify-repo-hygiene.sh is not HYGIENE OK before any plant"; fails=$((fails+1))
+else
+  echo "ok    [hygiene clean tree] HYGIENE OK"
+  # Model-file plant: force-added into a TEMPORARY copy of the index; the real index is never touched.
+  real_index="$(git rev-parse --git-path index)"
+  tmp_index="$(mktemp)"; PLANTS+=("$tmp_index")
+  cp "$real_index" "$tmp_index"
+  for plant in zz-plant.litertlm zz-plant-sb-gold.json; do
+    PLANTS+=("$plant"); : > "$plant"
+    GIT_INDEX_FILE="$tmp_index" git add -f -- "$plant"
+    GIT_INDEX_FILE="$tmp_index" expect_hygiene_red "hygiene sees $plant" "c: forbidden file(s) present"
+    rm -f "$plant"
+    GIT_INDEX_FILE="$tmp_index" git rm -q --cached -- "$plant"
+  done
+  rm -f "$tmp_index"
+  # jitpack plant: an install line naming the spike module.
+  backup jitpack.yml
+  printf '  - ./gradlew :spike-ondevice:assembleDebug\n' >> jitpack.yml
+  expect_hygiene_red "jitpack names the spike module" "f: jitpack.yml names the spike module"
+  restore jitpack.yml
+fi
 
 for f in "${RESTORE[@]:-}"; do
   [ -z "$f" ] && continue
