@@ -105,3 +105,8 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 15-planthenexecute-strategy*
+
+## Runtime Decisions
+
+- **[call-id] refreshed (2026-10-06, ai-auto; dependency Phase 12 complete):** Each step carries the submit_plan call id as providerCallId; null only for zero-call tiers, per SEAM-06 as shipped in P12 CommitCoordinator.submit(step, providerCallId: String?). Each step ExecutedAction MUST keep a distinct ordinal/position. That is BINDING from SB (R-v1.1-CONSUMER-ANSWERS row 4): SB keys undo by runId + ordinal, not providerCallId, so the SB 178 undo-grouping question is closed.
+- **[builder] refreshed (2026-10-06, ai-auto; dependency Phase 12 complete):** Minimal Builder that reuses P12 internal OutcomeHooks + decideResult (core/strategy/singleshot/SingleShotOutcomes.kt:17/27, internal, so same-module reuse is fine; move them to a shared strategy file only if PlanThenExecute is not in the singleshot package, and do it without touching P14 StepSubmission.kt functions). A truncated or unparseable plan returns StrategyOutcome.Escalate(EscalationReason.MalformedExtraction()), the same shape as SingleShotStrategy.kt:138, so AgenticLoop can still take it rather than failing the command.
