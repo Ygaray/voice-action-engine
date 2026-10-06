@@ -325,6 +325,10 @@ do_run() {
     "$TEST_PKG/$INSTRUMENT_RUNNER" >"$raw" 2>&1
   rc=$?
   if [ "$rc" -eq 124 ]; then
+    # timeout only kills the local adb client: the on-device instrumentation would keep driving TTS and the recognizer after
+    # the lock is released. Stop both packages (best effort) before reporting, so the TESTER is free when the lock is.
+    adbt shell am force-stop "$APP_PKG" >/dev/null 2>&1 || true
+    adbt shell am force-stop "$TEST_PKG" >/dev/null 2>&1 || true
     finish 1 FAIL "reason=run_timeout target=$TARGET timeout_s=$RUN_TIMEOUT"
   fi
   tests="$(sed -nE 's/^OK \(([0-9]+) tests?\)/\1/p' "$raw" | tail -1)"

@@ -265,6 +265,10 @@ assert_calls run_happy "-s R5CT10XNKQN shell am instrument -w -e class io.github
 RUN_MODE=fail MUTATES=1 run_scenario run_failure 1 "-" "FAIL sub=run reason=instrumentation_failed" run
 ! printf '%s\n' "$LAST_OUT" | grep -q 'FAILURES' || die "run_failure: raw instrumentation output was printed"
 RUN_MODE=timeout MUTATES=1 run_scenario run_timeout 1 "-" "FAIL sub=run reason=run_timeout" run
+# WR-03: a timed-out run only kills the local adb client, so the runner must stop both packages on the device before it
+# releases the lock (force-stop is not a radio or install change, and the TESTER is the only target).
+assert_calls run_timeout "-s R5CT10XNKQN shell am force-stop $APP_PKG"
+assert_calls run_timeout "-s R5CT10XNKQN shell am force-stop $TEST_PKG"
 
 PRE_INSTALLED=1 MUTATES=1 run_scenario cleanup_happy 0 "capture packages removed" "OK sub=cleanup target=R5CT10XNKQN" cleanup
 assert_calls cleanup_happy "-s R5CT10XNKQN uninstall $APP_PKG"
