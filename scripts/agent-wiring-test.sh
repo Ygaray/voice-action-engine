@@ -19,6 +19,11 @@ ROOT="$(git rev-parse --show-toplevel)"
 PHASE_DIR="$ROOT/.planning/phases/10-sample-harness-gate-1-docs"
 PROMPT="$PHASE_DIR/wiring-test/AGENT-PROMPT.md"
 REFERENCE="$PHASE_DIR/wiring-test/reference"
+# W3 accepts every module of the manifest. VAE_MODULES_FILE is set explicitly so the reader never needs git.
+VAE_MODULES_FILE="${VAE_MODULES_FILE:-$ROOT/scripts/modules.list}"; export VAE_MODULES_FILE
+# shellcheck source=lib/modules.sh
+. "$ROOT/scripts/lib/modules.sh"
+MODULE_ALT="$(vae_modules | tr ' ' '|')"
 GROUP_DEFAULT="$(grep -E '^engineGroup=' "$ROOT/gradle.properties" | cut -d= -f2)"
 GROUP="${GROUP:-$GROUP_DEFAULT}"
 DOC_FILES="README.md INTEGRATION.md API.md ECOSYSTEM.md"
@@ -113,8 +118,9 @@ verify() {
 
   # W3 per-module coordinates at the given version only; jvmconsumer has core or providers, app has keystore
   local bad_dep="" line mod ver jvm_ok=0 app_ok=0
+  local w3_re="\"com\.github\.Ygaray\.voice-action-engine:voice-action-engine-(${MODULE_ALT}):([^\"]*)\""
   while IFS= read -r line; do
-    if [[ "$line" =~ \"com\.github\.Ygaray\.voice-action-engine:voice-action-engine-(core|providers|keystore):([^\"]*)\" ]]; then
+    if [[ "$line" =~ $w3_re ]]; then
       mod="${BASH_REMATCH[1]}"; ver="${BASH_REMATCH[2]}"
       [ "$ver" = "$version" ] || bad_dep="$bad_dep [$mod has version $ver]"
     else

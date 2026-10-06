@@ -17,12 +17,21 @@
 #   C23 no concrete v1 coordinate while the tag does not exist
 #   C24 README names the version to pin once, between the pin-version markers, as vX.Y.Z
 #   C25 no private local path (~/..., /home/...) in the public docs
+# C03 module names come from scripts/modules.list (the one manifest of published modules).
 # Usage: scripts/verify-docs-coverage.sh [--only C01,C02,...]
 # Prints every failure as "DOC COVERAGE FAIL: <id>: <detail>" (exit 1) or "DOC COVERAGE OK checks=<n> types=<n>".
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 2
+
+# The module manifest. VAE_MODULES_FILE is set explicitly so the script also works in a copy that is not a git checkout.
+VAE_MODULES_FILE="${VAE_MODULES_FILE:-$ROOT/scripts/modules.list}"
+export VAE_MODULES_FILE
+# shellcheck source=lib/modules.sh
+. "$ROOT/scripts/lib/modules.sh"
+MODULE_ALT="$(vae_modules | tr ' ' '|')"
+[ -n "$MODULE_ALT" ] || { echo "DOC COVERAGE FAIL: scripts/modules.list lists no module" >&2; exit 1; }
 
 README=README.md
 INTEGRATION=INTEGRATION.md
@@ -136,7 +145,7 @@ check_C03() {
     while IFS= read -r line; do
       case "$line" in
         *"${COORD_PREFIX}"*)
-          if ! printf '%s' "$line" | grep -Eq 'voice-action-engine-(core|providers|keystore):<version>'; then
+          if ! printf '%s' "$line" | grep -Eq "voice-action-engine-(${MODULE_ALT}):<version>"; then
             fail C03 "$f: a coordinate line does not end in :<version>: $line"
           fi ;;
       esac
