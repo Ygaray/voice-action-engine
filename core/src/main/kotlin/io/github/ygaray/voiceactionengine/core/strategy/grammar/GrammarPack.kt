@@ -2,17 +2,13 @@ package io.github.ygaray.voiceactionengine.core.strategy.grammar
 
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import kotlinx.serialization.json.JsonObject
-import java.text.Normalizer
 
 private const val EN = "en"
 private const val ES = "es"
 private const val SYNTAX_CHARACTERS = "[](){}<>|"
 
-private val whitespaceRun = Regex("""\s+""")
-
-/** NFC, lower case, split on whitespace; the one fold both declared phrasings and transcripts go through. */
-private fun foldWords(text: String): List<String> =
-    Normalizer.normalize(text, Normalizer.Form.NFC).lowercase().split(whitespaceRun).filter { it.isNotEmpty() }
+/** The one fold both declared phrasings and transcripts go through: [tokenize], keys only. */
+private fun foldWords(text: String): List<String> = tokenize(text).tokens.map { it.key }
 
 internal class IntentSpec(val toolName: String, val en: List<String>, val es: List<String>)
 
@@ -34,7 +30,15 @@ internal sealed class GrammarResult {
  *
  * A pack holds one intent per tool. An intent lists the phrasings (templates) that mean the tool, per language. A
  * transcript matches only when its whole word sequence equals a declared phrasing: never a prefix, never a part of a
- * longer sentence, never a best guess. Text is compared after Unicode normalization and lower-casing.
+ * longer sentence, never a best guess.
+ *
+ * Text is folded the same way for the transcript and for every declared word: Unicode NFC, lower case (not tied to the
+ * device locale), the vowel accents `á é í ó ú` (and their grave, circumflex and diaeresis forms) folded to the plain
+ * vowel, `ñ` kept so `año` and `ano` stay different words, apostrophes ignored (`don't` is `dont`), a hyphen between
+ * two letters read as a space (`twenty-one` is two words, `5-10` and `-5` stay one), and the punctuation
+ * `. , ; : ! ? ¿ ¡ " “ ” ‘ ’ « » ( ) …` ignored at the edges of a word. A phrasing written with accents therefore
+ * matches a transcript without them and the other way round. A sentence terminator (`. ! ? ;`) between two words
+ * means the transcript holds more than one command, so it matches nothing.
  *
  * Build one with `GrammarPack { intent("tool") { en("..."); es("...") } }`. A phrasing here is a plain sequence of
  * words; a phrasing that uses any of the characters `[ ] ( ) { } < > |` is refused when the pack is built.
@@ -64,8 +68,10 @@ public class GrammarPack internal constructor(settings: Builder) {
         (matchDetailed(transcript, language) as? GrammarResult.Matched)?.match
 
     internal fun matchDetailed(transcript: String, language: String?): GrammarResult {
-        val words = foldWords(transcript)
+        val tokens = tokenize(transcript)
+        val words = tokens.tokens.map { it.key }
         return when {
+            tokens.clauseBreak -> GrammarResult.Rejected(null)
             language == null -> matchBoth(words)
             language == EN || language == ES -> matchOne(language, words)
             else -> GrammarResult.Rejected(null)
