@@ -1,10 +1,10 @@
 # 17-10 host quiet-window request
 
-grant: pending
+grant: open
 requested: 2026-10-06
 timebox_s: 3600
-relayed_by:
-date:
+relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
+date: 2026-10-06
 
 Only the orchestrator relay may change the `grant` line. Plan 17-10 writes `open` or `deferred` from a relayed answer,
 never otherwise, and sets `consumed` when the window closes. Until then the grant is pending and no heavy gate runs:
@@ -23,3 +23,4 @@ gate run, before the v1.1.0 cut.
 
 ## Relay log (verbatim)
 
+"QUIET WINDOW CONFIRMED (17-CONTEXT.md Runtime Decisions RT-01, commit ee9dd8f): orchestrator yahir-gsd-control-plane-3b holds the VAE build lock (control-plane 65c20f2); no other repo is running Gradle. Memory bounds: a transient 4.4 GB mempalace mine is also running (MemAvailable ~8.4 GiB at grant) - run every Gradle step with --no-daemon (or at most one daemon), workers.max=2, parallel=false; check /proc/meminfo before each heavy step and STOP (needs_human, type quiet_window_memory) if MemAvailable drops below 5 GiB rather than risking an earlyoom kill."
