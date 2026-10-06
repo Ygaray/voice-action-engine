@@ -1,9 +1,9 @@
 ---
 phase: "14"
 slug: localgrammar-bilingual-grammarpack
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-06"
 ---
 
@@ -40,21 +40,23 @@ Task IDs are bound by the planner; the requirement-to-test map below is authorit
 
 | Requirement | Behavior | Test Type | Automated Command (after GRADLE_OPTS) | File Exists |
 |-------------|----------|-----------|----------------------------------------|-------------|
-| GRAM-01 | Matching transcript: zero provider calls, gate->commit->sink, `providerCallId == null` | pipeline | `:core:test --tests '*LocalGrammarPipelineTest*'` | ❌ W0 |
-| GRAM-01 | Held grammar action reported held, never success | pipeline | `:core:test --tests '*LocalGrammarHeldTest*'` | ❌ W0 |
-| GRAM-01 | D-01 StepSubmission move behavior-neutral | unit | `:core:test --tests '*SingleShotResolveTest*' --tests '*SingleShotOutcomeMappingTest*' --tests '*SingleShotPlumbingTest*' --tests '*CommitPathTest*' --tests '*HeldReportingTest*'` | ✅ |
-| GRAM-02 | EN/ES same tool call + same typed slots with spoken numbers | unit | `:core:test --tests '*GrammarBilingualTest*'` | ❌ W0 |
-| GRAM-02 | Template syntax accept/reject; build-time validation | unit | `:core:test --tests '*GrammarTemplateTest*' --tests '*GrammarPackValidationTest*'` | ❌ W0 |
-| GRAM-02 | Number tables, round-trip 0..999,999 EN+ES, digit grouping | unit | `:core:test --tests '*NumberRoundTripTest*' --tests '*NumberGoldenEnTest*' --tests '*NumberGoldenEsTest*' --tests '*DigitGroupingTest*'` | ❌ W0 |
-| GRAM-02 | Text folding rules | unit | `:core:test --tests '*GrammarTextTest*'` | ❌ W0 |
-| GRAM-03 | Near-miss corpus NoMatch; ambiguity NoMatch; label matrix | unit | `:core:test --tests '*GrammarNearMissCorpusTest*' --tests '*GrammarAmbiguityTest*' --tests '*GrammarLanguageLabelTest*' --tests '*GrammarNeverGuessesTest*'` | ❌ W0 |
-| GRAM-03 | Resolver verdicts pass through; NoMatch clears carry | pipeline | `:core:test --tests '*LocalGrammarVerdictsTest*'` | ❌ W0 |
-| GRAM-04 | normalize hook semantics; CLN-02 scan green | unit/gate | `:core:test --tests '*GrammarNormalizeTest*'`; `:core:scanBannedConstructs :core:detekt` | ❌ W0 / ✅ |
-| GRAM-05 | NO_PROVIDER capability; offline-only; terminal intent offline | pipeline | `:core:test --tests '*LocalGrammarPolicyTest*'` | ❌ W0 |
-| D-05 | `Extraction.matchedLanguage`, API shape | unit | `:core:test --tests '*ApiShapeTest*'` | extend |
-| security | Redaction canary, toString non-leak | unit | `:core:test --tests '*RedactionCanaryTest*' --tests '*GrammarRedactionTest*'` | extend + new |
-| D-12 | STT fixture rows parse/match as recorded | unit | `:core:test --tests '*GrammarSttFixturesTest*'` | ❌ after capture |
-| surface | API.md rows, no sealed/enum/data leak, Metalava compat | gate | `scripts/verify-docs-coverage.sh --only C20,C21`; `scripts/review-api-surface.sh`; `:core:metalavaCheckCompatibility` | ✅ |
+| GRAM-01 | Matching transcript: zero provider calls, gate->commit->sink, `providerCallId == null` | pipeline | `:core:test --tests '*LocalGrammarPipelineTest*'` | ✅ green |
+| GRAM-01 | Held grammar action reported held, never success | pipeline | `:core:test --tests '*LocalGrammarHeldTest*'` | ✅ green |
+| GRAM-01 | D-01 StepSubmission move behavior-neutral | unit | `:core:test --tests '*SingleShotResolveTest*' --tests '*SingleShotOutcomeMappingTest*' --tests '*SingleShotPlumbingTest*' --tests '*CommitPathTest*' --tests '*HeldReportingTest*'` | ✅ green |
+| GRAM-02 | EN/ES same tool call + same typed slots with spoken numbers | unit | `:core:test --tests '*GrammarBilingualTest*'` | ✅ green |
+| GRAM-02 | Template syntax accept/reject; build-time validation | unit | `:core:test --tests '*GrammarTemplateTest*' --tests '*GrammarPackValidationTest*'` | ✅ green |
+| GRAM-02 | Number tables, round-trip 0..999,999 EN+ES, digit grouping | unit | `:core:test --tests '*NumberRoundTripTest*' --tests '*NumberGoldenEnTest*' --tests '*NumberGoldenEsTest*' --tests '*DigitGroupingTest*'` | ✅ green |
+| GRAM-02 | Text folding rules | unit | `:core:test --tests '*GrammarTextTest*'` | ✅ green |
+| GRAM-03 | Near-miss corpus NoMatch; ambiguity NoMatch; label matrix | unit | `:core:test --tests '*GrammarNearMissCorpusTest*' --tests '*GrammarAmbiguityTest*' --tests '*GrammarLanguageLabelTest*' --tests '*GrammarNeverGuessesTest*'` | ✅ green |
+| GRAM-03 | Resolver verdicts pass through; NoMatch clears carry | pipeline | `:core:test --tests '*LocalGrammarVerdictsTest*'` | ✅ green |
+| GRAM-04 | normalize hook semantics; CLN-02 scan green | unit/gate | `:core:test --tests '*GrammarNormalizeTest*'`; `:core:scanBannedConstructs :core:detekt` | ✅ green |
+| GRAM-05 | NO_PROVIDER capability; offline-only; terminal intent offline | pipeline | `:core:test --tests '*LocalGrammarPolicyTest*'` | ✅ green |
+| D-05 | `Extraction.matchedLanguage`, API shape | unit | `:core:test --tests '*ApiShapeTest*'` | ✅ green |
+| security | Redaction canary, toString non-leak | unit | `:core:test --tests '*RedactionCanaryTest*' --tests '*GrammarRedactionTest*'` | ✅ green |
+| D-12 | STT fixture rows parse/match as recorded | unit | `:core:test --tests '*GrammarSttFixturesTest*'` | ✅ green (window consumed, fixtures captured) |
+| surface | API.md rows, no sealed/enum/data leak, Metalava compat | gate | `scripts/verify-docs-coverage.sh --only C20,C21`; `scripts/review-api-surface.sh`; `:core:metalavaCheckCompatibility` | ✅ green |
+
+*All rows ✅ green as of 2026-10-06.*
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -62,10 +64,10 @@ Task IDs are bound by the planner; the requirement-to-test map below is authorit
 
 ## Wave 0 Requirements
 
-- [ ] `core/src/test/.../Grammar*Test.kt`, `Number*Test.kt`, `LocalGrammar*Test.kt` covering GRAM-01..05
-- [ ] Test-only independent EN/ES speller and a shared neutral example pack in `src/test` (no domain words)
-- [ ] `TraceTest` rows for new trace codes; `ApiShapeTest` assertion for the internal 4-arg `Extraction`
-- [ ] `14-WINDOW-GRANT.md` (grant `pending`) and the D-12 prompt list; `GrammarSttFixturesTest` blocked until capture
+- [x] `core/src/test/.../Grammar*Test.kt`, `Number*Test.kt`, `LocalGrammar*Test.kt` covering GRAM-01..05
+- [x] Test-only independent EN/ES speller and a shared neutral example pack in `src/test` (no domain words)
+- [x] `TraceTest` rows for new trace codes; `ApiShapeTest` assertion for the internal 4-arg `Extraction`
+- [x] `14-WINDOW-GRANT.md` (grant `pending`) and the D-12 prompt list; `GrammarSttFixturesTest` blocked until capture
 
 ---
 
@@ -79,13 +81,13 @@ Task IDs are bound by the planner; the requirement-to-test map below is authorit
 
 ## Validation Sign-Off
 
-> Plan-time state is a DRAFT. `status: draft`, `nyquist_compliant: false` are finalized only post-execution by the Nyquist finalizer.
+> Plan-time state is a DRAFT. `status: validated`, `nyquist_compliant: true` are finalized only post-execution by the Nyquist finalizer.
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency within budget
-- [ ] `nyquist_compliant: true` set in frontmatter (post-execution only)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency within budget
+- [x] `nyquist_compliant: true` set in frontmatter (post-execution only)
 
-**Approval:** pending
+**Approval:** validated 2026-10-06. Evidence: latest full run `:core:test :core:detekt :core:scanBannedConstructs :core:metalavaCheckCompatibility` green (907 tests, 0 failures); every test class in the map confirmed present on disk. GRAM-01..05 each map to at least one passing automated class. Zero automatable gaps. Manual-only item (real-speech recognition quality) is deferred to Phase 19 / milestone Gate-2.
