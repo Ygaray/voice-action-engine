@@ -1,9 +1,12 @@
 # Phase 15 live-probe request (D-04, binding syntax)
 
-decision: approved
+decision: consumed
 relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
 date: 2026-10-06
 relayed_answer: "GO on 15-07: the host-only D-04 binding probe (S1 + S2) on claude-haiku-4-5 + gpt-5.4-mini. Hard ceiling 8 requests / USD 0.05, run once, no retries, keys only via with-test-keys --only anthropic,openai, output PLAN_PROBE lines only. This falls under Yahir's live-smoke approval (relayed by 3b)."
+
+run_date: 2026-10-06
+consumed: 2026-10-06, 4 requests (limit 8), one run, exit 0, no retries
 
 requested: 2026-10-06
 requested_by: executor of plan 15-03, for the orchestrator relay that plan 15-07 waits on
@@ -90,3 +93,22 @@ deferred_obligation: D-04 live binding probe owed; owner: Phase 19 Gate-1 plan l
 ```
 
 in place of the decision line, with `relayed_by:` and `date:` lines, and make no live call.
+
+## Result
+
+overall: PASS
+
+Run once on 2026-10-06 under the relayed GO above, via `with-test-keys --only anthropic,openai` (usage log: one run, exit=0, 24 s).
+Raw output kept in the session scratchpad only. Every `PLAN_PROBE` line, verbatim:
+
+```
+PLAN_PROBE model=claude-haiku-4-5 scenario=S1 verdict=PASS reason=ok calls=1 replans=0 ref_bound=true literal_kept=false
+PLAN_PROBE model=claude-haiku-4-5 scenario=S2 verdict=PASS reason=ok calls=1 replans=0 ref_bound=false literal_kept=true
+PLAN_PROBE model=gpt-5.4-mini scenario=S1 verdict=PASS reason=ok calls=1 replans=0 ref_bound=true literal_kept=false
+PLAN_PROBE model=gpt-5.4-mini scenario=S2 verdict=PASS reason=ok calls=1 replans=0 ref_bound=false literal_kept=true
+PLAN_PROBE requests=4 limit=8
+```
+
+Reading: both models wrote a whole-value `$<stepId>.<key>` reference for S1 and the engine resolved it (`ref_bound=true`,
+no replan); both left the dictated `$5.00` / `$3.50` literal in S2 (`literal_kept=true`, no `plan_rejected` /
+`plan_binding_unresolved`). 4 requests of the 8 ceiling. The D-04 syntax and the `submit_plan` description stand as frozen.
