@@ -50,6 +50,11 @@ internal sealed class GrammarResult {
  *   both languages bind the same slots and a match carries equal typed arguments whichever language was spoken. A slot
  *   written only inside `[ ]` is optional and its key is left out when it is not spoken.
  *
+ * The command's language label picks the phrasings read: "en" the English ones, "es" the Spanish ones (both with
+ * [Builder.tryOtherLanguage]), no label both, anything else none. When two languages match they must agree on the tool
+ * and the arguments. The pack never guesses: two readings of one transcript, in one language or across the two, match
+ * nothing.
+ *
  * Every phrasing needs at least one literal word on every path, so an optional-only phrasing is refused. A phrasing
  * that expands to more than 256 sequences is refused too: split it with sub-rules. Anything wrong in the declarations
  * (bad syntax, an unknown or looping rule, two tools reading the same words in one language, a slot that is invalid,
@@ -63,12 +68,14 @@ internal sealed class GrammarResult {
 public class GrammarPack internal constructor(settings: Builder) {
     private val matchers: Map<String, RuleMatcher>
     private val intentCount: Int
+    private val tryOtherLanguage: Boolean
 
     init {
         val intents = settings.intents.toList()
         validateIntents(intents)
         validateSlotDeclarations(intents)
         intentCount = intents.size
+        tryOtherLanguage = settings.tryOtherLanguage
         val enFillers = foldFillers(EN, settings.enFillers.toList())
         val esFillers = foldFillers(ES, settings.esFillers.toList())
         val slots = intents.associate { intent -> intent.toolName to intent.slots.associate { it.name to it.spec } }
@@ -83,55 +90,66 @@ public class GrammarPack internal constructor(settings: Builder) {
     }
 
     /**
-     * Matches [transcript] against the declared phrasings, for the command's [language] label: "en" tries the English
-     * phrasings, "es" the Spanish ones, and null tries both and matches only when exactly one language matches or both
-     * match the same tool. Any other label matches nothing.
+     * Matches [transcript] against the declared phrasings, for the command's [language] label.
      *
-     * Returns the match, or null when nothing matches, the match is not unambiguous or the label is not supported. It
-     * never throws for any transcript, never logs, and has no effect.
+     * - "en" tries the English phrasings only and "es" the Spanish ones only, unless [Builder.tryOtherLanguage] is set,
+     *   which also tries the other language;
+     * - null tries both languages, whatever [Builder.tryOtherLanguage] says;
+     * - any other label, including "EN", "en-US", "" or "fr", matches nothing.
+     *
+     * When one language matches, its phrasing is the answer. When both match they must agree on the tool and the
+     * arguments, otherwise the transcript is ambiguous and matches nothing. Two readings in one language match
+     * nothing too: the match is never a best guess.
+     *
+     * Returns the match, or null when nothing matches, the match is not unambiguous or the label is not
+     * supported. It never throws for any transcript, never logs, and has no effect.
      */
     public fun match(transcript: String, language: String?): GrammarMatch? =
         (matchDetailed(transcript, language) as? GrammarResult.Matched)?.match
 
     internal fun matchDetailed(transcript: String, language: String?): GrammarResult {
+        val candidates = candidatesFor(language)
+            ?: return GrammarResult.Rejected(TraceCode.GRAMMAR_LANGUAGE_UNSUPPORTED)
         val tokens = tokenize(transcript)
+        if (tokens.clauseBreak) return GrammarResult.Rejected(null)
+        val verdicts = candidates.map { it to (matchers[it]?.match(tokens) ?: RuleVerdict.None()) }
+        return decide(language, verdicts)
+    }
+
+    // The languages a label asks for, labeled one first; null for a label this library does not read.
+    private fun candidatesFor(label: String?): List<String>? = when (label) {
+        null -> listOf(EN, ES)
+        EN -> if (tryOtherLanguage) listOf(EN, ES) else listOf(EN)
+        ES -> if (tryOtherLanguage) listOf(ES, EN) else listOf(ES)
+        else -> null
+    }
+
+    // The one place the per-language verdicts become a result: a language that reads two ways ends it, one reading
+    // is the answer, and two readings must be the same call.
+    private fun decide(label: String?, verdicts: List<Pair<String, RuleVerdict>>): GrammarResult {
+        val hits = verdicts.mapNotNull { (language, verdict) ->
+            (verdict as? RuleVerdict.One)?.let { matchOf(it, language) }
+        }
         return when {
-            tokens.clauseBreak -> GrammarResult.Rejected(null)
-            language == null -> matchBoth(tokens)
-            language == EN || language == ES -> matchOne(language, tokens)
+            verdicts.any { it.second is RuleVerdict.Ambiguous } -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
+            hits.size == 1 -> GrammarResult.Matched(hits.single())
+            hits.size > 1 -> agreed(label, hits)
             else -> GrammarResult.Rejected(null)
         }
     }
 
-    private fun matchOne(language: String, tokens: GrammarTokens): GrammarResult =
-        when (val verdict = verdictOf(language, tokens)) {
-            is RuleVerdict.One -> GrammarResult.Matched(matchOf(verdict, language))
-            is RuleVerdict.Ambiguous -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
-            is RuleVerdict.None -> GrammarResult.Rejected(null)
+    // Both languages read the transcript: the same tool, terminal flag and arguments is one reading, labeled with the
+    // command's label (null without one); anything else is two readings and the pack never picks between them.
+    private fun agreed(label: String?, hits: List<GrammarMatch>): GrammarResult {
+        val first = hits.first()
+        val same = hits.all {
+            it.toolName == first.toolName && it.terminal == first.terminal && it.arguments == first.arguments
         }
-
-    private fun matchBoth(tokens: GrammarTokens): GrammarResult {
-        val en = verdictOf(EN, tokens)
-        val es = verdictOf(ES, tokens)
-        return when {
-            en is RuleVerdict.Ambiguous || es is RuleVerdict.Ambiguous ->
-                GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
-            en is RuleVerdict.One && es is RuleVerdict.One -> agreed(en, es)
-            en is RuleVerdict.One -> GrammarResult.Matched(matchOf(en, EN))
-            es is RuleVerdict.One -> GrammarResult.Matched(matchOf(es, ES))
-            else -> GrammarResult.Rejected(null)
+        return if (same) {
+            GrammarResult.Matched(GrammarMatch(first.toolName, first.arguments, label, first.terminal, null))
+        } else {
+            GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
         }
-    }
-
-    private fun verdictOf(language: String, tokens: GrammarTokens): RuleVerdict =
-        matchers[language]?.match(tokens) ?: RuleVerdict.None()
-
-    // Both languages read the transcript: the same tool with equal arguments is one reading, a different tool is never
-    // guessed between, and the same tool with different arguments is two readings.
-    private fun agreed(en: RuleVerdict.One, es: RuleVerdict.One): GrammarResult = when {
-        en.rule.toolName != es.rule.toolName -> GrammarResult.Rejected(null)
-        en.arguments != es.arguments -> GrammarResult.Rejected(TraceCode.GRAMMAR_AMBIGUOUS)
-        else -> GrammarResult.Matched(GrammarMatch(en.rule.toolName, en.arguments, null, false, null))
     }
 
     private fun matchOf(verdict: RuleVerdict.One, language: String): GrammarMatch =
@@ -148,6 +166,14 @@ public class GrammarPack internal constructor(settings: Builder) {
         internal val esRules: MutableList<RuleSpec> = mutableListOf()
         internal val enFillers: MutableList<String> = mutableListOf()
         internal val esFillers: MutableList<String> = mutableListOf()
+
+        /**
+         * Whether a command labeled "en" also tries the Spanish phrasings, and one labeled "es" the English ones.
+         * False by default: a labeled command reads only its own language. A command with no label always tries both,
+         * and a label other than "en" or "es" matches nothing, whatever this says. When both languages match, they
+         * must agree on the tool and the arguments, and the match then carries the command's label as its language.
+         */
+        public var tryOtherLanguage: Boolean = false
 
         /**
          * Declares the phrasings that mean the app's tool [toolName], from [block].
