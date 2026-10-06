@@ -179,11 +179,13 @@ internal fun <T> launch(block: suspend () -> T): Launched<T> {
 internal class Rig(
     val store: TestEntityStore = TestEntityStore(),
     val adapter: TestAdapter = TestAdapter(store),
+    configure: UndoJournal.Builder.() -> Unit = {},
 ) {
     val compensator: RecordingCompensator = RecordingCompensator(adapter.log)
     val journal: UndoJournal = UndoJournal {
         adapter(adapter)
         compensator("alarm", compensator)
+        configure()
     }
 
     /** Captures [id], writes [value], settles, and records the action as position [position] of [group]. */
@@ -216,3 +218,9 @@ internal class Rig(
 
     fun undoAll(group: String): UndoResult = runSuspending { journal.undoAll(group) }
 }
+
+/** The group view of [groupKey], or null. */
+internal fun Rig.group(groupKey: String): UndoGroup? = runSuspending { journal.group(groupKey) }
+
+/** The group view of [groupKey], which must exist. */
+internal fun Rig.groupOf(groupKey: String): UndoGroup = checkNotNull(group(groupKey)) { "no such group" }

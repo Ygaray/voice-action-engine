@@ -43,6 +43,9 @@ internal class Footprints(entries: List<Entry>) {
     /** The position in [components] of the component that holds [entry]. */
     fun componentOf(entry: Entry): Int = checkNotNull(membership[entry]) { "the action is not in this footprint set" }
 
+    /** The actions that share an entity with no other action given. Actions with no entity are isolated. */
+    fun isolatedEntries(): List<Entry> = components.filter { it.entries.size == 1 }.flatMap { it.entries }
+
     /** True when no other action given shares an entity with [entry]. An action with no entity is isolated. */
     fun isolated(entry: Entry): Boolean = components[componentOf(entry)].entries.size == 1
 

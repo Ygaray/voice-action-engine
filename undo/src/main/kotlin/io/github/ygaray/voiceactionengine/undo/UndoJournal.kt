@@ -89,6 +89,42 @@ public class UndoJournal internal constructor(settings: Builder) {
     }
 
     /**
+     * Says that [runId] is finished and applied the actions at [appliedPositions] in the group. This is an integrity
+     * check for that run and never a seal: more actions, for example a held change confirmed later, may still be
+     * recorded under the same group. When any applied position was not recorded the group is withheld, so "undo all"
+     * is refused rather than offered for fewer actions than ran. A group the journal does not know is created
+     * withheld when [appliedPositions] is not empty, and is not created when it is.
+     *
+     * @throws IllegalArgumentException only for an invalid key.
+     */
+    public suspend fun runClosed(groupKey: String, runId: String, appliedPositions: Set<Int>) {
+        requireToken("groupKey", groupKey)
+        requireToken("runId", runId)
+        state.runClosed(groupKey, runId, appliedPositions.toSet())
+    }
+
+    /**
+     * Withholds the group because the app knows an action of it was not recorded: "undo all" is refused with
+     * [UndoReason.JOURNAL_WITHHELD] from now on, and the group is created when the journal does not know it.
+     *
+     * @throws IllegalArgumentException only for an invalid key.
+     */
+    public suspend fun withhold(groupKey: String) {
+        requireToken("groupKey", groupKey)
+        state.withhold(groupKey)
+    }
+
+    /**
+     * The view of the group, for showing "Undo all (N)", or null when the journal does not know it.
+     *
+     * @throws IllegalArgumentException only for an invalid key.
+     */
+    public suspend fun group(groupKey: String): UndoGroup? {
+        requireToken("groupKey", groupKey)
+        return state.view(groupKey)
+    }
+
+    /**
      * Undoes every action of the group, newest first.
      *
      * Before anything is written, every entity in scope is checked: one that was changed, deleted or recreated after
