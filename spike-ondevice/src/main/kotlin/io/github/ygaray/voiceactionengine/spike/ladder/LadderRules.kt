@@ -15,4 +15,16 @@ internal object LadderRules {
 
     /** Items per screen cell (13-THRESHOLDS `screen_n`). */
     const val SCREEN_N = Thresholds.screenN
+
+    const val INIT_FAILED_ALL = "init_failed_all"
+    const val SB_PREFILL_BOUND = "sb_prefill_bound"
+
+    // RED stubs: the rules are written in the GREEN commit.
+    fun initEarlyExit(e2bCpuOk: Boolean, e2bGpuOk: Boolean): String? = null
+
+    fun sbPrefillBound(prefixTokens: Int, bestPrefillTps: Double, kvReuse: String): String? = null
+
+    fun kvReuseDisposition(firstPrefillTokens: Int?, secondPrefillTokens: Int?, firstTtftMs: Long?, secondTtftMs: Long?): String = ""
+
+    fun rfDisposition(onNativeError: Boolean, onInvalid: Int, offInvalid: Int): String = ""
 }

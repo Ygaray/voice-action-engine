@@ -49,11 +49,16 @@ internal class PssReading(val peakMb: Int, val samples: Int)
 
 /**
  * Samples [Probes.pssMb] every [intervalMs] while a block runs, and once at its start and once at its end, so a block
- * shorter than one interval still has two readings. The peak is the largest reading (13-THRESHOLDS (f)).
+ * shorter than one interval still has two readings. The peak is the largest reading (13-THRESHOLDS (f)). The reading is
+ * readable even when the block threw, so a failed stage still reports the memory it reached.
  */
 internal class PssSampler(private val probes: Probes, private val intervalMs: Long = Thresholds.pssIntervalMs.toLong()) {
     private var peak = 0
     private var count = 0
+
+    /** What has been sampled so far. */
+    @get:Synchronized
+    val reading: PssReading get() = PssReading(peak, count)
 
     @Synchronized
     private fun record() {
@@ -61,8 +66,8 @@ internal class PssSampler(private val probes: Probes, private val intervalMs: Lo
         count++
     }
 
-    /** Runs [block] with sampling around it and returns its result together with the reading. */
-    suspend fun <T> around(block: suspend () -> T): Pair<T, PssReading> = coroutineScope {
+    /** Runs [block] with sampling around it. */
+    suspend fun <T> around(block: suspend () -> T): T = coroutineScope {
         record()
         val sampler = launch {
             while (isActive) {
@@ -72,9 +77,7 @@ internal class PssSampler(private val probes: Probes, private val intervalMs: Lo
             }
         }
         try {
-            val result = block()
-            record()
-            result to PssReading(peak, count)
+            block().also { record() }
         } finally {
             sampler.cancel()
         }

@@ -84,6 +84,8 @@ internal sealed class BackendMode {
  * @property constraintOn whether the runtime enforces the schema in [BackendMode.Constrained] mode; false is the
  * rf_matrix OFF arm, which measures the raw validity rate.
  * @property maxOutputTokens the per-turn output limit, the same for both routes.
+ * @property engineFlag the engine's global constrained-decoding flag for this call: null follows [constraintOn] (the
+ * default, Pitfall 1), a value overrides it, which is how the rf_matrix measures whether the flag is needed at all.
  */
 internal class BackendRequest(
     val system: String,
@@ -91,11 +93,12 @@ internal class BackendRequest(
     val mode: BackendMode,
     val constraintOn: Boolean,
     val maxOutputTokens: Int,
+    val engineFlag: Boolean? = null,
 ) {
     /** Lengths and flags only, never the prompt text. */
     override fun toString(): String =
         "BackendRequest(systemLength=${system.length}, userLength=${user.length}, mode=$mode, " +
-            "constraintOn=$constraintOn, maxOutputTokens=$maxOutputTokens)"
+            "constraintOn=$constraintOn, maxOutputTokens=$maxOutputTokens, engineFlag=$engineFlag)"
 }
 
 /** One tool call as the runtime returned it, before it is checked against the offered schema. */

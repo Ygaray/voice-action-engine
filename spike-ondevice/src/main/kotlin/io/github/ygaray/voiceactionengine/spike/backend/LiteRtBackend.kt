@@ -112,8 +112,9 @@ internal class LiteRtBackend : LlmBackend {
         ExperimentalFlags.enableBenchmark = true
         val constrained = request.mode is BackendMode.Constrained && request.constraintOn
         // Pitfall 1: the engine's constrained-decoding flag is read when a conversation is created, so it follows the
-        // ON/OFF arm; otherwise the ON arm could silently measure an unconstrained model.
-        ExperimentalFlags.enableConversationConstrainedDecoding = constrained
+        // ON/OFF arm; otherwise the ON arm could silently measure an unconstrained model. The rf_matrix overrides it
+        // (engineFlag) to learn whether the flag is needed at all.
+        ExperimentalFlags.enableConversationConstrainedDecoding = request.engineFlag ?: constrained
         engine.createConversation(conversationConfig(settings, request)).use { conversation ->
             val reply = send(conversation, request, constrained)
             return BackendAnswer(
