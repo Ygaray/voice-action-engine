@@ -54,7 +54,9 @@ internal sealed class GrammarResult {
  * that expands to more than 256 sequences is refused too: split it with sub-rules. Anything wrong in the declarations
  * (bad syntax, an unknown or looping rule, two tools reading the same words in one language, a slot that is invalid,
  * unused, missing from a phrasing that needs it or placed next to another free-span slot) throws when the pack is
- * built, never when a transcript is matched.
+ * built, never when a transcript is matched. So does a pack whose phrasings overlap: if one phrasing's own example
+ * words can also be read by another phrasing with a different result (`remove all` beside `remove {item}`), the build
+ * refuses it, naming both.
  *
  * The pack is immutable once built, so it is safe to share between commands and threads.
  */
@@ -73,7 +75,11 @@ public class GrammarPack internal constructor(settings: Builder) {
         val enRules = compileLanguage(EN, intents, settings.enRules.toList(), enFillers) { it.en }
         val esRules = compileLanguage(ES, intents, settings.esRules.toList(), esFillers) { it.es }
         validateSlotUse(intents, enRules + esRules)
-        matchers = mapOf(EN to RuleMatcher(enRules, enFillers, slots), ES to RuleMatcher(esRules, esFillers, slots))
+        val en = RuleMatcher(enRules, enFillers, slots)
+        val es = RuleMatcher(esRules, esFillers, slots)
+        validateNoOverlap(enRules, en, slots, enFillers)
+        validateNoOverlap(esRules, es, slots, esFillers)
+        matchers = mapOf(EN to en, ES to es)
     }
 
     /**

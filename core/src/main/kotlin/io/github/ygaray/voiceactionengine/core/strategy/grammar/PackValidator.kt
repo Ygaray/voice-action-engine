@@ -104,3 +104,28 @@ internal fun validateRuleSlots(rule: FlatRule, required: Set<String>, specs: Map
 
 private fun isOpenSpan(element: RuleElement, specs: Map<String, SlotSpec>): Boolean =
     element is RuleElement.Slot && specs[element.name]?.openSpan == true
+
+/**
+ * The ambiguity self-check of one language: every flat rule's own example goes through the real [matcher], and the
+ * example must be read as that rule's own result and no other. A rule another rule can also read, with a different
+ * tool or different arguments, makes the pack refuse to build, naming both. Examples are made from the rules alone.
+ */
+internal fun validateNoOverlap(
+    rules: List<FlatRule>,
+    matcher: RuleMatcher,
+    slots: Map<String, Map<String, SlotSpec>>,
+    fillers: List<List<String>>,
+) {
+    val language = rules.firstOrNull()?.language ?: return
+    val sentinel = sentinelWord(declaredWords(rules, slots, language, fillers))
+    for (rule in rules) {
+        for (example in examplesOf(rule, slots[rule.toolName].orEmpty(), sentinel)) {
+            val readings = matcher.readings(tokenize(example))
+            val own = readings.firstOrNull { it.rule === rule }
+            val clash = readings.firstOrNull {
+                own == null || it.rule.toolName != own.rule.toolName || it.arguments != own.arguments
+            }
+            if (clash != null) throw IllegalArgumentException(overlapFault(rule, clash.rule))
+        }
+    }
+}

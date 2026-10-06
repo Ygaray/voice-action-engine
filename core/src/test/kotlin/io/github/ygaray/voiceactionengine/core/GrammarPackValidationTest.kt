@@ -435,4 +435,73 @@ class GrammarPackValidationTest {
 
         assertEquals(1, pack.match("set quiet", "en")?.arguments?.size)
     }
+
+    @Test
+    fun aLiteralPhrasingThatAnotherRulesTextSlotAlsoReadsIsRefusedNamingBoth() {
+        val message = refused {
+            GrammarPack {
+                intent("clear_all") { en("remove all") }
+                intent("remove_item") {
+                    text("item", 3)
+                    en("remove {item}")
+                }
+            }
+        }
+
+        assertTrue(message, "remove all" in message && "remove {item}" in message)
+        assertTrue(message, "clear_all" in message && "remove_item" in message)
+    }
+
+    @Test
+    fun theOverlapIsRefusedInSpanishToo() {
+        val message = refused {
+            GrammarPack {
+                intent(TOOL_A) { es("borra todo") }
+                intent(TOOL_B) {
+                    text("item", 3)
+                    es("borra {item}")
+                }
+            }
+        }
+
+        assertTrue(message, "borra todo" in message && "borra {item}" in message)
+    }
+
+    @Test
+    fun aChoiceSynonymEqualToAnotherIntentsLiteralInTheSameFrameIsRefused() {
+        val message = refused {
+            GrammarPack {
+                intent(TOOL_A) { choice("mode") { option("calm") { en("quiet") } }; en("set mode {mode}") }
+                intent(TOOL_B) { en("set mode quiet") }
+            }
+        }
+
+        assertTrue(message, "set mode {mode}" in message && "set mode quiet" in message)
+        assertTrue(message, TOOL_A in message && TOOL_B in message)
+    }
+
+    @Test
+    fun aNumberSlotRuleAndALiteralRuleThatCannotReadEachOthersWordsAreAccepted() {
+        val pack = GrammarPack {
+            intent(TOOL_A) { integer("count", 1, 9); en("take {count}") }
+            intent(TOOL_B) { en("take all") }
+        }
+
+        assertEquals(TOOL_B, pack.match("take all", "en")?.toolName)
+        assertEquals(TOOL_A, pack.match("take 3", "en")?.toolName)
+    }
+
+    @Test
+    fun aLiteralRuleThatANumberAndTextRuleAlsoReadsIsRefused() {
+        refused {
+            GrammarPack {
+                intent(TOOL_A) {
+                    decimal("count", 0.0, 99.0)
+                    text("label", 5)
+                    en("add {count} and {label}")
+                }
+                intent(TOOL_B) { en("add 0 and zqx") }
+            }
+        }
+    }
 }

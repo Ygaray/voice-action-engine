@@ -21,6 +21,9 @@ internal sealed class RuleVerdict {
     class Ambiguous : RuleVerdict()
 }
 
+/** One parse of one rule over an example: the [rule] that read it and the [arguments] its slots bound. */
+internal class Reading(val rule: FlatRule, val arguments: JsonObject)
+
 /**
  * The flat rules of one language and the anchored walk over them.
  *
@@ -49,6 +52,22 @@ internal class RuleMatcher(
 
     /** The number of flat rules, for the pack's `toString`. */
     val size: Int get() = rules.size
+
+    /**
+     * Every parse of [tokens] by each rule on its own, fillers not stripped. This is how the build-time self-check runs
+     * a rule's own example through the real walk and sees every rule that reads it, and how.
+     */
+    fun readings(tokens: GrammarTokens): List<Reading> {
+        val found = ArrayList<Reading>()
+        for (rule in rules) {
+            val walk = RuleWalk(rule, slots[rule.toolName].orEmpty(), tokens) {
+                found.add(Reading(rule, it.arguments))
+                false
+            }
+            walk.run()
+        }
+        return found
+    }
 
     /** The verdict for one transcript's [tokens], after its leading and trailing fillers are stripped. */
     fun match(tokens: GrammarTokens): RuleVerdict {
