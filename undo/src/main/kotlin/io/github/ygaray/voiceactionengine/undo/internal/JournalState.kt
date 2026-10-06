@@ -44,6 +44,9 @@ internal class PendingEntry(val entry: Entry, val restored: Set<EntityKey>, val 
 /** One command's actions. Withheld when the journal missed or rejected any of them. */
 internal class Group(val key: String, val parentGroupKey: String?) {
     var withheld: Boolean = false
+
+    /** True while an undo of this group is running. Changes only under the journal's lock. */
+    var undoing: Boolean = false
     val entries: MutableList<Entry> = ArrayList()
 }
 
@@ -77,13 +80,28 @@ internal class JournalState {
         }
     }
 
-    fun scopeOf(groupKey: String): Scope = synchronized(lock) {
+    /**
+     * What an undo of the group may work on. When it has something to undo the group is claimed in the same locked
+     * step, so a second call sees [UndoReason.IN_PROGRESS] and never works on the same entities. A claim is given back
+     * with [release].
+     */
+    fun claim(groupKey: String): Scope = synchronized(lock) {
         val group = groups[groupKey]
         when {
             group == null -> Scope(UndoReason.UNKNOWN_GROUP, emptyList())
+            group.undoing -> Scope(UndoReason.IN_PROGRESS, emptyList())
             group.withheld -> Scope(UndoReason.JOURNAL_WITHHELD, emptyList())
-            else -> Scope(null, group.entries.filter { !it.undone }.map(::pendingOf))
+            else -> {
+                val pending = group.entries.filter { !it.undone }.map(::pendingOf)
+                group.undoing = pending.isNotEmpty()
+                Scope(null, pending)
+            }
         }
+    }
+
+    /** Gives back the claim of [groupKey]. Safe to call when there is none. */
+    fun release(groupKey: String) {
+        synchronized(lock) { groups[groupKey]?.undoing = false }
     }
 
     private fun pendingOf(entry: Entry) = PendingEntry(entry, entry.restoredKeys.toSet(), entry.compensated.toSet())
@@ -126,12 +144,16 @@ internal class UndoPass(
     private val compensating = Compensating(compensators, state)
 
     suspend fun run(groupKey: String): UndoResult {
-        val scope = state.scopeOf(groupKey)
+        val scope = state.claim(groupKey)
         val reason = scope.reason
         return when {
             reason != null -> refusal(reason)
             scope.pending.isEmpty() -> UndoResult.AlreadyUndone()
-            else -> restore(scope.pending)
+            else -> try {
+                restore(scope.pending)
+            } finally {
+                state.release(groupKey)
+            }
         }
     }
 
