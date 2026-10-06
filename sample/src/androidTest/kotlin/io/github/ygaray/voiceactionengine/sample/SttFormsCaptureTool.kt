@@ -99,7 +99,7 @@ class SttFormsCaptureTool {
             if (!speaker.ready || speaker.setLanguage(locale) < TextToSpeech.LANG_AVAILABLE) {
                 return row.put("status", "tts_unavailable")
             }
-            if (!speaker.synthesize(prompt.text, wav)) {
+            if (!speaker.synthesize(prompt.id, prompt.text, wav)) {
                 return row.put("status", "error").put("code", "tts")
             }
             val audio = readWav(wav) ?: return row.put("status", "error").put("code", "wav")
@@ -315,29 +315,42 @@ class SttFormsCaptureTool {
 
         fun setLanguage(locale: Locale): Int = engine?.setLanguage(locale) ?: TextToSpeech.ERROR
 
-        fun synthesize(text: String, out: File): Boolean {
+        /**
+         * Synthesizes [text] to [out] under an utterance id unique to [promptId]. The listener ignores every callback for
+         * another id, so a late `onDone` of an earlier, timed-out prompt can never complete this one, and a timeout stops
+         * the engine before the next prompt starts.
+         */
+        fun synthesize(promptId: String, text: String, out: File): Boolean {
             val tts = engine ?: return false
+            val utterance = "u-$promptId"
             val done = CountDownLatch(1)
             var failed = false
             tts.setOnUtteranceProgressListener(
                 object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) = Unit
-                    override fun onDone(utteranceId: String?) = done.countDown()
+
+                    override fun onDone(utteranceId: String?) {
+                        if (utteranceId == utterance) done.countDown()
+                    }
 
                     @Deprecated("required override", ReplaceWith(""))
                     override fun onError(utteranceId: String?) {
+                        if (utteranceId != utterance) return
                         failed = true
                         done.countDown()
                     }
 
                     override fun onError(utteranceId: String?, errorCode: Int) {
+                        if (utteranceId != utterance) return
                         failed = true
                         done.countDown()
                     }
                 },
             )
-            val queued = tts.synthesizeToFile(text, null, out, "u")
-            return queued == TextToSpeech.SUCCESS && done.await(SYNTH_TIMEOUT_SECONDS, TimeUnit.SECONDS) && !failed
+            val queued = tts.synthesizeToFile(text, null, out, utterance)
+            val finished = queued == TextToSpeech.SUCCESS && done.await(SYNTH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (!finished) tts.stop()
+            return finished && !failed
         }
 
         fun close() {
