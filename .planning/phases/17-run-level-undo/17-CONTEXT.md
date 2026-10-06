@@ -99,3 +99,7 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 17-run-level-undo*
+
+## Runtime Decisions
+
+- **[grouping] refreshed (2026-10-06, ai-auto; dependency P12 complete):** Additive ActionEvent.heldRunId, a new property on the existing internal-constructor ActionEvent (commit/CommitSink.kt:29), so it is safe to add. It lands in Phase 17. Clarification replies form their own group, and per SB binding (R-v1.1 answers row 5) that group KEEPS parentRunId, so a combined undo stays possible later. N counts applied actions (ActionKind.COMMITTED plus ActionKind.IS_ERROR with applied=true; CommitCoordinator.kt:170 records IS_ERROR applied=false for un-applied failures, which are NOT counted). A pending held action is shown as pending, not counted. SB 178 confirmed OK (row 5). Phase 15 ruling: a PlanThenExecute partial after a hold keeps its committed steps, each with a distinct ordinal, and those are undoable within the run.
