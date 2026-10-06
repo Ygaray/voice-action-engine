@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 13
 current_phase_name: on-device-model-spike
-current_plan: 7
+current_plan: 8
 status: executing
-stopped_at: Completed 13-06-PLAN.md
-last_updated: "2026-10-06T01:20:57.272Z"
+stopped_at: Completed 13-07-PLAN.md
+last_updated: "2026-10-06T01:44:47.838Z"
 last_activity: 2026-10-05
 last_activity_desc: Phase 12 complete, transitioned to Phase 13
-state_head: 7767c1e0b18afa2a0fb1aa8eacf70b9133a64504
+state_head: 824eb5c99faefbeb3ed2ceb85feb69c828e514f2
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 19
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 13 (on-device-model-spike) — READY TO EXECUTE
-Current Plan: 7
+Current Plan: 8
 Total Plans in Phase: 11
 Status: Ready to execute
 Last activity: 2026-10-05 — Phase 12 complete, transitioned to Phase 13
@@ -111,6 +111,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P04 | 10 min | 3 tasks | 11 files |
 | Phase 13 P05 | 13 min | 3 tasks | 17 files |
 | Phase 13 P06 | 26 min | 3 tasks | 3 files |
+| Phase 13 P07 | 22min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,7 @@ Recent decisions affecting current work:
 - [Phase 13]: 13-03: verdict is a pure function of closed-grammar evidence; unmeasured gating metric is always red; 13-VERDICT reproducible via scripts/verify-spike-verdict.sh --check (worktree fallback at recorded code SHA) — SPIKE-02 reproducibility; time-box expiry becomes a code path, not a judgment
 - [Phase 13]: 13-04: constrained-decoding flag follows the ON/OFF arm; Route B keeps Required as offered-tools; no :core change — Pitfall 1: an unset engine flag could make the ON arm silently unconstrained; JNI behavior is verified only on the TESTER
 - [Phase 13]: 13-05: SchemaSubset supports the SB fixture keywords (bounds, pattern, uuid format, default); SB gold positives cover only speakable-argument tools; any provider failure scores a miss, never a decline
+- [Phase 13]: 13-07: only a measured not_reused KV disposition can end the sb envelope early; BackendRequest.engineFlag lets rf_matrix learn whether the engine constrained-decoding flag is needed; a screen with no startable cell is an error, never a quiet done 0/0
 
 ### Pending Todos
 
@@ -163,8 +165,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T01:20:57.221Z
-Stopped at: Completed 13-06-PLAN.md
+Last session: 2026-10-06T01:44:44.847Z
+Stopped at: Completed 13-07-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
