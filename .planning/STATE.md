@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 17
 current_phase_name: Run-Level Undo
-current_plan: 9
+current_plan: 10
 status: executing
-stopped_at: Completed 17-08-PLAN.md
-last_updated: "2026-10-06T23:39:19.448Z"
+stopped_at: Completed 17-09-PLAN.md
+last_updated: "2026-10-06T23:47:31.285Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 17 execution started
-state_head: 8c8fbb992bfee93bfc13b2bac7d7781414656388
+state_head: 561e334db03fa59c5ae0f1a78fbd5ffddda53360
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 53
-  completed_plans: 51
+  completed_plans: 52
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 17 (Run-Level Undo) — EXECUTING
-Current Plan: 9
+Current Plan: 10
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 17 execution started
@@ -145,6 +145,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17 P06 | 40min | 3 tasks | 11 files |
 | Phase 17 P07 | 35min | 3 tasks | 16 files |
 | Phase 17 P08 | 25min | 3 tasks | 7 files |
+| Phase 17 P09 | 45min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,7 @@ Recent decisions affecting current work:
 - [Phase 17]: [17-07] undoEntry for isolated entries only (ENTANGLED otherwise); JournalStore is a save/delete mirror with no loadAll; applied nothing-written and failed entries count in N
 - [Phase 17]: [17-07] A late record into a group mid-undo is appended and pending, not withheld; eviction by count or age skips groups being undone
 - [Phase 17]: 17-08: bridge is :sample glue only; a confirmed child's parent group is parents[heldRunId], never the held run itself
+- [Phase 17]: 17-09: :undo carries two suppressions (file-level TooGenericExceptionCaught in Guard.kt, one-line MaxLineLength on record); recorded as OI-5, not changed
 
 ### Pending Todos
 
@@ -221,8 +223,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T23:39:19.354Z
-Stopped at: Completed 17-08-PLAN.md
+Last session: 2026-10-06T23:47:31.185Z
+Stopped at: Completed 17-09-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

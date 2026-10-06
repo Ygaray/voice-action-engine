@@ -363,7 +363,7 @@ Plans:
   3. An unchanged-since-commit check runs before every restore. If an entity changed after the command, undo refuses loudly for it and never overwrites it. The result either reports complete or lists exactly what it couldn't restore, never a silent partial.
   4. Wired into the pipeline, every committed action of a command is journaled under its `runId`, so an app can offer "Undo all (N)" for the whole command, entangled actions included. Grouping follows A18: entity footprints decide which actions are isolated.
 
-**Plans**: 8/10 plans executed (8 waves, serial: one Gradle-running plan per wave, the extra wave-2 plans are bash-only; 17-10 is non-autonomous, quiet-window gated; no device or live spend)
+**Plans**: 9/10 plans executed (8 waves, serial: one Gradle-running plan per wave, the extra wave-2 plans are bash-only; 17-10 is non-autonomous, quiet-window gated; no device or live spend)
 
 Plans:
 **Wave 1**
@@ -394,7 +394,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 17-09-PLAN.md — compiled undo-bridge doc snippet + parity test, INTEGRATION/API.md undo docs, 17-SURFACE-REVIEW.md vs real dumps, full phase gate, quiet-window request
+- [x] 17-09-PLAN.md — compiled undo-bridge doc snippet + parity test, INTEGRATION/API.md undo docs, 17-SURFACE-REVIEW.md vs real dumps, full phase gate, quiet-window request
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
@@ -462,7 +462,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
-| 17. Run-Level Undo | v1.1 | 8/10 | In Progress|  |
+| 17. Run-Level Undo | v1.1 | 9/10 | In Progress|  |
 | 18. Voice Adapter | v1.1 | 0/TBD | Not started | - |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
