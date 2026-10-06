@@ -330,7 +330,7 @@ fun describeActions(outcome: CommandOutcome): List<String> = outcome.executed.ma
 
 **The sink.** Your `CommitSink` hears every action through `onAction`, in order and awaited, and hears
 `onRunClosed` exactly once on every exit path, including cancellation. A throw from either is recorded and never makes
-a change run twice. Use it for an undo journal.
+a change run twice. Use it for an undo journal: see section 11.
 
 **What an action means.** Every `ExecutedAction` has a `kind`, `applied` and `mutating`:
 
@@ -734,6 +734,84 @@ private fun answerOf(parts: List<AssistantPart>, stopReason: StopReason): ModelR
 Sample: `sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/docs/DocSnippetsTest.kt` runs every snippet
 in this file, and `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/legs/DemoProvider.kt` is a scripted
 provider in an app.
+
+## 11. Undo a whole command
+
+```kts
+implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-undo:<version>")
+```
+
+`undo` depends on nothing, not even `core` (only the Kotlin standard library), so a non-voice app can use it alone. The
+first tag that carries it is v1.1.0. It gives you an `UndoJournal`: record each change a command applies, then one call
+puts everything back, or refuses and writes nothing.
+
+**What you write.** The journal never touches your storage; you describe it.
+
+- Register one `EntityAdapter` per entity type: `read(id)` returns an opaque snapshot (a parent carries its children),
+  `fingerprint(id)` returns a value that changes whenever the entity does, and `restoreIf(id, expectedFingerprint,
+  snapshot)` checks the fingerprint and writes in one transaction of yours, re-inserting a missing entity with its
+  original id and children. Build the journal with `UndoJournal { adapter(...) }`.
+- Give every mutation its own ticket from `journal.newTicket()` and hand it to the engine as the `PendingMutation.context`
+  of that mutation.
+- Inside `apply`, in the same transaction as the write, call `ticket.capture(type, id)` before the write and
+  `ticket.settle(type, id)` after it. Use `created(type, id)` for an entity whose id exists only after the write,
+  `touches(type, id)` for related entities the write changed without a capture, `compensate(kind, payload)` for an effect
+  outside the database, or `nothingWritten()` when the apply failed before writing. Declare the footprint there, never
+  derive it from the tool's arguments. A held change is captured only when `commitHeld` applies it, so the snapshot is the
+  state at that moment, not the state when it was proposed.
+
+**The bridge.** A small `CommitSink` feeds the journal from the pipeline. This is the reference wiring, copied from the
+compiled and executed sample:
+
+<!-- doc-snippet: undo-bridge -->
+```kotlin
+// Feeds the undo journal from the pipeline. List it FIRST in compositeSink(...), so the journal already holds an
+// action when the app's own sink reacts to it. The number in "Undo all (N)" is journal.group(key)?.count; held
+// proposals that are not confirmed yet are shown apart (pendingHeld) and are never part of N. The three maps are
+// small and keyed by run id; an app that runs for days should prune them with the journal's own limits.
+class UndoCommitSink(private val journal: UndoJournal) : CommitSink {
+    private val groups = ConcurrentHashMap<String, String>() // run id -> group key
+    private val parents = ConcurrentHashMap<String, String>() // run id -> the run it answers
+    private val pending = ConcurrentHashMap<String, Int>() // group key -> held proposals not yet confirmed
+
+    fun groupOf(runId: String): String = groups[runId] ?: runId
+    fun pendingHeld(groupKey: String): Int = pending[groupKey] ?: 0
+    fun discarded(groupKey: String) {
+        pending.computeIfPresent(groupKey) { _, count -> if (count <= 1) null else count - 1 }
+    }
+
+    override suspend fun onAction(event: ActionEvent) {
+        val action = event.action
+        val confirmed = event.heldRunId != null
+        // A change confirmed later joins the command that held it; every other run is its own group.
+        val group = event.heldRunId ?: event.runId
+        // The first event of a confirmed child run settles one held proposal.
+        if (groups.putIfAbsent(event.runId, group) == null && confirmed) discarded(group)
+        event.parentRunId?.let { parents.putIfAbsent(event.runId, it) }
+        if (!action.applied) return
+        // A reply keeps the group it continues, so a combined undo stays possible; a confirmed child continues what
+        // the held run continued, never the held run itself.
+        val parent = (if (confirmed) parents[group] else event.parentRunId)?.let(::groupOf)
+        try {
+            val entry = EntryRef(event.runId, action.position, action.toolName)
+            journal.record(group, parent, entry, action.kind == ActionKind.IS_ERROR, action.context as? UndoTicket)
+        } catch (_: IllegalArgumentException) {
+            journal.withhold(group) // an action the journal cannot take must withhold "Undo all", never shrink it
+        }
+    }
+
+    override suspend fun onRunClosed(runId: String, termination: RunTermination) {
+        val group = groupOf(runId)
+        if (termination.held.isNotEmpty()) pending.merge(group, termination.held.size, Int::plus)
+        val applied = termination.executed.filter { it.applied }.map { it.position }.toSet()
+        if (applied.isNotEmpty()) journal.runClosed(group, runId, applied)
+    }
+}
+```
+
+Wire it as `commitSink = compositeSink(UndoCommitSink(journal), yourSink)`, with the journal first so your own sink sees an
+up-to-date count when it reacts. The reference wiring is
+`sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/undo/UndoCommitSink.kt`.
 
 ## Notes and gotchas
 

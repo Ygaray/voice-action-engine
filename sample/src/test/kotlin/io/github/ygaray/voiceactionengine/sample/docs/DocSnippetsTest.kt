@@ -21,6 +21,7 @@ import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
 import io.github.ygaray.voiceactionengine.core.commit.RunTermination
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
+import io.github.ygaray.voiceactionengine.core.commit.compositeSink
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
@@ -48,6 +49,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.ToolExecutor
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
@@ -57,6 +59,9 @@ import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
+import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
+import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
+import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
@@ -72,6 +77,14 @@ import io.github.ygaray.voiceactionengine.keystore.KeyState
 import io.github.ygaray.voiceactionengine.keystore.KeystoreCredentialSource
 import io.github.ygaray.voiceactionengine.providers.anthropic.AnthropicProvider
 import io.github.ygaray.voiceactionengine.providers.chat.ChatCompletionsProvider
+import io.github.ygaray.voiceactionengine.sample.undo.CreateItem
+import io.github.ygaray.voiceactionengine.sample.undo.ItemAdapter
+import io.github.ygaray.voiceactionengine.sample.undo.ItemStore
+import io.github.ygaray.voiceactionengine.sample.undo.RenameItem
+import io.github.ygaray.voiceactionengine.undo.EntryRef
+import io.github.ygaray.voiceactionengine.undo.UndoJournal
+import io.github.ygaray.voiceactionengine.undo.UndoResult
+import io.github.ygaray.voiceactionengine.undo.UndoTicket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -484,6 +497,51 @@ fun traceSummary(outcome: CommandOutcome): String {
 }
 // doc-snippet:end telemetry
 
+// doc-snippet:start undo-bridge
+// Feeds the undo journal from the pipeline. List it FIRST in compositeSink(...), so the journal already holds an
+// action when the app's own sink reacts to it. The number in "Undo all (N)" is journal.group(key)?.count; held
+// proposals that are not confirmed yet are shown apart (pendingHeld) and are never part of N. The three maps are
+// small and keyed by run id; an app that runs for days should prune them with the journal's own limits.
+class UndoCommitSink(private val journal: UndoJournal) : CommitSink {
+    private val groups = ConcurrentHashMap<String, String>() // run id -> group key
+    private val parents = ConcurrentHashMap<String, String>() // run id -> the run it answers
+    private val pending = ConcurrentHashMap<String, Int>() // group key -> held proposals not yet confirmed
+
+    fun groupOf(runId: String): String = groups[runId] ?: runId
+    fun pendingHeld(groupKey: String): Int = pending[groupKey] ?: 0
+    fun discarded(groupKey: String) {
+        pending.computeIfPresent(groupKey) { _, count -> if (count <= 1) null else count - 1 }
+    }
+
+    override suspend fun onAction(event: ActionEvent) {
+        val action = event.action
+        val confirmed = event.heldRunId != null
+        // A change confirmed later joins the command that held it; every other run is its own group.
+        val group = event.heldRunId ?: event.runId
+        // The first event of a confirmed child run settles one held proposal.
+        if (groups.putIfAbsent(event.runId, group) == null && confirmed) discarded(group)
+        event.parentRunId?.let { parents.putIfAbsent(event.runId, it) }
+        if (!action.applied) return
+        // A reply keeps the group it continues, so a combined undo stays possible; a confirmed child continues what
+        // the held run continued, never the held run itself.
+        val parent = (if (confirmed) parents[group] else event.parentRunId)?.let(::groupOf)
+        try {
+            val entry = EntryRef(event.runId, action.position, action.toolName)
+            journal.record(group, parent, entry, action.kind == ActionKind.IS_ERROR, action.context as? UndoTicket)
+        } catch (_: IllegalArgumentException) {
+            journal.withhold(group) // an action the journal cannot take must withhold "Undo all", never shrink it
+        }
+    }
+
+    override suspend fun onRunClosed(runId: String, termination: RunTermination) {
+        val group = groupOf(runId)
+        if (termination.held.isNotEmpty()) pending.merge(group, termination.held.size, Int::plus)
+        val applied = termination.executed.filter { it.applied }.map { it.position }.toSet()
+        if (applied.isNotEmpty()) journal.runClosed(group, runId, applied)
+    }
+}
+// doc-snippet:end undo-bridge
+
 private val NO_KEYS = CredentialSource { CredentialLookup.Missing() }
 
 private fun titleArgs(title: String): JsonObject = buildJsonObject { put("title", title) }
@@ -810,5 +868,35 @@ class DocSnippetsTest {
         assertTrue(present.toString(), present is CredentialLookup.Present)
         assertEquals(ProviderId.ANTHROPIC, (present as CredentialLookup.Present).credential.provider)
         assertEquals(CredentialLookup.Missing(), source.credential(ProviderId.OPENAI))
+    }
+
+    @Test
+    fun undoBridgeRegionJournalsAndUndoesACommand() = runTest {
+        NoNetworkGuard.during {
+            val store = ItemStore().also { it.seed("a", "v0") }
+            val seeded = store.snapshot()
+            val journal = UndoJournal { adapter(ItemAdapter(store)) }
+            val recording = RecordingCommitSink()
+            val pipeline = commandPipeline {
+                tier(
+                    ScriptedStrategy(StrategyId("tier"), { _, session ->
+                        session.submit(ToolStep.Mutation(CreateItem(store, journal.newTicket(), "n1", null)))
+                        session.submit(ToolStep.Mutation(RenameItem(store, journal.newTicket(), "a", "v1")))
+                        StrategyOutcome.Completed("done")
+                    }),
+                )
+                gate = ScriptedGate.admitAll()
+                commitSink = compositeSink(UndoCommitSink(journal), recording)
+                runIds = { "run-1" }
+            }
+
+            pipeline.execute(CommandInput("create and rename"))
+
+            assertEquals(2, journal.group("run-1")?.count)
+            val result = journal.undoAll("run-1")
+            assertTrue(result.toString(), result is UndoResult.Complete)
+            assertEquals(2, (result as UndoResult.Complete).restored.size)
+            assertEquals(seeded, store.snapshot())
+        }
     }
 }
