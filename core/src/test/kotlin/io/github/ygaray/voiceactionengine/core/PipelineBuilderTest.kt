@@ -14,6 +14,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
+import io.github.ygaray.voiceactionengine.core.testing.ScriptedPicker
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -92,6 +93,30 @@ class PipelineBuilderTest {
             commitSink = RecordingCommitSink()
         }
         assertEquals("commandPipeline: selector names unknown tier missing", message)
+    }
+
+    @Test
+    fun aPickerIdThatEqualsATierIdIsRejectedAtBuild() {
+        val message = buildFailure {
+            tier(strategy("a"))
+            tier(strategy("b"))
+            selector = TierSelector.Custom(ScriptedPicker({ _, _, _ -> null })) { id = StrategyId("b") }
+            gate = ScriptedGate.admitAll()
+            commitSink = RecordingCommitSink()
+        }
+        assertTrue(message, message.contains("picker id b collides with a tier id"))
+    }
+
+    @Test
+    fun theDefaultPickerIdBuilds() {
+        val pipeline = commandPipeline {
+            tier(strategy("a"))
+            tier(strategy("b"))
+            selector = TierSelector.Custom(ScriptedPicker({ _, _, _ -> null }))
+            gate = ScriptedGate.admitAll()
+            commitSink = RecordingCommitSink()
+        }
+        assertEquals(listOf(StrategyId("a"), StrategyId("b")), pipeline.tiers)
     }
 
     @Test

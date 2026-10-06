@@ -165,4 +165,38 @@ class StartTierPickerTest {
             assertEquals("picker-model", fake.calls.first().model)
         }
     }
+
+    @Test
+    fun anUnmappedPickerIsLoudButNeverFailsTheCommand() = runTest {
+        NoNetworkGuard.during {
+            val single = llmTier("single") { _, session ->
+                session.model().complete(pickTurnRequest())
+                StrategyOutcome.Completed("s")
+            }
+            val agentic = llmTier("agentic") { _, _ -> StrategyOutcome.Completed("a") }
+            val picker = ScriptedPicker({ _, _, ctx ->
+                if (ctx.model().refusal != null) null else StrategyId("agentic")
+            })
+            val selection = MappedSelection(
+                mapOf("start_tier_picker" to null),
+                ProviderSelection(ProviderId.ANTHROPIC, "test-model"),
+            )
+            val fake = FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("p", Usage(4, 0, 0, 1)))
+
+            val outcome = startTierPipeline(
+                listOf(single, agentic),
+                TierSelector.Custom(picker),
+                fake,
+                selection = selection,
+            ).execute(input)
+
+            assertEquals("s", (outcome as CommandOutcome.Completed).reply)
+            val codes = outcome.trace.codes
+            val refused = codes.indexOf(TraceCode.PROVIDER_NOT_SELECTED)
+            assertTrue(codes.toString(), refused in 0 until codes.indexOf(TraceCode.ROUTER_FALLBACK))
+            assertEquals("router_fallback", outcome.trace.selection!!.outcome)
+            assertEquals(listOf(1, 0), listOf(single, agentic).map { it.executions })
+            assertEquals(1, fake.callCount)
+        }
+    }
 }

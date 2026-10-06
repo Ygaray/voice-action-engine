@@ -40,7 +40,10 @@ public class PipelineBuilder internal constructor() {
     /** Where actions and run endings are reported. Required. */
     public var commitSink: CommitSink? = null
 
-    /** Which tier a command starts at; the default [TierSelector.Linear] starts at the first tier that may run. */
+    /**
+     * Which tier a command starts at; the default [TierSelector.Linear] starts at the first tier that may run. A
+     * [TierSelector.Fixed] naming no tier, or a [TierSelector.Custom] picker id equal to a tier id, fails the build.
+     */
     public var selector: TierSelector = TierSelector.Linear
 
     /** The limits each command runs under; the default is [TierPolicy.DEFAULT] for every command. */
@@ -113,6 +116,11 @@ public class PipelineBuilder internal constructor() {
         val fixed = (selector as? TierSelector.Fixed)?.tier
         require(fixed == null || strategies.any { it.id == fixed }) {
             "commandPipeline: selector names unknown tier $fixed"
+        }
+        selector.picking?.let { spec ->
+            require(strategies.none { it.id == spec.id }) {
+                "commandPipeline: picker id ${spec.id} collides with a tier id"
+            }
         }
         val finalGate = requireNotNull(gate) { "commandPipeline: gate is required (no auto-commit default)" }
         val finalSink = requireNotNull(commitSink) { "commandPipeline: commitSink is required" }
