@@ -1,0 +1,6 @@
+# spike stage=preflight captured_utc=2026-10-06T01:54:37Z target=R5CT10XNKQN head=08ada3366b
+VAE_SPIKE_PREFLIGHT source=app mem_total_mb=11204 mem_avail_mb=6752 storage_free_mb=428552 abi=arm64-v8a,armeabi-v7a,armeabi page_size=4096 gpu_libs=1 thermal=none battery_pct=78 sb_state=loaded sb_tool_count=19
+VAE_SPIKE_MODEL model=e2b file=generic present=1 size_mb=2468
+VAE_SPIKE_MODEL model=e2b file=gpu present=1 size_mb=1915
+VAE_SPIKE_MODEL model=g3_1b file=generic present=0 size_mb=0
+VAE_SPIKE_STAGE stage=preflight result=done trials=0 planned=0

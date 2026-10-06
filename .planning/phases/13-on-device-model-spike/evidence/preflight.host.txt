@@ -1,0 +1,1 @@
+VAE_SPIKE_PREFLIGHT source=host mem_total_kb=11473784 mem_avail_kb=5517124 storage_free_kb=443038292 abi=arm64-v8a page_size=4096 opencl=present thermal_status=0 battery=79
