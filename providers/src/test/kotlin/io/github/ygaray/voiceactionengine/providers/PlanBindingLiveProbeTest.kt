@@ -63,6 +63,11 @@ private const val SCENARIO_LITERAL = "S2"
 private const val REASON_OK = "ok"
 private const val REASON_NOT_COMPLETED = "not_completed"
 private const val REASON_UNEXPECTED_CALLS = "unexpected_tool_calls"
+private const val REASON_LITERAL_NOT_EXERCISED = "literal_not_exercised"
+private const val VERDICT_PASS = "PASS"
+private const val VERDICT_FAIL = "FAIL"
+private const val VERDICT_NOT_RUN = "NOT_RUN"
+private const val VERDICT_NOT_EXERCISED = "NOT_EXERCISED"
 
 private class ProbeScenario(val code: String, val transcript: String)
 
@@ -121,7 +126,7 @@ private fun probeTier(log: ProbeLog): PlanThenExecuteStrategy =
 
 private fun runScenario(model: ProbeModel, scenario: ProbeScenario, used: AtomicInteger): ProbeVerdict {
     if (used.get() + SCENARIO_WORST_CASE > MAX_HTTP_REQUESTS) {
-        return ProbeVerdict(model.id, scenario.code, "NOT_RUN", "budget")
+        return ProbeVerdict(model.id, scenario.code, VERDICT_NOT_RUN, "budget")
     }
     val log = ProbeLog()
     val outcome = runBlocking {
@@ -146,8 +151,12 @@ private fun judge(model: ProbeModel, scenario: ProbeScenario, outcome: CommandOu
         scenario.code == SCENARIO_REFERENCE -> judgeReference(log)
         else -> judgeLiteral(outcome, log)
     }
-    val passed = reason == REASON_OK || reason == "literal_not_exercised"
-    val verdict = if (passed) "PASS" else "FAIL"
+    // Only a scenario that produced evidence passes: a model that rewrote the dollar text did not exercise S2.
+    val verdict = when (reason) {
+        REASON_OK -> VERDICT_PASS
+        REASON_LITERAL_NOT_EXERCISED -> VERDICT_NOT_EXERCISED
+        else -> VERDICT_FAIL
+    }
     return ProbeVerdict(model.id, scenario.code, verdict, reason, calls, replans, refBound, literalKept)
 }
 
@@ -182,6 +191,9 @@ private fun judgeLiteral(outcome: CommandOutcome, log: ProbeLog): Triple<String,
  * It is skipped unless VAE_LIVE_PLAN is 1 and both ANTHROPIC_API_KEY and OPENAI_API_KEY are set. It makes at most
  * eight HTTP requests, counted before each scenario and never retried, and prints only PLAN_PROBE lines made of codes
  * and counts: never a key, a body, an argument, an id or a transcript.
+ *
+ * Every scenario must end in PASS. A scenario skipped by the request budget (NOT_RUN) or one where the model did not
+ * keep the dollar text (NOT_EXERCISED) fails the probe loudly, because neither produced evidence.
  */
 class PlanBindingLiveProbeTest {
 
@@ -214,6 +226,9 @@ class PlanBindingLiveProbeTest {
 
         println("PLAN_PROBE requests=${used.get()} limit=$MAX_HTTP_REQUESTS")
         assertTrue("requests over the ceiling", used.get() <= MAX_HTTP_REQUESTS)
-        assertTrue("a scenario failed", verdicts.none { it.verdict == "FAIL" })
+        // A skipped or unexercised scenario is not evidence: the probe backs a one-way syntax freeze, so only a
+        // PASS counts. The lines hold codes and counts only.
+        val notPassed = verdicts.filter { it.verdict != VERDICT_PASS }.joinToString { it.line() }
+        assertTrue("scenarios without a PASS verdict: $notPassed", notPassed.isEmpty())
     }
 }
