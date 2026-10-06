@@ -363,7 +363,43 @@ Plans:
   3. An unchanged-since-commit check runs before every restore. If an entity changed after the command, undo refuses loudly for it and never overwrites it. The result either reports complete or lists exactly what it couldn't restore, never a silent partial.
   4. Wired into the pipeline, every committed action of a command is journaled under its `runId`, so an app can offer "Undo all (N)" for the whole command, entangled actions included. Grouping follows A18: entity footprints decide which actions are isolated.
 
-**Plans**: TBD
+**Plans**: 10 plans (8 waves, serial: one Gradle-running plan per wave, the extra wave-2 plans are bash-only; 17-10 is non-autonomous, quiet-window gated; no device or live spend)
+
+Plans:
+**Wave 1**
+
+- [ ] 17-01-PLAN.md — `:undo` scaffold (stdlib only, verifyUndoZeroDeps), header-only api.txt seed + Metalava proof (D-09), module manifest + consistency gate with planted-module selftest (D-10), jitpack/:sample edges
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 17-02-PLAN.md — `:core` seams: ActionEvent.heldRunId threaded through commitHeld (D-02) + compositeSink with sibling/pipeline fault isolation (D-01), API.md rows
+- [ ] 17-03-PLAN.md — bash only: hygiene, API-dump, surface-review, negative-control and ML-denial scripts read the manifest; :undo zero-dependency plants; ECOSYSTEM row
+- [ ] 17-04-PLAN.md — bash only: JitPack dry run + :undoalone consumer, live probe, release-cut gates 7/15 (published_versions.py, dependsOnCore), C03/W3 from the manifest
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 17-05-PLAN.md — `:undo` core path: EntityAdapter/Compensator/UndoTicket/UndoJournal, closed UndoResult set (D-08), standalone tracer, adapter round trips, whole-scope refuse-loudly verification (D-07)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 17-06-PLAN.md — exact Partial restores per footprint component, compensators after restores (once, reverse), IN_PROGRESS and mid-undo cancellation
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 17-07-PLAN.md — UndoGroup "Undo all (N)" view, withheld on any journal gap (D-05), isolation + undoEntry, bounds/eviction, JournalStore mirror (D-06), redaction sweep
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 17-08-PLAN.md — `:sample` bridge (UndoCommitSink behind compositeSink), ItemStore/ItemAdapter, end-to-end S1-S8 incl. hold/confirm on moved state and the PlanThenExecute partial
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 17-09-PLAN.md — compiled undo-bridge doc snippet + parity test, INTEGRATION/API.md undo docs, 17-SURFACE-REVIEW.md vs real dumps, full phase gate, quiet-window request
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 17-10-PLAN.md — non-autonomous quiet window: verify-negative-controls.sh + verify-api-dump.sh, clean-cache jitpack-dry-run.sh with :undoalone (or the recorded deferral)
+
 **Research flag**: yes. Open items: the journal/memento API; footprint and entanglement computation; where the pipeline hook journals (beside `CommitSink`); how `commitHeld` child runs (`parentRunId`) group under "Undo all".
 
 #### Phase 18: Voice Adapter

@@ -1,0 +1,1 @@
+No external API integration: Phase 17 adds a dependency-free `:undo` journal library, two additive `:core` seams (`ActionEvent.heldRunId`, `compositeSink`) and build/release tooling; it calls no external service, SDK or HTTP endpoint (zero provider calls, offline tests only).
