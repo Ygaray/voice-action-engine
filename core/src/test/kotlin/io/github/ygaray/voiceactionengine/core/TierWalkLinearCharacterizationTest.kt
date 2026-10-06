@@ -1,6 +1,9 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.commit.StepResult
+import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource
@@ -14,6 +17,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
+import io.github.ygaray.voiceactionengine.core.testing.FakeMutation
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.RecordingEventListener
@@ -25,6 +29,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.reflect.KClass
 
@@ -52,6 +57,10 @@ class TierWalkLinearCharacterizationTest {
         val codes: List<String> get() = outcome.trace.codes.map { it.value }
 
         val events: List<KClass<out PipelineEvent>> get() = listener.events.map { it::class }
+
+        val skips: List<Pair<String, String>>
+            get() = listener.events.filterIsInstance<PipelineEvent.TierSkipped>()
+                .map { it.strategy.value to it.code.value }
     }
 
     private fun fakeProvider(): FakeAiProvider =
@@ -141,6 +150,318 @@ class TierWalkLinearCharacterizationTest {
                     PipelineEvent.RunClosed::class,
                 ),
                 result.events,
+            )
+        }
+    }
+
+    private fun completing(id: String, caps: StrategyCapabilities = StrategyCapabilities.ANY_PROVIDER) =
+        ScriptedStrategy(StrategyId(id), caps, { _, _ -> StrategyOutcome.Completed("ok") })
+
+    @Test
+    fun aCtShapedSingleTierCompletes() = runTest {
+        NoNetworkGuard.during {
+            val only = ScriptedStrategy(
+                StrategyId("only"),
+                { _, session ->
+                    callModel(session)
+                    StrategyOutcome.Completed("ok")
+                },
+            )
+
+            val result = run(listOf(only))
+
+            assertEquals("ok", (result.outcome as CommandOutcome.Completed).reply)
+            assertEquals(listOf(Triple("only", "completed", false)), result.triples)
+            assertEquals(emptyList<String>(), result.codes)
+            assertEquals(5L, result.outcome.trace.usage.total)
+            assertEquals(1, result.fake.callCount)
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.ProviderCall::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun aZeroCallHeadThatHandlesTheCommandEndsTheWalk() = runTest {
+        NoNetworkGuard.during {
+            val grammar = head(StrategyOutcome.Completed("g"))
+            val single = single(null)
+            val agentic = completing("agentic")
+
+            val result = run(listOf(grammar, single, agentic))
+
+            assertEquals("g", (result.outcome as CommandOutcome.Completed).reply)
+            assertEquals(listOf(Triple("grammar", "completed", false)), result.triples)
+            assertEquals(emptyList<String>(), result.codes)
+            assertEquals(listOf(1, 0, 0), listOf(grammar, single, agentic).map { it.executions })
+            assertEquals(0, result.fake.callCount)
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun fixedStartsMidLadderAndClimbs() = runTest {
+        NoNetworkGuard.during {
+            val carry = Any()
+            val grammar = head()
+            val single = single(carry)
+            val agentic = completing("agentic")
+
+            val result = run(listOf(grammar, single, agentic), selector = TierSelector.Fixed(StrategyId("single")))
+
+            assertEquals("ok", (result.outcome as CommandOutcome.Completed).reply)
+            assertEquals(
+                listOf(Triple("single", "escalated", false), Triple("agentic", "completed", true)),
+                result.triples,
+            )
+            assertEquals(emptyList<String>(), result.codes)
+            assertEquals(listOf(0, 1, 1), listOf(grammar, single, agentic).map { it.executions })
+            assertSame(carry, agentic.receivedCarries.single())
+            assertEquals(1, result.fake.callCount)
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.ProviderCall::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun offlineOnlyDropsTheCloudTiersAndIsCappedUnhandled() = runTest {
+        NoNetworkGuard.during {
+            val grammar = head()
+            val single = single(null)
+            val agentic = completing("agentic")
+
+            val result = run(listOf(grammar, single, agentic), policy = TierPolicy { offlineOnly = true })
+
+            val outcome = result.outcome as CommandOutcome.Unhandled
+            assertEquals(true, outcome.cappedByPolicy)
+            assertEquals(null, outcome.lastReason)
+            assertEquals(listOf("tier_skipped_policy", "tier_skipped_policy"), result.codes)
+            assertEquals(
+                listOf("single" to "tier_skipped_policy", "agentic" to "tier_skipped_policy"),
+                result.skips,
+            )
+            assertEquals(listOf(Triple("grammar", "no_match", false)), result.triples)
+            assertEquals(listOf(1, 0, 0), listOf(grammar, single, agentic).map { it.executions })
+            assertEquals(0, result.fake.callCount)
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierSkipped::class,
+                    PipelineEvent.TierSkipped::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun maxTierCapsTheLadder() = runTest {
+        NoNetworkGuard.during {
+            val grammar = head()
+            val single = single(null)
+            val agentic = completing("agentic")
+
+            val result = run(listOf(grammar, single, agentic), policy = TierPolicy { maxTier = StrategyId("single") })
+
+            val outcome = result.outcome as CommandOutcome.Unhandled
+            assertEquals(true, outcome.cappedByPolicy)
+            assertTrue(outcome.lastReason is EscalationReason.NoToolCall)
+            assertEquals(listOf("tier_skipped_policy"), result.codes)
+            assertEquals(listOf("agentic" to "tier_skipped_policy"), result.skips)
+            assertEquals(
+                listOf(Triple("grammar", "no_match", false), Triple("single", "escalated", false)),
+                result.triples,
+            )
+            assertEquals(listOf(1, 1, 0), listOf(grammar, single, agentic).map { it.executions })
+            assertEquals(1, result.fake.callCount)
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierSkipped::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.ProviderCall::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun aNoMatchStartsTheNextTierFresh() = runTest {
+        NoNetworkGuard.during {
+            val carry = Any()
+            val single = single(carry)
+            val mid = ScriptedStrategy(StrategyId("mid"), { _, _ -> StrategyOutcome.NoMatch() })
+            val agentic = completing("agentic")
+
+            val result = run(listOf(single, mid, agentic))
+
+            assertEquals("ok", (result.outcome as CommandOutcome.Completed).reply)
+            assertSame(carry, mid.receivedCarries.single())
+            assertEquals(null, agentic.receivedCarries.single())
+            assertEquals(
+                listOf(
+                    Triple("single", "escalated", false),
+                    Triple("mid", "no_match", true),
+                    Triple("agentic", "completed", false),
+                ),
+                result.triples,
+            )
+            assertEquals(emptyList<String>(), result.codes)
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.ProviderCall::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun anEscalationAfterAWriteIsSuppressed() = runTest {
+        NoNetworkGuard.during {
+            val write = FakeMutation("write_tool", StepResult("done", false, "ok", emptyMap()))
+            val grammar = head()
+            val writer = ScriptedStrategy(
+                StrategyId("single"),
+                { _, session ->
+                    session.submit(ToolStep.Mutation(write))
+                    StrategyOutcome.Escalate(EscalationReason.NoToolCall(), null)
+                },
+            )
+            val agentic = completing("agentic")
+
+            val result = run(listOf(grammar, writer, agentic))
+
+            val outcome = result.outcome as CommandOutcome.Completed
+            assertEquals(true, outcome.partial)
+            assertEquals(null, outcome.reply)
+            assertEquals(listOf("escalation_suppressed"), result.codes)
+            assertEquals(
+                listOf(Triple("grammar", "no_match", false), Triple("single", "escalation_suppressed", false)),
+                result.triples,
+            )
+            assertTrue(outcome.trace.attempts.last().suppressedEscalation is EscalationReason.NoToolCall)
+            assertEquals(1, write.applyCount)
+            assertEquals(listOf(1, 1, 0), listOf(grammar, writer, agentic).map { it.executions })
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.ActionRecorded::class,
+                    PipelineEvent.EngineCode::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun aWholeLadderPolicyRefusalFailsBeforeAnyTier() = runTest {
+        NoNetworkGuard.during {
+            val single = single(null)
+            val agentic = completing("agentic")
+
+            val result = run(listOf(single, agentic), policy = TierPolicy { offlineOnly = true })
+
+            val outcome = result.outcome as CommandOutcome.Failed
+            assertEquals(FailureReason.ProviderUnavailable(ProviderId.ON_DEVICE, "offline_unavailable"), outcome.reason)
+            assertEquals(
+                listOf("tier_skipped_policy", "tier_skipped_policy", "offline_unavailable"),
+                result.codes,
+            )
+            assertEquals(emptyList<Triple<String, String, Boolean>>(), result.triples)
+            assertEquals(listOf(0, 0), listOf(single, agentic).map { it.executions })
+            assertEquals(0, result.fake.callCount)
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierSkipped::class,
+                    PipelineEvent.TierSkipped::class,
+                    PipelineEvent.EngineCode::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                result.events,
+            )
+        }
+    }
+
+    @Test
+    fun linearAndFixedStartOnlyAtAnEligibleTier() = runTest {
+        NoNetworkGuard.during {
+            val policy = TierPolicy { allowedProviders = setOf(ProviderId.ANTHROPIC) }
+            val dropped = completing("dropped", StrategyCapabilities(setOf(ProviderId.OPENAI)))
+            val kept = completing("kept")
+            val last = completing("last")
+
+            val linear = run(listOf(dropped, kept, last), policy = policy)
+
+            assertEquals("ok", (linear.outcome as CommandOutcome.Completed).reply)
+            assertEquals(listOf(Triple("kept", "completed", false)), linear.triples)
+            assertEquals(listOf("tier_skipped_policy"), linear.codes)
+            assertEquals(listOf(0, 1, 0), listOf(dropped, kept, last).map { it.executions })
+
+            val fixed = run(
+                listOf(dropped, kept, last),
+                selector = TierSelector.Fixed(StrategyId("dropped")),
+                policy = policy,
+            )
+
+            assertEquals(FailureReason.NoEligibleTier(), (fixed.outcome as CommandOutcome.Failed).reason)
+            assertEquals(emptyList<Triple<String, String, Boolean>>(), fixed.triples)
+            assertEquals(listOf("tier_skipped_policy"), fixed.codes)
+            assertEquals(listOf(0, 1, 0), listOf(dropped, kept, last).map { it.executions })
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierSkipped::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                fixed.events,
             )
         }
     }
