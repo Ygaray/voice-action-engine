@@ -168,3 +168,25 @@ Phase 20:
 - **OI-8 keystore dump.** The isolated `keystore` dump holds 9 lines the committed `keystore/api.txt` lacks
   (`DelicateKeyAccess`, `KeyAccess`, the opt-in constructor). They pre-date Phase 17 (Phase 12); they only matter to
   Phase 20's regenerate and compat gates.
+
+## Gate results
+
+Run on 2026-10-06 at HEAD 5dbc89a (the last commit that touched code or docs under test; the commits after it only add
+planning files), one Gradle job at a time, offline, with the host-safe recipe (single-use daemon, 2 workers, no
+parallelism, in-process Kotlin compiler, 1536 MB heap).
+
+| Command | Result |
+|---|---|
+| `./gradlew --offline --no-daemon -q check` (every module: tests, detekt, scans, Metalava compat, module graph, zero deps, OkHttp legs, sample unit tests and lint) | exit 0, no failure output |
+| `scripts/verify-module-manifest.sh` | `MODULE MANIFEST OK modules=core,providers,keystore,undo` |
+| `scripts/verify-repo-hygiene.sh` | `HYGIENE OK` |
+| `scripts/verify-docs-coverage.sh` | `DOC COVERAGE OK checks=25 types=107` |
+| `scripts/verify-release-manifest.sh` | `RELEASE MANIFEST PROOF OK cases=8` |
+| `scripts/api-dump-isolated.sh --out <scratch>` | `API DUMP ISOLATED OK core=1956 providers=121 keystore=76 undo=191` |
+| `git diff --quiet 147a959 -- core/api.txt providers/api.txt keystore/api.txt providers/src/main keystore/src/main` | exit 0 (baselines and the untouched modules' main sources are identical) |
+| `test "$(cat undo/api.txt)" = "// Signature format: 4.0"` | exit 0 (still the header-only seed) |
+| `coreAllowed` block of `gradle/invariants.gradle.kts` against 147a959 | identical (no `:core` dependency was added) |
+
+Not run here, by design (host memory): the full negative-control suite with its ML-denial part, `scripts/verify-api-dump.sh`
+and the clean-cache `scripts/jitpack-dry-run.sh`. They wait for the quiet window requested in `17-QUIET-WINDOW.md`
+(plan 17-10).
