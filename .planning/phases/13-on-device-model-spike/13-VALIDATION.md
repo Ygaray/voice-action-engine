@@ -2,9 +2,9 @@
 phase: "13"
 slug: "on-device-model-spike"
 # status lifecycle: draft (seeded by plan-phase) -> validated (set by validate-phase)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-05"
 ---
 
@@ -94,3 +94,24 @@ Requirement-level map (task rows are bound to concrete plan tasks by the plan fi
 - [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` - leave `false` at plan time
 
 **Approval:** pending (finalizer-owned, not set at plan time)
+
+
+---
+
+## Validation Audit 2026-10-06 (red disposition, non-interactive)
+
+Disposition is RED: the `spike-ondevice` harness and its unit tests were deliberately deleted by plan 13-10. The rows above that name `:spike-ondevice:*` tests, the harness build, and the device runner were exercised during execution and are now N/A by design (no live target). They are not automatable gaps.
+
+| Req | Live automated coverage | Result |
+|-----|-------------------------|--------|
+| SPIKE-01 | Evidence committed under `evidence/`; `scripts/verify-spike-verdict.sh --check` (SHA e362fb228b) recomputes the verdict from it | `SPIKE_VERDICT_CHECK: OK lines=4` |
+| SPIKE-02 | Same script reproduces `13-VERDICT.md`; `13-VERDICT-MESSAGE.md` present; relay is manual-only (orchestrator) | OK / manual |
+| SPIKE-03 (red) | `scripts/verify-repo-hygiene.sh`, `scripts/verify-ml-denial-controls.sh` (8 plants), `scripts/verify-spike-disposition.sh removed` | `HYGIENE OK`, `ML DENIAL CONTROLS OK plants=8` |
+| SC4 | `:core NoHardCodedConstantsTest`, dependency allowlist, `verifyNoMlArtifacts` (Gradle; run green earlier in the phase, not re-run in this audit due to host memory) | green (prior run) |
+| SPIKE-03 (green) | N/A: `:ondevice` not shipped under red | n/a |
+
+Gaps: 0 automatable. Escalated: 0. Manual-only: TESTER measurement window (done, evidenced) and verdict relay.
+
+Caveat (WARNING): the Gradle-based SC4 gates were not re-run during this audit.
+
+**Approval:** validated 2026-10-06 (Nyquist finalizer)
