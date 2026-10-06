@@ -57,6 +57,11 @@ private const val REPLAN_LIMIT = 1
  *
  * Every action a step records carries the provider id of the planning call, at a distinct, rising position.
  *
+ * The tier is gate-per-step with no resume: steps after a hold are not run. A hold with nothing committed hands the
+ * command up and the engine stops the ladder there; a hold after a commit ends the command as a partial completion
+ * that keeps the commits. Either way the ids of the steps that never ran are on the outcome, and committing the held
+ * proposal later applies that proposal only.
+ *
  * Build one with `PlanThenExecuteStrategy(id) { ... }`; the builder requires [Builder.tooling] and [Builder.executor].
  */
 public class PlanThenExecuteStrategy internal constructor(
@@ -246,9 +251,10 @@ private class PlanFlow(
         val run = PlanRun(session, attempt.input, executor, attempt.snapshot, calls.first().id)
         val stop = run.run(plan)
         if (stop is RunStop.StepFailed && canReplan(run.worked)) return replan(message, STEP_FAILED_REASON, stop.index)
-        val outcome = outcomeOf(stop, session.carry)
+        val remaining = plan.steps.drop(run.preparedSteps).map { it.id }
+        val outcome = outcomeOf(stop, session.carry, run, remaining)
         return if (dropped && outcome is StrategyOutcome.Completed) {
-            StrategyOutcome.Completed(outcome.reply, outcome.terminalCall, true)
+            StrategyOutcome.Completed(outcome.reply, outcome.terminalCall, true, outcome.remainingStepIds)
         } else {
             outcome
         }

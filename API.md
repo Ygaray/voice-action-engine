@@ -220,6 +220,12 @@ has a stable `code`.
   any step runs; a key the earlier step did not return stops the plan before that step. A plan that sets
   `needs_lookup`, or lists a read tool as a step, hands the command to the next tier with nothing run, carrying the
   incoming carry unchanged (`plan_needs_lookup`).
+  The tier stops at the first held step, and steps after a hold are not run. A hold always ends the command as a
+  partial completion (`Completed(partial = true)`): the commits made before it are kept, the held proposal is in `held`,
+  and a hold with nothing committed yet ends the same way, so no later tier ever repeats a write.
+  `Completed.remainingStepIds` lists the planned steps that never ran, in plan order (the held step itself is in
+  `held`, not listed). `commitHeld` applies that proposal only and never runs the remaining steps; its outcome lists
+  none.
 - `LocalGrammarStrategy(id) { pack, resolver }`: the free, offline grammar tier (no provider call, `NO_PROVIDER`).
   `GrammarPack { tryOtherLanguage; enFillers/esFillers; enRule/esRule; intent(tool) { integer, decimal, choice, text,
   normalize, terminal, en, es } }` declares the phrasings. A template is words, `[optional]`, `(a|b)`, `{slot}` and
@@ -316,7 +322,7 @@ The constructors and members that integrators write or read most often, in one p
 | `AssistantPart.Text(text: String)`, `AssistantPart.ToolCall(id: String, name: String, arguments: JsonObject)` | `core.transcript` | The two kinds of part in an assistant turn. |
 | `StopReason.END_TURN`, `TOOL_USE`, `MAX_TOKENS`, `REFUSAL`, `PAUSE_TURN`, `CONTEXT_WINDOW_EXCEEDED`, `OTHER` | `core.transcript` | Why a model stopped (**open**). |
 | `Usage(inputUncached: Long, cacheRead: Long, cacheWrite: Long, output: Long)` | `core.telemetry` | Tokens in four buckets, in this order. |
-| `CommandOutcome.Completed.reply` (`String?`), `.terminalCall`, `.partial` | `core.pipeline` | The tier's text answer, a terminal call, and the partial flag. |
+| `CommandOutcome.Completed.reply` (`String?`), `.terminalCall`, `.partial`, `.remainingStepIds` (`List<String>`) | `core.pipeline` | The tier's text answer, a terminal call, the partial flag, and the planned steps a plan tier never ran, in plan order (empty for every other tier). |
 | `CommandOutcome.Failed.reason`, `CommandOutcome.Unhandled.lastReason` | `core.pipeline` | The `FailureReason`, or the last `EscalationReason?`. |
 | `Extraction(toolName: String, arguments: JsonObject, callId: String?)` | `core.strategy` | What a resolver receives; `callId` is the provider's tool-call id, or null. `Extraction.matchedLanguage` is `"en"`/`"es"` for a grammar match, null for a model tier and for a cross-pack agreement (both packs matched the same tool with no language label); callers that key reply templates off it must fall back to their own locale when it is null. |
 | `CommitSink.onRunClosed(runId: String, termination: RunTermination)` | `core.commit` | Called once when a run closes (`suspend`). |

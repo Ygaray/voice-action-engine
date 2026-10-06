@@ -23,8 +23,8 @@ internal sealed class RunStop {
     /** Every step ran and committed. */
     object Done : RunStop()
 
-    /** A step was held by the gate; [last] is true when it was the plan's last step. */
-    class Held(val last: Boolean) : RunStop()
+    /** A step was held by the gate; no later step is prepared. */
+    object Held : RunStop()
 
     /** The step at [index] did not commit and was not held. */
     class StepFailed(val index: Int) : RunStop()
@@ -34,15 +34,25 @@ internal sealed class RunStop {
 }
 
 /**
- * The outcome a stop gives the tier. Every stop after a step ran is an escalation, never a failure, so the engine
- * suppresses it once a step applied or was held; [carry] is the incoming carry, forwarded unchanged.
+ * The outcome a stop gives the tier, with [remaining] the ids of the planned steps the run never handed to the
+ * executor. Every stop after a step ran is an escalation, never a failure, so the engine suppresses it once a step
+ * applied or was held; [carry] is the incoming carry, forwarded unchanged. The one exception is a hold after at least
+ * one committed step: a later tier would run the committed steps again, so that stop is a terminal partial completion
+ * that keeps the commits, and the held proposal stays in the outcome for confirmation. The choice reads the run's
+ * committed steps, never the held step's position in the plan.
  */
-internal fun outcomeOf(stop: RunStop, carry: Any?): StrategyOutcome =
+internal fun outcomeOf(stop: RunStop, carry: Any?, run: PlanRun, remaining: List<String>): StrategyOutcome =
     when (stop) {
         is RunStop.Done -> StrategyOutcome.Completed(null)
-        is RunStop.Held -> StrategyOutcome.Escalate(EscalationReason.Other(STEP_HELD_CODE), carry)
-        is RunStop.StepFailed -> StrategyOutcome.Escalate(EscalationReason.Other(STEP_FAILED_CODE), carry)
-        is RunStop.BindingUnresolved -> StrategyOutcome.Escalate(EscalationReason.Other(BINDING_UNRESOLVED_CODE), carry)
+        is RunStop.Held ->
+            if (run.committedSteps > 0) {
+                StrategyOutcome.Completed(null, null, true, remaining)
+            } else {
+                StrategyOutcome.Escalate(EscalationReason.Other(STEP_HELD_CODE), carry, remaining)
+            }
+        is RunStop.StepFailed -> StrategyOutcome.Escalate(EscalationReason.Other(STEP_FAILED_CODE), carry, remaining)
+        is RunStop.BindingUnresolved ->
+            StrategyOutcome.Escalate(EscalationReason.Other(BINDING_UNRESOLVED_CODE), carry, remaining)
     }
 
 /**
@@ -59,6 +69,14 @@ internal class PlanRun(
 ) {
     /** True once any step was applied or held, so a later stop must not let another tier run the command again. */
     var worked: Boolean = false
+        private set
+
+    /** How many steps were handed to the executor; a step stopped by an unresolved reference is never counted. */
+    var preparedSteps: Int = 0
+        private set
+
+    /** How many steps committed: their dispatch recorded at least one action and every action was committed. */
+    var committedSteps: Int = 0
         private set
 
     /** Runs [plan]'s steps and says why the run stopped. */
@@ -79,7 +97,7 @@ internal class PlanRun(
         currentCoroutineContext().ensureActive()
         val step = plan.steps[index]
         val bound = bindArguments(step.arguments, results)
-        return if (bound == null) unresolved() else dispatch(plan, index, step, bound)
+        return if (bound == null) unresolved() else dispatch(index, step, bound)
     }
 
     private suspend fun unresolved(): RunStop {
@@ -87,15 +105,19 @@ internal class PlanRun(
         return RunStop.BindingUnresolved
     }
 
-    private suspend fun dispatch(plan: ParsedPlan, index: Int, step: PlanStep, arguments: JsonObject): RunStop? {
+    private suspend fun dispatch(index: Int, step: PlanStep, arguments: JsonObject): RunStop? {
         val spec = snapshot.tools.first { it.name == step.tool }
+        preparedSteps++
         val prepared = prepareGuarded(session, spec, executor, input, Extraction(step.tool, arguments, callId))
         val dispatch = session.submit(prepared, callId)
         worked = worked || dispatch.held || dispatch.actions.any { it.applied }
         val committed = dispatch.actions.isNotEmpty() && dispatch.actions.all { it.kind == ActionKind.COMMITTED }
-        if (committed) results[step.id] = mergeTargets(dispatch.actions)
+        if (committed) {
+            committedSteps++
+            results[step.id] = mergeTargets(dispatch.actions)
+        }
         return when {
-            dispatch.held -> RunStop.Held(index == plan.steps.lastIndex)
+            dispatch.held -> RunStop.Held
             committed -> null
             else -> RunStop.StepFailed(index)
         }
