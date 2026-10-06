@@ -26,6 +26,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.AssistantMessage
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
+import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import java.time.Clock
@@ -224,10 +225,16 @@ private class PlanFlow(
 
     private suspend fun handle(result: ModelResult): StrategyOutcome {
         val message = (result as? ModelResult.Success)?.response?.message
-        val early = decideResult(result, hooks) ?: ceilingCrossed(session)
+        val early = truncated(result) ?: decideResult(result, hooks) ?: ceilingCrossed(session)
         // decideResult returned null only for a successful answer that holds at least one tool call.
         return early ?: message?.let { verdictOutcome(it) } ?: malformed()
     }
+
+    // A plan cut off by the token limit is never read, whatever it holds: a partial plan must not run, and asking again
+    // at the same size would truncate again. Another tier may take the command, so it escalates, unlike SingleShot,
+    // which fails a truncated answer. Pause and context-window stops stay on decideResult's shared failure path.
+    private fun truncated(result: ModelResult): StrategyOutcome? =
+        if (result is ModelResult.Success && result.response.stopReason == StopReason.MAX_TOKENS) malformed() else null
 
     private suspend fun verdictOutcome(message: AssistantMessage): StrategyOutcome =
         when (val verdict = parsePlan(message.toolCalls, attempt.snapshot, maxSteps)) {
