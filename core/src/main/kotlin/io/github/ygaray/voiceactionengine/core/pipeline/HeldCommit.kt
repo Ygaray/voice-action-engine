@@ -58,7 +58,7 @@ internal class HeldCommit(
     private fun open(held: HeldProposal): ChildRun {
         val runId = runIds()
         val recorder = RunRecorder(runId, held.runId, null, 0, clock, listener)
-        return ChildRun(runId, held, CommitCoordinator(runId, held.runId, gate, sink, recorder), recorder)
+        return ChildRun(runId, held, CommitCoordinator(runId, held.runId, held.runId, gate, sink, recorder), recorder)
     }
 
     private suspend fun run(child: ChildRun, mutations: List<PendingMutation>): CommandOutcome {

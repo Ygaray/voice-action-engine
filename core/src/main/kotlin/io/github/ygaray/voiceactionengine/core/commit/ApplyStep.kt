@@ -43,11 +43,13 @@ internal class AppliedChange(
 
 /**
  * Hands recorded actions to the app's sink. Delivery runs to completion even when the run is being cancelled, so the
- * undo journal hears about every write. A sink that throws is recorded as a trace code; nothing is retried.
+ * undo journal hears about every write. Each event names [heldRunId] when the run applies a held change. A sink that
+ * throws is recorded as a trace code; nothing is retried.
  */
 internal class ActionDelivery(
     private val runId: String,
     private val parentRunId: String?,
+    private val heldRunId: String?,
     private val sink: CommitSink,
     private val recorder: RunRecorder,
 ) {
@@ -55,7 +57,7 @@ internal class ActionDelivery(
     suspend fun deliver(action: ExecutedAction) {
         withContext(NonCancellable) {
             guardedUncancellable(onFault = { recorder.recordCode(TraceCode.SINK_ERROR) }) {
-                sink.onAction(ActionEvent(runId, parentRunId, action))
+                sink.onAction(ActionEvent(runId, parentRunId, action, heldRunId))
             }
         }
     }

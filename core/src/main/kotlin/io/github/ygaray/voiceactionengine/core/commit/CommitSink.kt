@@ -25,13 +25,19 @@ public interface CommitSink {
  * @property runId the id of the run.
  * @property parentRunId the id of the earlier run this command answers, or null.
  * @property action what happened.
+ * @property heldRunId the id of the run whose held change this action applies: set only on actions applied by
+ * commitHeld, where it equals the held proposal's runId; null on every other run.
  */
 public class ActionEvent internal constructor(
     public val runId: String,
     public val parentRunId: String?,
     public val action: ExecutedAction,
+    public val heldRunId: String?,
 ) {
-    override fun toString(): String = "ActionEvent(runId=$runId, parentRunId=$parentRunId, action=$action)"
+    /** Prints only whether a held run id is set, never its value. */
+    override fun toString(): String =
+        "ActionEvent(runId=$runId, parentRunId=$parentRunId, heldRunId=${if (heldRunId == null) "null" else "set"}, " +
+            "action=$action)"
 }
 
 /**

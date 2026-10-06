@@ -34,6 +34,7 @@ internal fun gateFaultContent(): String = GATE_FAULT
 internal class CommitCoordinator(
     private val runId: String,
     private val parentRunId: String?,
+    heldRunId: String?,
     gate: PreApplyGate,
     sink: CommitSink,
     private val recorder: RunRecorder,
@@ -44,7 +45,7 @@ internal class CommitCoordinator(
     private var closed = false
     private val ledger = ActionLedger(recorder)
     private val gateStep = GateStep(gate, recorder)
-    private val delivery = ActionDelivery(runId, parentRunId, sink, recorder)
+    private val delivery = ActionDelivery(runId, parentRunId, heldRunId, sink, recorder)
     private val applyStep = ApplyStep(ledger, delivery, recorder)
 
     /**

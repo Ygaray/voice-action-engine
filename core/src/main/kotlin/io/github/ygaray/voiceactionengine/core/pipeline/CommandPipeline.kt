@@ -85,7 +85,7 @@ public class CommandPipeline internal constructor(
     private fun startRun(input: CommandInput): StartedRun {
         val runId = runIds()
         val recorder = RunRecorder(runId, input.parentRunId, input.language, input.transcript.length, clock, listener)
-        return StartedRun(runId, recorder, CommitCoordinator(runId, input.parentRunId, gate, sink, recorder))
+        return StartedRun(runId, recorder, CommitCoordinator(runId, input.parentRunId, null, gate, sink, recorder))
     }
 
     private suspend fun drive(input: CommandInput, started: StartedRun): CommandOutcome {
