@@ -95,3 +95,10 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 16-start-tier-selection*
+
+## Runtime Decisions
+
+- **[carry] refreshed (2026-10-06, ai-auto; dependency P14 complete):** Unchanged against the real code: the pre-pass is the whole zero-call head (e.g. P14 LocalGrammarStrategy, core/strategy/grammar/) run after policy through the existing private TierWalk.runTier (pipeline/TierWalk.kt:71), with suppression, gate and trace unchanged, and its carry passes unchanged to the picked tier. Linear/Fixed keep the v1.0.1 code path; Custom/Router share one internal PickingSelector branch; a characterization test pins the v1.0.1 Linear trace before TierWalk.run is edited.
+- **[eligible] refreshed (2026-10-06, ai-auto; dependency P13 complete, RED):** Keep the rule, but note that P13 came back RED (small and sb both red; nothing shipped, SPIKE-03 N/A-deferred), so no on-device SingleShot exists in v1.1. The picker still declares its own providers and is not called when policy forbids all of them. That is now a defensive guarantee (offline-only never calls the picker, which is SB requirement), tested with a fake ON_DEVICE-only policy rather than a real on-device provider.
+- **[router] refreshed (2026-10-06, ai-auto; dependency P12 complete):** Forced-enum tool via the selection seam; pin ReasoningMode.OFF (P12 transcript/ReasoningMode.kt:21, the default) on the router call, because forced tool_choice is incompatible with thinking. Prompt wording researched at plan time.
+- **RT-01 [step-id-cap] (2026-10-06, orchestrator 3b pre-tag ruling on P15 IN-05):** Cap PlanThenExecute step ids at 64 chars. A plan with a longer id is a parse failure and goes down the existing malformed-plan path (Escalate MalformedExtraction / NoMatch, as that path does today). Add one test. Fold it into P16 work, before the tag. Separately, P15 OI-1 follow-up is ruled DO NOT NARROW: remainingStepIds stays filled on any non-complete terminal partial (hold or failure).

@@ -88,3 +88,7 @@ None — discussion stayed within phase scope
 ---
 
 *Phase: 20-cut-v1-1-0*
+
+## Runtime Decisions
+
+- **RT-01 [dedupe-constants] (2026-10-06, orchestrator 3b pre-tag ruling on P15 IN-02):** Before the cut, dedupe the frozen plan field-name constants duplicated across PlanParse.kt and PlanSchema.kt, but ONLY if it is a trivial one-line cleanup with no API or behavior change; otherwise leave it. It must land before the wiring SHA (D-09: no doc or code edits after it).

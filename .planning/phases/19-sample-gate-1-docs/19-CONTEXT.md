@@ -104,3 +104,7 @@ Operator-reviewed decision(s) here (source: human) — treat them as locked: [le
 ---
 
 *Phase: 19-sample-gate-1-docs*
+
+## Runtime Decisions
+
+- **RT-01 [ref-regex-doc] (2026-10-06, orchestrator 3b pre-tag ruling on P15 IN-04):** Accept the ASCII-only \s in the plan reference regex, since a missed near-reference stays literal, which is the safe direction. Document this in API.md (the PlanThenExecute reference-syntax section) at the wiring SHA.
