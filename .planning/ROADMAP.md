@@ -316,7 +316,37 @@ Plans:
   4. When policy leaves no eligible LLM tier (for example offline-only), the picker is never called and no router model call is made. The walk records `router_fallback` and proceeds as Linear (SB condition).
   5. `TierSelector.Router(...)` is built on the same seam and is off by default: an app that doesn't opt in walks exactly as v1.0's Linear. When it's on, telemetry reports the tiers it saved versus a Linear walk.
 
-**Plans**: TBD
+**Plans**: 7 plans (7 waves, serial: one Gradle-running plan per wave; all autonomous, JVM-only, no device or live spend)
+
+Plans:
+**Wave 1**
+
+- [ ] 16-01-PLAN.md — Wave-0 guard: v1.0.1 Linear/Fixed walk pinned whole (TierWalkLinearCharacterizationTest, before any TierWalk edit) + RT-01 64-char step-id cap
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 16-02-PLAN.md — End-to-end tracer: TierSelector.Custom(picker), zero-call head pre-pass, LLM-only eligible ids, PickContext budget; separate CommandTrace.selection record (D-02) with tiersBypassed
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 16-03-PLAN.md — Custom Builder (picker id + providers via the app's selection seam), build-time id-collision check, StartTierSelected event, router_fallback pin, API.md rows
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 16-04-PLAN.md — Picker timeout (TierPolicy.pickerTimeoutMillis, 2 s), fallback matrix (null/ineligible/throw/timeout), cancellation propagates, in-flight pick flushed to the trace
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 16-05-PLAN.md — Picker obeys the tiers' policy rule (offline-only never calls it; fake ON_DEVICE-only tier), ROUT-04 matrix, pre-pass matrix with the real P14 grammar head
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 16-06-PLAN.md — Opt-in TierSelector.Router: one forced pick_start_tier call, ReasoningMode.OFF, byte-pinned prompt/schema/decoder, single-tier skip, redaction sweep
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 16-07-PLAN.md — INTEGRATION.md/API.md wiring prose, frozen-surface review vs the real Metalava dump (open items OI-1..OI-9), full phase gate
+
 **Research flag**: medium. Open items: the Router's classifier prompt and default cheap model (from policy, never hard-coded); how "tiers saved versus Linear" is counted without running Linear.
 
 #### Phase 17: Run-Level Undo
