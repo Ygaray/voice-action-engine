@@ -23,3 +23,5 @@ dependencyResolutionManagement {
 rootProject.name = "voice-action-engine"
 
 include(":core", ":providers", ":keystore", ":sample")
+// Unpublished Phase 13 on-device spike; deleted at disposition (a one-line revert).
+include(":spike-ondevice")

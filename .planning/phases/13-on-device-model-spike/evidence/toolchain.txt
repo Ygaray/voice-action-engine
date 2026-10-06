@@ -1,0 +1,4 @@
+# spike toolchain captured_utc=2026-10-06T00:01:34Z head=f65310df1a
+VAE_SPIKE_TOOLCHAIN kind=compile pin=0.17.1 result=ok kotlin=2.3.20 agp=9.2.1
+VAE_SPIKE_TOOLCHAIN kind=dex pin=0.17.1 result=ok min_api=35
+VAE_SPIKE_TOOLCHAIN kind=zipalign pin=0.17.1 result=ok page=16k
