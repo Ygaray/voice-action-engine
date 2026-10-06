@@ -92,3 +92,5 @@ None — discussion stayed within phase scope
 ## Runtime Decisions
 
 - **RT-01 [dedupe-constants] (2026-10-06, orchestrator 3b pre-tag ruling on P15 IN-02):** Before the cut, dedupe the frozen plan field-name constants duplicated across PlanParse.kt and PlanSchema.kt, but ONLY if it is a trivial one-line cleanup with no API or behavior change; otherwise leave it. It must land before the wiring SHA (D-09: no doc or code edits after it).
+
+- **RT-02 [undo-seed-reds] (2026-10-06, orchestrator 3b):** Phase 20 OWNS the deliberate reds from P17 17-04: release-cut gates 10 and 12 plus selftest step 4 fail for the new undo seed until P20 adds its new-module branch (see 17-SURFACE-REVIEW.md). The P20 plan MUST include a task that adds that branch and a check that gates 10/12 and selftest step 4 are green again before the cut.
