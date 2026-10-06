@@ -13,6 +13,7 @@ internal class Step(
     val adapter: EntityAdapter,
     val expectedFingerprint: String?,
     val snapshot: Any?,
+    val order: Int,
 ) {
     fun failure(reason: UndoReason, errorClass: String?): NotRestored =
         NotRestored(entry.ref, key, null, reason, errorClass)
@@ -52,9 +53,8 @@ private class PlanBuilder {
                     .thenBy { it.blocker.reason.value },
             )
             .map { it.blocker }
-        val ordered = steps.sortedWith(
-            compareByDescending<Step> { it.entry.sequence }.thenBy { it.key.type }.thenBy { it.key.id },
-        )
+        // Newest action first and, inside one action, the entity captured last first: the reverse of the writes.
+        val ordered = steps.sortedWith(compareByDescending<Step> { it.entry.sequence }.thenByDescending { it.order })
         return Plan(blockers, ordered, satisfied)
     }
 }
@@ -122,7 +122,16 @@ internal class Verifier(private val adapters: Map<String, EntityAdapter>) {
             unsettled != null -> plan.block(unsettled.entry, key, UndoReason.UNVERIFIABLE)
             broken.isNotEmpty() -> broken.forEach { (_, next) -> plan.block(next.entry, key, UndoReason.CHAIN_BROKEN) }
             live == latest.capture.afterFingerprint ->
-                plan.steps.add(Step(latest.entry, key, adapter, live, links.first().capture.snapshot))
+                plan.steps.add(
+                    Step(
+                        latest.entry,
+                        key,
+                        adapter,
+                        live,
+                        links.first().capture.snapshot,
+                        latest.entry.data.captures.indexOf(latest.capture),
+                    ),
+                )
             else -> plan.block(latest.entry, key, UndoReason.CHANGED_SINCE)
         }
     }

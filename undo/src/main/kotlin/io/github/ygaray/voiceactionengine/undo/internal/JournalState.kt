@@ -24,6 +24,10 @@ internal class Entry(
     val keys: Set<EntityKey>
         get() = data.captures.map { it.key }.toSet()
 
+    /** Every entity this action captured, created or declared as touched. */
+    val footprint: Set<EntityKey>
+        get() = keys + data.touches
+
     override fun toString(): String = "Entry(sequence=$sequence, failed=$failed, undone=$undone)"
 }
 
@@ -75,22 +79,27 @@ internal class JournalState {
         }
     }
 
-    /** Marks [done] restored on each of [entries], and returns those now fully undone. */
-    fun markRestored(entries: List<Entry>, done: Set<EntityKey>): List<Entry> = synchronized(lock) {
-        for (entry in entries) {
-            entry.restoredKeys.addAll(entry.keys.filter { it in done })
-            if (entry.restoredKeys.containsAll(entry.keys)) entry.undone = true
+    /** Marks [done] restored on each of [entries]. An entry with every entity restored is undone. */
+    fun markRestored(entries: List<Entry>, done: Set<EntityKey>) {
+        synchronized(lock) {
+            for (entry in entries) {
+                entry.restoredKeys.addAll(entry.keys.filter { it in done })
+                if (entry.restoredKeys.containsAll(entry.keys)) entry.undone = true
+            }
         }
-        entries.filter { it.undone }
     }
+
+    /** The entries of [entries] that are now fully undone. */
+    fun finished(entries: List<Entry>): List<Entry> = synchronized(lock) { entries.filter { it.undone } }
 }
 
-/** The journal's undo of one group: verify the whole scope, then restore. */
+/** The journal's undo of one group: verify the whole scope, restore the entities, and report exactly what happened. */
 internal class UndoPass(
     private val state: JournalState,
     adapters: Map<String, EntityAdapter>,
 ) {
     private val verifier = Verifier(adapters)
+    private val restorer = Restorer(state)
 
     suspend fun run(groupKey: String): UndoResult {
         val scope = state.scopeOf(groupKey)
@@ -105,26 +114,16 @@ internal class UndoPass(
     private suspend fun restore(pending: List<PendingEntry>): UndoResult {
         val plan = verifier.verify(pending)
         if (plan.blockers.isNotEmpty()) return UndoResult.Refused(plan.blockers)
-        val done = HashSet(plan.satisfied)
-        val notRestored = ArrayList<NotRestored>()
-        for (step in plan.steps) {
-            val failure =
-                if (notRestored.isEmpty()) attempt(step) else step.failure(UndoReason.SKIPPED_AFTER_FAILURE, null)
-            if (failure == null) done.add(step.key) else notRestored.add(failure)
+        val entries = pending.map { it.entry }
+        state.markRestored(entries, plan.satisfied)
+        val outcome = restorer.run(plan.steps, entries, Footprints(entries))
+        val restored = state.finished(entries).sortedByDescending { it.sequence }.map { it.ref }
+        return if (outcome.notRestored.isEmpty()) {
+            UndoResult.Complete(restored)
+        } else {
+            UndoResult.Partial(restored, outcome.notRestored)
         }
-        val undone = state.markRestored(pending.map { it.entry }, done)
-        val restored = undone.sortedByDescending { it.sequence }.map { it.ref }
-        return if (notRestored.isEmpty()) UndoResult.Complete(restored) else UndoResult.Partial(restored, notRestored)
     }
-
-    private suspend fun attempt(step: Step): NotRestored? =
-        guardedCall(onFault = { step.failure(UndoReason.RESTORE_FAILED, it) }) {
-            if (step.adapter.restoreIf(step.key.id, step.expectedFingerprint, step.snapshot)) {
-                null
-            } else {
-                step.failure(UndoReason.CHANGED_SINCE, null)
-            }
-        }
 
     private fun refusal(reason: UndoReason): UndoResult =
         UndoResult.Refused(listOf(Blocker(null, null, reason)))
