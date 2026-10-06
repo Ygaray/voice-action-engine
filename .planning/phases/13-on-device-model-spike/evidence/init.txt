@@ -1,0 +1,9 @@
+# spike stage=init captured_utc=2026-10-06T01:56:35Z target=R5CT10XNKQN head=da93d6e94f
+VAE_SPIKE_THERMAL stage=init status=none point=start
+VAE_SPIKE_INIT model=e2b backend=cpu file=generic cold=process init_ms=22480 pss_mb=552 result=ok code=none
+VAE_SPIKE_INIT model=e2b backend=gpu file=gpu cold=first_gpu init_ms=40217 pss_mb=2949 result=ok code=none
+VAE_SPIKE_INIT model=e2b backend=gpu file=gpu cold=warm_cache init_ms=39309 pss_mb=2954 result=ok code=none
+VAE_SPIKE_GPU disposition=gpu_ok
+VAE_SPIKE_MEM stage=init peak_pss_mb=2954 interval_ms=250 samples=234
+VAE_SPIKE_THERMAL stage=init status=none point=end
+VAE_SPIKE_STAGE stage=init result=done trials=0 planned=0
