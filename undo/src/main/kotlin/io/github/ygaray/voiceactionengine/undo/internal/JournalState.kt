@@ -85,29 +85,13 @@ internal class JournalState {
     }
 }
 
-/** A blocker with the sequence of the action it names, so blockers can be put in a deterministic order. */
-internal class Finding(val sequence: Long, val blocker: Blocker)
-
-/** One write the verified plan will make. */
-internal class Step(
-    val entry: Entry,
-    val key: EntityKey,
-    val adapter: EntityAdapter,
-    val expectedFingerprint: String?,
-    val snapshot: Any?,
-) {
-    fun failure(reason: UndoReason, errorClass: String?): NotRestored =
-        NotRestored(entry.ref, key, null, reason, errorClass)
-}
-
-/** What a verification found: the blockers, or the writes to make and the entities that need none. */
-internal class Plan(val findings: List<Finding>, val steps: List<Step>, val satisfied: Set<EntityKey>)
-
 /** The journal's undo of one group: verify the whole scope, then restore. */
 internal class UndoPass(
     private val state: JournalState,
-    private val adapters: Map<String, EntityAdapter>,
+    adapters: Map<String, EntityAdapter>,
 ) {
+    private val verifier = Verifier(adapters)
+
     suspend fun run(groupKey: String): UndoResult {
         val scope = state.scopeOf(groupKey)
         val reason = scope.reason
@@ -119,8 +103,8 @@ internal class UndoPass(
     }
 
     private suspend fun restore(pending: List<PendingEntry>): UndoResult {
-        val plan = verify(pending)
-        if (plan.findings.isNotEmpty()) return UndoResult.Refused(ordered(plan.findings))
+        val plan = verifier.verify(pending)
+        if (plan.blockers.isNotEmpty()) return UndoResult.Refused(plan.blockers)
         val done = HashSet(plan.satisfied)
         val notRestored = ArrayList<NotRestored>()
         for (step in plan.steps) {
@@ -142,50 +126,6 @@ internal class UndoPass(
             }
         }
 
-    private suspend fun verify(pending: List<PendingEntry>): Plan {
-        val findings = ArrayList<Finding>()
-        val steps = ArrayList<Step>()
-        val satisfied = HashSet<EntityKey>()
-        val chains = pending.flatMap { p -> p.entry.data.captures.map { it.key to p.entry } }
-            .groupBy({ it.first }, { it.second })
-        for ((key, entries) in chains) {
-            val ordered = entries.sortedBy { it.sequence }
-            val latest = ordered.last()
-            val earliest = ordered.first()
-            val adapter = adapters[key.type]
-            if (adapter == null) {
-                findings.add(finding(latest, key, UndoReason.NO_ADAPTER))
-                continue
-            }
-            val live = guardedCall(onFault = { LIVE_FAULT }) { adapter.fingerprint(key.id) }
-            val before = earliest.data.captures.first { it.key == key }
-            val after = latest.data.captures.first { it.key == key }
-            when {
-                live == LIVE_FAULT -> findings.add(finding(latest, key, UndoReason.UNVERIFIABLE))
-                live == after.afterFingerprint -> steps.add(Step(latest, key, adapter, live, before.snapshot))
-                live == before.beforeFingerprint -> satisfied.add(key)
-                else -> findings.add(finding(latest, key, UndoReason.CHANGED_SINCE))
-            }
-        }
-        return Plan(findings, steps.sortedWith(stepOrder), satisfied)
-    }
-
-    private fun finding(entry: Entry, key: EntityKey, reason: UndoReason): Finding =
-        Finding(entry.sequence, Blocker(entry.ref, key, reason))
-
-    private fun ordered(findings: List<Finding>): List<Blocker> =
-        findings.sortedWith(
-            compareByDescending<Finding> { it.sequence }
-                .thenBy { it.blocker.entity?.type.orEmpty() }
-                .thenBy { it.blocker.entity?.id.orEmpty() },
-        ).map { it.blocker }
-
     private fun refusal(reason: UndoReason): UndoResult =
         UndoResult.Refused(listOf(Blocker(null, null, reason)))
 }
-
-// A fingerprint read that threw; it cannot collide with a real fingerprint, which an adapter returns as an opaque hash.
-private const val LIVE_FAULT = "\u0000fault"
-
-private val stepOrder: Comparator<Step> =
-    compareByDescending<Step> { it.entry.sequence }.thenBy { it.key.type }.thenBy { it.key.id }
