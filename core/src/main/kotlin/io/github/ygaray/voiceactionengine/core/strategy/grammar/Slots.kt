@@ -28,6 +28,31 @@ internal sealed class SlotSpec {
             }
     }
 
+    /** A closed list: the transcript says one synonym (in the matched language) of an option; the value is its id. */
+    class ChoiceSlot(val options: List<ChoiceOption>) : SlotSpec() {
+        override val openSpan: Boolean = false
+
+        override fun candidates(language: String, tokens: GrammarTokens, position: Int): List<SlotCandidate> =
+            options.flatMap { option ->
+                option.synonyms(language)
+                    .filter { it.keys.isNotEmpty() && spoken(tokens, position, it.keys) }
+                    .map { SlotCandidate(position + it.keys.size, JsonPrimitive(option.id)) }
+            }
+
+        private fun spoken(tokens: GrammarTokens, position: Int, keys: List<String>): Boolean =
+            position + keys.size <= tokens.tokens.size && tokens.keys(position, position + keys.size) == keys
+    }
+
+    /** Free text of one to [maxWords] words; the value is the words as spoken, case and accents kept. */
+    class TextSlot(val maxWords: Int) : SlotSpec() {
+        override val openSpan: Boolean = true
+
+        override fun candidates(language: String, tokens: GrammarTokens, position: Int): List<SlotCandidate> =
+            (position + 1..minOf(tokens.tokens.size, position + maxWords)).map { end ->
+                SlotCandidate(end, JsonPrimitive(tokens.surface(position, end)))
+            }
+    }
+
     /** A decimal number within `min..max`, always a `JsonPrimitive(Double)` so `2` and `2.0` never differ. */
     class DecimalSlot(val min: Double, val max: Double) : SlotSpec() {
         override val openSpan: Boolean = true
@@ -37,6 +62,24 @@ internal sealed class SlotSpec {
                 NumberWords.decimal(keys, language)?.toDouble()?.takeIf { it in min..max }?.let { JsonPrimitive(it) }
             }
     }
+}
+
+/** One spoken form of a choice option: its declared [text] and the folded [keys] a transcript must equal. */
+internal class Synonym(val text: String, val keys: List<String>)
+
+/** One option of a choice slot: the [id] a match carries and its synonyms per language, folded like transcripts. */
+internal class ChoiceOption(val id: String, enSynonyms: List<String>, esSynonyms: List<String>) {
+    val en: List<Synonym> = enSynonyms.map { synonymOf(it) }
+    val es: List<Synonym> = esSynonyms.map { synonymOf(it) }
+
+    /** The synonyms this option has in [language]; none for a language the library does not read. */
+    fun synonyms(language: String): List<Synonym> = when (language) {
+        "en" -> en
+        "es" -> es
+        else -> emptyList()
+    }
+
+    private fun synonymOf(text: String): Synonym = Synonym(text, tokenize(text).tokens.map { it.key })
 }
 
 /** A slot as declared on an intent: its name and its kind. */

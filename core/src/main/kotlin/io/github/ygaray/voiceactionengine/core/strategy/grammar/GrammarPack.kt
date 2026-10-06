@@ -219,6 +219,29 @@ public class GrammarPack internal constructor(settings: Builder) {
             slots.add(SlotDecl(name, SlotSpec.DecimalSlot(min, max)))
         }
 
+        /**
+         * Declares the closed-list slot [name]: [block] lists the options, each with the ways to say it in English and
+         * in Spanish. The transcript must say one of the synonyms of the language of the phrasing that matched
+         * (folded like any transcript: case and accents ignored, a synonym may be several words), and the match
+         * carries the option's id as a JSON string. Two options may not share a synonym in one language.
+         *
+         * Every option needs at least one synonym in each language the intent has phrasings for; checked when the
+         * pack is built.
+         */
+        public fun choice(name: String, block: ChoiceBuilder.() -> Unit) {
+            slots.add(SlotDecl(name, SlotSpec.ChoiceSlot(ChoiceBuilder().apply(block).options.toList())))
+        }
+
+        /**
+         * Declares the bounded free-text slot [name] of one to [maxWords] words. The words are whatever the speaker
+         * said up to the next literal word of the phrasing or the end of the transcript, never across a sentence
+         * break, and the match carries them as a JSON string exactly as spoken: case, accents and inner punctuation
+         * kept. [maxWords] must be at least 1; checked when the pack is built.
+         */
+        public fun text(name: String, maxWords: Int) {
+            slots.add(SlotDecl(name, SlotSpec.TextSlot(maxWords)))
+        }
+
         /** Adds English phrasings. */
         public fun en(vararg templates: String) {
             en.addAll(templates)
@@ -227,6 +250,33 @@ public class GrammarPack internal constructor(settings: Builder) {
         /** Adds Spanish phrasings. */
         public fun es(vararg templates: String) {
             es.addAll(templates)
+        }
+    }
+
+    /** Collects the options of one choice slot. */
+    public class ChoiceBuilder internal constructor() {
+        internal val options: MutableList<ChoiceOption> = mutableListOf()
+
+        /** Adds the option [id], the value a match carries, with the synonyms [block] declares. */
+        public fun option(id: String, block: OptionBuilder.() -> Unit) {
+            val settings = OptionBuilder().apply(block)
+            options.add(ChoiceOption(id, settings.en.toList(), settings.es.toList()))
+        }
+    }
+
+    /** Collects the synonyms of one choice option. */
+    public class OptionBuilder internal constructor() {
+        internal val en: MutableList<String> = mutableListOf()
+        internal val es: MutableList<String> = mutableListOf()
+
+        /** Adds English synonyms. */
+        public fun en(vararg synonyms: String) {
+            en.addAll(synonyms)
+        }
+
+        /** Adds Spanish synonyms. */
+        public fun es(vararg synonyms: String) {
+            es.addAll(synonyms)
         }
     }
 
