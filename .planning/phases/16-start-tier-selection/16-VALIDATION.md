@@ -1,9 +1,9 @@
 ---
 phase: "16"
 slug: start-tier-selection
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: complete
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-06"
 ---
 
@@ -40,22 +40,23 @@ Task rows are filled by the planner/executor from the PLAN.md files; requirement
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
-| guard | v1.0.1 Linear/Fixed walk unchanged | characterization | `:core:test --tests '*TierWalkLinearCharacterizationTest*'` | W0 | pending |
-| ROUT-01 | Custom picker, eligible LLM ids, trace/budget accounting | pipeline | `:core:test --tests '*StartTierPickerTest*'` | W0 | pending |
-| ROUT-02 | zero-call head free pre-pass | pipeline | `:core:test --tests '*StartTierPrePassTest*'` | W0 | pending |
-| ROUT-03 | null/ineligible/throw/timeout -> Linear + router_fallback; cancellation propagates | pipeline | `:core:test --tests '*StartTierFallbackTest*'` | W0 | pending |
-| ROUT-04 | no eligible LLM tier -> picker never called | pipeline | `:core:test --tests '*StartTierPolicyTest*'` | W0 | pending |
-| ROUT-05 | Router off by default, request shape pinned, tiersBypassed | pipeline + golden | `:core:test --tests '*RouterSelectorTest*'` | W0 | pending |
-| RT-01 | step id cap 64 | unit | `:core:test --tests '*PlanParseTest*'` | exists, extend | pending |
-| docs | API.md names new public types | doc gate | `scripts/verify-docs-coverage.sh --only C20,C21` | exists | pending |
+| guard | v1.0.1 Linear/Fixed walk unchanged | characterization | `:core:test --tests '*TierWalkLinearCharacterizationTest*'` | yes | green |
+| ROUT-01 | Custom picker, eligible LLM ids, trace/budget accounting | pipeline | `:core:test --tests '*StartTierPickerTest*'` | yes | green |
+| ROUT-02 | zero-call head free pre-pass | pipeline | `:core:test --tests '*StartTierPrePassTest*'` | yes | green |
+| ROUT-03 | null/ineligible/throw/timeout -> Linear + router_fallback; cancellation propagates | pipeline | `:core:test --tests '*StartTierFallbackTest*'` | yes | green |
+| ROUT-04 | no eligible LLM tier -> picker never called | pipeline | `:core:test --tests '*StartTierPolicyTest*'` | yes | green |
+| ROUT-05 | Router off by default, request shape pinned, tiersBypassed | pipeline + golden | `:core:test --tests '*RouterSelectorTest*'` | yes | green |
+| RT-01 | step id cap 64 | unit | `:core:test --tests '*PlanParseTest*'` | yes | green |
+| WR-01 | late picker turn (recorded after pick closed) is in neither attempts nor selection turns; still counted in ctx.tokensUsed | pipeline | `:core:test --tests '*StartTierFallbackTest*'` | yes (added at finalize) | green |
+| docs | API.md names new public types | doc gate | `scripts/verify-docs-coverage.sh --only C20,C21` | yes | green (Gate-1 doc gate) |
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `TierWalkLinearCharacterizationTest` — green on the unmodified TierWalk, committed first
-- [ ] `ScriptedPicker` testFixture
-- [ ] `StartTierPickerTest`, `StartTierPrePassTest`, `StartTierFallbackTest`, `StartTierPolicyTest`, `RouterSelectorTest`, `StartTierRedactionTest`
+- [x] `TierWalkLinearCharacterizationTest` — green on the unmodified TierWalk, committed first
+- [x] `ScriptedPicker` testFixture
+- [x] `StartTierPickerTest`, `StartTierPrePassTest`, `StartTierFallbackTest`, `StartTierPolicyTest`, `RouterSelectorTest`, `StartTierRedactionTest`
 
 ---
 
@@ -69,10 +70,10 @@ All phase behaviors have automated JVM verification. Any device step needs a sep
 
 > Plan-time state is a DRAFT. `nyquist_compliant` is finalizer-owned.
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] _(finalizer-only)_ `nyquist_compliant`
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] _(finalizer-only)_ `nyquist_compliant: true`
 
-**Approval:** pending
+**Approval:** 2026-10-06 finalized. Audit: 1 gap found (WR-01, c94bd9d, untested), 1 filled (`StartTierFallbackTest.aPickerTurnRecordedAfterThePickClosed...`). 76 targeted tests + `:core:detekt` green. Note: the late turn is excluded from `trace.usage` (derived from attempts/selection turns) but counted in the run token total (`PickContext.tokensUsed`).

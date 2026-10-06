@@ -2,6 +2,7 @@ package io.github.ygaray.voiceactionengine.core
 
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
+import io.github.ygaray.voiceactionengine.core.pipeline.PickContext
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
@@ -326,6 +327,31 @@ class StartTierFallbackTest {
             assertEquals("router_fallback", outcome.trace.selection!!.outcome)
             assertEquals(1, outcome.trace.codes.count { it == TraceCode.ROUTER_FALLBACK })
             assertEquals(DEADLINE_MILLIS, currentTime)
+        }
+    }
+
+    @Test
+    fun aPickerTurnRecordedAfterThePickClosedCountsInTheTotalButInNoAttemptOrSelection() = runTest {
+        NoNetworkGuard.during {
+            var captured: PickContext? = null
+            val picker = ScriptedPicker({ _, _, ctx ->
+                captured = ctx
+                StrategyId("agentic")
+            })
+            val single = llmTier("single") { _, _ -> StrategyOutcome.Completed("s") }
+            val agentic = llmTier("agentic") { _, _ ->
+                captured!!.recordTurn(TurnRecord(null, "m", "end_turn", emptyList(), paid, TURN_LATENCY))
+                StrategyOutcome.Completed("a")
+            }
+
+            val outcome = startTierPipeline(listOf(single, agentic), TierSelector.Custom(picker), fake())
+                .execute(input)
+
+            assertEquals("a", (outcome as CommandOutcome.Completed).reply)
+            assertEquals("picked", outcome.trace.selection!!.outcome)
+            assertEquals(0, outcome.trace.selection!!.turns.size)
+            assertEquals(listOf(0), outcome.trace.attempts.map { it.turns.size })
+            assertEquals(PAID_TOTAL, captured!!.tokensUsed)
         }
     }
 
