@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 16
 current_phase_name: Start-Tier Selection
-current_plan: 4
+current_plan: 5
 status: executing
-stopped_at: Completed 16-03-PLAN.md
-last_updated: "2026-10-06T20:39:28.299Z"
+stopped_at: Completed 16-04-PLAN.md
+last_updated: "2026-10-06T20:44:52.964Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 16 execution started
-state_head: c45d828db9357c050056633cfd672c7cb05ac123
+state_head: 4a0c003a820cb1ce0256bdb3e450a7644445da59
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 43
-  completed_plans: 39
+  completed_plans: 40
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 16 (Start-Tier Selection) — EXECUTING
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 7
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 16 execution started
@@ -132,6 +132,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 16 P01 | 25min | 3 tasks | 3 files |
 | Phase 16 P02 | 35min | 2 tasks | 14 files |
 | Phase 16 P03 | 25min | 3 tasks | 10 files |
+| Phase 16 P04 | 20min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,7 @@ Recent decisions affecting current work:
 - [Phase 14]: Phase 14-08: frozen grammar surface reviewed against the real Metalava dump; all members additive-safe; open items OI-1..OI-8 relayed via 14-SURFACE-REVIEW.md
 - [Phase 14]: 14-09: capture tool uses the on-device recognizer at 16 kHz segmented; prompts pushed into the app-owned files dir (adb-made subdir is unreadable by the app); D-12 window consumed, 88/88 fixtures
 - [Phase 14]: 14-10: no recognizer form promoted (space groups, ES 21.000, ES 100 mil fail D-08); GrammarSttFixturesTest pins 88 rows
+- [Phase 16]: 16-04: picker timeout is withTimeoutOrNull inside guarded; expiry is a router_fallback, caller/command cancellation still propagates
 
 ### Pending Todos
 
@@ -199,8 +201,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T20:39:28.202Z
-Stopped at: Completed 16-03-PLAN.md
+Last session: 2026-10-06T20:44:52.878Z
+Stopped at: Completed 16-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
