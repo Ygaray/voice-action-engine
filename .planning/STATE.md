@@ -5,17 +5,17 @@ milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
 current_plan: 10
-status: executing
-stopped_at: Completed 14-09-PLAN.md
-last_updated: "2026-10-06T16:27:01.454Z"
+status: verifying
+stopped_at: Completed 14-10-PLAN.md
+last_updated: "2026-10-06T16:32:33.259Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 14 execution started
-state_head: ca64d2894844668d719853091af4add11c401dac
+state_head: 471cf7316708ddf6e3215369522652a5bf08e26d
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 29
-  completed_plans: 28
+  completed_plans: 29
   percent: 0
 ---
 
@@ -33,7 +33,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
 Current Plan: 10
 Total Plans in Phase: 10
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-10-06 — Phase 14 execution started
 
 Progress: [░░░░░░░░░░] 0%
@@ -126,6 +126,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 14 P07 | 35min | 3 tasks | 9 files |
 | Phase 14 P08 | 12 min | 3 tasks | 2 files |
 | Phase 14 P09 | 55min | 3 tasks | 9 files |
+| Phase 14 P10 | 25min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -165,6 +166,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-07: terminal intents end handled with Completed(null, TerminalCall) before resolver and gate; resolver optional only for all-terminal packs
 - [Phase 14]: Phase 14-08: frozen grammar surface reviewed against the real Metalava dump; all members additive-safe; open items OI-1..OI-8 relayed via 14-SURFACE-REVIEW.md
 - [Phase 14]: 14-09: capture tool uses the on-device recognizer at 16 kHz segmented; prompts pushed into the app-owned files dir (adb-made subdir is unreadable by the app); D-12 window consumed, 88/88 fixtures
+- [Phase 14]: 14-10: no recognizer form promoted (space groups, ES 21.000, ES 100 mil fail D-08); GrammarSttFixturesTest pins 88 rows
 
 ### Pending Todos
 
@@ -192,8 +194,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T16:27:01.399Z
-Stopped at: Completed 14-09-PLAN.md
+Last session: 2026-10-06T16:32:33.195Z
+Stopped at: Completed 14-10-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
