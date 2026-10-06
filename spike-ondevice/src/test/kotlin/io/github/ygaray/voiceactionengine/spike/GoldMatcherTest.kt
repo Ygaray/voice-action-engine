@@ -83,4 +83,18 @@ class GoldMatcherTest {
         assertFalse(GoldMatcher.toolMatch("create_item", null))
         assertFalse(GoldMatcher.toolMatch(null, null))
     }
+
+    @Test
+    fun anExtraKeyInsideAListItemObjectDoesNotBreakTheMatch() {
+        val expected = obj("""{"items":[{"text":"milk"},{"text":"eggs"}]}""")
+
+        assertTrue(GoldMatcher.argsMatch(expected, obj("""{"items":[{"text":"Eggs","done":false},{"text":"milk","done":false}]}""")))
+        assertFalse(GoldMatcher.argsMatch(expected, obj("""{"items":[{"text":"milk"},{"text":"bread"}]}""")))
+        assertFalse(GoldMatcher.argsMatch(expected, obj("""{"items":[{"text":"milk"}]}""")))
+    }
+
+    @Test
+    fun aRepeatedPredictedElementCannotStandInForTwoExpectedOnes() {
+        assertFalse(GoldMatcher.argsMatch(obj("""{"tags":["a","b"]}"""), obj("""{"tags":["a","a"]}""")))
+    }
 }

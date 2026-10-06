@@ -15,9 +15,9 @@ private val WHITESPACE = Regex("\\s+")
  *
  * Strings are normalized (trim, Unicode NFC, lower case with the root locale, runs of whitespace collapsed). Numbers compare
  * by value, so `2` equals `2.0`, and a number never equals its string form (a model that quotes a number has not produced
- * the schema's type). Arrays compare as sets of normalized elements. At the top level every expected key must be present
- * and equal, and an extra predicted key is ignored (an extra optional argument is not an error). A nested object compares
- * exactly.
+ * the schema's type). Arrays compare as sets: the same size, and every expected element matched by a different predicted
+ * element, in any order. Objects compare by their expected keys at every depth, so an extra predicted key (an optional
+ * argument, or a defaulted flag inside a list item) is ignored, while a missing or different expected key is a miss.
  */
 internal object GoldMatcher {
     /** Trim, Unicode NFC, lower case with the root locale, and every run of whitespace collapsed to one space. */
@@ -29,20 +29,37 @@ internal object GoldMatcher {
         expectedTool != null && expectedTool == actualTool
 
     /** True when every expected argument is present in [actual] with an equal value after normalization. */
-    fun argsMatch(expected: JsonObject, actual: JsonObject): Boolean =
-        expected.all { (key, value) -> actual[key]?.let { canon(value) == canon(it) } ?: false }
+    fun argsMatch(expected: JsonObject, actual: JsonObject): Boolean = objectMatch(expected, actual)
 
-    // A canonical text of a value, so equal values (after normalization) have the same text. The prefixes keep a string
-    // "2" apart from the number 2.
-    private fun canon(element: JsonElement): String = when (element) {
-        is JsonNull -> "null"
-        is JsonPrimitive -> canonPrimitive(element)
-        is JsonArray -> element.map(::canon).toSortedSet().joinToString(",", "[", "]")
-        is JsonObject -> element.entries.sortedBy { it.key }
-            .joinToString(",", "{", "}") { (key, value) -> "$key=${canon(value)}" }
+    private fun objectMatch(expected: JsonObject, actual: JsonObject): Boolean =
+        expected.all { (key, value) -> actual[key]?.let { valueMatch(value, it) } ?: false }
+
+    private fun valueMatch(expected: JsonElement, actual: JsonElement): Boolean = when {
+        expected is JsonObject -> actual is JsonObject && objectMatch(expected, actual)
+        expected is JsonArray -> actual is JsonArray && arrayMatch(expected, actual)
+        expected is JsonNull -> actual is JsonNull
+        expected is JsonPrimitive -> actual is JsonPrimitive && primitiveKey(expected) == primitiveKey(actual)
+        else -> false
     }
 
-    private fun canonPrimitive(primitive: JsonPrimitive): String {
+    // A set match: every expected element gets a distinct predicted element that matches it. Arrays here are a handful of
+    // elements, so a plain backtracking search is enough and always exact.
+    private fun arrayMatch(expected: JsonArray, actual: JsonArray): Boolean =
+        expected.size == actual.size && assign(expected, actual, 0, BooleanArray(actual.size))
+
+    private fun assign(expected: JsonArray, actual: JsonArray, index: Int, used: BooleanArray): Boolean {
+        if (index == expected.size) return true
+        for (candidate in actual.indices) {
+            if (used[candidate] || !valueMatch(expected[index], actual[candidate])) continue
+            used[candidate] = true
+            if (assign(expected, actual, index + 1, used)) return true
+            used[candidate] = false
+        }
+        return false
+    }
+
+    // The prefixes keep the string "2" apart from the number 2 and from the boolean-like tokens.
+    private fun primitiveKey(primitive: JsonPrimitive): String {
         if (primitive.isString) return "s:" + normalize(primitive.content)
         val number = primitive.content.toBigDecimalOrNull()
         return if (number != null) "n:" + number.stripTrailingZeros().toPlainString() else "b:" + primitive.content
