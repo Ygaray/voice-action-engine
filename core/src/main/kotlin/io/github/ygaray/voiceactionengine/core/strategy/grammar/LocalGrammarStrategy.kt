@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
+import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
 import io.github.ygaray.voiceactionengine.core.strategy.resolutionOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.submitSteps
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
@@ -27,7 +28,11 @@ import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
  * The tier uses no provider and no network, so it is eligible for an offline-only command and under any provider
  * policy: [capabilities] is always [StrategyCapabilities.NO_PROVIDER].
  *
- * Build one with `LocalGrammarStrategy(id) { ... }`; the builder requires [Builder.pack] and [Builder.resolver].
+ * A match on an intent declared terminal ends the tier handled with a `TerminalCall` and calls neither the resolver nor
+ * the gate. A pack whose intents are all terminal needs no resolver.
+ *
+ * Build one with `LocalGrammarStrategy(id) { ... }`; the builder requires [Builder.pack], and [Builder.resolver] unless
+ * every intent of the pack is terminal.
  */
 public class LocalGrammarStrategy internal constructor(
     override val id: StrategyId,
@@ -35,8 +40,10 @@ public class LocalGrammarStrategy internal constructor(
 ) : CommandStrategy {
     override val capabilities: StrategyCapabilities = StrategyCapabilities.NO_PROVIDER
     private val pack: GrammarPack = requireNotNull(settings.pack) { "LocalGrammarStrategy: pack is required" }
-    private val resolver: OutcomeResolver = requireNotNull(settings.resolver) {
-        "LocalGrammarStrategy: resolver is required"
+    private val resolver: OutcomeResolver? = settings.resolver
+
+    init {
+        require(resolver != null || !pack.hasNonTerminalIntent) { "LocalGrammarStrategy: resolver is required" }
     }
 
     override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome =
@@ -48,7 +55,20 @@ public class LocalGrammarStrategy internal constructor(
             }
         }
 
-    private suspend fun resolve(match: GrammarMatch, input: CommandInput, session: CommandSession): StrategyOutcome {
+    private suspend fun resolve(match: GrammarMatch, input: CommandInput, session: CommandSession): StrategyOutcome =
+        when {
+            // A terminal intent writes nothing: the app gets the tool name and slots as the outcome, with no resolver,
+            // no gate and no recorded action.
+            match.terminal -> StrategyOutcome.Completed(null, TerminalCall(match.toolName, match.arguments))
+            else -> resolver?.let { resolveWith(it, match, input, session) } ?: StrategyOutcome.NoMatch()
+        }
+
+    private suspend fun resolveWith(
+        resolver: OutcomeResolver,
+        match: GrammarMatch,
+        input: CommandInput,
+        session: CommandSession,
+    ): StrategyOutcome {
         val extraction = Extraction(match.toolName, match.arguments, null, match.matchedLanguage)
         val resolution = resolver.resolve(extraction, input)
         if (resolution is Resolution.NoMatch) session.recordCode(TraceCode.GRAMMAR_RESOLVER_REJECTED)
@@ -63,7 +83,10 @@ public class LocalGrammarStrategy internal constructor(
         /** The phrasings this tier matches. Required. */
         public var pack: GrammarPack? = null
 
-        /** Turns a match into prepared steps or a verdict, as for a single-shot tier. Required. */
+        /**
+         * Turns a match into prepared steps or a verdict, as for a single-shot tier. Required unless every intent of
+         * the pack is terminal.
+         */
         public var resolver: OutcomeResolver? = null
     }
 
@@ -72,7 +95,8 @@ public class LocalGrammarStrategy internal constructor(
         /**
          * Builds a grammar tier with [id] from [block].
          *
-         * @throws IllegalArgumentException naming the setting when [Builder.pack] or [Builder.resolver] is missing.
+         * @throws IllegalArgumentException naming the setting when [Builder.pack] is missing, or [Builder.resolver] is
+         * missing and some intent of the pack is not terminal.
          */
         public operator fun invoke(id: StrategyId, block: Builder.() -> Unit): LocalGrammarStrategy =
             LocalGrammarStrategy(id, Builder().apply(block))
