@@ -10,4 +10,4 @@ Grading note (RT-03): plural-stem and list-item-article tolerance added to the h
 Details: 13-VERDICT.md; reproduce with scripts/verify-spike-verdict.sh --check (SPIKE_VERDICT_CHECK: OK, verdict code sha e362fb228b). No section 11 ledger row was written; the orchestrator owns it.
 relayed_to: milestone master, for orchestrator yahir-gsd-control-plane-3b (relay performed by the milestone master from this stage's return notes)
 relayed_at: 2026-10-06T05:58:59Z
-note: HANDOFF, not a confirmed delivery. The executor cannot message the orchestrator; it handed this body to the milestone master in its stage return notes, and the master performs the relay. relayed_at is the handoff time.
+confirmed_delivery: 2026-10-06T06:32:13Z — the milestone master sent the 9-line body to yahir-gsd-control-plane-3b via SendMessage (delivered to its inbox)
