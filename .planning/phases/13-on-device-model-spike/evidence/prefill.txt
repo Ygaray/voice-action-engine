@@ -1,0 +1,11 @@
+# spike stage=prefill captured_utc=2026-10-06T02:04:43Z target=R5CT10XNKQN head=941e79d779
+VAE_SPIKE_THERMAL stage=prefill status=none point=start
+VAE_SPIKE_PREFILL model=e2b backend=cpu target_tokens=1000 prefill_tokens=763 prefill_tps=25.0 ttft_ms=31633 result=ok code=none
+VAE_SPIKE_PREFILL model=e2b backend=cpu target_tokens=4000 prefill_tokens=3003 prefill_tps=22.4 ttft_ms=134397 result=ok code=none
+VAE_SPIKE_PREFILL model=e2b backend=cpu target_tokens=7000 prefill_tokens=5243 prefill_tps=22.5 ttft_ms=233119 result=ok code=none
+VAE_SPIKE_PREFILL model=e2b backend=gpu target_tokens=1000 prefill_tokens=763 prefill_tps=920.3 ttft_ms=877 result=ok code=none
+VAE_SPIKE_PREFILL model=e2b backend=gpu target_tokens=4000 prefill_tokens=3003 prefill_tps=1270.1 ttft_ms=2415 result=ok code=none
+VAE_SPIKE_PREFILL model=e2b backend=gpu target_tokens=7000 prefill_tokens=5243 prefill_tps=1238.8 ttft_ms=4276 result=ok code=none
+VAE_SPIKE_MEM stage=prefill peak_pss_mb=5459 interval_ms=250 samples=744
+VAE_SPIKE_THERMAL stage=prefill status=none point=end
+VAE_SPIKE_STAGE stage=prefill result=done trials=0 planned=0
