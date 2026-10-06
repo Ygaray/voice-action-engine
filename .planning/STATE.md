@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 16
 current_phase_name: Start-Tier Selection
-current_plan: 6
+current_plan: 7
 status: executing
-stopped_at: Completed 16-05-PLAN.md
-last_updated: "2026-10-06T20:50:38.469Z"
+stopped_at: Completed 16-06-PLAN.md
+last_updated: "2026-10-06T20:56:08.268Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 16 execution started
-state_head: 7f1b74cf4a04379159f27afa6cde78047472d399
+state_head: bd5a2cb6d3768e5c968f5222c4c83e298ba6acbd
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 43
-  completed_plans: 41
+  completed_plans: 42
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 16 (Start-Tier Selection) — EXECUTING
-Current Plan: 6
+Current Plan: 7
 Total Plans in Phase: 7
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 16 execution started
@@ -134,6 +134,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 16 P03 | 25min | 3 tasks | 10 files |
 | Phase 16 P04 | 20min | 3 tasks | 6 files |
 | Phase 16 P05 | 25min | 3 tasks | 5 files |
+| Phase 16 P06 | 25min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -175,6 +176,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-09: capture tool uses the on-device recognizer at 16 kHz segmented; prompts pushed into the app-owned files dir (adb-made subdir is unreadable by the app); D-12 window consumed, 88/88 fixtures
 - [Phase 14]: 14-10: no recognizer form promoted (space groups, ES 21.000, ES 100 mil fail D-08); GrammarSttFixturesTest pins 88 rows
 - [Phase 16]: 16-04: picker timeout is withTimeoutOrNull inside guarded; expiry is a router_fallback, caller/command cancellation still propagates
+- [Phase 16]: 16-06: Router model comes only from the app's selection for start_tier_router; single-model-tier skip lives in StartTierPicking (skipsSingleTier), no call, no record
 
 ### Pending Todos
 
@@ -202,8 +204,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T20:50:38.382Z
-Stopped at: Completed 16-05-PLAN.md
+Last session: 2026-10-06T20:56:08.182Z
+Stopped at: Completed 16-06-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
