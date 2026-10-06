@@ -14,8 +14,8 @@ internal class IntentSpec(
     val en: List<String>,
     val es: List<String>,
     val slots: List<SlotDecl>,
-    val terminal: Boolean = false,
-    val normalizers: List<NormalizerDecl> = emptyList(),
+    val terminal: Boolean,
+    val normalizers: List<NormalizerDecl>,
 )
 
 /** The app's hook for one slot: it sees the raw words and the matched pack's language, and answers the value to use. */
