@@ -58,4 +58,12 @@ internal class SelectionBook(
         }
         if (made != null) dispatch.send(PipelineEvent.StartTierSelected(runId, made))
     }
+
+    /**
+     * Closes an open selection as [outcome] with no pick, for a pick the caller, the engine deadline or an error cut
+     * off, so it still reaches the trace with its turns. Does nothing when no selection is open.
+     */
+    suspend fun flush(outcome: String) {
+        finished(outcome, null, 0)
+    }
 }

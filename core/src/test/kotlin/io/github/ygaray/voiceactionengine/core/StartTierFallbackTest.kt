@@ -1,15 +1,22 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
+import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
+import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
+import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.RecordingEventListener
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedPicker
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
@@ -195,7 +202,122 @@ class StartTierFallbackTest {
         }
     }
 
+    private val paid = Usage(inputUncached = 100, cacheRead = 20, cacheWrite = 5, output = 30)
+
+    /** A picker that records one paid turn, tells [started], then hangs until it is cancelled. */
+    private fun hangingPicker(started: CompletableDeferred<Unit>? = null) = ScriptedPicker({ _, _, ctx ->
+        ctx.recordTurn(TurnRecord(null, "m", "tool_use", emptyList(), paid, TURN_LATENCY))
+        started?.complete(Unit)
+        awaitCancellation()
+    })
+
+    private fun twoModelTiers() = listOf(
+        llmTier("single") { _, _ -> StrategyOutcome.Completed("s") },
+        llmTier("agentic") { _, _ -> StrategyOutcome.Completed("a") },
+    )
+
+    @Test
+    fun theCommandDeadlineMidPickIsATimeoutWithThePickOnTheTrace() = runTest {
+        NoNetworkGuard.during {
+            val listener = RecordingEventListener()
+            val policy = TierPolicy { commandTimeoutMillis = DEADLINE_MILLIS }
+
+            val outcome = startTierPipeline(
+                twoModelTiers(),
+                TierSelector.Custom(hangingPicker()),
+                fake(),
+                listener,
+                policy = policy,
+            ).execute(input)
+
+            assertTrue((outcome as CommandOutcome.Failed).reason is FailureReason.Timeout)
+            val selection = outcome.trace.selection!!
+            assertEquals("timeout", selection.outcome)
+            assertEquals(1, selection.turns.size)
+            assertNull(selection.picked)
+            assertEquals(PAID_TOTAL, outcome.trace.usage.total)
+            assertEquals("timeout", listener.events.filterIsInstance<PipelineEvent.StartTierSelected>().single()
+                .selection.outcome)
+            assertFalse(outcome.trace.codes.contains(TraceCode.ROUTER_FALLBACK))
+        }
+    }
+
+    @Test
+    fun aCallerCancellingMidPickGetsTheCancellationAndATraceWithThePick() = runTest {
+        NoNetworkGuard.during {
+            val started = CompletableDeferred<Unit>()
+            val sink = RecordingCommitSink()
+            val pipeline = startTierPipeline(
+                twoModelTiers(),
+                TierSelector.Custom(hangingPicker(started)),
+                fake(),
+                sink = sink,
+            )
+
+            val call = async { pipeline.execute(input) }
+            started.await()
+            call.cancel()
+            try {
+                call.await()
+            } catch (expected: CancellationException) {
+                assertTrue(call.isCancelled)
+            }
+
+            val trace = sink.closes.single().trace
+            assertEquals("cancelled", trace.selection!!.outcome)
+            assertEquals(1, trace.selection!!.turns.size)
+            assertEquals(PAID_TOTAL, trace.usage.total)
+            assertFalse(trace.codes.contains(TraceCode.ROUTER_FALLBACK))
+        }
+    }
+
+    @Test
+    fun theCommandDeadlineWinsWhenItIsEarlierThanThePickerTimeout() = runTest {
+        NoNetworkGuard.during {
+            val policy = TierPolicy {
+                commandTimeoutMillis = DEADLINE_MILLIS
+                pickerTimeoutMillis = LATE_MILLIS
+            }
+
+            val outcome = startTierPipeline(
+                twoModelTiers(),
+                TierSelector.Custom(hangingPicker()),
+                fake(),
+                policy = policy,
+            ).execute(input)
+
+            assertTrue((outcome as CommandOutcome.Failed).reason is FailureReason.Timeout)
+            assertEquals(DEADLINE_MILLIS, currentTime)
+        }
+    }
+
+    @Test
+    fun thePickerTimeoutWinsWhenItIsEarlierThanTheCommandDeadline() = runTest {
+        NoNetworkGuard.during {
+            val policy = TierPolicy {
+                commandTimeoutMillis = LATE_MILLIS
+                pickerTimeoutMillis = DEADLINE_MILLIS
+            }
+
+            val outcome = startTierPipeline(
+                twoModelTiers(),
+                TierSelector.Custom(hangingPicker()),
+                fake(),
+                policy = policy,
+            ).execute(input)
+
+            assertEquals("s", (outcome as CommandOutcome.Completed).reply)
+            assertEquals("router_fallback", outcome.trace.selection!!.outcome)
+            assertEquals(1, outcome.trace.codes.count { it == TraceCode.ROUTER_FALLBACK })
+            assertEquals(DEADLINE_MILLIS, currentTime)
+        }
+    }
+
     private companion object {
+        const val DEADLINE_MILLIS = 100L
+        const val LATE_MILLIS = 5_000L
+        const val TURN_LATENCY = 5L
+        const val PAID_TOTAL = 155L
         const val CANARY = "canary-picker-secret-9f3"
         const val LEAK_DELAY = 10L
         const val HANG_MILLIS = 60_000L

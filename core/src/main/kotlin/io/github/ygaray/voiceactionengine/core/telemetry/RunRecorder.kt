@@ -100,11 +100,13 @@ internal class RunRecorder(
     }
 
     /**
-     * Records the tier that started and never finished, because the engine deadline cut it off, the caller cancelled,
-     * or an error ended it. Without this its turns, and the tokens they cost, would be missing from the trace. It does
-     * nothing when no tier is in flight, so it is safe to call on every exit path.
+     * Records the tier, or the start-tier pick, that started and never finished, because the engine deadline cut it
+     * off, the caller cancelled, or an error ended it. Without this its turns, and the tokens they cost, would be
+     * missing from the trace. A pick and a tier are never in flight together, because the walk is sequential. It does
+     * nothing when neither is in flight, so it is safe to call on every exit path.
      */
     suspend fun flushInFlight(outcome: String, failure: FailureReason?) {
+        selectionBook.flush(outcome)
         if (synchronized(lock) { book.inFlight } == null) return
         val now = runClock.read()
         val attempt = synchronized(lock) {
