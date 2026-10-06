@@ -5,9 +5,15 @@ import io.github.ygaray.voiceactionengine.core.internal.GuardedClock
 
 /**
  * The start-tier pick of one run: open while the picker runs, closed into a [StartTierSelection] when it ends. It
- * shares the recorder's [lock], so the callers read the clock before taking it, as the recorder does.
+ * shares the recorder's [lock], so the callers read the clock before taking it, as the recorder does. Closing it
+ * delivers [PipelineEvent.StartTierSelected] through [dispatch] once the lock is released.
  */
-internal class SelectionBook(private val lock: Any, private val clock: GuardedClock) {
+internal class SelectionBook(
+    private val runId: String,
+    private val lock: Any,
+    private val clock: GuardedClock,
+    private val dispatch: EventDispatch,
+) {
     private var picker: StrategyId? = null
     private var eligible: List<StrategyId> = emptyList()
     private var startedAt = 0L
@@ -40,12 +46,16 @@ internal class SelectionBook(private val lock: Any, private val clock: GuardedCl
     /** Closes the open selection as [outcome]; does nothing when none is open. */
     suspend fun finished(outcome: String, picked: StrategyId?, tiersBypassed: Int) {
         val now = clock.read()
-        synchronized(lock) {
+        val made = synchronized(lock) {
             val id = picker
             if (id != null && closed == null) {
                 val latency = now - startedAt
-                closed = StartTierSelection(id, outcome, picked, eligible, tiersBypassed, latency, turns.toList())
+                StartTierSelection(id, outcome, picked, eligible, tiersBypassed, latency, turns.toList())
+                    .also { closed = it }
+            } else {
+                null
             }
         }
+        if (made != null) dispatch.send(PipelineEvent.StartTierSelected(runId, made))
     }
 }

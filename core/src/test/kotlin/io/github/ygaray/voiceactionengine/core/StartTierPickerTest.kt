@@ -199,4 +199,79 @@ class StartTierPickerTest {
             assertEquals(1, fake.callCount)
         }
     }
+
+    private fun kinds(listener: RecordingEventListener) = listener.events.map { it::class }
+
+    @Test
+    fun theSelectionIsDeliveredAsAnEventBetweenThePickAndThePickedTier() = runTest {
+        NoNetworkGuard.during {
+            val grammar = zeroCallTier("grammar", StrategyOutcome.NoMatch())
+            val agentic = llmTier("agentic") { _, _ -> StrategyOutcome.Completed("a") }
+            val picker = ScriptedPicker({ _, _, ctx ->
+                ctx.model().complete(pickTurnRequest())
+                StrategyId("agentic")
+            })
+            val fake = FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("p", Usage(4, 0, 0, 1)))
+            val listener = RecordingEventListener()
+
+            val outcome = startTierPipeline(listOf(grammar, agentic), TierSelector.Custom(picker), fake, listener)
+                .execute(input)
+
+            assertEquals(
+                listOf(
+                    PipelineEvent.CommandStarted::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.ProviderCall::class,
+                    PipelineEvent.StartTierSelected::class,
+                    PipelineEvent.TierStarted::class,
+                    PipelineEvent.TierFinished::class,
+                    PipelineEvent.RunClosed::class,
+                ),
+                kinds(listener),
+            )
+            val event = listener.events.filterIsInstance<PipelineEvent.StartTierSelected>().single()
+            val chosen = outcome.trace.selection!!
+            assertEquals(chosen.outcome, event.selection.outcome)
+            assertEquals(chosen.picked, event.selection.picked)
+            assertEquals(chosen.tiersBypassed, event.selection.tiersBypassed)
+            assertFalse(event.toString().contains(input.transcript))
+        }
+    }
+
+    @Test
+    fun aFallbackAfterAPickDeliversTheCodeThenTheSelection() = runTest {
+        NoNetworkGuard.during {
+            val single = llmTier("single") { _, _ -> StrategyOutcome.Completed("s") }
+            val picker = ScriptedPicker({ _, _, ctx ->
+                ctx.model().complete(pickTurnRequest())
+                StrategyId("nowhere")
+            })
+            val fake = FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("p", Usage(4, 0, 0, 1)))
+            val listener = RecordingEventListener()
+
+            val outcome = startTierPipeline(listOf(single), TierSelector.Custom(picker), fake, listener).execute(input)
+
+            val order = kinds(listener)
+            val call = order.indexOf(PipelineEvent.ProviderCall::class)
+            val code = order.indexOf(PipelineEvent.EngineCode::class)
+            val selected = order.indexOf(PipelineEvent.StartTierSelected::class)
+            assertTrue(order.toString(), call in 0 until code && code in 0 until selected)
+            assertEquals("router_fallback", outcome.trace.selection!!.outcome)
+        }
+    }
+
+    @Test
+    fun aLinearRunDeliversNoStartTierSelectedEvent() = runTest {
+        NoNetworkGuard.during {
+            val single = llmTier("single") { _, _ -> StrategyOutcome.Completed("s") }
+            val fake = FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("p", Usage(4, 0, 0, 1)))
+            val listener = RecordingEventListener()
+
+            val outcome = startTierPipeline(listOf(single), null, fake, listener).execute(input)
+
+            assertTrue(listener.events.none { it is PipelineEvent.StartTierSelected })
+            assertNull(outcome.trace.selection)
+        }
+    }
 }

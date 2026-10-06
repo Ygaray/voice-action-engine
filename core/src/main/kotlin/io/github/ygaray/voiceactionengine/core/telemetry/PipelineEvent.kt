@@ -129,6 +129,20 @@ public interface PipelineEvent {
     }
 
     /**
+     * A start-tier picker ran and the start tier was chosen, by the picker or by the Linear fallback. It is emitted
+     * only when a picker was called, after the picker's own [ProviderCall] events and before the first picked tier
+     * starts.
+     *
+     * @property selection the same record the trace holds as `CommandTrace.selection`.
+     */
+    public class StartTierSelected internal constructor(
+        override val runId: String,
+        public val selection: StartTierSelection,
+    ) : PipelineEvent {
+        override fun toString(): String = "StartTierSelected(runId=$runId, selection=$selection)"
+    }
+
+    /**
      * The run ended; this is the last event of a run.
      *
      * @property terminationCode the ending's stable code: `done`, `failed`, `exhausted` or `cancelled`.

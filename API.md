@@ -22,8 +22,8 @@ core.commit             ActionEvent, ActionKind, AwaitingConfirmGate, CommitProp
                         ConfirmationPolicy, DispatchResult, ExecutedAction, FinishedKind, GateDecision, HeldProposal,
                         PendingConfirmation, PendingMutation, PreApplyGate, RunTermination, StepResult, ToolStep
 core.failure            BudgetBound, EscalationReason, FailureDetails, FailureReason
-core.pipeline           CommandOutcome, CommandPipeline, PipelineBuilder, PipelineDsl, TierPolicy, TierPolicySource,
-                        TierSelector, and the function commandPipeline
+core.pipeline           CommandOutcome, CommandPipeline, PickContext, PipelineBuilder, PipelineDsl, StartTierPicker,
+                        TierPolicy, TierPolicySource, TierSelector, and the function commandPipeline
 core.provider           AiProvider, BoundModel, CachingMode, CredentialLookup, CredentialSource, ModelCapabilities,
                         ModelCapabilityTable, ModelResult, OnDeviceAvailability, OnDeviceCapability, ProviderRequest,
                         ProviderSelection, ProviderSelectionSource, SelectionRequest
@@ -34,7 +34,8 @@ core.strategy.agentic   AgenticLoopStrategy
 core.strategy.grammar   GrammarMatch, GrammarPack, LocalGrammarStrategy
 core.strategy.plan      PlanThenExecuteStrategy
 core.strategy.singleshot SingleShotStrategy
-core.telemetry          CommandTrace, PipelineEvent, PipelineEventListener, TierAttempt, TraceCode, TurnRecord, Usage
+core.telemetry          CommandTrace, PipelineEvent, PipelineEventListener, StartTierSelection, TierAttempt, TraceCode,
+                        TurnRecord, Usage
 core.transcript         AssistantMessage, AssistantPart, CacheDirective, Message, ModelRequest, ModelResponse,
                         NativeReplay, ReasoningMode, StopReason, ToolChoice, ToolResult, ToolResultsMessage,
                         UserMessage
@@ -72,7 +73,10 @@ leaves), annotation class.
 | `CommandOutcome` | sealed class | closed | The typed result: `Completed`, `Failed` or `Unhandled`. |
 | `TierPolicy` | class | | The limits one command runs under (`TierPolicy { }` builder). |
 | `TierPolicySource` | fun interface | | Supplies the policy for each command (`fixed(policy)`). |
-| `TierSelector` | abstract class | open | Which tier a command starts at: `Linear` (default) or `Fixed(tier)`. |
+| `TierSelector` | abstract class | open | Which tier a command starts at: `Linear` (default), `Fixed(tier)` or `Custom(picker)`; zero-call tiers at the head always run first. |
+| `StartTierPicker` | fun interface | | Your suspend choice of where the model walk starts: sees the command and the eligible model tiers, returns one id or null. |
+| `PickContext` | abstract class | | What a picker gets: run id, policy, tokens used, `model()` (bound for the picker's own id) and `recordTurn`; no write path. |
+| `StartTierSelection` | class | | The picker's entry in the trace: `outcome`, `picked`, `eligible`, `tiersBypassed`, its turns and usage. |
 | `CommandStrategy` | interface | | One tier of the ladder; implement it to write your own. (The cross-repo contract calls this concept `CommandTier`; there is no type of that name, so a tier is a `CommandStrategy` and is identified by its `StrategyId`.) |
 | `StrategyCapabilities` | class | | The providers a tier declares it may use (`ANY_PROVIDER`, `NO_PROVIDER`). |
 | `StrategyOutcome` | sealed class | closed | What a tier returns: `Completed`, `Escalate`, `NoMatch` or `Failed`. |
@@ -184,7 +188,7 @@ The one public function is `commandPipeline { }`, which composes a `CommandPipel
 `commandPipeline { }` collects tiers (`tier(...)`, first added runs first), `provider(...)`, a required `gate`, a
 required `commitSink`, `providerSelection`, `credentials`, a `policy`, an optional `listener`, `capabilities(...)`
 overrides, an `onDevice` capability, a `selector` and replaceable `clock` and `runIds`. It throws
-`IllegalArgumentException` at build time for a misconfiguration (no tier, no gate, duplicate tier or provider ids).
+`IllegalArgumentException` at build time for a misconfiguration (no tier, no gate, duplicate tier or provider ids, a picker id equal to a tier id).
 
 `CommandPipeline.execute(input)` returns a `CommandOutcome` and does not throw, except for your own coroutine's
 cancellation or a JVM `Error`. **`CommandOutcome` is closed**: `Completed(reply, terminalCall, partial)`,
@@ -331,11 +335,14 @@ The constructors and members that integrators write or read most often, in one p
 
 `PipelineEventListener.onEvent(event)` (it cannot suspend; a throw becomes the `listener_error` trace code) receives
 `PipelineEvent`s (**open**): started, tier started or skipped, provider call, action recorded, engine code, cache not
-engaged, tier ended, closed. `CommandOutcome.trace` is a `CommandTrace` of `TierAttempt`s, `TurnRecord`s,
+engaged, tier ended, start tier selected, closed. `CommandOutcome.trace` is a `CommandTrace` of `TierAttempt`s, `TurnRecord`s,
 `TraceCode`s (**open**) and `Usage`. Events and traces carry ids, codes, counts and tool names only; never log keys,
 transcripts or tool arguments. The grammar tier records `grammar_ambiguous`, `grammar_language_unsupported`,
 `grammar_slot_rejected`, `grammar_normalize_error`, `grammar_input_too_long` and `grammar_resolver_rejected`.
 The plan tier records `plan_rejected`, `plan_replanned` and `plan_binding_unresolved`.
+`CommandTrace.selection` is the `StartTierSelection` when a picking selector asked its picker (its turns count in
+`trace.usage`), and null otherwise. The `router_fallback` code means the picker gave no usable answer, or no model tier
+was left after the zero-call head, and the walk started at the first eligible tier. It is never a failure.
 
 <!-- doc-snippet: telemetry -->
 ```kotlin
@@ -385,6 +392,7 @@ Everything you implement or pass; each seam is a small interface you give the en
 | `PreApplyGate` | approval before any write | builder `gate` |
 | `CommitSink` | journal of actions and run endings | builder `commitSink` |
 | `ProviderSelectionSource` | provider and model per tier | builder `providerSelection` |
+| `StartTierPicker` | where each command's model walk starts | builder `selector = TierSelector.Custom(picker)` |
 | `CredentialSource` | the API key per provider | builder `credentials` |
 | `TierPolicySource` | limits per command | builder `policy` |
 | `PipelineEventListener` | live events | builder `listener` |

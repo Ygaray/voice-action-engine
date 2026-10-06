@@ -32,14 +32,15 @@ internal class RunRecorder(
     /** The run's clock: its first reading may throw, later readings never do. */
     val runClock = GuardedClock(clock)
 
-    /** The run's start-tier pick, kept apart from the tiers' attempts. */
-    val selectionBook: SelectionBook = SelectionBook(lock, runClock)
     private val startedAt = runClock.read()
     private val codes = mutableListOf<TraceCode>()
     private val book = TierBook(startedAt)
     private var tokenTotal = 0L
     private val dispatch = EventDispatch(listener) { synchronized(lock) { codes.add(TraceCode.LISTENER_ERROR) } }
     private val skipped = mutableListOf<StrategyId>()
+
+    /** The run's start-tier pick, kept apart from the tiers' attempts. */
+    val selectionBook: SelectionBook = SelectionBook(runId, lock, runClock, dispatch)
 
     /** The tokens used by every turn reported so far in this run, across tiers. */
     val tokensUsed: Long

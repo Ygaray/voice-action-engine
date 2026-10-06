@@ -42,8 +42,8 @@ public abstract class TierSelector internal constructor() {
      * Asks [picker] which model tier to start at, after the tiers that need no model have had their turn. The picker
      * sees only the eligible tiers that call a model.
      *
-     * Use `Custom(picker)` for the defaults, or `Custom(picker) { id = ...; capabilities = ... }` to name the picker and
-     * the providers it may call.
+     * Use `Custom(picker)` for the defaults, or `Custom(picker) { id = ...; capabilities = ... }` to name the picker
+     * and the providers it may call.
      *
      * @property picker the app's picker.
      */
