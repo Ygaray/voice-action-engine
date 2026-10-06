@@ -47,11 +47,11 @@ alone to keep one.
 
 ### Tier selection (§6.2 step 10, V11-03)
 
-- [ ] **ROUT-01**: `fun interface StartTierPicker` + a public `TierSelector.Custom(picker)` let an app choose the start tier (suspend, sees the input and the eligible LLM tiers). The picker's model calls go through a `PickContext` that counts toward the run budget and the trace.
-- [ ] **ROUT-02**: a zero-call tier at the ladder head (grammar) always runs first as a free pre-pass. The picker chooses only among the remaining eligible LLM tiers.
-- [ ] **ROUT-03**: if the picker returns null, returns an ineligible id or throws, the walk falls back to Linear and records a `router_fallback` trace code. That's never a failure.
-- [ ] **ROUT-04**: when policy leaves no eligible LLM tier (for example offline-only), the picker is never called and no router model call is made.
-- [ ] **ROUT-05**: `TierSelector.Router(...)` is the engine's cheap-model classifier, built on the same seam, default off. Telemetry shows the tiers it saved versus Linear.
+- [x] **ROUT-01**: `fun interface StartTierPicker` + a public `TierSelector.Custom(picker)` let an app choose the start tier (suspend, sees the input and the eligible LLM tiers). The picker's model calls go through a `PickContext` that counts toward the run budget and the trace.
+- [x] **ROUT-02**: a zero-call tier at the ladder head (grammar) always runs first as a free pre-pass. The picker chooses only among the remaining eligible LLM tiers.
+- [x] **ROUT-03**: if the picker returns null, returns an ineligible id or throws, the walk falls back to Linear and records a `router_fallback` trace code. That's never a failure.
+- [x] **ROUT-04**: when policy leaves no eligible LLM tier (for example offline-only), the picker is never called and no router model call is made.
+- [x] **ROUT-05**: `TierSelector.Router(...)` is the engine's cheap-model classifier, built on the same seam, default off. Telemetry shows the tiers it saved versus Linear.
 
 ### On-device spike (§6.2 step 11, V11-04)
 
@@ -125,11 +125,11 @@ alone to keep one.
 | PLAN-03 | Phase 15 | Complete |
 | PLAN-04 | Phase 15 | Complete |
 | PLAN-05 | Phase 15 | Complete |
-| ROUT-01 | Phase 16 | Pending |
-| ROUT-02 | Phase 16 | Pending |
-| ROUT-03 | Phase 16 | Pending |
-| ROUT-04 | Phase 16 | Pending |
-| ROUT-05 | Phase 16 | Pending |
+| ROUT-01 | Phase 16 | Complete |
+| ROUT-02 | Phase 16 | Complete |
+| ROUT-03 | Phase 16 | Complete |
+| ROUT-04 | Phase 16 | Complete |
+| ROUT-05 | Phase 16 | Complete |
 | SPIKE-01 | Phase 13 | Complete |
 | SPIKE-02 | Phase 13 | Complete |
 | SPIKE-03 | Phase 13 | N/A-deferred (red verdict, Phase 13; L10) |

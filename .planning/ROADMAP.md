@@ -316,7 +316,7 @@ Plans:
   4. When policy leaves no eligible LLM tier (for example offline-only), the picker is never called and no router model call is made. The walk records `router_fallback` and proceeds as Linear (SB condition).
   5. `TierSelector.Router(...)` is built on the same seam and is off by default: an app that doesn't opt in walks exactly as v1.0's Linear. When it's on, telemetry reports the tiers it saved versus a Linear walk.
 
-**Plans**: 6/7 plans executed (7 waves, serial: one Gradle-running plan per wave; all autonomous, JVM-only, no device or live spend)
+**Plans**: 7/7 plans executed (7 waves, serial: one Gradle-running plan per wave; all autonomous, JVM-only, no device or live spend)
 
 Plans:
 **Wave 1**
@@ -345,7 +345,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 16-07-PLAN.md — INTEGRATION.md/API.md wiring prose, frozen-surface review vs the real Metalava dump (open items OI-1..OI-9), full phase gate
+- [x] 16-07-PLAN.md — INTEGRATION.md/API.md wiring prose, frozen-surface review vs the real Metalava dump (open items OI-1..OI-9), full phase gate
 
 **Research flag**: medium. Open items: the Router's classifier prompt and default cheap model (from policy, never hard-coded); how "tiers saved versus Linear" is counted without running Linear.
 
@@ -425,7 +425,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 13. On-Device Model Spike | v1.1 | 11/11 | Complete    | 2026-10-06 |
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
-| 16. Start-Tier Selection | v1.1 | 6/7 | In Progress|  |
+| 16. Start-Tier Selection | v1.1 | 7/7 | In Progress|  |
 | 17. Run-Level Undo | v1.1 | 0/TBD | Not started | - |
 | 18. Voice Adapter | v1.1 | 0/TBD | Not started | - |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
