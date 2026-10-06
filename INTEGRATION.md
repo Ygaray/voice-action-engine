@@ -91,6 +91,30 @@ The ladder is the order of your `tier(...)` calls: the first tier added runs fir
 only by returning an escalation. Tier ids (`StrategyId`) must be unique. By default a command starts at the first tier
 that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named tier.
 
+### Choosing where the model walk starts
+
+- **Zero-call head first.** The tiers at the head of the ladder that make no model call (the grammar tier) always run
+  first, for free, whatever the selector. A picker runs only when they hand the command over, and it never sees a
+  zero-call tier: it chooses among the eligible tiers that call a model.
+- **Your own picker.** `TierSelector.Custom(picker)` takes your `StartTierPicker`: a suspend function that sees the
+  command and the eligible model tiers in ladder order and returns one id, or null for "start at the first". Use
+  `TierSelector.Custom(picker) { id = ...; capabilities = ... }` to name the picker and the providers it may call.
+- **Map the picker's id.** The picker's model comes from your `ProviderSelectionSource`, asked with the picker's own id
+  (`start_tier_picker` unless you set one). Map it exactly as you map a tier id. If you do not, every command records
+  `provider_not_selected` and then `router_fallback`, and the walk starts at the first model tier. A picker id must
+  differ from every tier id: the pipeline refuses to build otherwise.
+- **Mistakes never fail or pay.** A null, an id that is not eligible, a throw or a timeout starts the walk at the first
+  eligible model tier and records `router_fallback`. It is never a failure of the command, and your coroutine's
+  cancellation still propagates. When the policy leaves no model tier, or forbids every provider the picker declares
+  (offline-only, for example), the picker is never called, so it costs nothing.
+- **The engine's own classifier.** `TierSelector.Router { tierDescriptions = mapOf(...) }` is opt-in and off unless you
+  set it. After the head it makes one forced call, only when two or more model tiers are eligible, and starts the walk at
+  the tier the answer names. Map `start_tier_router` (or the `id` you give the Router) to a small, fast model; the engine
+  names none. `tierDescriptions` is one line per tier id, in your own words, saying when that tier is the right start.
+  They are sent to the router's provider, so they must never contain secrets.
+- **What a pick saved.** Read `trace.selection.tiersBypassed` for the number of tiers the pick skipped compared with
+  `TierSelector.Linear`. It is an upper bound, not proven savings.
+
 - **SingleShot** makes one provider call that forces the tool named by `ToolingSnapshot.singleShotTool`, hands the
   model's first tool call to your `OutcomeResolver`, and submits what it returns. The resolver validates the arguments
   itself and never writes: it returns `Resolution.Steps` (finished steps and `ToolStep.Mutation`), `Resolution.NoMatch`,
@@ -475,11 +499,15 @@ Sample: `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/keys/K
 ## 8. Policy and telemetry
 
 `TierPolicySource` supplies the limits for each command (`TierPolicy`: `offlineOnly`, `maxTier`, `allowedProviders`,
-`maxIterations`, `tokenCeiling`, `maxTokensPerTurn`, `commandTimeoutMillis`); `TierPolicySource.fixed(...)` returns
-one policy for every command. The engine enforces `offlineOnly`, `maxTier`, `allowedProviders` and `commandTimeoutMillis`; `maxIterations`,
+`maxIterations`, `tokenCeiling`, `maxTokensPerTurn`, `commandTimeoutMillis`, `pickerTimeoutMillis`); `TierPolicySource.fixed(...)` returns
+one policy for every command. The engine enforces `offlineOnly`, `maxTier`, `allowedProviders`, `commandTimeoutMillis` and
+`pickerTimeoutMillis` (how long a start-tier picker may take before the walk starts at the first model tier; default
+2,000 ms, and the earlier of it and `commandTimeoutMillis` wins); `maxIterations`,
 `tokenCeiling` and `maxTokensPerTurn` are limits the built-in strategies read and enforce themselves. A `PipelineEventListener` receives `PipelineEvent`s as a run happens; it cannot suspend, and if it throws
 the command carries on and the trace records `listener_error`. The finished `outcome.trace` (`CommandTrace`) holds the
-tier attempts, the model turns, the usage and the `TraceCode`s.
+tier attempts, the model turns, the usage and the `TraceCode`s. `outcome.trace.selection` (a `StartTierSelection`)
+holds the picker's turns, which count in `trace.usage`; the walk records `router_fallback` when the picker gave no
+usable answer.
 
 <!-- doc-snippet: telemetry -->
 ```kotlin
@@ -719,6 +747,8 @@ provider in an app.
   A single-tool SingleShot prefix is usually shorter than the provider's minimum cacheable prefix, so it will not cache
   on `claude-haiku-4-5` (4,096 tokens) or on OpenAI (1,024 tokens); claude-sonnet-5 needs 1,024 and claude-sonnet-5-5
   needs 512.
+- **Map your picker or Router id** in your selection source the same way you map tier ids, and keep it different from
+  every tier id. The Router's wording is engine-owned and may be tuned in a later version without an API change.
 - **Open taxonomies need `else`:** `FailureReason`, `EscalationReason`, `Resolution`, `CredentialLookup`, `KeyState`,
   `ActionKind`, `FinishedKind`, `PipelineEvent`, `TraceCode`, `StopReason`, `ToolChoice`, `ModelResult`,
   `OnDeviceAvailability`, `TierSelector`, `AnthropicAttemptKind` and `ChatCompletionsAttemptKind`. Later versions add

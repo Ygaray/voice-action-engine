@@ -71,9 +71,9 @@ leaves), annotation class.
 | `PipelineDsl` | annotation class | | DSL marker for the builder. |
 | `CommandPipeline` | class | | The composed ladder: `execute`, `commitHeld`, `tiers`, `capabilityTable`. |
 | `CommandOutcome` | sealed class | closed | The typed result: `Completed`, `Failed` or `Unhandled`. |
-| `TierPolicy` | class | | The limits one command runs under (`TierPolicy { }` builder). |
+| `TierPolicy` | class | | The limits one command runs under (`TierPolicy { }` builder), including `pickerTimeoutMillis` (default 2,000 ms, engine-enforced). |
 | `TierPolicySource` | fun interface | | Supplies the policy for each command (`fixed(policy)`). |
-| `TierSelector` | abstract class | open | Which tier a command starts at: `Linear` (default), `Fixed(tier)` or `Custom(picker)`; zero-call tiers at the head always run first. |
+| `TierSelector` | abstract class | open | Which tier a command starts at: `Linear` (default), `Fixed(tier)`, `Custom(picker)` or the opt-in `Router { }`; zero-call tiers at the head always run first. |
 | `StartTierPicker` | fun interface | | Your suspend choice of where the model walk starts: sees the command and the eligible model tiers, returns one id or null. |
 | `PickContext` | abstract class | | What a picker gets: run id, policy, tokens used, `model()` (bound for the picker's own id) and `recordTurn`; no write path. |
 | `StartTierSelection` | class | | The picker's entry in the trace: `outcome`, `picked`, `eligible`, `tiersBypassed`, its turns and usage. |
@@ -328,6 +328,7 @@ The constructors and members that integrators write or read most often, in one p
 | `Usage(inputUncached: Long, cacheRead: Long, cacheWrite: Long, output: Long)` | `core.telemetry` | Tokens in four buckets, in this order. |
 | `CommandOutcome.Completed.reply` (`String?`), `.terminalCall`, `.partial`, `.remainingStepIds` (`List<String>`) | `core.pipeline` | The tier's text answer, a terminal call, the partial flag, and the planned steps a plan tier never ran, in plan order (empty for every other tier). |
 | `CommandOutcome.Failed.reason`, `CommandOutcome.Unhandled.lastReason` | `core.pipeline` | The `FailureReason`, or the last `EscalationReason?`. |
+| `TierSelector.Custom(picker) { }`, `TierSelector.Router { }` | `core.pipeline` | Builder vars `id`, `capabilities` (both), and `tierDescriptions` (Router only: one line per tier id, sent to the router's provider). |
 | `Extraction(toolName: String, arguments: JsonObject, callId: String?)` | `core.strategy` | What a resolver receives; `callId` is the provider's tool-call id, or null. `Extraction.matchedLanguage` is `"en"`/`"es"` for a grammar match, null for a model tier and for a cross-pack agreement (both packs matched the same tool with no language label); callers that key reply templates off it must fall back to their own locale when it is null. |
 | `CommitSink.onRunClosed(runId: String, termination: RunTermination)` | `core.commit` | Called once when a run closes (`suspend`). |
 
@@ -343,6 +344,8 @@ The plan tier records `plan_rejected`, `plan_replanned` and `plan_binding_unreso
 `CommandTrace.selection` is the `StartTierSelection` when a picking selector asked its picker (its turns count in
 `trace.usage`), and null otherwise. The `router_fallback` code means the picker gave no usable answer, or no model tier
 was left after the zero-call head, and the walk started at the first eligible tier. It is never a failure.
+The opt-in `TierSelector.Router` selection carries its single `pick_start_tier` turn, and `tiersBypassed` reports what
+the pick skipped compared with `Linear`.
 
 <!-- doc-snippet: telemetry -->
 ```kotlin
