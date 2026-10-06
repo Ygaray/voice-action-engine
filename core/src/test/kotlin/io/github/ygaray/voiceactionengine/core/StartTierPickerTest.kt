@@ -2,6 +2,8 @@ package io.github.ygaray.voiceactionengine.core
 
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
@@ -124,6 +126,43 @@ class StartTierPickerTest {
             assertEquals(5L, trace.usage.total)
             assertEquals(1, listener.events.count { it is PipelineEvent.ProviderCall })
             assertTrue(trace.attempts.none { it.strategy == StrategyId("start_tier_picker") })
+        }
+    }
+
+    @Test
+    fun anAppNamesItsPickerAndTheSelectionSeamBindsItsModel() = runTest {
+        NoNetworkGuard.during {
+            val grammar = zeroCallTier("grammar", StrategyOutcome.NoMatch())
+            val single = llmTier("single") { _, _ -> StrategyOutcome.Completed("s") }
+            val agentic = llmTier("agentic") { _, session ->
+                session.model().complete(pickTurnRequest())
+                StrategyOutcome.Completed("a")
+            }
+            val picker = ScriptedPicker({ _, _, ctx ->
+                ctx.model().complete(pickTurnRequest())
+                StrategyId("agentic")
+            })
+            val selector = TierSelector.Custom(picker) {
+                id = StrategyId("app_picker")
+                capabilities = StrategyCapabilities(setOf(ProviderId.ANTHROPIC))
+            }
+            val selection = MappedSelection(
+                mapOf("app_picker" to ProviderSelection(ProviderId.ANTHROPIC, "picker-model")),
+                ProviderSelection(ProviderId.ANTHROPIC, "test-model"),
+            )
+            val fake = FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("p", Usage(4, 0, 0, 1)),
+                FakeAiProvider.reply("q", Usage(4, 0, 0, 1)))
+
+            val outcome = startTierPipeline(listOf(grammar, single, agentic), selector, fake, selection = selection)
+                .execute(input)
+
+            assertEquals("a", (outcome as CommandOutcome.Completed).reply)
+            assertEquals(1, selection.requested.count { it == StrategyId("app_picker") })
+            assertEquals(idsOf("app_picker", "agentic"), selection.requested)
+            val chosen = outcome.trace.selection!!
+            assertEquals(StrategyId("app_picker"), chosen.picker)
+            assertEquals("picker-model", chosen.turns.single().model)
+            assertEquals("picker-model", fake.calls.first().model)
         }
     }
 }

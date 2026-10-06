@@ -7,6 +7,8 @@ import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.OnDeviceCapability
 import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
+import io.github.ygaray.voiceactionengine.core.provider.SelectionRequest
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
@@ -19,6 +21,7 @@ import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import io.github.ygaray.voiceactionengine.core.testing.StrategyStep
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
 /** A pipeline over [tiers] for the start-tier tests; [selector] and [onDevice] are set only when non-null. */
@@ -27,7 +30,7 @@ internal fun startTierPipeline(
     selector: TierSelector?,
     fake: FakeAiProvider,
     listener: RecordingEventListener = RecordingEventListener(),
-    selection: ScriptedSelectionSource =
+    selection: ProviderSelectionSource =
         ScriptedSelectionSource.fixed(ProviderSelection(ProviderId.ANTHROPIC, "test-model")),
     policy: TierPolicy = TierPolicy.DEFAULT,
     onDevice: OnDeviceCapability? = null,
@@ -63,3 +66,23 @@ internal fun idsOf(vararg ids: String): List<StrategyId> = ids.map { StrategyId(
 
 /** The request a picker test sends through the picker's model handle. */
 internal fun pickTurnRequest(): ModelRequest = ModelRequest("pick", listOf(UserMessage("pick")), 8)
+
+/**
+ * A selection source that answers by strategy id: a key of [byId] answers its entry (null means "not configured"),
+ * any other id gets [fallback]. Every asked id is kept in [requested].
+ */
+internal class MappedSelection(
+    private val byId: Map<String, ProviderSelection?>,
+    private val fallback: ProviderSelection?,
+) : ProviderSelectionSource {
+    private val asked = CopyOnWriteArrayList<StrategyId>()
+
+    /** Every strategy id asked about so far, in arrival order. */
+    val requested: List<StrategyId>
+        get() = asked.toList()
+
+    override suspend fun select(request: SelectionRequest): ProviderSelection? {
+        asked.add(request.strategy)
+        return if (byId.containsKey(request.strategy.value)) byId[request.strategy.value] else fallback
+    }
+}

@@ -8,6 +8,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
+import io.github.ygaray.voiceactionengine.core.testing.ScriptedPicker
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedStrategy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -85,5 +86,9 @@ class TierSelectorTest {
         assertEquals("Linear", TierSelector.Linear.toString())
         assertEquals("Fixed(b)", TierSelector.Fixed(StrategyId("b")).toString())
         assertEquals(StrategyId("b"), TierSelector.Fixed(StrategyId("b")).tier)
+        val picker = ScriptedPicker({ _, _, _ -> null })
+        assertEquals("Custom(id=start_tier_picker)", TierSelector.Custom(picker).toString())
+        assertEquals("Custom(id=app_picker)", TierSelector.Custom(picker) { id = StrategyId("app_picker") }.toString())
+        assertSame(picker, TierSelector.Custom(picker).picker)
     }
 }
