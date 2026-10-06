@@ -7,6 +7,7 @@ import io.github.ygaray.voiceactionengine.spike.gold.Minima
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -173,5 +174,20 @@ class SbEnvelopeTest {
             .filter { it.contains("sb-") || it.contains("fixture") }.toList()
 
         assertTrue(found.toString(), found.isEmpty())
+    }
+
+    // The real private files are optional on a host: with them present the real loader must accept them; without them
+    // the test is skipped, never failed (a host test must not depend on private data). Only counts are ever shown.
+    @Test
+    fun theRealPrivateFilesLoadWhenTheyArePresent() {
+        val dir = File(System.getenv("VAE_SPIKE_PRIVATE_DIR") ?: (System.getProperty("user.home") + "/.local/share/vae-spike"))
+        assumeTrue(File(dir, SbEnvelope.FIXTURE_FILE).isFile && File(dir, SbEnvelope.GOLD_FILE).isFile)
+
+        val state = SbEnvelope.fromPrivateDir(dir)
+
+        assertTrue(state.toString(), state is SbState.Loaded)
+        state as SbState.Loaded
+        assertTrue(state.gold.items.count { it.kind == io.github.ygaray.voiceactionengine.spike.evidence.ItemKind.POS } >= 100)
+        assertEquals(20, state.gold.forcedSubset.size)
     }
 }
