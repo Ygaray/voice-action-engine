@@ -239,4 +239,68 @@ class UndoEndToEndTest {
             assertEquals(written, rig.store.snapshot())
         }
     }
+
+    /** An action that creates an item and arms an alarm for it, declaring both on its ticket. */
+    private fun UndoRig.createAndArm(title: String): FakeMutation {
+        val ticket = journal.newTicket()
+        return FakeMutation("create_item", {
+            val item = store.create(title, null)
+            ticket.created("item", item.id)
+            board.arm(item.id)
+            ticket.compensate("alarm", item.id)
+            StepResult("ok", false, null, mapOf("id" to item.id))
+        }, context = ticket)
+    }
+
+    @Test
+    fun s8CompensatorsRunAfterTheRestoresInReverseOnce() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val pipeline = rig.pipeline(ScriptedGate.admitAll(), rig.submitting(rig.createAndArm("n1"), rig.createAndArm("n2")))
+            pipeline.execute(CommandInput("two items with alarms"))
+            assertEquals(setOf("item-1", "item-2"), rig.board.ids)
+
+            val result = rig.journal.undoAll("run-1")
+
+            assertTrue(result.toString(), result is UndoResult.Complete)
+            assertEquals(
+                listOf("restore:item-2", "restore:item-1", "disarm:item-2", "disarm:item-1"),
+                rig.log.events,
+            )
+            assertEquals(emptySet<String>(), rig.board.ids)
+            assertEquals(rig.seeded, rig.store.snapshot())
+        }
+    }
+
+    @Test
+    fun s8AFailedCompensatorIsRetriedAlone() = runTest {
+        NoNetworkGuard.during {
+            val rig = UndoRig()
+            val pipeline = rig.pipeline(ScriptedGate.admitAll(), rig.submitting(rig.createAndArm("n1"), rig.createAndArm("n2")))
+            pipeline.execute(CommandInput("two items with alarms"))
+            rig.board.failOnce.add("item-2")
+
+            val partial = rig.journal.undoAll("run-1")
+
+            assertTrue(partial.toString(), partial is UndoResult.Partial)
+            val failed = (partial as UndoResult.Partial).notRestored.single()
+            assertEquals(1, failed.entry.position)
+            assertEquals("alarm", failed.compensator)
+            assertEquals(UndoReason.COMPENSATOR_FAILED, failed.reason)
+            assertEquals(listOf(0), partial.restored.map { it.position })
+            assertEquals(rig.seeded, rig.store.snapshot())
+            assertEquals(setOf("item-2"), rig.board.ids)
+            val firstPass = rig.log.events.size
+
+            val retry = rig.journal.undoAll("run-1")
+
+            assertTrue(retry.toString(), retry is UndoResult.Complete)
+            assertEquals(listOf(1), (retry as UndoResult.Complete).restored.map { it.position })
+            assertEquals(listOf("disarm:item-2"), rig.log.events.drop(firstPass))
+            assertEquals(emptySet<String>(), rig.board.ids)
+            val third = rig.journal.undoAll("run-1")
+            assertTrue(third.toString(), third is UndoResult.AlreadyUndone)
+            assertEquals(firstPass + 1, rig.log.events.size)
+        }
+    }
 }
