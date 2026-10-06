@@ -37,9 +37,9 @@ internal class SelectionBook(
     }
 
     /**
-     * Claims every turn reported under the picker's id and returns true for it. The turn is kept while the selection is
-     * open; a late one, recorded after the pick closed, is dropped (its tokens still count in the run total) rather than
-     * attributed to the tier then in flight.
+     * Claims every turn reported under the picker's id and returns true for it. The turn is kept while the selection
+     * is open; a late one, recorded after the pick closed, is dropped (its tokens still count in the run total)
+     * rather than attributed to the tier then in flight.
      */
     fun take(strategy: StrategyId, turn: TurnRecord): Boolean = synchronized(lock) {
         val mine = picker != null && strategy == picker
