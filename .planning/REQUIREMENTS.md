@@ -132,7 +132,7 @@ alone to keep one.
 | ROUT-05 | Phase 16 | Pending |
 | SPIKE-01 | Phase 13 | Pending |
 | SPIKE-02 | Phase 13 | Pending |
-| SPIKE-03 | Phase 13 | Pending |
+| SPIKE-03 | Phase 13 | N/A-deferred (red verdict, Phase 13; L10) |
 | UNDO-01 | Phase 17 | Pending |
 | UNDO-02 | Phase 17 | Pending |
 | UNDO-03 | Phase 17 | Pending |

@@ -27,3 +27,9 @@ removed from the build (its include, its catalog entries and its device-only scr
 harness stays reproducible from history at `harness_sha` and from the kept filter and verdict scripts, the committed evidence, the
 verdict and the thresholds. The sb envelope is red because it is unmeasured (time-box), not measured-and-failed; D-07 treats an
 unmeasured gating metric as red, so the branch is the same.
+
+## Follow-ups for the driver
+
+- Red: announce the disposition together with the verdict thread (small RED measured, sb RED unmeasured by the time-box); nothing to insert.
+- No Phase 13.1 is requested, `ROADMAP.md` gains no inserted phase, and `v1.1.0` is not blocked (L10).
+- Candidate for the next milestone's harness work, if the spike is ever re-run: the verdict code reads sb peak PSS on the winning cell only (13-09 deviation 4). The harness is recoverable at `08ada3366b`.
