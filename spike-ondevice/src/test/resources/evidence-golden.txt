@@ -1,0 +1,18 @@
+# Golden spike evidence: at least one line of every VAE_SPIKE_ kind, with realistic keys. EvidenceGrammarTest requires each
+# line to parse and re-render byte-identically, and scripts/verify-spike-evidence-filter.sh requires the host filter to keep
+# every one of them. Numbers are illustrative, not measurements.
+VAE_SPIKE_ENV thresholds_sha=ec4933fb head=2f28f0e044 window_start=1790000000 timebox_s=14400 target=R5CT10XNKQN device_model=SM-S908U sdk=35
+VAE_SPIKE_TOOLCHAIN kind=compile pin=0.17.1 result=ok kotlin=2.3.20 agp=9.2.1
+VAE_SPIKE_PREFLIGHT storage_free_mb=41000 abi=arm64-v8a page_size=4096 mem_total_mb=11500 gpu_libs=1 thermal=none
+VAE_SPIKE_MODEL model=e2b size_bytes=2583085056 sha=1a2b3c4d
+VAE_SPIKE_INIT model=e2b backend=cpu file=generic cold=process init_ms=4210 pss_mb=1433 result=ok code=none
+VAE_SPIKE_PREFILL model=e2b backend=cpu target_tokens=1000 prefill_tokens=1012 prefill_tps=310 ttft_ms=3280
+VAE_SPIKE_KVREUSE preface=sb preface_on_init=0 first_prefill_tokens=7000 second_prefill_tokens=7000 first_ttft_ms=21000 second_ttft_ms=20800 disposition=not_reused
+VAE_SPIKE_SCHEMAPROBE feature=enum constraint=on trials=5 invalid=0 disposition=enforced
+VAE_SPIKE_GPU disposition=gpu_init_failed code=opencl_missing
+VAE_SPIKE_TRIAL env=small stage=confirm_small cell=e2b.cpu.b.auto item=en001 lang=en kind=pos schema_valid=1 tool_match=1 args_match=1 false_write=0 latency_ms=1840 ttft_ms=1210 prefill_tokens=452 decode_tokens=31 first_in_process=0 outcome=ok
+VAE_SPIKE_TRIAL env=sb stage=confirm_sb cell=e2b.gpu.a.auto item=ng007 lang=none kind=neg schema_valid=1 tool_match=0 args_match=0 false_write=1 latency_ms=9120 ttft_ms=none prefill_tokens=7210 decode_tokens=18 first_in_process=1 outcome=false_write
+VAE_SPIKE_MEM stage=confirm_small peak_pss_mb=1733 interval_ms=250 samples=840
+VAE_SPIKE_THERMAL stage=confirm_small status=light
+VAE_SPIKE_EXIT reason=exit_self count=3
+VAE_SPIKE_STAGE stage=screen_small result=done trials=40 planned=40 winner=e2b.cpu.b.auto routes=a,b
