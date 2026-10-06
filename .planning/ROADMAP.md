@@ -157,13 +157,13 @@ Plans:
   3. Green: an on-device provider ships `@Experimental` in its own published module behind the `ON_DEVICE` capability gate, and where the gate reports unavailable, the run falls back exactly as in v1.0 (declared fallback or a loud typed failure). Red: no module and no code ship, SPIKE-03 is dispositioned N/A-deferred, and `v1.1.0` isn't blocked (L10).
   4. Whatever the verdict, `:core` and `:providers` gain no on-device or ML dependency: the `:core` classpath allowlist and the no-on-device-implementation scan still pass. Agentic on-device stays out of scope.
 
-**Plans:** 1/11 plans executed
+**Plans:** 2/11 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 13-01-PLAN.md — toolchain proof in the real build (D-02, 0.17.1 then 0.16.1), unpublished `:spike-ondevice` scaffold, APK cost + stdlib fallout rows, D-07 thresholds locked (SPIKE-01)
-- [ ] 13-02-PLAN.md — SC4 hardening (D-09): module-scoped `verifyNoMlArtifacts`, LiteRT/MediaPipe tokens in the `:core` scan, model/gold hygiene patterns, negative controls (SPIKE-03)
+- [x] 13-02-PLAN.md — SC4 hardening (D-09): module-scoped `verifyNoMlArtifacts`, LiteRT/MediaPipe tokens in the `:core` scan, model/gold hygiene patterns, negative controls (SPIKE-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -326,7 +326,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 12. Wave-1 Seams & W04 Fix | v1.1 | 8/8 | Complete    | 2026-10-05 |
-| 13. On-Device Model Spike | v1.1 | 1/11 | In Progress|  |
+| 13. On-Device Model Spike | v1.1 | 2/11 | In Progress|  |
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 0/TBD | Not started | - |
 | 15. PlanThenExecute Strategy | v1.1 | 0/TBD | Not started | - |
 | 16. Start-Tier Selection | v1.1 | 0/TBD | Not started | - |

@@ -57,7 +57,7 @@ alone to keep one.
 
 - [ ] **SPIKE-01**: a bundled Gemma-2B-class model (MediaPipe/LiteRT) is measured on the TESTER: latency, RAM and strict-JSON reliability on SingleShot-shaped prompts.
 - [ ] **SPIKE-02**: the verdict (green/red, with numbers) is messaged to the orchestrator early, before the SB 179 and CT 75 planning needs it.
-- [ ] **SPIKE-03**: if green, the on-device provider ships `@Experimental` in its own module behind the `ON_DEVICE` capability gate. If red, nothing ships and the tag isn't blocked (L10).
+- [x] **SPIKE-03**: if green, the on-device provider ships `@Experimental` in its own module behind the `ON_DEVICE` capability gate. If red, nothing ships and the tag isn't blocked (L10).
 
 ### Run-level undo (A18/E7/E8, V11-05)
 
@@ -132,7 +132,7 @@ alone to keep one.
 | ROUT-05 | Phase 16 | Pending |
 | SPIKE-01 | Phase 13 | Pending |
 | SPIKE-02 | Phase 13 | Pending |
-| SPIKE-03 | Phase 13 | Pending |
+| SPIKE-03 | Phase 13 | Complete |
 | UNDO-01 | Phase 17 | Pending |
 | UNDO-02 | Phase 17 | Pending |
 | UNDO-03 | Phase 17 | Pending |

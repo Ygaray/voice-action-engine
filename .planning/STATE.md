@@ -4,17 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 13
 current_phase_name: on-device-model-spike
+current_plan: 3
 status: executing
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-10-06T00:04:04.923Z"
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-10-06T00:11:52.730Z"
 last_activity: 2026-10-05
 last_activity_desc: Phase 12 complete, transitioned to Phase 13
-state_head: 8f07fb51142703e9c780764b2a38dbf9bd404e78
+state_head: 94ced1476d5407e7f961bce0c3a6b786bc565a4a
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 19
-  completed_plans: 8
+  completed_plans: 10
   percent: 0
 ---
 
@@ -30,7 +31,8 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 13 (on-device-model-spike) — READY TO EXECUTE
-Plan: Not started
+Current Plan: 3
+Total Plans in Phase: 11
 Status: Ready to execute
 Last activity: 2026-10-05 — Phase 12 complete, transitioned to Phase 13
 
@@ -104,6 +106,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 12 P06 | 25min | 3 tasks | 17 files |
 | Phase 12 P07 | 20 min | 3 tasks | 4 files |
 | Phase 13 P01 | 9 min | 3 tasks | 7 files |
+| Phase 13 P02 | 14min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -125,6 +128,7 @@ Recent decisions affecting current work:
 - [Phase 12]: 12-03: cappedByPolicy = PolicyPreCheck dropped any tier (both skip sites, offline-only included); carryIn = walk carry non-null at tier start
 - [Phase 12]: 12-06: provider call id travels only via internal submit(step, providerCallId) + ActionDetails + HeldProposal field; public submit records null
 - [Phase 13]: 13-01: litertlm 0.17.1 builds on the pinned toolchain (no D-02 fallback); 13-THRESHOLDS.md locked sha256 ec4933fb (commit c793a3b)
+- [Phase 13]: 13-02: ML denial is a module-name-scoped verifyNoMlArtifacts (core/providers/keystore), never a shared rule, so a later :ondevice module is not blocked
 
 ### Pending Todos
 
@@ -152,8 +156,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T00:04:04.880Z
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-10-06T00:11:46.152Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
