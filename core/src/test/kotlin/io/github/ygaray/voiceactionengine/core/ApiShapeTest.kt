@@ -12,6 +12,7 @@ import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -148,10 +149,22 @@ class ApiShapeTest {
 
         assertTrue(real.toString(), listOf(string, json) in real)
         assertTrue(real.toString(), listOf(string, json, string) in real)
+        // The four-argument primary constructor is Kotlin-internal; the Metalava compat check proves it is not public.
+        val every = Extraction::class.java.declaredConstructors
+            .filter { !it.isSynthetic }
+            .map { it.parameterTypes.toList() }
+        assertTrue(every.toString(), listOf(string, json, string, string) in every)
         assertTrue(!hasDefaultArgumentStub(Extraction::class.java))
         assertTrue(!hasDefaultArgumentStub(HeldProposal::class.java))
         assertTrue(hasDefaultArgumentStub(ExecutedAction::class.java))
         assertTrue(hasDefaultArgumentStub(Class.forName("$ROOT_PACKAGE.commit.ActionDetails")))
+    }
+
+    @Test
+    fun extractionPublicConstructorsLeaveMatchedLanguageNull() {
+        assertNull(Extraction("t", JsonObject(emptyMap())).matchedLanguage)
+        assertNull(Extraction("t", JsonObject(emptyMap()), "call-1").matchedLanguage)
+        assertEquals("Extraction(toolName=t, argumentCount=0)", Extraction("t", JsonObject(emptyMap())).toString())
     }
 
     /**

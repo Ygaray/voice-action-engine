@@ -40,7 +40,7 @@ public class Extraction internal constructor(
     public val callId: String?,
     public val matchedLanguage: String?,
 ) {
-    /** An extraction a model call produced, or one no call produced when [callId] is null; [matchedLanguage] is null. */
+    /** An extraction with a [callId] (or none, when null) and no [matchedLanguage]. */
     public constructor(toolName: String, arguments: JsonObject, callId: String?) :
         this(toolName, arguments, callId, null)
 

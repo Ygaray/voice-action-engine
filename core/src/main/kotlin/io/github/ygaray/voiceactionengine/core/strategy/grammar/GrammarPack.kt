@@ -73,7 +73,8 @@ public class GrammarPack internal constructor(settings: Builder) {
     }
 
     private fun matchOne(language: String, words: List<String>): GrammarResult =
-        index[language]?.get(words)?.let { GrammarResult.Matched(matchOf(it, language)) } ?: GrammarResult.Rejected(null)
+        index[language]?.get(words)?.let { GrammarResult.Matched(matchOf(it, language)) }
+            ?: GrammarResult.Rejected(null)
 
     private fun matchBoth(words: List<String>): GrammarResult {
         val en = index[EN]?.get(words)

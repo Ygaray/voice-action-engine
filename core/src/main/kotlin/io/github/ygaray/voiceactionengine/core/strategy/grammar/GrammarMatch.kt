@@ -22,7 +22,7 @@ public class GrammarMatch internal constructor(
     public val terminal: Boolean,
     public val ruleId: String?,
 ) {
-    /** Prints the tool name, language, number of arguments, the terminal flag and the rule id; never argument values. */
+    /** Prints the tool name, language, argument count, terminal flag and rule id; never argument values. */
     override fun toString(): String =
         "GrammarMatch(toolName=$toolName, matchedLanguage=$matchedLanguage, argumentCount=${arguments.size}, " +
             "terminal=$terminal, ruleId=$ruleId)"

@@ -6,10 +6,12 @@ import io.github.ygaray.voiceactionengine.core.strategy.CommandSession
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
+import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.resolutionOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.submitSteps
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 
 /**
  * A tier that resolves a spoken command from phrasings the app declared, with no provider call.
@@ -19,7 +21,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.submitSteps
  * (the extraction's `callId` is null and its `matchedLanguage` says which language matched), and submits whatever steps
  * the resolver prepared. It never writes by itself: every change goes through the session, so the gate decides, and
  * the commit sink sees the action with a null provider call id. When nothing matches, or the resolver answers
- * [io.github.ygaray.voiceactionengine.core.strategy.Resolution.NoMatch], the tier ends with no match and the next tier
+ * [Resolution.NoMatch], the tier ends with no match and the next tier
  * starts fresh with the original transcript.
  *
  * The tier uses no provider and no network, so it is eligible for an offline-only command and under any provider
@@ -49,6 +51,7 @@ public class LocalGrammarStrategy internal constructor(
     private suspend fun resolve(match: GrammarMatch, input: CommandInput, session: CommandSession): StrategyOutcome {
         val extraction = Extraction(match.toolName, match.arguments, null, match.matchedLanguage)
         val resolution = resolver.resolve(extraction, input)
+        if (resolution is Resolution.NoMatch) session.recordCode(TraceCode.GRAMMAR_RESOLVER_REJECTED)
         return resolutionOutcome(resolution) { submitSteps(session, it, null) }
     }
 

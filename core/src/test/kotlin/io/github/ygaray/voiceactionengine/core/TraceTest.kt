@@ -234,12 +234,27 @@ class TraceTest {
         TraceCode.READ_TOOL_MUTATION_REJECTED to "read_tool_mutation_rejected",
     )
 
+    private val grammarCodes = mapOf(
+        TraceCode.GRAMMAR_AMBIGUOUS to "grammar_ambiguous",
+        TraceCode.GRAMMAR_LANGUAGE_UNSUPPORTED to "grammar_language_unsupported",
+        TraceCode.GRAMMAR_SLOT_REJECTED to "grammar_slot_rejected",
+        TraceCode.GRAMMAR_NORMALIZE_ERROR to "grammar_normalize_error",
+        TraceCode.GRAMMAR_INPUT_TOO_LONG to "grammar_input_too_long",
+        TraceCode.GRAMMAR_RESOLVER_REJECTED to "grammar_resolver_rejected",
+    )
+
+    @Test
+    fun theGrammarCodesHaveTheirSnakeCaseWireValues() {
+        assertEquals(SIX, grammarCodes.size)
+        grammarCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
+    }
+
     @Test
     fun theAgenticLoopCodesHaveTheirSnakeCaseWireValues() {
         assertEquals(THREE, agenticLoopCodes.size)
         agenticLoopCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
         val existing = phaseTwoCodes + routerCodes.keys + TraceCode.EXTRA_TOOL_CALLS_DROPPED
-        val all = existing + agenticLoopCodes.keys
+        val all = existing + agenticLoopCodes.keys + grammarCodes.keys
         val wireValues = all.map { it.value }
         assertEquals(wireValues.size, wireValues.toSet().size)
         assertEquals(declaredWireValues(), wireValues.toSet())
@@ -403,5 +418,6 @@ class TraceTest {
         const val THIRTEEN = 13
         const val TWENTY_EIGHT = 28
         const val THREE = 3
+        const val SIX = 6
     }
 }

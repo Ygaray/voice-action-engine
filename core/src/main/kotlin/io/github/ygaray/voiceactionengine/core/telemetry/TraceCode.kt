@@ -118,5 +118,23 @@ public value class TraceCode internal constructor(public val value: String) {
          * result.
          */
         public val READ_TOOL_MUTATION_REJECTED: TraceCode = TraceCode("read_tool_mutation_rejected")
+
+        /** A grammar tier found two or more different readings, in one pack or across the two; nothing was written. */
+        public val GRAMMAR_AMBIGUOUS: TraceCode = TraceCode("grammar_ambiguous")
+
+        /** The command's language label was neither "en", "es" nor absent, so the grammar tier matched nothing. */
+        public val GRAMMAR_LANGUAGE_UNSUPPORTED: TraceCode = TraceCode("grammar_language_unsupported")
+
+        /** An app normalize hook returned null or blank for a slot value, so the grammar match was refused. */
+        public val GRAMMAR_SLOT_REJECTED: TraceCode = TraceCode("grammar_slot_rejected")
+
+        /** An app normalize hook threw, so the grammar match was refused. */
+        public val GRAMMAR_NORMALIZE_ERROR: TraceCode = TraceCode("grammar_normalize_error")
+
+        /** The transcript was longer than any declared phrasing can match, so the grammar tier matched nothing. */
+        public val GRAMMAR_INPUT_TOO_LONG: TraceCode = TraceCode("grammar_input_too_long")
+
+        /** The app resolver answered no match to a grammar match, so the tier ended with no match. */
+        public val GRAMMAR_RESOLVER_REJECTED: TraceCode = TraceCode("grammar_resolver_rejected")
     }
 }

@@ -143,7 +143,9 @@ class LocalGrammarPipelineTest {
     @Test
     fun aGrammarTierNeedsAPackAndAResolver() {
         val noPack = assertThrows(IllegalArgumentException::class.java) {
-            LocalGrammarStrategy(StrategyId("grammar")) { resolver = RecordingResolver { _, _ -> Resolution.NoMatch() } }
+            LocalGrammarStrategy(StrategyId("grammar")) {
+                resolver = RecordingResolver { _, _ -> Resolution.NoMatch() }
+            }
         }
         assertTrue(noPack.message.orEmpty(), "pack" in noPack.message.orEmpty())
         val noResolver = assertThrows(IllegalArgumentException::class.java) {
