@@ -1,5 +1,9 @@
 package io.github.ygaray.voiceactionengine.spike.ladder
 
+import io.github.ygaray.voiceactionengine.spike.evidence.Cell
+import io.github.ygaray.voiceactionengine.spike.evidence.Envelope
+import io.github.ygaray.voiceactionengine.spike.gold.GoldItem
+import io.github.ygaray.voiceactionengine.spike.gold.GoldSet
 import io.github.ygaray.voiceactionengine.spike.verdict.Thresholds
 
 private const val MILLIS_PER_SECOND = 1000.0
@@ -81,4 +85,20 @@ internal object LadderRules {
         offInvalid > 0 -> ENFORCED
         else -> UNPROVEN
     }
+
+    // RED stubs: the planning rules are written in the GREEN commit.
+    const val SCREEN_SEED = 13_013L
+
+    fun screenCells(env: Envelope, g3Present: Boolean, gpuOk: Boolean): List<Cell> = emptyList()
+
+    fun seededScreenItems(items: List<GoldItem>, n: Int = SCREEN_N): List<GoldItem> = emptyList()
+
+    /** What the confirm stage runs: every distinct item once in the model-chooses shape, then the forced subset. */
+    class ConfirmPlan(val auto: List<GoldItem>, val forced: List<GoldItem>) {
+        val planned: Int get() = 0
+    }
+
+    fun confirmPlan(gold: GoldSet): ConfirmPlan = ConfirmPlan(emptyList(), emptyList())
+
+    fun sustainedDone(trials: Int, elapsedMs: Long): Boolean = false
 }

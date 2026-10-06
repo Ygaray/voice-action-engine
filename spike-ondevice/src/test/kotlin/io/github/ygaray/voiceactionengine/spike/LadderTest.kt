@@ -7,8 +7,11 @@ import io.github.ygaray.voiceactionengine.spike.backend.BackendMode
 import io.github.ygaray.voiceactionengine.spike.backend.BackendRequest
 import io.github.ygaray.voiceactionengine.spike.backend.BenchFacts
 import io.github.ygaray.voiceactionengine.spike.backend.InitOutcome
+import io.github.ygaray.voiceactionengine.spike.backend.RawToolCall
 import io.github.ygaray.voiceactionengine.spike.backend.LlmBackend
+import io.github.ygaray.voiceactionengine.spike.envelope.EnvelopeSnapshot
 import io.github.ygaray.voiceactionengine.spike.envelope.SbState
+import io.github.ygaray.voiceactionengine.spike.envelope.SmallEnvelope
 import io.github.ygaray.voiceactionengine.spike.evidence.EvidenceSink
 import io.github.ygaray.voiceactionengine.spike.evidence.FileEvidenceSink
 import io.github.ygaray.voiceactionengine.spike.evidence.Envelope
@@ -152,6 +155,40 @@ private fun JsonObject?.orEmpty(): JsonObject = this ?: JsonObject(emptyMap())
 internal fun obeying(request: BackendRequest): String =
     Json.encodeToString(JsonElement.serializer(), sampleFor((request.mode as BackendMode.Constrained).schema))
 
+
+/** A gold set for the trial stages: positives that expect `create_item` with title milk, and negatives that must be declined. */
+internal fun trialGold(posEn: Int, posEs: Int, neg: Int, forced: Int = 0, envelope: Envelope = Envelope.SMALL): GoldSet {
+    var n = 0
+    fun positive(lang: Lang, forcedFlag: Boolean): GoldItem {
+        n++
+        return GoldItem("s_${lang.wire}_%03d".format(n), lang, ItemKind.POS, "pos ${lang.wire} $n", "create_item", buildJsonObject { put("title", "milk") }, forcedFlag)
+    }
+    val items = List(posEn) { positive(Lang.EN, it < forced) } + List(posEs) { positive(Lang.ES, false) } + List(neg) {
+        n++
+        GoldItem("s_neg_%03d".format(n), Lang.EN, ItemKind.NEG, "neg $n", null, JsonObject(emptyMap()), false)
+    }
+    return GoldSet(envelope, null, items)
+}
+
+/** What a model that follows the envelope would answer: the create call for a `pos` item, a decline for a `neg` one. */
+internal fun trialAnswer(request: BackendRequest): BackendAnswer {
+    val negative = request.user.startsWith("neg")
+    return when (val mode = request.mode) {
+        is BackendMode.Constrained -> {
+            val wrapper = (mode.schema["properties"] as? JsonObject)?.containsKey("tool") == true
+            answerOf(
+                when {
+                    wrapper && negative -> """{"tool":"none","arguments":{}}"""
+                    wrapper -> """{"tool":"create_item","arguments":{"title":"Milk"}}"""
+                    else -> """{"title":"Milk"}"""
+                },
+            )
+        }
+        is BackendMode.NativeTools ->
+            if (negative) answerOf("") else BackendAnswer("", listOf(RawToolCall("create_item", mapOf("title" to "Milk"))), answerOf("").bench)
+    }
+}
+
 /** A small gold set built in memory (the loader's minima are not under test here). */
 internal fun smallGoldOf(count: Int): GoldSet = GoldSet(
     Envelope.SMALL,
@@ -206,11 +243,13 @@ class LadderTest {
     }
 
     @Test
-    fun prepareThenPreflightThenMinimalScreenEndsEachStageWithOneStageLine() = runTest {
-        val rig = LadderRig(tmp.root)
+    fun prepareThenPreflightThenScreenEndsEachStageWithOneStageLine() = runTest {
+        val rig = LadderRig(tmp.root, backend = { RecordingBackend(BackendLog(), answer = { r, _ -> trialAnswer(r) }) })
 
         rig.ladder.run(Stage.PREPARE)
         rig.placeModel(ModelFile.E2B_GENERIC)
+        rig.state.put("init_e2b_cpu", "ok")
+        rig.state.put("init_e2b_gpu", "gpu_init_failed")
         rig.ladder.run(Stage.PREFLIGHT)
         rig.ladder.run(Stage.SCREEN_SMALL)
 
@@ -229,13 +268,14 @@ class LadderTest {
         assertEquals("1", models.first { it["model"] == "e2b" && it["file"] == "generic" }["present"])
         assertEquals("0", models.first { it["model"] == "g3_1b" }["present"])
 
+        // The GPU failed in the init stage, so two cells (CPU, routes A and B) screen the three items each.
         val trials = rig.sink.of(Stage.SCREEN_SMALL, SpikeKind.TRIAL)
-        assertEquals(3, trials.size)
-        assertEquals(listOf("1", "0", "0"), trials.map { it["first_in_process"] })
+        assertEquals(6, trials.size)
+        assertEquals(listOf("1", "0", "0", "0", "0", "0"), trials.map { it["first_in_process"] })
         val screen = rig.sink.stageLine(Stage.SCREEN_SMALL)
         assertEquals("done", screen["result"])
-        assertEquals("3", screen["trials"])
-        assertEquals("3", screen["planned"])
+        assertEquals("6", screen["trials"])
+        assertEquals("6", screen["planned"])
         assertAllParse(rig.sink)
     }
 
@@ -564,5 +604,355 @@ class LadderTest {
         notNeeded.state.put("init_e2b_cpu", "ok")
         notNeeded.ladder.run(Stage.RF_MATRIX)
         assertEquals("0", probeLines(notNeeded).single { it["feature"] == "flat" && it["constraint"] == "on" }["constrained_flag"])
+    }
+
+    // ---- trial stages (Task 3) -------------------------------------------------------------------------------------
+
+    private fun trialRig(
+        log: BackendLog,
+        probes: FakeProbes = FakeProbes(),
+        cost: (BackendConfig) -> Long = { if (it.gpu) 100L else 400L },
+        gold: GoldSet = trialGold(posEn = 3, posEs = 3, neg = 6),
+        screenN: Int = 6,
+        sbState: () -> SbState = { SbState.Absent },
+        sbGold: GoldSet? = null,
+        extraAnswer: (BackendRequest) -> Unit = {},
+    ): LadderRig {
+        val rig = LadderRig(
+            tmp.root,
+            probes = probes,
+            backend = {
+                RecordingBackend(log) { request, config ->
+                    extraAnswer(request)
+                    probes.clockMs += cost(config)
+                    trialAnswer(request)
+                }
+            },
+            smallGold = { gold },
+            sbState = sbState,
+            screenN = screenN,
+        )
+        rig.placeModel(ModelFile.E2B_GENERIC)
+        rig.placeModel(ModelFile.E2B_GPU)
+        return rig
+    }
+
+    private fun trialLines(rig: LadderRig, stage: Stage) = rig.sink.of(stage, SpikeKind.TRIAL)
+
+    @Test
+    fun screenRunsTheSameSeededItemsOnEveryCellThenStoresTheWinnerAndEndsWithItsRoutes() = runTest {
+        val log = BackendLog()
+        val rig = trialRig(log)
+
+        rig.ladder.run(Stage.SCREEN_SMALL)
+
+        val trials = trialLines(rig, Stage.SCREEN_SMALL)
+        assertEquals(24, trials.size)
+        val byCell = trials.groupBy { it["cell"] }
+        assertEquals(
+            setOf("e2b.cpu.a.auto", "e2b.cpu.b.auto", "e2b.gpu.a.auto", "e2b.gpu.b.auto"),
+            byCell.keys,
+        )
+        val itemSets = byCell.values.map { group -> group.map { it["item"] }.toSet() }
+        assertEquals(1, itemSets.toSet().size)
+        assertEquals(6, itemSets.first().size)
+        assertEquals(1, trials.count { it["first_in_process"] == "1" })
+        assertTrue(trials.all { it["stage"] == "screen_small" && it["env"] == "small" })
+        val stage = rig.sink.stageLine(Stage.SCREEN_SMALL)
+        assertEquals("done", stage["result"])
+        assertEquals("24", stage["trials"])
+        assertEquals("24", stage["planned"])
+        assertEquals("e2b.gpu.a.auto", stage["winner"])
+        assertEquals("a,b", stage["routes"])
+        assertEquals("e2b.gpu.a.auto", rig.state.get("winner_small"))
+        val mem = rig.sink.of(Stage.SCREEN_SMALL, SpikeKind.MEM)
+        assertEquals(4, mem.size)
+        assertEquals(byCell.keys, mem.map { it["cell"] }.toSet())
+        assertTrue(mem.all { it["interval_ms"] == "250" && it["peak_pss_mb"] == "1500" })
+        assertEquals(4, rig.sink.of(Stage.SCREEN_SMALL, SpikeKind.INIT).size)
+        assertEquals(listOf("process", "warm", "warm", "warm"), rig.sink.of(Stage.SCREEN_SMALL, SpikeKind.INIT).map { it["cold"] })
+        assertTrue(log.configs.all { it.maxNumTokens == 4096 })
+        assertAllParse(rig.sink)
+    }
+
+    @Test
+    fun aThermalBlockLineIsWrittenEveryTenTrialsAndACooldownLineBeforeEachCell() = runTest {
+        val rig = trialRig(BackendLog(), gold = trialGold(posEn = 5, posEs = 5, neg = 10), screenN = 20)
+        rig.state.put("init_e2b_gpu", "gpu_init_failed")
+
+        rig.ladder.run(Stage.SCREEN_SMALL)
+
+        val thermal = rig.sink.of(Stage.SCREEN_SMALL, SpikeKind.THERMAL)
+        assertEquals(2, thermal.count { it["waited_s"] != null })
+        // 20 trials per cell: one block line after the tenth and one after the twentieth.
+        assertEquals(4, thermal.count { it["waited_s"] == null })
+    }
+
+    @Test
+    fun theCooldownWaitsForLightWithACapAndRecordsHowLongItWaited() = runTest {
+        val probes = FakeProbes()
+        probes.thermalScript.addAll(listOf("moderate", "moderate", "light"))
+        val rig = trialRig(BackendLog(), probes = probes)
+        rig.state.put("init_e2b_gpu", "gpu_init_failed")
+        rig.ladder.run(Stage.SCREEN_SMALL)
+        val first = rig.sink.of(Stage.SCREEN_SMALL, SpikeKind.THERMAL).first { it["waited_s"] != null }
+        assertEquals("10", first["waited_s"])
+        assertEquals("light", first["status"])
+
+        val hot = FakeProbes(thermal = "severe")
+        val capped = trialRig(BackendLog(), probes = hot)
+        capped.state.put("init_e2b_gpu", "gpu_init_failed")
+        capped.state.put("init_e2b_cpu", "ok")
+        capped.ladder.run(Stage.SCREEN_SMALL)
+        val waits = capped.sink.of(Stage.SCREEN_SMALL, SpikeKind.THERMAL).filter { it["waited_s"] != null }
+        assertTrue(waits.all { it["waited_s"] == "300" && it["status"] == "severe" })
+    }
+
+    @Test
+    fun aGemma3OneBillionCellWithTheBestNumbersIsNeverTheWinner() = runTest {
+        val log = BackendLog()
+        val rig = trialRig(log, cost = { if (it.modelPath.contains("Gemma3")) 10L else if (it.gpu) 100L else 400L })
+        rig.placeModel(ModelFile.G3_1B)
+
+        rig.ladder.run(Stage.SCREEN_SMALL)
+
+        val cells = trialLines(rig, Stage.SCREEN_SMALL).map { it["cell"] }.toSet()
+        assertEquals(8, cells.size)
+        assertTrue(cells.any { it!!.startsWith("g3_1b.") })
+        assertEquals("e2b.gpu.a.auto", rig.sink.stageLine(Stage.SCREEN_SMALL)["winner"])
+        assertEquals("e2b.gpu.a.auto", rig.state.get("winner_small"))
+    }
+
+    @Test
+    fun aFailedGpuInitRemovesTheGpuCellsFromTheScreen() = runTest {
+        val rig = trialRig(BackendLog())
+        rig.state.put("init_e2b_cpu", "ok")
+        rig.state.put("init_e2b_gpu", "gpu_init_failed")
+
+        rig.ladder.run(Stage.SCREEN_SMALL)
+
+        assertTrue(trialLines(rig, Stage.SCREEN_SMALL).none { it["cell"]!!.contains(".gpu.") })
+        assertEquals("e2b.cpu.a.auto", rig.sink.stageLine(Stage.SCREEN_SMALL)["winner"])
+    }
+
+    private fun confirmRig(log: BackendLog, probes: FakeProbes = FakeProbes(), failUser: String? = null): LadderRig {
+        val rig = trialRig(
+            log,
+            probes = probes,
+            gold = trialGold(posEn = 4, posEs = 4, neg = 4, forced = 3),
+            extraAnswer = { if (it.user == failUser) throw BackendFailure("native_error") },
+        )
+        rig.state.put("winner_small", "e2b.gpu.a.auto")
+        return rig
+    }
+
+    @Test
+    fun confirmRunsEveryDistinctItemOnceThenTheForcedSubsetOnTheStoredWinner() = runTest {
+        val log = BackendLog()
+        val rig = confirmRig(log)
+
+        rig.ladder.run(Stage.CONFIRM_SMALL)
+
+        val trials = trialLines(rig, Stage.CONFIRM_SMALL)
+        assertEquals(15, trials.size)
+        val auto = trials.filter { it["cell"] == "e2b.gpu.a.auto" }
+        val forced = trials.filter { it["cell"] == "e2b.gpu.a.forced" }
+        assertEquals(12, auto.size)
+        assertEquals(12, auto.map { it["item"] }.toSet().size)
+        assertEquals(3, forced.size)
+        assertTrue(forced.all { it["kind"] == "pos" })
+        assertEquals("1", trials.first()["first_in_process"])
+        assertEquals(1, trials.count { it["first_in_process"] == "1" })
+        val init = rig.sink.of(Stage.CONFIRM_SMALL, SpikeKind.INIT).single()
+        assertEquals("process", init["cold"])
+        assertEquals("ok", init["result"])
+        assertEquals("e2b.gpu.a.auto", init["cell"])
+        assertEquals("e2b.gpu.a.auto", rig.sink.of(Stage.CONFIRM_SMALL, SpikeKind.MEM).single()["cell"])
+        val stage = rig.sink.stageLine(Stage.CONFIRM_SMALL)
+        assertEquals("done", stage["result"])
+        assertEquals("15", stage["trials"])
+        assertEquals("15", stage["planned"])
+        assertEquals(15, log.requests.size)
+        assertEquals(1, rig.sink.of(Stage.CONFIRM_SMALL, SpikeKind.THERMAL).count { it["waited_s"] == null })
+        assertAllParse(rig.sink)
+    }
+
+    @Test
+    fun aFailedTrialIsCountedAsAFailureAndNeverRerunToReplaceIt() = runTest {
+        val log = BackendLog()
+        val rig = confirmRig(log, failUser = "pos en 2")
+
+        rig.ladder.run(Stage.CONFIRM_SMALL)
+
+        val bad = trialLines(rig, Stage.CONFIRM_SMALL).single { it["item"] == "s_en_002" && it["cell"] == "e2b.gpu.a.auto" }
+        assertEquals("0", bad["schema_valid"])
+        assertEquals("native_error", bad["outcome"])
+        assertEquals(15, log.requests.size)
+        assertEquals("15", rig.sink.stageLine(Stage.CONFIRM_SMALL)["trials"])
+    }
+
+    @Test
+    fun confirmWithoutAStoredWinnerExitsEarly() = runTest {
+        val rig = trialRig(BackendLog())
+
+        rig.ladder.run(Stage.CONFIRM_SMALL)
+
+        val line = rig.sink.stageLine(Stage.CONFIRM_SMALL)
+        assertEquals("early_exit", line["result"])
+        assertEquals("no_winner", line["reason"])
+    }
+
+    private fun sustainedRig(log: BackendLog, probes: FakeProbes, perTrialMs: Long): LadderRig {
+        val rig = trialRig(log, probes = probes, cost = { perTrialMs }, gold = trialGold(posEn = 2, posEs = 2, neg = 2))
+        rig.state.put("winner_small", "e2b.gpu.a.auto")
+        return rig
+    }
+
+    @Test
+    fun sustainedRunsAtLeastSixtyTrialsOverAtLeastOneHundredTwentySecondsWithThermalEveryTenSeconds() = runTest {
+        val probes = FakeProbes()
+        val rig = sustainedRig(BackendLog(), probes, perTrialMs = 2000L)
+
+        rig.ladder.run(Stage.SUSTAINED_SMALL)
+
+        val trials = trialLines(rig, Stage.SUSTAINED_SMALL)
+        assertEquals(60, trials.size)
+        assertTrue(trials.all { it["stage"] == "sustained_small" && it["cell"] == "e2b.gpu.a.auto" })
+        assertEquals(1, trials.count { it["first_in_process"] == "1" })
+        val stage = rig.sink.stageLine(Stage.SUSTAINED_SMALL)
+        assertEquals("done", stage["result"])
+        assertEquals("60", stage["trials"])
+        assertEquals("60", stage["planned"])
+        assertEquals("120", stage["seconds"])
+        assertTrue(rig.sink.of(Stage.SUSTAINED_SMALL, SpikeKind.THERMAL).size >= 12)
+        assertEquals("process", rig.sink.of(Stage.SUSTAINED_SMALL, SpikeKind.INIT).single()["cold"])
+    }
+
+    @Test
+    fun sustainedKeepsGoingPastSixtyTrialsUntilTheTimeIsReached() = runTest {
+        val rig = sustainedRig(BackendLog(), FakeProbes(), perTrialMs = 500L)
+
+        rig.ladder.run(Stage.SUSTAINED_SMALL)
+
+        val stage = rig.sink.stageLine(Stage.SUSTAINED_SMALL)
+        assertEquals("240", stage["trials"])
+        assertEquals("120", stage["seconds"])
+    }
+
+    // ---- sb early exits ---------------------------------------------------------------------------------------------
+
+    private val sbStages = listOf(Stage.SCREEN_SB, Stage.CONFIRM_SB, Stage.SUSTAINED_SB)
+
+    private fun loadedSb(): SbState {
+        val gold = trialGold(posEn = 3, posEs = 3, neg = 6, forced = 0, envelope = Envelope.SB)
+        return SbState.Loaded(EnvelopeSnapshot(Envelope.SB, "system text", SmallEnvelope.tools), gold, "a".repeat(64), "b".repeat(64))
+    }
+
+    private fun seedSbEvidence(rig: LadderRig, kvDisposition: String, tps: String) {
+        rig.sink.emit(
+            Stage.PREFILL,
+            SpikeLine.of(
+                SpikeKind.PREFILL, "model" to "e2b", "backend" to "cpu", "target_tokens" to "7000", "prefill_tokens" to "7000",
+                "prefill_tps" to tps, "ttft_ms" to "14000", "result" to "ok", "code" to "none",
+            ),
+        )
+        rig.sink.emit(
+            Stage.KV_REUSE,
+            SpikeLine.of(
+                SpikeKind.KVREUSE, "preface" to "sb", "backend" to "cpu", "preface_on_init" to "0", "first_prefill_tokens" to "7000",
+                "second_prefill_tokens" to "7000", "first_ttft_ms" to "14000", "second_ttft_ms" to "14000", "disposition" to kvDisposition,
+            ),
+        )
+    }
+
+    @Test
+    fun anAbsentSbFixtureEndsEverySbStageWithAnEarlyExitAndNoEngine() = runTest {
+        val log = BackendLog()
+        val rig = trialRig(log)
+
+        for (stage in sbStages) rig.ladder.run(stage)
+
+        for (stage in sbStages) {
+            val line = rig.sink.stageLine(stage)
+            assertEquals("early_exit", line["result"])
+            assertEquals("sb_fixture_absent", line["reason"])
+            assertEquals("0", line["planned"])
+        }
+        assertTrue(log.configs.isEmpty())
+    }
+
+    @Test
+    fun aPrefillBoundSbEnvelopeEndsEverySbStageWithTheSameReason() = runTest {
+        val log = BackendLog()
+        val rig = trialRig(log, sbState = ::loadedSb)
+        seedSbEvidence(rig, kvDisposition = "not_reused", tps = "500.0")
+        rig.state.put("winner_sb", "e2b.gpu.a.auto")
+
+        for (stage in sbStages) rig.ladder.run(stage)
+
+        for (stage in sbStages) {
+            val line = rig.sink.stageLine(stage)
+            assertEquals("early_exit", line["result"])
+            assertEquals("sb_prefill_bound", line["reason"])
+            assertEquals("0", line["planned"])
+        }
+        assertTrue(log.configs.isEmpty())
+    }
+
+    @Test
+    fun anSbEnvelopeWithReuseScreensFourE2bCellsWithTheLargeContextAndNoToolNamesInTheEvidence() = runTest {
+        val log = BackendLog()
+        val rig = trialRig(log, sbState = ::loadedSb, screenN = 4)
+        rig.placeModel(ModelFile.G3_1B)
+        seedSbEvidence(rig, kvDisposition = "reused", tps = "500.0")
+
+        rig.ladder.run(Stage.SCREEN_SB)
+
+        val trials = trialLines(rig, Stage.SCREEN_SB)
+        assertEquals(16, trials.size)
+        assertTrue(trials.all { it["env"] == "sb" && it["cell"]!!.startsWith("e2b.") })
+        assertTrue(log.configs.all { it.maxNumTokens == 8192 })
+        assertEquals("done", rig.sink.stageLine(Stage.SCREEN_SB)["result"])
+        assertTrue(rig.state.get("winner_sb")!!.startsWith("e2b."))
+        val text = rig.sink.emitted.values.flatten().joinToString("\n") { it.render() }
+        assertFalse(text.contains("create_item"))
+    }
+
+    @Test
+    fun everyTrialStageExitsEarlyWhenE2bFailedOnEveryBackend() = runTest {
+        val rig = trialRig(BackendLog())
+        rig.state.put("init_e2b_cpu", "init_failed")
+        rig.state.put("init_e2b_gpu", "gpu_init_failed")
+
+        for (stage in listOf(Stage.SCREEN_SMALL, Stage.CONFIRM_SMALL, Stage.SUSTAINED_SMALL)) {
+            rig.ladder.run(stage)
+            assertEquals("init_failed_all", rig.sink.stageLine(stage)["reason"])
+        }
+    }
+
+    // ---- exit reasons -----------------------------------------------------------------------------------------------
+
+    @Test
+    fun exitReasonsEmitsOneLinePerReasonWithItsCount() = runTest {
+        val probes = FakeProbes()
+        probes.exits.addAll(listOf("user_requested", "low_memory", "user_requested"))
+        val rig = LadderRig(tmp.root, probes = probes)
+
+        rig.ladder.run(Stage.EXIT_REASONS)
+
+        val exits = rig.sink.of(Stage.EXIT_REASONS, SpikeKind.EXIT)
+        assertEquals(mapOf("low_memory" to "1", "user_requested" to "2"), exits.associate { it["reason"]!! to it["count"]!! })
+        assertEquals("done", rig.sink.stageLine(Stage.EXIT_REASONS)["result"])
+    }
+
+    @Test
+    fun noEvidenceLineEverCarriesATranscriptOrAToolArgument() = runTest {
+        val rig = confirmRig(BackendLog())
+        rig.ladder.run(Stage.CONFIRM_SMALL)
+
+        val text = rig.sink.emitted.values.flatten().joinToString("\n") { it.render() }
+
+        assertFalse(text.contains("pos en"))
+        assertFalse(text.contains("milk", ignoreCase = true))
     }
 }
