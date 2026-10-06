@@ -6,16 +6,19 @@
 #          TIMEOUT_S=1500 POLL_S=20   build wait budget / poll interval
 #          SKIP_CONSUMER=1            skip the clean-cache consumer resolution (used when testing the script on other repos)
 #          REPO_OWNER=Ygaray REPO=voice-action-engine SERVED_GROUP=com.github.Ygaray.voice-action-engine
-#          EXPECT_MODULES="voice-action-engine-core voice-action-engine-providers voice-action-engine-keystore"
+#          EXPECT_MODULES=<artifactIds>   default: every artifact in scripts/modules.list
 #          FORBID_RE=sample           artifact-name regex that must NOT be published
-#          CHECK_CORE_DEP=1           providers/keystore POMs must depend on voice-action-engine-core
+#          CHECK_CORE_DEP=1           POMs must match the dependsOnCore column (yes: depends on core; no: names no core)
 #          EXPECT_MODULE_METADATA=1   set 0 when fallback F2 (POM-only) is active: .module files are then not expected
 # Exit: 0 PASS | 2 JitPack build error | 3 timeout | 4 assertion failed | 5 consumer resolution failed
 set -euo pipefail
 REF="${1:?usage: jitpack-live-probe.sh <commit-sha-or-tag>}"
 OWNER="${REPO_OWNER:-Ygaray}"; REPO="${REPO:-voice-action-engine}"
 SERVED_GROUP="${SERVED_GROUP:-com.github.$OWNER.$REPO}"
-MODULES="${EXPECT_MODULES:-voice-action-engine-core voice-action-engine-providers voice-action-engine-keystore}"
+HERE_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HERE_LIB/lib/modules.sh"
+MODULES="${EXPECT_MODULES:-$(vae_artifacts)}"
 FORBID_RE="${FORBID_RE:-sample}"
 CHECK_CORE_DEP="${CHECK_CORE_DEP:-1}"; EXPECT_MODULE_METADATA="${EXPECT_MODULE_METADATA:-1}"
 TIMEOUT_S="${TIMEOUT_S:-1500}"; POLL_S="${POLL_S:-20}"
@@ -86,13 +89,19 @@ for m in $MODULES; do
   else : > "$WORK/$m.module"; fi
   if grep -Eiq 'test-?fixtures' "$WORK/$m.pom" "$WORK/$m.module"; then fail "$m metadata mentions testFixtures"; fi
   say "   $m: pom 200$( [ "$EXPECT_MODULE_METADATA" = 1 ] && echo ', module 200' ) $(grep -o '<packaging>[a-z]*</packaging>' "$WORK/$m.pom" || echo '<packaging>jar(default)</packaging>')"
-  case "$m" in *-providers|*-keystore)
-    if [ "$CHECK_CORE_DEP" = 1 ]; then
+  # The core-dependency rule comes from the manifest's dependsOnCore column (strip the artifact prefix to get the module name).
+  mod="${m#voice-action-engine-}"
+  needs_core="$(vae_module_field "$mod" dependsOnCore 2>/dev/null || echo unknown)"
+  if [ "$CHECK_CORE_DEP" = 1 ]; then
+    if [ "$needs_core" = yes ]; then
       grep -q '<artifactId>voice-action-engine-core</artifactId>' "$WORK/$m.pom" || fail "$m.pom does not depend on voice-action-engine-core"
       grep -q "<groupId>$SERVED_GROUP</groupId>" "$WORK/$m.pom" || fail "$m.pom core dependency not under $SERVED_GROUP"
       say "   $m -> core dependency version line: $(grep -A1 '<artifactId>voice-action-engine-core</artifactId>' "$WORK/$m.pom" | grep '<version>' | tr -d ' ')"
-    fi;;
-  esac
+    elif [ "$needs_core" = no ] && [ "$mod" != core ]; then
+      if grep -q '<artifactId>voice-action-engine-core</artifactId>' "$WORK/$m.pom"; then fail "$m.pom names voice-action-engine-core (dependsOnCore=no)"; fi
+      say "   $m -> no core dependency (dependsOnCore=no)"
+    fi
+  fi
 done
 # 6. The synthesized aggregator POM lists the modules and never :sample.
 agg="https://jitpack.io/$GROUP_PATH/$REF/$REPO-$REF.pom"

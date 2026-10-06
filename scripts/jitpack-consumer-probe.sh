@@ -2,6 +2,7 @@
 # Resolves every published engine module from an EMPTY Gradle dependency cache (BLD-03 consumer proof).
 #   :jvmconsumer (kotlin.jvm)  -> providers (jar -> jar :core)             [jar->jar]
 #   :app (AGP 9.2.1 app)       -> providers + keystore (AAR -> jar :core)  [AAR->jar]
+#   :undoalone (kotlin.jvm)    -> undo only [stands alone: no :core, no coroutines]
 # Usage: VERSION=<commit-sha-or-tag> [REPO_URL=https://jitpack.io] [GROUP=com.github.Ygaray.voice-action-engine] scripts/jitpack-consumer-probe.sh
 #
 # Derived from 01-RESEARCH.md "Code Examples" 6 (tested on a scratch prototype). Phase 1 adaptations:
@@ -20,7 +21,7 @@ trap cleanup_work EXIT
 # Reuse only the Gradle DISTRIBUTION (never dependencies) to avoid a ~130 MB download; the dependency cache stays empty.
 if [ -d "$HOME/.gradle/wrapper" ]; then ln -s "$HOME/.gradle/wrapper" "$GRADLE_USER_HOME/wrapper"; fi
 ROOT="$(git rev-parse --show-toplevel)"
-cd "$WORK"; mkdir -p app/src/main/kotlin/probe jvmconsumer/src/main/kotlin/probe gradle
+cd "$WORK"; mkdir -p app/src/main/kotlin/probe jvmconsumer/src/main/kotlin/probe undoalone/src/main/kotlin/probe gradle
 cp -r "$ROOT/gradle/wrapper" gradle/; cp "$ROOT/gradlew" .
 echo "sdk.dir=${ANDROID_HOME:-$HOME/Android/Sdk}" > local.properties
 printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2g\n' > gradle.properties
@@ -31,7 +32,7 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral(); maven { url = uri("$REPO_URL") } }
 }
 rootProject.name = "consumer-probe"
-include(":app", ":jvmconsumer")
+include(":app", ":jvmconsumer", ":undoalone")
 KTS
 cat > build.gradle.kts <<'KTS'
 plugins {
@@ -44,6 +45,12 @@ plugins { id("org.jetbrains.kotlin.jvm") }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11) } }
 java { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
 dependencies { implementation("$GROUP:voice-action-engine-providers:$VERSION") }
+KTS
+cat > undoalone/build.gradle.kts <<KTS
+plugins { id("org.jetbrains.kotlin.jvm") }
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11) } }
+java { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
+dependencies { implementation("$GROUP:voice-action-engine-undo:$VERSION") }
 KTS
 cat > app/build.gradle.kts <<KTS
 plugins { id("com.android.application") }
@@ -63,16 +70,24 @@ echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><appl
 for d in app jvmconsumer; do
   printf 'package probe\nval client: okhttp3.OkHttpClient = okhttp3.OkHttpClient()\n' > "$d/src/main/kotlin/probe/P.kt"
 done
-./gradlew --no-daemon :jvmconsumer:compileKotlin :app:compileDebugKotlin
+# :undoalone compiles an :undo type with nothing else on its classpath: UNDO-01 "a non-voice app can use it alone".
+printf 'package probe\nval ticket = io.github.ygaray.voiceactionengine.undo.UndoJournal { }.newTicket()\n' > undoalone/src/main/kotlin/probe/P.kt
+./gradlew --no-daemon :jvmconsumer:compileKotlin :app:compileDebugKotlin :undoalone:compileKotlin
 jvm_deps="$(./gradlew --no-daemon -q :jvmconsumer:dependencies --configuration runtimeClasspath)"
 app_deps="$(./gradlew --no-daemon -q :app:dependencies --configuration debugRuntimeClasspath)"
+undo_deps="$(./gradlew --no-daemon -q :undoalone:dependencies --configuration runtimeClasspath)"
 for m in voice-action-engine-providers voice-action-engine-core; do
   grep -q "$m" <<<"$jvm_deps" || { echo "PROBE FAIL: $m missing from :jvmconsumer runtimeClasspath" >&2; exit 1; }
 done
 for m in voice-action-engine-providers voice-action-engine-keystore voice-action-engine-core; do
   grep -q "$m" <<<"$app_deps" || { echo "PROBE FAIL: $m missing from :app debugRuntimeClasspath" >&2; exit 1; }
 done
+grep -q "voice-action-engine-undo" <<<"$undo_deps" || { echo "PROBE FAIL: voice-action-engine-undo missing from :undoalone runtimeClasspath" >&2; exit 1; }
+for m in voice-action-engine-core kotlinx-coroutines; do
+  if grep -q "$m" <<<"$undo_deps"; then echo "PROBE FAIL: $m resolved on :undoalone runtimeClasspath (:undo must stand alone)" >&2; exit 1; fi
+done
 echo "--- :jvmconsumer runtimeClasspath (engine lines)"; grep "voice-action-engine" <<<"$jvm_deps"
 echo "--- :app debugRuntimeClasspath (engine lines)"; grep "voice-action-engine" <<<"$app_deps"
+echo "--- :undoalone runtimeClasspath (engine lines)"; grep "voice-action-engine" <<<"$undo_deps"
 if [ "${KEEP_WORK:-0}" = 1 ]; then where="workdir=$WORK (kept)"; else where="workdir removed on exit"; fi
 echo "PROBE OK ($GROUP:*:$VERSION from $REPO_URL) $where"

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Local emulation of what JitPack does (BLD-03 pre-check, no network push needed):
 #   clean copy of the repo -> run every jitpack.yml `install:` command -> publish into an ISOLATED maven-local
-#   -> assert exactly the three engine artifacts exist (and nothing for :sample or testFixtures)
-#   -> resolve them from an EMPTY Gradle cache with scripts/jitpack-consumer-probe.sh (jar->jar and AAR->jar).
+#   -> assert exactly the engine artifacts listed in scripts/modules.list exist (and nothing for :sample or testFixtures)
+#   -> resolve them from an EMPTY Gradle cache with scripts/jitpack-consumer-probe.sh (jar->jar, AAR->jar, :undo alone).
 # Usage:  scripts/jitpack-dry-run.sh              committed HEAD content (exactly what JitPack would check out)
 #         WORKTREE=1 scripts/jitpack-dry-run.sh   tracked + untracked-but-not-ignored working tree (pre-commit checks)
 #         DRYRUN_VERSION=v1.0.0 scripts/jitpack-dry-run.sh
@@ -35,20 +35,27 @@ for c in "${CMDS[@]}"; do
 done
 G="$(grep -E '^engineGroup=' gradle.properties | cut -d= -f2)"
 [ -n "$G" ] || { echo "DRY RUN FAIL: engineGroup missing from gradle.properties" >&2; exit 1; }
+# The tree under test supplies its own module list (a clone of HEAD, or the working tree with WORKTREE=1).
+[ -f "$CLONE/scripts/lib/modules.sh" ] || { echo "DRY RUN FAIL: no scripts/lib/modules.sh in the tree under test" >&2; exit 1; }
+# shellcheck source=/dev/null
+. "$CLONE/scripts/lib/modules.sh"
+export VAE_MODULES_FILE="$CLONE/scripts/modules.list"
+expected="$(vae_artifacts_sorted)" || { echo "DRY RUN FAIL: cannot read scripts/modules.list" >&2; exit 1; }
 found="$(find "$M2" -type d -name 'voice-action-engine-*' -prune | sed 's#.*/##' | sort | tr '\n' ' ')"
-[ "$found" = "voice-action-engine-core voice-action-engine-keystore voice-action-engine-providers " ] \
-  || { echo "DRY RUN FAIL: published artifact set is [$found], expected core/keystore/providers only" >&2; exit 1; }
+[ "$found" = "$expected" ] \
+  || { echo "DRY RUN FAIL: published artifact set is [$found], expected [$expected] (scripts/modules.list)" >&2; exit 1; }
 # Match artifact names only (-iname), never the full path: the mktemp prefix must not be able to cause a false failure.
 if [ -n "$(find "$M2" -mindepth 1 \( -iname '*sample*' -o -iname '*test-fixtures*' \) -print)" ]; then
   echo "DRY RUN FAIL: a sample or test-fixtures artifact was published" >&2; exit 1
 fi
-for spec in core:jar providers:jar keystore:aar; do
-  m="${spec%%:*}"; ext="${spec##*:}"
-  f="$(find "$M2" -name "voice-action-engine-$m-$VERSION.$ext")"
-  [ -n "$f" ] || { echo "DRY RUN FAIL: voice-action-engine-$m-$VERSION.$ext missing" >&2; exit 1; }
+for m in $(vae_modules); do
+  ext="$(vae_module_field "$m" packaging)"; art="$(vae_module_field "$m" artifactId)"
+  f="$(find "$M2" -name "$art-$VERSION.$ext")"
+  [ -n "$f" ] || { echo "DRY RUN FAIL: $art-$VERSION.$ext missing" >&2; exit 1; }
   echo "artifact: ${f#$M2/}"
-  find "$M2" -name "voice-action-engine-$m-$VERSION.module" | sed "s#$M2/#metadata: #"
+  find "$M2" -name "$art-$VERSION.module" | sed "s#$M2/#metadata: #"
 done
+unset VAE_MODULES_FILE
 cd "$ROOT"
 REPO_URL="file://$M2" VERSION="$VERSION" GROUP="$G" "$ROOT/scripts/jitpack-consumer-probe.sh"
 if [ "${KEEP_WORK:-0}" = 1 ]; then where="m2=$M2 (kept)"; else where="workdir removed on exit"; fi
