@@ -31,6 +31,7 @@ core.strategy           Clarification, ClarificationOption, CommandSession, Comm
                         OutcomeResolver, Resolution, StrategyCapabilities, StrategyOutcome, TerminalCall, ToolExecutor,
                         ToolSpec, ToolSpecProvider, ToolingSnapshot, UserTurnContext, UserTurnRenderer
 core.strategy.agentic   AgenticLoopStrategy
+core.strategy.grammar   GrammarMatch, GrammarPack, LocalGrammarStrategy
 core.strategy.singleshot SingleShotStrategy
 core.telemetry          CommandTrace, PipelineEvent, PipelineEventListener, TierAttempt, TraceCode, TurnRecord, Usage
 core.transcript         AssistantMessage, AssistantPart, CacheDirective, Message, ModelRequest, ModelResponse,
@@ -77,8 +78,11 @@ leaves), annotation class.
 | `CommandSession` | abstract class | | What the engine hands a tier: run id, policy, carry, the one write path (`submit`), `model()`. |
 | `SingleShotStrategy` | class | | The one-call tier: force one tool, resolve it locally. |
 | `AgenticLoopStrategy` | class | | The bounded multi-turn tier over your tools. |
+| `LocalGrammarStrategy` | class | | The free, offline grammar tier: matches your declared phrasings, declares `NO_PROVIDER`, never calls a provider, and submits through the gate like every tier. |
+| `GrammarPack` | class | | Your EN/ES phrasings per intent with typed slots; `match(transcript, language)` returns a `GrammarMatch` or null, for corpus tests. |
+| `GrammarMatch` | class | | What a pack matched: tool name, arguments, matched language, terminal flag and an opaque rule id. |
 | `OutcomeResolver` | fun interface | | Your local step that turns an `Extraction` into a `Resolution`. |
-| `Extraction` | class | | The tool name and untouched arguments the model called, plus `callId`: the provider's tool-call id, or null. |
+| `Extraction` | class | | The tool name and untouched arguments the model called, plus `callId`: the provider's tool-call id, or null, and `matchedLanguage`: `"en"`/`"es"` for a grammar match, null for a model tier. |
 | `Resolution` | abstract class | open | A resolver's verdict: `Steps`, `NoMatch`, `Escalate` or `Failed`. |
 | `ToolExecutor` | fun interface | | Your step for each tool call of an agentic run. |
 | `ToolSpec` | class | | A tool the model may call (`mutating`, `terminal`, `strict`); `ToolSpec.clarification(name)`. |
@@ -198,6 +202,14 @@ has a stable `code`.
   reason (for example `ProviderUnavailable` for `ProviderId.ON_DEVICE`) before escalating.
 - `AgenticLoopStrategy(id) { tooling, executor, userTurn, reasoning, capabilities, clock }`: a bounded conversation;
   limits come from `TierPolicy`.
+- `LocalGrammarStrategy(id) { pack, resolver }`: the free, offline grammar tier (no provider call, `NO_PROVIDER`).
+  `GrammarPack { tryOtherLanguage; enFillers/esFillers; enRule/esRule; intent(tool) { integer, decimal, choice, text,
+  normalize, terminal, en, es } }` declares the phrasings. A template is words, `[optional]`, `(a|b)`, `{slot}` and
+  `<rule>`; there is no regex. The tier never guesses: an ambiguous match, an unknown language label or a rejected slot
+  ends `NoMatch`, and the next tier gets the command with the carry cleared. A null language label tries both packs.
+  A match hands the tool name and slots to your `OutcomeResolver` as an `Extraction` (null `callId`, `matchedLanguage`
+  set); a terminal intent ends the tier handled with a `TerminalCall` and needs no resolver. `GrammarPack.match` runs a
+  pack alone, for corpus tests.
 - `CommandStrategy` is the interface behind both; a custom tier submits every write as a `ToolStep` through
   `CommandSession.submit`, so the gate and the sink always see it. `StrategyOutcome` (**closed**) is what a tier
   returns.
@@ -288,7 +300,7 @@ The constructors and members that integrators write or read most often, in one p
 | `Usage(inputUncached: Long, cacheRead: Long, cacheWrite: Long, output: Long)` | `core.telemetry` | Tokens in four buckets, in this order. |
 | `CommandOutcome.Completed.reply` (`String?`), `.terminalCall`, `.partial` | `core.pipeline` | The tier's text answer, a terminal call, and the partial flag. |
 | `CommandOutcome.Failed.reason`, `CommandOutcome.Unhandled.lastReason` | `core.pipeline` | The `FailureReason`, or the last `EscalationReason?`. |
-| `Extraction(toolName: String, arguments: JsonObject, callId: String?)` | `core.strategy` | What a resolver receives; `callId` is the provider's tool-call id, or null. |
+| `Extraction(toolName: String, arguments: JsonObject, callId: String?)` | `core.strategy` | What a resolver receives; `callId` is the provider's tool-call id, or null. `Extraction.matchedLanguage` is `"en"`/`"es"` for a grammar match, null for a model tier. |
 | `CommitSink.onRunClosed(runId: String, termination: RunTermination)` | `core.commit` | Called once when a run closes (`suspend`). |
 
 ## Telemetry and trace
@@ -297,7 +309,8 @@ The constructors and members that integrators write or read most often, in one p
 `PipelineEvent`s (**open**): started, tier started or skipped, provider call, action recorded, engine code, cache not
 engaged, tier ended, closed. `CommandOutcome.trace` is a `CommandTrace` of `TierAttempt`s, `TurnRecord`s,
 `TraceCode`s (**open**) and `Usage`. Events and traces carry ids, codes, counts and tool names only; never log keys,
-transcripts or tool arguments.
+transcripts or tool arguments. The grammar tier records `grammar_ambiguous`, `grammar_language_unsupported`,
+`grammar_slot_rejected`, `grammar_normalize_error`, `grammar_input_too_long` and `grammar_resolver_rejected`.
 
 <!-- doc-snippet: telemetry -->
 ```kotlin
