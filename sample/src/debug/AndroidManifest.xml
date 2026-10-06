@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Debug variant only (plan 14-09): the opt-in recognizer capture tool feeds file audio to the platform recognizer,
+         which the platform gates on RECORD_AUDIO. The runner grants it with pm grant; the release variant never has it. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Package visibility (Android 11+): the capture tool must see the default text-to-speech and recognition services. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+</manifest>
