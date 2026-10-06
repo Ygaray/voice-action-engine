@@ -25,6 +25,8 @@
 #   cooldown                wait until the device thermal status is light or better (15 min cap)
 #   meminfo <stage>         read-only cross-check of the app's total PSS from dumpsys meminfo
 #   pull-evidence <stage>   pull the app's evidence file through scripts/spike-evidence-filter.sh into evidence/
+#   pull-private-raw        read-only: copy the app's private raw per-item sb answers (RT-02) to a host-private directory
+#                           (VAE_SPIKE_PRIVATE_DIR/raw, mode 600, outside the repository, never printed, never committed)
 #   cleanup                 force-stop, remove private data, undo the whitelist, uninstall, and prove nothing is left
 #   model ids: e2b_cpu e2b_gpu g3_1b (g3_1b is a file Yahir places himself; it is never downloaded here)
 # Exit codes:
@@ -74,7 +76,7 @@ E2B_GPU_SHA="a53a59001894c58e6bdb5b9b227709f91a2e3e556baa7d85acf9c55402ba5cf5"
 # Gated (Gemma Terms of Use): Yahir downloads and places this himself. Its digest is recorded at push time, not compared.
 G3_FILE="Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm"
 
-SUBCOMMANDS="fetch-model preflight window-start build-install push-model push-private run cooldown meminfo pull-evidence cleanup"
+SUBCOMMANDS="fetch-model preflight window-start build-install push-model push-private run cooldown meminfo pull-evidence pull-private-raw cleanup"
 MODELS="e2b_cpu e2b_gpu g3_1b"
 # Exactly the Records.Stage wire names of the spike module (13-07 adds the parity test).
 STAGES="prepare preflight init prefill kv_reuse rf_matrix screen_small confirm_small screen_sb confirm_sb sustained_small sustained_sb exit_reasons"
@@ -687,6 +689,40 @@ do_pull_evidence() {
   finish 0 OK "stage=$ARG kept=$n dropped=${d:-0} file=$out"
 }
 
+# RT-02: the sb envelope's raw per-item answers are fixture data. They are copied, read-only, from the app's private storage
+# to a host-private directory OUTSIDE the repository (mode 600, never printed, never committed), so SB rows can be re-scored
+# on the host without a device re-run. A re-pull replaces the same-named files (the device files are append-only per stage).
+do_pull_private_raw() {
+  local dest d r listing name n=0 bytes=0 size
+  dest="$PRIVATE_DIR_DEFAULT/raw"
+  d="$(realpath -m -- "$dest")"
+  r="$(realpath -- "$ROOT")"
+  case "$d/" in
+    "$r/"*)
+      echo "the private raw directory resolves inside the repository; set VAE_SPIKE_PRIVATE_DIR to a path outside it"
+      finish 2 ERROR "reason=raw_dir_in_repo"
+      ;;
+  esac
+  (umask 077 && mkdir -p "$dest") || finish 2 ERROR "reason=raw_dir_unwritable"
+  TMP_DIR="$(mktemp -d)"
+  listing="$(adbt shell "run-as $PKG ls files/private/raw" 2>/dev/null | strip_cr || true)"
+  for name in $listing; do
+    case "$name" in
+      *[!a-z0-9_.]*) continue ;;
+      *.jsonl) ;;
+      *) continue ;;
+    esac
+    if ! adbt shell "run-as $PKG cat files/private/raw/$name" 2>/dev/null | strip_cr >"$TMP_DIR/$name"; then
+      finish 1 FAIL "reason=raw_pull_failed target=$TARGET"
+    fi
+    size="$(stat -c %s "$TMP_DIR/$name")"
+    (umask 077 && cp -f "$TMP_DIR/$name" "$dest/$name" && chmod 600 "$dest/$name") || finish 2 ERROR "reason=raw_dir_unwritable"
+    n=$((n + 1))
+    bytes=$((bytes + size))
+  done
+  finish 0 OK "files=$n bytes=$bytes target=$TARGET"
+}
+
 # T-13-26: leave the TESTER as found, and PROVE it: the package, the external model directory and any staging file are gone.
 do_cleanup() {
   local listing ext tmp
@@ -735,6 +771,7 @@ case "$SUB" in
   cooldown) do_cooldown ;;
   meminfo) do_meminfo ;;
   pull-evidence) do_pull_evidence ;;
+  pull-private-raw) do_pull_private_raw ;;
   cleanup) do_cleanup ;;
   *) finish 2 ERROR "reason=not_implemented" ;;
 esac

@@ -144,6 +144,13 @@ case "${1:-}" in
         if [ "$n" -gt 1 ] && [ "${FAKE_STAGE_DONE:-0}" = 1 ]; then echo 1; else echo 0; fi
         exit 0 ;;
       "run-as "*"grep '^VAE_SPIKE_STAGE"*) echo "VAE_SPIKE_STAGE stage=fake result=done trials=3"; exit 0 ;;
+      "run-as "*"ls files/private/raw"*)
+        [ -n "${FAKE_RAW_DIR:-}" ] && [ -d "$FAKE_RAW_DIR" ] || exit 1
+        ls "$FAKE_RAW_DIR"; exit 0 ;;
+      "run-as "*"cat files/private/raw/"*)
+        name="${*##*cat files/private/raw/}"
+        [ -n "${FAKE_RAW_DIR:-}" ] && [ -f "$FAKE_RAW_DIR/$name" ] || exit 1
+        cat "$FAKE_RAW_DIR/$name"; exit 0 ;;
       "run-as "*"cat files/evidence/"*)
         [ -n "${FAKE_EVIDENCE_FILE:-}" ] && [ -f "$FAKE_EVIDENCE_FILE" ] || exit 1
         cat "$FAKE_EVIDENCE_FILE"; exit 0 ;;
@@ -280,16 +287,17 @@ run_scenario() {
     short) mkdir -p "$dir/cache/vae-spike"; echo "$(date +%s) 5" >"$dir/cache/vae-spike/window.ts" ;;
   esac
 
-  local out code phase="${PHASE_OVERRIDE:-$PHASE_REL}"
+  local out code phase="${PHASE_OVERRIDE:-$PHASE_REL}" private_dir="$dir/private"
+  [ "${PRIVATE_IN_REPO:-0}" = 1 ] && private_dir="$dir/repo/private"
   # BASH_ENV is cleared: on this host it re-exports ANDROID_SERIAL (the TESTER) into every non-interactive bash, which would
   # silently overwrite the scenario's own value.
   if [ -n "${ANDROID_SERIAL_VALUE:-}" ]; then
     out="$(env -u BASH_ENV SCENARIO="$name" CALLS_LOG="$dir/calls.log" CURL_LOG="$dir/curl.log" STATE_DIR="$dir/state" ADB="$dir/adb" CURL="$dir/curl" \
-      XDG_CACHE_HOME="$dir/cache" VAE_SPIKE_PHASE_DIR="$phase" VAE_SPIKE_MODEL_DIR="$models" VAE_SPIKE_PRIVATE_DIR="$dir/private" \
+      XDG_CACHE_HOME="$dir/cache" VAE_SPIKE_PHASE_DIR="$phase" VAE_SPIKE_MODEL_DIR="$models" VAE_SPIKE_PRIVATE_DIR="$private_dir" \
       ANDROID_SERIAL="$ANDROID_SERIAL_VALUE" timeout -k 5 120 "$dir/repo/scripts/run-spike-ondevice.sh" "$@" 8>&- 2>&1)"; code=$?
   else
     out="$(env -u BASH_ENV -u ANDROID_SERIAL SCENARIO="$name" CALLS_LOG="$dir/calls.log" CURL_LOG="$dir/curl.log" STATE_DIR="$dir/state" ADB="$dir/adb" CURL="$dir/curl" \
-      XDG_CACHE_HOME="$dir/cache" VAE_SPIKE_PHASE_DIR="$phase" VAE_SPIKE_MODEL_DIR="$models" VAE_SPIKE_PRIVATE_DIR="$dir/private" \
+      XDG_CACHE_HOME="$dir/cache" VAE_SPIKE_PHASE_DIR="$phase" VAE_SPIKE_MODEL_DIR="$models" VAE_SPIKE_PRIVATE_DIR="$private_dir" \
       timeout -k 5 120 "$dir/repo/scripts/run-spike-ondevice.sh" "$@" 8>&- 2>&1)"; code=$?
   fi
   LAST_OUT="$out"
@@ -550,6 +558,37 @@ STAMP=fresh PRE_INSTALLED=1 FAKE_UNINSTALL_FAILS=1 MUTATES=1 run_scenario cleanu
 STAMP=fresh PRE_EXT=1 FAKE_EXT_RESIDUE=1 MUTATES=1 run_scenario cleanup_external_residue 1 "residue is left" "FAIL sub=cleanup reason=residue_present" cleanup
 STAMP=fresh PRE_TMP=1 FAKE_TMP_RESIDUE=1 MUTATES=1 run_scenario cleanup_staging_residue 1 "residue is left" "FAIL sub=cleanup reason=residue_present" cleanup
 [ ! -e "$LAST_DIR/cache/vae-spike/window.ts" ] || die "cleanup_staging_residue: the window stamp survived a cleanup"
+
+# ---- RT-02: pull-private-raw (read-only copy of the sb raw answers to a host-private directory) --------------------------
+mkdir -p "$WORK/rawsrc"
+printf '{"item":"zz-raw-answer-marker","text":"raw one"}\n' >"$WORK/rawsrc/screen_sb.jsonl"
+printf '{"item":"x","text":"raw two"}\n' >"$WORK/rawsrc/confirm_sb.jsonl"
+echo "not a raw file" >"$WORK/rawsrc/notes.txt"
+MUTATES=1 FAKE_RAW_DIR="$WORK/rawsrc" run_scenario pull_private_raw_ok 0 "-" "OK sub=pull-private-raw files=2 bytes=" pull-private-raw
+priv_raw="$LAST_DIR/private/raw"
+cmp -s "$priv_raw/screen_sb.jsonl" "$WORK/rawsrc/screen_sb.jsonl" || die "pull_private_raw_ok: screen_sb.jsonl was not copied intact"
+cmp -s "$priv_raw/confirm_sb.jsonl" "$WORK/rawsrc/confirm_sb.jsonl" || die "pull_private_raw_ok: confirm_sb.jsonl was not copied intact"
+[ ! -e "$priv_raw/notes.txt" ] || die "pull_private_raw_ok: a non-jsonl file was copied"
+[ "$(stat -c %a "$priv_raw/screen_sb.jsonl")" = 600 ] || die "pull_private_raw_ok: the raw file is not mode 600"
+[ -z "$(find "$LAST_DIR/repo" -name '*.jsonl' -print -quit)" ] || die "pull_private_raw_ok: a raw file reached the repository"
+! grep -qF "zz-raw-answer-marker" <<<"$LAST_OUT" || die "pull_private_raw_ok: raw content reached the output"
+! grep -qF "zz-raw-answer-marker" "$LAST_DIR/calls.log" || die "pull_private_raw_ok: raw content reached an argv"
+assert_calls pull_private_raw_ok "-s R5CT10XNKQN shell run-as $PKG ls files/private/raw"
+assert_calls pull_private_raw_ok "-s R5CT10XNKQN shell run-as $PKG cat files/private/raw/screen_sb.jsonl"
+assert_no_calls pull_private_raw_ok " rm "
+assert_no_calls pull_private_raw_ok " install "
+assert_no_calls pull_private_raw_ok " push "
+assert_no_calls pull_private_raw_ok " uninstall "
+assert_no_calls pull_private_raw_ok " am "
+# No raw files on the device (the sb stages have not run): OK with files=0, nothing copied.
+MUTATES=1 run_scenario pull_private_raw_none 0 "-" "OK sub=pull-private-raw files=0 bytes=0" pull-private-raw
+# The private raw directory must resolve outside the repository.
+MUTATES=1 PRIVATE_IN_REPO=1 FAKE_RAW_DIR="$WORK/rawsrc" run_scenario pull_private_raw_in_repo 2 "inside the repository" "ERROR sub=pull-private-raw reason=raw_dir_in_repo" pull-private-raw
+assert_no_calls pull_private_raw_in_repo "cat files/private/raw/"
+# It is a device subcommand like the rest: no grant, no adb call.
+GRANT=pending CALLS_EMPTY=1 run_scenario pull_private_raw_grant_pending 2 "not touching the device" "ERROR sub=pull-private-raw reason=window_not_granted" pull-private-raw
+ANDROID_SERIAL_VALUE="100.126.94.47:5555" CALLS_EMPTY=1 run_scenario pull_private_raw_foreign_serial 4 "TESTER IDENTITY MISMATCH - refusing" "INFRA sub=pull-private-raw reason=refused_serial" pull-private-raw
+run_scenario usb_impostor_pull_private_raw 4 "TESTER IDENTITY MISMATCH - refusing" "INFRA sub=pull-private-raw reason=identity_mismatch" pull-private-raw
 
 # ---- Task 3: fetch-model (host only: no grant, no lock, no adb) ------------------------------------------------------------
 PIN_REV="b3ca0d2f076785a8f4b2219ddbd2bdb99954eae1"
