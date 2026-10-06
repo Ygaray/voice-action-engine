@@ -8,7 +8,7 @@ private const val LARGEST_NUMBER = 999_999L
 
 // A text slot is bounded, so `maxWords` has a ceiling: an "unbounded" Int.MAX_VALUE would overflow the span sums and
 // the window arithmetic and silently stop matching. Far above any real spoken field.
-private const val MAX_TEXT_WORDS = 64
+private const val LARGEST_TEXT_SPAN = 64
 
 /** Checks every slot declaration of [intents]: names, bounds and choice options. */
 internal fun validateSlotDeclarations(intents: List<IntentSpec>) {
@@ -68,8 +68,8 @@ private fun validateSpec(intent: IntentSpec, declared: SlotDecl) {
                 "GrammarPack: $where must stay within 0..$LARGEST_NUMBER"
             }
         }
-        is SlotSpec.TextSlot -> require(spec.maxWords in 1..MAX_TEXT_WORDS) {
-            "GrammarPack: $where needs maxWords from 1 to $MAX_TEXT_WORDS"
+        is SlotSpec.TextSlot -> require(spec.maxWords in 1..LARGEST_TEXT_SPAN) {
+            "GrammarPack: $where needs maxWords from 1 to $LARGEST_TEXT_SPAN"
         }
         is SlotSpec.ChoiceSlot -> validateChoice(intent, declared.name, spec)
     }
