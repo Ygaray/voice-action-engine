@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
-current_plan: 9
+current_plan: 10
 status: executing
-stopped_at: Completed 14-08-PLAN.md
-last_updated: "2026-10-06T16:14:30.923Z"
+stopped_at: Completed 14-09-PLAN.md
+last_updated: "2026-10-06T16:27:01.454Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 14 execution started
-state_head: 3d9fa05e43a6c44147cba99ef12e84eb6af10a98
+state_head: ca64d2894844668d719853091af4add11c401dac
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 29
-  completed_plans: 27
+  completed_plans: 28
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
-Current Plan: 9
+Current Plan: 10
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 14 execution started
@@ -125,6 +125,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 14 P06 | 45min | 3 tasks | 12 files |
 | Phase 14 P07 | 35min | 3 tasks | 9 files |
 | Phase 14 P08 | 12 min | 3 tasks | 2 files |
+| Phase 14 P09 | 55min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -163,6 +164,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-07: normalize hook answers replace the slot value; null/blank rejects, throw = grammar_normalize_error; ambiguity is decided before hooks run
 - [Phase 14]: 14-07: terminal intents end handled with Completed(null, TerminalCall) before resolver and gate; resolver optional only for all-terminal packs
 - [Phase 14]: Phase 14-08: frozen grammar surface reviewed against the real Metalava dump; all members additive-safe; open items OI-1..OI-8 relayed via 14-SURFACE-REVIEW.md
+- [Phase 14]: 14-09: capture tool uses the on-device recognizer at 16 kHz segmented; prompts pushed into the app-owned files dir (adb-made subdir is unreadable by the app); D-12 window consumed, 88/88 fixtures
 
 ### Pending Todos
 
@@ -190,8 +192,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T16:14:30.863Z
-Stopped at: Completed 14-08-PLAN.md
+Last session: 2026-10-06T16:27:01.399Z
+Stopped at: Completed 14-09-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
