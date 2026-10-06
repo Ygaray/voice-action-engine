@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
-current_plan: 3
+current_plan: 4
 status: executing
-stopped_at: Completed 14-02-PLAN.md
-last_updated: "2026-10-06T15:05:51.411Z"
+stopped_at: Completed 14-03-PLAN.md
+last_updated: "2026-10-06T15:22:24.658Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 14 execution started
-state_head: 1e1db425ba920f5135132a021ea48acb38de8fdd
+state_head: 041897b8be4d83f991a600b7b5a00c350ed55a09
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 29
-  completed_plans: 21
+  completed_plans: 22
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
-Current Plan: 3
+Current Plan: 4
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 14 execution started
@@ -119,6 +119,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P11 | 5min | 0 tasks | 0 files |
 | Phase 14 P01 | 15min | 3 tasks | 12 files |
 | Phase 14 P02 | 45min | 3 tasks | 6 files |
+| Phase 14 P03 | 40min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -149,6 +150,8 @@ Recent decisions affecting current work:
 - [Phase 13]: 13-10: spike disposition branch red (both envelopes red); spike module removed, SPIKE-03 N/A-deferred, v1.1.0 not blocked
 - [Phase 14]: Phase 14-01: D-01 submit path lives in StepSubmission.kt; grammar tier has no try/catch (resolver throws handled by TierWalk strategy_error); Extraction.matchedLanguage via internal 4-arg ctor
 - [Phase 14]: 14-02: D-12 grant gate reads only the first key block; runner is USB-only; RAE read via Wayback (all 11 ES rules confirmed)
+- [Phase 14]: 14-03: Spanish cien is a complete group wherever nothing numeric follows (mil cien = 1100) so all of 0..999,999 round-trips; RAE rules R01-R11 confirmed, none contradicted
+- [Phase 14]: 14-03: longestPhrase derived from lexicon structure (EN 18, ES 16 tokens); word fraction digits bounded to the digit count of 999,999
 
 ### Pending Todos
 
@@ -176,8 +179,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T15:05:51.309Z
-Stopped at: Completed 14-02-PLAN.md
+Last session: 2026-10-06T15:22:24.590Z
+Stopped at: Completed 14-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
