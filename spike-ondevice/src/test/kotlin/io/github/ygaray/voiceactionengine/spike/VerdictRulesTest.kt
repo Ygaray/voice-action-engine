@@ -371,7 +371,8 @@ class VerdictRulesTest {
                 line
             }
         }
-        assertEquals(listOf("early_exit:sb_fixture_absent"), reasons(lines, Envelope.SB))
+        // The early-exited sustained stage has no seconds, so sustained is also unmeasured; the exit reason appears once.
+        assertEquals(listOf("early_exit:sb_fixture_absent", "unmeasured:sustained"), reasons(lines, Envelope.SB))
     }
 
     @Test
