@@ -30,7 +30,8 @@ public fun interface OutcomeResolver {
  * @property callId the provider's id for this tool call, byte for byte, or null when no provider call produced it
  * (for example a grammar tier).
  * @property matchedLanguage "en" or "es" when a grammar tier matched in that language; null for a model tier, and for
- * a grammar match both language packs agreed on without a language label.
+ * a grammar match both language packs agreed on without a language label (a cross-pack agreement). It can be null,
+ * so a caller that keys a reply template off it must fall back to its own locale.
  * @throws IllegalArgumentException when [toolName] is blank, [callId] is present but blank, or [matchedLanguage] is
  * neither null, "en" nor "es".
  */

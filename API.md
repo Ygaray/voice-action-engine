@@ -82,7 +82,7 @@ leaves), annotation class.
 | `GrammarPack` | class | | Your EN/ES phrasings per intent with typed slots; `match(transcript, language)` returns a `GrammarMatch` or null, for corpus tests. |
 | `GrammarMatch` | class | | What a pack matched: tool name, arguments, matched language, terminal flag and an opaque rule id. |
 | `OutcomeResolver` | fun interface | | Your local step that turns an `Extraction` into a `Resolution`. |
-| `Extraction` | class | | The tool name and untouched arguments the model called, plus `callId`: the provider's tool-call id, or null, and `matchedLanguage`: `"en"`/`"es"` for a grammar match, null for a model tier. |
+| `Extraction` | class | | The tool name and untouched arguments the model called, plus `callId`: the provider's tool-call id, or null, and `matchedLanguage`: `"en"`/`"es"` for a grammar match, null for a model tier and for a cross-pack agreement (both packs matched the same tool with no language label), so fall back to your own locale when it is null. |
 | `Resolution` | abstract class | open | A resolver's verdict: `Steps`, `NoMatch`, `Escalate` or `Failed`. |
 | `ToolExecutor` | fun interface | | Your step for each tool call of an agentic run. |
 | `ToolSpec` | class | | A tool the model may call (`mutating`, `terminal`, `strict`); `ToolSpec.clarification(name)`. |
@@ -208,7 +208,7 @@ has a stable `code`.
   `<rule>`; there is no regex. The tier never guesses: an ambiguous match, an unknown language label or a rejected slot
   ends `NoMatch`, and the next tier gets the command with the carry cleared. A null language label tries both packs.
   A match hands the tool name and slots to your `OutcomeResolver` as an `Extraction` (null `callId`, `matchedLanguage`
-  set); a terminal intent ends the tier handled with a `TerminalCall` and needs no resolver. `GrammarPack.match` runs a
+  set, or null on a cross-pack agreement, so fall back to your own locale); a terminal intent ends the tier handled with a `TerminalCall` and needs no resolver. `GrammarPack.match` runs a
   pack alone, for corpus tests.
 - `CommandStrategy` is the interface behind both; a custom tier submits every write as a `ToolStep` through
   `CommandSession.submit`, so the gate and the sink always see it. `StrategyOutcome` (**closed**) is what a tier
@@ -300,7 +300,7 @@ The constructors and members that integrators write or read most often, in one p
 | `Usage(inputUncached: Long, cacheRead: Long, cacheWrite: Long, output: Long)` | `core.telemetry` | Tokens in four buckets, in this order. |
 | `CommandOutcome.Completed.reply` (`String?`), `.terminalCall`, `.partial` | `core.pipeline` | The tier's text answer, a terminal call, and the partial flag. |
 | `CommandOutcome.Failed.reason`, `CommandOutcome.Unhandled.lastReason` | `core.pipeline` | The `FailureReason`, or the last `EscalationReason?`. |
-| `Extraction(toolName: String, arguments: JsonObject, callId: String?)` | `core.strategy` | What a resolver receives; `callId` is the provider's tool-call id, or null. `Extraction.matchedLanguage` is `"en"`/`"es"` for a grammar match, null for a model tier. |
+| `Extraction(toolName: String, arguments: JsonObject, callId: String?)` | `core.strategy` | What a resolver receives; `callId` is the provider's tool-call id, or null. `Extraction.matchedLanguage` is `"en"`/`"es"` for a grammar match, null for a model tier and for a cross-pack agreement (both packs matched the same tool with no language label); callers that key reply templates off it must fall back to their own locale when it is null. |
 | `CommitSink.onRunClosed(runId: String, termination: RunTermination)` | `core.commit` | Called once when a run closes (`suspend`). |
 
 ## Telemetry and trace
