@@ -4,7 +4,7 @@ slug: start-tier-selection
 status: verified
 threats_open: 0
 asvs_level: 1
-audited_head: c70e36aa27174e3595a8baac964d52e2d2e23114
+audited_head: 31fd8f56110d7af53b615ac8c224b65c78117d00
 created: "2026-10-06"
 ---
 
@@ -120,3 +120,12 @@ SUMMARY.md `## Threat Flags` sections exist only in 16-02 and 16-03 and both say
 - [x] `status: verified` set in frontmatter
 
 **Approval:** verified 2026-10-06
+
+## Security Audit 2026-10-06 (re-audit, freshness)
+Re-audited at HEAD 31fd8f56110d7af53b615ac8c224b65c78117d00 after settle-phase refused P16 because the audit was stale against c70e36aa. The only code change since c70e36aa is test-only: core/src/test/.../StartTierFallbackTest.kt (+26 lines, commit 6b2c4bb, a Nyquist test for WR-01). No main-source, build or published-surface file changed, so no mitigation in the plan-time register can have been removed. L1 classification is unchanged and the auditor was skipped under the short-circuit rule (threats_open 0, register authored at plan time, ASVS 1).
+
+| Metric | Count |
+|--------|-------|
+| Threats found | 34 |
+| Closed | 34 |
+| Open | 0 |
