@@ -141,7 +141,23 @@ class GrammarNeverGuessesTest {
     @Test
     fun theMatchDoesNotChangeBetweenCalls() {
         for ((text, label) in corpus) {
-            assertEquals(text, pack.match(text, label)?.toString(), pack.match(text, label)?.toString())
+            val first = pack.match(text, label)
+            assertNotNull(text, first)
+            assertSameMatch(text, first, pack.match(text, label))
         }
+    }
+
+    // toString() prints only the argument count, so compare every public field: the values included.
+    private fun assertSameMatch(message: String, expected: GrammarMatch?, actual: GrammarMatch?) {
+        if (expected == null || actual == null) {
+            assertNull(message, expected)
+            assertNull(message, actual)
+            return
+        }
+        assertEquals(message, expected.toolName, actual.toolName)
+        assertEquals(message, expected.arguments, actual.arguments)
+        assertEquals(message, expected.matchedLanguage, actual.matchedLanguage)
+        assertEquals(message, expected.terminal, actual.terminal)
+        assertEquals(message, expected.ruleId, actual.ruleId)
     }
 }

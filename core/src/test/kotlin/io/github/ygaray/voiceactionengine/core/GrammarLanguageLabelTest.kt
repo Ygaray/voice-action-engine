@@ -5,6 +5,7 @@ import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarMatch
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarPack
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarResult
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.LocalGrammarStrategy
@@ -180,12 +181,29 @@ class GrammarLanguageLabelTest {
             "turn on the light" to "en", "hola amigo" to "en", "okay" to null, "sale" to null,
             "level 1,000" to null, "turn on the light" to "fr",
         )
+        var matched = 0
         for (pack in listOf(strict, open)) {
             for ((text, label) in rows) {
                 val decided = (pack.matchDetailed(text, label) as? GrammarResult.Matched)?.match
-                assertEquals("$text/$label", decided?.toString(), pack.match(text, label)?.toString())
+                assertSameMatch("$text/$label", decided, pack.match(text, label))
+                if (decided != null) matched++
             }
         }
+        assertTrue("some row must match, or the comparison proves nothing", matched > 0)
+    }
+
+    // toString() prints only the argument count, so compare every public field: the values included.
+    private fun assertSameMatch(message: String, expected: GrammarMatch?, actual: GrammarMatch?) {
+        if (expected == null || actual == null) {
+            assertNull(message, expected)
+            assertNull(message, actual)
+            return
+        }
+        assertEquals(message, expected.toolName, actual.toolName)
+        assertEquals(message, expected.arguments, actual.arguments)
+        assertEquals(message, expected.matchedLanguage, actual.matchedLanguage)
+        assertEquals(message, expected.terminal, actual.terminal)
+        assertEquals(message, expected.ruleId, actual.ruleId)
     }
 
     @Test
