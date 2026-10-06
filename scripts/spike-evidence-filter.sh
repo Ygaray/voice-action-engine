@@ -7,8 +7,9 @@
 #   committed evidence file. The kept lines are then scanned, and one hit rejects the WHOLE capture (nothing on stdout):
 #     - a key shape or a credential header word,
 #     - on a line of the sb envelope (env=sb), a tool, tools, tool_name or arg_keys field (the SB tool names are private),
-#     - a sha, thresholds_sha, model_sha, fixture_sha or gold_sha value of 9 or more hex characters (digests stay at the
-#       8-hex prefix, so a full fixture or gold-label digest cannot leave the device).
+#     - a value of 9 or more hex characters (either case) on any key whose name contains sha, digest, hash or checksum, or any
+#       value of 32 or more hex characters (digests stay at the 8-hex prefix, so a full fixture or gold-label digest cannot
+#       leave the device).
 # stderr: "FILTER OK kept=<n> dropped=<m>" (exit 0), or "LEAK SCAN FAIL" (exit 1, nothing on stdout).
 # Usage: scripts/spike-evidence-filter.sh < captured.txt > kept.txt
 set -uo pipefail
@@ -25,7 +26,8 @@ spike_leak() {
   local f="$1" hits
   hits="$(grep -E '(^| )env=sb( |$)' "$f" | grep -E ' (tool|tools|tool_name|arg_keys)=' || true)"
   [ -z "$hits" ] || return 0
-  hits="$(grep -E ' (sha|thresholds_sha|model_sha|fixture_sha|gold_sha)=[0-9a-f]{9,}' "$f" || true)"
+  # Any key whose name mentions sha/digest/hash/checksum, either hex case, plus any value that is 32+ hex characters.
+  hits="$(grep -E ' [a-z0-9_]*(sha|digest|hash|checksum)[a-z0-9_]*=[0-9a-fA-F]{9,}|=[0-9a-fA-F]{32,}( |$)' "$f" || true)"
   [ -z "$hits" ] || return 0
   return 1
 }
