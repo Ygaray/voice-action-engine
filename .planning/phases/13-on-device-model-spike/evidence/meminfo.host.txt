@@ -1,0 +1,3 @@
+VAE_SPIKE_MEM source=dumpsys stage=rf_matrix total_pss_mb=2278
+VAE_SPIKE_MEM source=dumpsys stage=rf_matrix total_pss_mb=2463
+VAE_SPIKE_MEM source=dumpsys stage=rf_matrix total_pss_mb=90

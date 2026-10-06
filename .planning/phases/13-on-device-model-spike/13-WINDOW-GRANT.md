@@ -5,8 +5,9 @@ until the first block of lines below holds the exact line `grant: open`. Only th
 `grant` line. Plan 13-08 writes it from a relayed answer (never otherwise) and sets `grant: consumed` when the window
 closes. Until then the grant is pending and no device step can run.
 
-grant: open
+grant: consumed
 relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
+closed: 2026-10-06T05:52:07Z
 date: 2026-10-05
 timebox_s: 14400
 sb_labels: default
