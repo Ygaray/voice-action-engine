@@ -53,7 +53,7 @@ documents them so an agent can wire them. Phase 20 cuts the tag.
   the one-way tag door that waits for 19's green Gate-1 (the v1.0 Phase 10/11 ruling).
 
 - [x] **Phase 12: Wave-1 Seams & W04 Fix** - additive consumer seams (`onFailed`, `ReasoningMode`, `claude-sonnet-5` row, `carryIn`, `cappedByPolicy`, call ids, opt-in `KeyAccess`), the three v1.0.1 doc stumbles, and the Responses-only `ModelUnsupported` fix (completed 2026-10-05)
-- [ ] **Phase 13: On-Device Model Spike** - §6.2 step 11: time-boxed bundled ~2B model measurement on the TESTER, verdict to the orchestrator early, ships `@Experimental` only if green
+- [x] **Phase 13: On-Device Model Spike** - §6.2 step 11: time-boxed bundled ~2B model measurement on the TESTER, verdict to the orchestrator early, ships `@Experimental` only if green (completed 2026-10-06)
 - [ ] **Phase 14: LocalGrammar & Bilingual GrammarPack** - §6.2 step 8: a free, offline EN/ES grammar tier with typed slots, number words and a per-slot `normalize` hook
 - [ ] **Phase 15: PlanThenExecute Strategy** - §6.2 step 9: one planning call, ordered gated steps, write-output step binding, at most one replan
 - [ ] **Phase 16: Start-Tier Selection** - §6.2 step 10: `TierSelector.Custom(StartTierPicker)` + opt-in `TierSelector.Router`, grammar pre-pass, loud fallback to Linear
@@ -157,7 +157,7 @@ Plans:
   3. Green: an on-device provider ships `@Experimental` in its own published module behind the `ON_DEVICE` capability gate, and where the gate reports unavailable, the run falls back exactly as in v1.0 (declared fallback or a loud typed failure). Red: no module and no code ship, SPIKE-03 is dispositioned N/A-deferred, and `v1.1.0` isn't blocked (L10).
   4. Whatever the verdict, `:core` and `:providers` gain no on-device or ML dependency: the `:core` classpath allowlist and the no-on-device-implementation scan still pass. Agentic on-device stays out of scope.
 
-**Plans:** 11/11 plans executed
+**Plans:** 11/11 plans complete
 
 Plans:
 **Wave 1**
@@ -326,7 +326,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 12. Wave-1 Seams & W04 Fix | v1.1 | 8/8 | Complete    | 2026-10-05 |
-| 13. On-Device Model Spike | v1.1 | 11/11 | In Progress|  |
+| 13. On-Device Model Spike | v1.1 | 11/11 | Complete    | 2026-10-06 |
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 0/TBD | Not started | - |
 | 15. PlanThenExecute Strategy | v1.1 | 0/TBD | Not started | - |
 | 16. Start-Tier Selection | v1.1 | 0/TBD | Not started | - |
