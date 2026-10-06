@@ -73,3 +73,5 @@ the carriers independently of the recognizer.
 - The files hold synthetic text only: no PII, no keys, no recordings.
 - If no TESTER window arrives before Phase 14 closes, the strict golden table ships alone and the gap is recorded as a
   deferred obligation. The lexicon is internal, so a later finding only widens acceptance.
+
+D-12 status: captured 2026-10-06, 88 rows, 0 aliases promoted
