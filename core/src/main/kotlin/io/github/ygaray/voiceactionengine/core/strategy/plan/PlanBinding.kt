@@ -13,18 +13,7 @@ private const val ID_FRAGMENT = "[A-Za-z][A-Za-z0-9_-]*"
 private val REFERENCE = Regex("[\$]($ID_FRAGMENT)\\.(\\S+)")
 private val STEP_ID = Regex(ID_FRAGMENT)
 
-/**
- * Binding of one step's arguments to the results of earlier steps.
- *
- * A reference is a JSON string whose ENTIRE content is `$<stepId>.<key>`. The step id starts with a letter and uses
- * letters, digits, `_` and `-`; the key is one or more characters that are not whitespace, so it may hold dots (the
- * key names belong to the app). Anything else is a literal and is never touched: `$5.00`, `$s1`, `$s1.`, a reference
- * inside a longer string, and `$$s1.x` (there is no escape syntax in this version). Object keys and values that are
- * not strings (numbers, booleans, null) are never read or rewritten. Arrays and nested objects are walked.
- *
- * A bound value is always a JSON string. Binding works on whole string primitives of the parsed tree only, never on
- * serialized text.
- */
+// A parsed reference: the step id and the result key it names. The grammar is described on [bindArguments].
 private class Reference(val stepId: String, val key: String)
 
 private fun referenceOf(element: JsonElement): Reference? =
@@ -52,6 +41,17 @@ private fun collect(element: JsonElement, found: MutableList<String>) {
 }
 
 /**
+ * Binds one step's arguments to the results of earlier steps.
+ *
+ * A reference is a JSON string whose ENTIRE content is `$<stepId>.<key>`. The step id starts with a letter and uses
+ * letters, digits, `_` and `-`; the key is one or more characters that are not whitespace, so it may hold dots (the
+ * key names belong to the app). Anything else is a literal and is never touched: `$5.00`, `$s1`, `$s1.`, a reference
+ * inside a longer string, and `$$s1.x` (there is no escape syntax in this version). Object keys and values that are
+ * not strings (numbers, booleans, null) are never read or rewritten. Arrays and nested objects are walked.
+ *
+ * A bound value is always a JSON string. Binding works on whole string primitives of the parsed tree only, never on
+ * serialized text.
+ *
  * Replaces every whole-value reference in [arguments] with the string that [results] holds for it. Returns null as
  * soon as a reference names a step with no entry or a key the entry lacks: nothing is guessed and nothing is
  * partially substituted.
