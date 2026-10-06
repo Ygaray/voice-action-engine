@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Allow-list filter for captured spike evidence (Phase 13). stdin -> stdout, kept lines only.
 #   The evidence vocabulary has no free text: every value is a token with no space, item ids are opaque, and SB tool names
-#   never appear. This filter keeps ONLY the lines that fully match the closed grammar (ALLOW_RE below is byte-identical to
-#   ALLOW_PATTERN in spike-ondevice/.../evidence/SpikeEvidence.kt; EvidenceGrammarTest proves it). Every other line is
+#   never appear. This filter keeps ONLY the lines that fully match the closed grammar (ALLOW_RE below was frozen from
+#   ALLOW_PATTERN in SpikeEvidence.kt at e362fb228b. That Kotlin source, its EvidenceGrammarTest and
+#   scripts/verify-spike-evidence-filter.sh were deleted with the spike module in plan 13-10 (red verdict), so at HEAD this
+#   grammar has no source of truth and no automated test; it is exercised only by hand. Recover them from
+#   `git show 1fec77a^:scripts/verify-spike-evidence-filter.sh` before relying on this filter again). Every other line is
 #   counted and dropped, never printed, so a prompt, a model output, a tool argument or a stack trace cannot reach a
 #   committed evidence file. The kept lines are then scanned, and one hit rejects the WHOLE capture (nothing on stdout):
 #     - a key shape or a credential header word,
