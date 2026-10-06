@@ -1,12 +1,19 @@
 package io.github.ygaray.voiceactionengine.spike.ladder
 
+import io.github.ygaray.voiceactionengine.spike.evidence.BackendKind
 import io.github.ygaray.voiceactionengine.spike.evidence.Cell
 import io.github.ygaray.voiceactionengine.spike.evidence.Envelope
+import io.github.ygaray.voiceactionengine.spike.evidence.ModelKey
+import io.github.ygaray.voiceactionengine.spike.evidence.Route
+import io.github.ygaray.voiceactionengine.spike.evidence.Shape
 import io.github.ygaray.voiceactionengine.spike.gold.GoldItem
 import io.github.ygaray.voiceactionengine.spike.gold.GoldSet
 import io.github.ygaray.voiceactionengine.spike.verdict.Thresholds
+import kotlin.math.floor
+import kotlin.random.Random
 
 private const val MILLIS_PER_SECOND = 1000.0
+private const val MILLIS_PER_SECOND_LONG = 1000L
 private const val SB_PREFILL_FACTOR = 2
 private const val REUSE_AT_MOST = 0.5
 private const val SAME_LOW = 0.8
@@ -86,19 +93,73 @@ internal object LadderRules {
         else -> UNPROVEN
     }
 
-    // RED stubs: the planning rules are written in the GREEN commit.
+    /** The fixed seed of the screen's item order, so every cell and every run sees the same items. */
     const val SCREEN_SEED = 13_013L
 
-    fun screenCells(env: Envelope, g3Present: Boolean, gpuOk: Boolean): List<Cell> = emptyList()
+    /** The most the in-app cooldown waits for the device to cool to `light` between cells. */
+    const val COOLDOWN_CAP_MS = 300_000L
 
-    fun seededScreenItems(items: List<GoldItem>, n: Int = SCREEN_N): List<GoldItem> = emptyList()
+    /** How often the cooldown re-reads the thermal status. */
+    const val COOLDOWN_POLL_MS = 5_000L
 
-    /** What the confirm stage runs: every distinct item once in the model-chooses shape, then the forced subset. */
-    class ConfirmPlan(val auto: List<GoldItem>, val forced: List<GoldItem>) {
-        val planned: Int get() = 0
+    /** A THERMAL line is written after every this many trials (a block). */
+    const val THERMAL_BLOCK_TRIALS = 10
+
+    /** A sustained run is cut off at this many trials or this much time even if it is not done (it then reads incomplete). */
+    const val SUSTAINED_MAX_TRIALS = 1000
+    const val SUSTAINED_MAX_MS = 900_000L
+
+    /**
+     * The screen cells of [env] (13-THRESHOLDS (l)): E2B on every backend and both routes in the model-chooses shape; the
+     * small envelope also screens Gemma 3 1B when it is [g3Present]. A failed GPU init ([gpuOk] false) removes the GPU cells.
+     */
+    fun screenCells(env: Envelope, g3Present: Boolean, gpuOk: Boolean): List<Cell> {
+        val models = if (env == Envelope.SMALL && g3Present) listOf(ModelKey.E2B, ModelKey.G3_1B) else listOf(ModelKey.E2B)
+        val backends = if (gpuOk) listOf(BackendKind.CPU, BackendKind.GPU) else listOf(BackendKind.CPU)
+        return models.flatMap { model ->
+            backends.flatMap { backend -> Route.entries.map { route -> Cell(model, backend, route, Shape.AUTO) } }
+        }
     }
 
-    fun confirmPlan(gold: GoldSet): ConfirmPlan = ConfirmPlan(emptyList(), emptyList())
+    /**
+     * [n] distinct items from [items], proportional across the kind and language buckets (largest remainder, every non-empty
+     * bucket at least once when [n] allows), picked and ordered by a fixed seed. The same call always gives the same items,
+     * so every cell screens the same ones. Never more than the gold has.
+     */
+    fun seededScreenItems(items: List<GoldItem>, n: Int = SCREEN_N): List<GoldItem> {
+        if (n >= items.size) return items.shuffled(Random(SCREEN_SEED))
+        val groups = items.groupBy { it.kind to it.lang }.toList()
+            .sortedWith(compareBy({ it.first.first.ordinal }, { it.first.second.ordinal }))
+        val quotas = groups.map { n.toDouble() * it.second.size / items.size }
+        val alloc = quotas.map { floor(it).toInt() }.toMutableList()
+        val left = n - alloc.sum()
+        quotas.indices.sortedWith(compareByDescending<Int> { quotas[it] - alloc[it] }.thenBy { it }).take(left).forEach { alloc[it]++ }
+        if (n >= groups.size) {
+            for (i in alloc.indices.filter { alloc[it] == 0 }) {
+                val donor = alloc.indices.maxByOrNull { alloc[it] } ?: break
+                if (alloc[donor] > 1) {
+                    alloc[donor]--
+                    alloc[i]++
+                }
+            }
+        }
+        val picked = groups.mapIndexed { i, group -> group.second.shuffled(Random(SCREEN_SEED + i)).take(minOf(alloc[i], group.second.size)) }
+        return picked.flatten().shuffled(Random(SCREEN_SEED))
+    }
 
-    fun sustainedDone(trials: Int, elapsedMs: Long): Boolean = false
+    /** What the confirm stage runs: every distinct item once in the model-chooses shape, then the forced subset (informational). */
+    class ConfirmPlan(val auto: List<GoldItem>, val forced: List<GoldItem>) {
+        val planned: Int get() = auto.size + forced.size
+    }
+
+    /** The confirm plan of [gold]: each distinct item once (never repeated to replace a failure), plus its forced subset. */
+    fun confirmPlan(gold: GoldSet): ConfirmPlan = ConfirmPlan(gold.items, gold.forcedSubset)
+
+    /** A sustained run is done once it has at least 60 trials and at least 120 s (13-THRESHOLDS (h)). */
+    fun sustainedDone(trials: Int, elapsedMs: Long): Boolean =
+        trials >= Thresholds.sustainedMinTrials && elapsedMs >= Thresholds.sustainedMinSeconds * MILLIS_PER_SECOND_LONG
+
+    /** True when a sustained run must stop: done, or cut off by the trial or time cap so it cannot run away. */
+    fun sustainedStop(trials: Int, elapsedMs: Long): Boolean =
+        sustainedDone(trials, elapsedMs) || trials >= SUSTAINED_MAX_TRIALS || elapsedMs >= SUSTAINED_MAX_MS
 }

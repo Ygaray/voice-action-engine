@@ -1,23 +1,14 @@
 package io.github.ygaray.voiceactionengine.spike.ladder
 
-import io.github.ygaray.voiceactionengine.spike.backend.BackendConfig
 import io.github.ygaray.voiceactionengine.spike.backend.BackendFailure
 import io.github.ygaray.voiceactionengine.spike.backend.LlmBackend
 import io.github.ygaray.voiceactionengine.spike.envelope.SbEnvelope
 import io.github.ygaray.voiceactionengine.spike.envelope.SbState
-import io.github.ygaray.voiceactionengine.spike.envelope.SmallEnvelope
-import io.github.ygaray.voiceactionengine.spike.evidence.BackendKind
-import io.github.ygaray.voiceactionengine.spike.evidence.Cell
 import io.github.ygaray.voiceactionengine.spike.evidence.EvidenceSink
-import io.github.ygaray.voiceactionengine.spike.evidence.ModelKey
-import io.github.ygaray.voiceactionengine.spike.evidence.Route
-import io.github.ygaray.voiceactionengine.spike.evidence.Shape
 import io.github.ygaray.voiceactionengine.spike.evidence.SpikeKind
 import io.github.ygaray.voiceactionengine.spike.evidence.SpikeLine
 import io.github.ygaray.voiceactionengine.spike.evidence.Stage
-import io.github.ygaray.voiceactionengine.spike.gate.SpikeOnDeviceCapability
 import io.github.ygaray.voiceactionengine.spike.gold.GoldSet
-import io.github.ygaray.voiceactionengine.spike.trial.TrialRunner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
@@ -102,6 +93,7 @@ internal class StageOutcome private constructor(
 internal class Ladder(private val env: LadderEnv) {
     private val opener = EngineOpener(env)
     private val engine = EngineStages(env, opener)
+    private val trials = TrialStages(env, opener)
 
     /** Runs [stage] and writes its STAGE line last. */
     suspend fun run(stage: Stage) {
@@ -124,8 +116,10 @@ internal class Ladder(private val env: LadderEnv) {
         Stage.PREFILL -> afterInit { engine.prefill() }
         Stage.KV_REUSE -> afterInit { engine.kvReuse() }
         Stage.RF_MATRIX -> afterInit { engine.rfMatrix() }
-        Stage.SCREEN_SMALL -> screenMinimal(stage, progress)
-        else -> StageOutcome.skipped("not_implemented")
+        Stage.SCREEN_SMALL, Stage.SCREEN_SB -> afterInit { trials.screen(stage, progress) }
+        Stage.CONFIRM_SMALL, Stage.CONFIRM_SB -> afterInit { trials.confirm(stage, progress) }
+        Stage.SUSTAINED_SMALL, Stage.SUSTAINED_SB -> afterInit { trials.sustained(stage, progress) }
+        Stage.EXIT_REASONS -> trials.exitReasons()
     }
 
     // Once the init stage found E2B unusable on every backend, nothing after it can be measured: end the stage cheaply.
@@ -187,29 +181,6 @@ internal class Ladder(private val env: LadderEnv) {
         is SbState.Loaded -> arrayOf("sb_state" to "loaded", "sb_tool_count" to sb.toolCount.toString())
         SbState.Absent -> arrayOf("sb_state" to "absent")
         is SbState.Invalid -> arrayOf("sb_state" to "invalid", "sb_code" to sb.code)
-    }
-
-    // The tracer's minimal screen: the first N small-gold items on one cell. The full per-cell screen replaces it (Task 3).
-    private suspend fun screenMinimal(stage: Stage, progress: StageProgress): StageOutcome {
-        val gold = env.smallGold()
-        val planned = minOf(env.screenN, gold.items.size)
-        progress.planned = planned
-        val cell = Cell(ModelKey.E2B, BackendKind.CPU, Route.A, Shape.AUTO)
-        val path = env.files.modelPath(ModelFile.E2B_GENERIC) ?: return StageOutcome.error("model_missing", 0, planned)
-        val backend = env.backend()
-        val init = backend.initialize(BackendConfig(path, gpu = false, maxNumTokens = LadderRules.SMALL_MAX_TOKENS, cacheDir = null))
-        if (!init.ok) {
-            backend.close()
-            return StageOutcome.error(init.failureCode ?: "init_failed", 0, planned)
-        }
-        val capability = SpikeOnDeviceCapability({ true }, { env.probes.deviceFacts().abis }, { init })
-        TrialRunner({ backend }, capability, env.dispatcher, env.nanoClock).use { runner ->
-            gold.items.take(planned).forEachIndexed { index, item ->
-                env.sink.emit(stage, runner.run(cell, SmallEnvelope.envelope, item, firstInProcess = index == 0, stage = stage).toLine())
-                progress.trials++
-            }
-        }
-        return StageOutcome.done(progress.trials, planned)
     }
 
     override fun toString(): String = "Ladder"

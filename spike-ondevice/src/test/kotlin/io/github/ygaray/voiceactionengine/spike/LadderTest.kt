@@ -170,9 +170,12 @@ internal fun trialGold(posEn: Int, posEs: Int, neg: Int, forced: Int = 0, envelo
     return GoldSet(envelope, null, items)
 }
 
+/** The transcript of a request: the engine's user turn is a date-time line, a blank line, then the transcript. */
+internal fun transcriptOf(request: BackendRequest): String = request.user.substringAfterLast("\n\n")
+
 /** What a model that follows the envelope would answer: the create call for a `pos` item, a decline for a `neg` one. */
 internal fun trialAnswer(request: BackendRequest): BackendAnswer {
-    val negative = request.user.startsWith("neg")
+    val negative = transcriptOf(request).startsWith("neg")
     return when (val mode = request.mode) {
         is BackendMode.Constrained -> {
             val wrapper = (mode.schema["properties"] as? JsonObject)?.containsKey("tool") == true
@@ -304,7 +307,9 @@ class LadderTest {
         val line = rig.sink.stageLine(Stage.SCREEN_SMALL)
         assertEquals("error", line["result"])
         assertEquals("model_missing", line["reason"])
-        assertEquals("3", line["planned"])
+        // Four cells (CPU and GPU, routes A and B) of three items each were planned and none could start.
+        assertEquals("12", line["planned"])
+        assertEquals("0", line["trials"])
     }
 
     @Test
@@ -740,7 +745,7 @@ class LadderTest {
             log,
             probes = probes,
             gold = trialGold(posEn = 4, posEs = 4, neg = 4, forced = 3),
-            extraAnswer = { if (it.user == failUser) throw BackendFailure("native_error") },
+            extraAnswer = { if (transcriptOf(it) == failUser) throw BackendFailure("native_error") },
         )
         rig.state.put("winner_small", "e2b.gpu.a.auto")
         return rig
