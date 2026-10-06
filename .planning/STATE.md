@@ -23,10 +23,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
+See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 14 — localgrammar-bilingual-grammarpack
+**Current focus:** Phase 15 — PlanThenExecute Strategy
 
 ## Current Position
 
