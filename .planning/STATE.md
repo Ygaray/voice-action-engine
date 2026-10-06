@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 14
 current_phase_name: localgrammar-bilingual-grammarpack
-current_plan: 4
+current_plan: 5
 status: executing
-stopped_at: Completed 14-03-PLAN.md
-last_updated: "2026-10-06T15:22:24.658Z"
+stopped_at: Completed 14-04-PLAN.md
+last_updated: "2026-10-06T15:34:44.031Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 14 execution started
-state_head: 041897b8be4d83f991a600b7b5a00c350ed55a09
+state_head: 87c4637caf7b0b8ea36a4e48c713282ab90e4f26
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 29
-  completed_plans: 22
+  completed_plans: 23
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-05) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 14 (localgrammar-bilingual-grammarpack) — EXECUTING
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 10
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 14 execution started
@@ -120,6 +120,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 14 P01 | 15min | 3 tasks | 12 files |
 | Phase 14 P02 | 45min | 3 tasks | 6 files |
 | Phase 14 P03 | 40min | 3 tasks | 10 files |
+| Phase 14 P04 | 25min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-02: D-12 grant gate reads only the first key block; runner is USB-only; RAE read via Wayback (all 11 ES rules confirmed)
 - [Phase 14]: 14-03: Spanish cien is a complete group wherever nothing numeric follows (mil cien = 1100) so all of 0..999,999 round-trips; RAE rules R01-R11 confirmed, none contradicted
 - [Phase 14]: 14-03: longestPhrase derived from lexicon structure (EN 18, ES 16 tokens); word fraction digits bounded to the digit count of 999,999
+- [Phase 14]: Phase 14-04: no slots inside sub-rules (build-time IAE); keeps slot parity per intent checkable in 14-05
 
 ### Pending Todos
 
@@ -179,8 +181,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-06T15:22:24.590Z
-Stopped at: Completed 14-03-PLAN.md
+Last session: 2026-10-06T15:34:43.973Z
+Stopped at: Completed 14-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
