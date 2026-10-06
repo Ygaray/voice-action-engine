@@ -100,6 +100,9 @@ internal class StageOutcome private constructor(
  * process starts the ladder remembers only what [StateStore] and the evidence files hold.
  */
 internal class Ladder(private val env: LadderEnv) {
+    private val opener = EngineOpener(env)
+    private val engine = EngineStages(env, opener)
+
     /** Runs [stage] and writes its STAGE line last. */
     suspend fun run(stage: Stage) {
         val progress = StageProgress()
@@ -117,9 +120,17 @@ internal class Ladder(private val env: LadderEnv) {
     private suspend fun dispatch(stage: Stage, progress: StageProgress): StageOutcome = when (stage) {
         Stage.PREPARE -> prepare()
         Stage.PREFLIGHT -> preflight()
+        Stage.INIT -> engine.init()
+        Stage.PREFILL -> afterInit { engine.prefill() }
+        Stage.KV_REUSE -> afterInit { engine.kvReuse() }
+        Stage.RF_MATRIX -> afterInit { engine.rfMatrix() }
         Stage.SCREEN_SMALL -> screenMinimal(stage, progress)
         else -> StageOutcome.skipped("not_implemented")
     }
+
+    // Once the init stage found E2B unusable on every backend, nothing after it can be measured: end the stage cheaply.
+    private suspend fun afterInit(block: suspend () -> StageOutcome): StageOutcome =
+        if (opener.e2bFailedEverywhere()) StageOutcome.earlyExit(LadderRules.INIT_FAILED_ALL) else block()
 
     // The failure code is a stable word: a backend code as is, otherwise the exception class name only (never its message).
     private fun failureCode(e: Exception): String =
