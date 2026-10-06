@@ -268,8 +268,13 @@ val verifyExplicitApi = tasks.register("verifyExplicitApiStrict") {
     }
 }
 
-// One-way graph: :sample -> {:providers, :keystore} -> :core.
-val allowedEdges = mapOf(":core" to emptySet<String>(), ":providers" to setOf(":core"), ":keystore" to setOf(":core"))
+// One-way graph: :sample -> {:providers, :keystore, :undo} -> :core; :undo depends on nothing.
+val allowedEdges = mapOf(
+    ":core" to emptySet<String>(),
+    ":providers" to setOf(":core"),
+    ":keystore" to setOf(":core"),
+    ":undo" to emptySet<String>(),
+)
 val sampleRequiredEdges = setOf(":providers", ":keystore")
 val sampleAllowedEdges = setOf(":core", ":providers", ":keystore")
 val verifyModuleGraph = tasks.register("verifyModuleGraph") {
@@ -330,7 +335,7 @@ tasks.named("check") { dependsOn(verifyNoDi) }
 
 // SC4: no ML runtime on a published module's compile or runtime classpath. Scoped by module name (never a shared
 // rule) so a dedicated on-device module is not blocked by its own gates.
-if (project.name in setOf("core", "providers", "keystore")) {
+if (project.name in setOf("core", "providers", "keystore", "undo")) {
     val deniedMlGroupPrefixes = listOf("com.google.ai.edge", "com.google.mediapipe", "org.tensorflow", "com.google.mlkit")
     val deniedMlNameTokens = listOf("litert", "tflite")
     val verifyNoMl = tasks.register("verifyNoMlArtifacts") {
@@ -364,6 +369,44 @@ if (project.name in setOf("core", "providers", "keystore")) {
         }
     }
     tasks.named("check") { dependsOn(verifyNoMl) }
+}
+
+// :undo depends on nothing but the Kotlin standard library: no project edge and no other library, main or runtime.
+if (project.name == "undo") {
+    val undoAllowed = setOf("org.jetbrains.kotlin:kotlin-stdlib", "org.jetbrains:annotations")
+    val verifyUndoZeroDeps = tasks.register("verifyUndoZeroDeps") {
+        group = "verification"
+        val classpaths = listOf("compileClasspath", "runtimeClasspath").map { configurations.named(it) }
+        doLast {
+            val offenders = mutableListOf<String>()
+            for (cp in classpaths) {
+                val result = cp.get().incoming.resolutionResult
+                val components = result.allComponents.filter { it != result.root }
+                val sawStdlib = components.any { c ->
+                    c.moduleVersion?.let { "${it.group}:${it.name}" } == "org.jetbrains.kotlin:kotlin-stdlib"
+                }
+                if (!sawStdlib) throw GradleException(":undo classpath ${cp.name} resolved no kotlin-stdlib (vacuous check)")
+                for (c in components) {
+                    val id = c.id
+                    if (id is org.gradle.api.artifacts.component.ProjectComponentIdentifier) {
+                        offenders += "${cp.name}: project ${id.projectPath}"
+                    } else {
+                        val mv = c.moduleVersion
+                        if (mv != null && "${mv.group}:${mv.name}" !in undoAllowed) {
+                            offenders += "${cp.name}: ${mv.group}:${mv.name}:${mv.version}"
+                        }
+                    }
+                }
+            }
+            if (offenders.isNotEmpty()) {
+                throw GradleException(
+                    ":undo depends on more than the Kotlin standard library:\n" +
+                        offenders.distinct().joinToString("\n") { "  $it" },
+                )
+            }
+        }
+    }
+    tasks.named("check") { dependsOn(verifyUndoZeroDeps) }
 }
 
 // Repo-wide checks, hosted on :core so they run once.

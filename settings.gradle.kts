@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "voice-action-engine"
 
-include(":core", ":providers", ":keystore", ":sample")
+include(":core", ":providers", ":keystore", ":undo", ":sample")
