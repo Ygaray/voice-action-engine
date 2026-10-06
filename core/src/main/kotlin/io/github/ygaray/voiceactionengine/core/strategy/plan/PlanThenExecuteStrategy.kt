@@ -21,6 +21,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.ceilingCrossed
 import io.github.ygaray.voiceactionengine.core.strategy.ceilingReached
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.OutcomeHooks
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.decideResult
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
@@ -33,8 +34,7 @@ import java.time.ZonedDateTime
 private const val PLAN_STEP_LIMIT = 8
 private const val NAME_TAKEN_CODE = "plan_tool_name_taken"
 private const val NO_TOOLS_CODE = "plan_no_tools"
-private const val STEP_HELD_CODE = "plan_step_held"
-private const val STEP_FAILED_CODE = "plan_step_failed"
+private const val LOOKUP_CODE = "plan_needs_lookup"
 
 /**
  * A tier that turns one spoken command into one planning call and then runs the plan's steps in order.
@@ -124,19 +124,28 @@ public class PlanThenExecuteStrategy internal constructor(
     // decideResult returned null only for a successful answer that holds at least one tool call, so calls is not empty.
     private suspend fun verdictOutcome(attempt: Attempt, calls: List<AssistantPart.ToolCall>): StrategyOutcome =
         when (val verdict = parsePlan(calls, attempt.snapshot, maxSteps)) {
-            is PlanVerdict.Valid -> runPlan(attempt, verdict.plan, calls.first().id)
-            is PlanVerdict.Rejected ->
-                StrategyOutcome.Escalate(EscalationReason.MalformedExtraction(), attempt.session.carry)
+            is PlanVerdict.Valid -> runPlan(attempt, verdict.plan, calls)
+            is PlanVerdict.Rejected -> rejection(attempt.session, verdict)
+            is PlanVerdict.NeedsLookup ->
+                StrategyOutcome.Escalate(EscalationReason.Other(LOOKUP_CODE), attempt.session.carry)
         }
 
-    // Every stop after a step ran is an escalation, never a failure, so the engine suppresses it once a step applied.
-    private suspend fun runPlan(attempt: Attempt, plan: ParsedPlan, callId: String): StrategyOutcome =
-        when (PlanRun(attempt.session, attempt.input, executor, attempt.snapshot, callId).run(plan)) {
-            is RunStop.Done -> StrategyOutcome.Completed(null)
-            is RunStop.Held -> StrategyOutcome.Escalate(EscalationReason.Other(STEP_HELD_CODE), attempt.session.carry)
-            is RunStop.StepFailed ->
-                StrategyOutcome.Escalate(EscalationReason.Other(STEP_FAILED_CODE), attempt.session.carry)
+    // Only the first call is ever acted on. Dropped extras make a Completed outcome partial; an Escalate is unchanged.
+    private suspend fun runPlan(
+        attempt: Attempt,
+        plan: ParsedPlan,
+        calls: List<AssistantPart.ToolCall>,
+    ): StrategyOutcome {
+        val dropped = calls.size > 1
+        if (dropped) attempt.session.recordCode(TraceCode.EXTRA_TOOL_CALLS_DROPPED)
+        val run = PlanRun(attempt.session, attempt.input, executor, attempt.snapshot, calls.first().id)
+        val outcome = outcomeOf(run.run(plan), attempt.session.carry)
+        return if (dropped && outcome is StrategyOutcome.Completed) {
+            StrategyOutcome.Completed(outcome.reply, outcome.terminalCall, true)
+        } else {
+            outcome
         }
+    }
 
     /** Prints the id and the step limit only. */
     override fun toString(): String = "PlanThenExecuteStrategy(id=$id, maxSteps=$maxSteps)"
@@ -210,4 +219,11 @@ public class PlanThenExecuteStrategy internal constructor(
         public operator fun invoke(id: StrategyId, block: Builder.() -> Unit): PlanThenExecuteStrategy =
             PlanThenExecuteStrategy(id, Builder().apply(block))
     }
+}
+
+// A plan that failed whole-plan validation ran nothing, so another tier may take the command with the same carry.
+private suspend fun rejection(session: CommandSession, verdict: PlanVerdict.Rejected): StrategyOutcome {
+    session.recordCode(TraceCode.PLAN_REJECTED)
+    if (verdict.unknownTool) session.recordCode(TraceCode.UNKNOWN_TOOL)
+    return StrategyOutcome.Escalate(EscalationReason.MalformedExtraction(), session.carry)
 }

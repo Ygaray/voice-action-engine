@@ -136,5 +136,16 @@ public value class TraceCode internal constructor(public val value: String) {
 
         /** The app resolver answered no match to a grammar match, so the tier ended with no match. */
         public val GRAMMAR_RESOLVER_REJECTED: TraceCode = TraceCode("grammar_resolver_rejected")
+
+        /** A plan tier's planning answer failed whole-plan validation; nothing ran. */
+        public val PLAN_REJECTED: TraceCode = TraceCode("plan_rejected")
+
+        /** A plan tier asked the model once more, before anything was written. */
+        public val PLAN_REPLANNED: TraceCode = TraceCode("plan_replanned")
+
+        /**
+         * A step referred to an earlier step's result that did not provide the key; the step did not run.
+         */
+        public val PLAN_BINDING_UNRESOLVED: TraceCode = TraceCode("plan_binding_unresolved")
     }
 }

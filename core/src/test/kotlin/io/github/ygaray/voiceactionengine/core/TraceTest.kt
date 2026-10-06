@@ -243,6 +243,18 @@ class TraceTest {
         TraceCode.GRAMMAR_RESOLVER_REJECTED to "grammar_resolver_rejected",
     )
 
+    private val planCodes = mapOf(
+        TraceCode.PLAN_REJECTED to "plan_rejected",
+        TraceCode.PLAN_REPLANNED to "plan_replanned",
+        TraceCode.PLAN_BINDING_UNRESOLVED to "plan_binding_unresolved",
+    )
+
+    @Test
+    fun thePlanCodesHaveTheirSnakeCaseWireValues() {
+        assertEquals(THREE, planCodes.size)
+        planCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
+    }
+
     @Test
     fun theGrammarCodesHaveTheirSnakeCaseWireValues() {
         assertEquals(SIX, grammarCodes.size)
@@ -254,7 +266,7 @@ class TraceTest {
         assertEquals(THREE, agenticLoopCodes.size)
         agenticLoopCodes.forEach { (code, wire) -> assertEquals(wire, code.value) }
         val existing = phaseTwoCodes + routerCodes.keys + TraceCode.EXTRA_TOOL_CALLS_DROPPED
-        val all = existing + agenticLoopCodes.keys + grammarCodes.keys
+        val all = existing + agenticLoopCodes.keys + grammarCodes.keys + planCodes.keys
         val wireValues = all.map { it.value }
         assertEquals(wireValues.size, wireValues.toSet().size)
         assertEquals(declaredWireValues(), wireValues.toSet())
