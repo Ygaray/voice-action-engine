@@ -31,6 +31,8 @@ import java.time.Clock
 import java.time.ZonedDateTime
 
 private const val PLAN_STEP_LIMIT = 8
+private const val NAME_TAKEN_CODE = "plan_tool_name_taken"
+private const val NO_TOOLS_CODE = "plan_no_tools"
 private const val STEP_HELD_CODE = "plan_step_held"
 private const val STEP_FAILED_CODE = "plan_step_failed"
 
@@ -43,7 +45,8 @@ private const val STEP_FAILED_CODE = "plan_step_failed"
  * proposal, in plan order, so the gate sees every write. The tier never writes by itself and never combines steps.
  *
  * It is for commands that need no lookup: the model plans from the transcript alone. A step whose tool the snapshot
- * never offered, or that is terminal, is not run. The tier makes one provider call when the plan runs.
+ * never offered, or that is terminal, is not run. The tier makes one provider call when the plan runs. A snapshot that
+ * already offers a tool named `submit_plan`, or that offers no non-terminal tool, fails the command before any call.
  *
  * Every action a step records carries the provider id of the planning call, at a distinct, rising position.
  *
@@ -75,8 +78,21 @@ public class PlanThenExecuteStrategy internal constructor(
     override suspend fun execute(input: CommandInput, session: CommandSession): StrategyOutcome =
         ceilingReached(session) ?: withTooling(input, session)
 
-    private suspend fun withTooling(input: CommandInput, session: CommandSession): StrategyOutcome =
-        withModel(Attempt(input, session, tooling.tooling(input)))
+    private suspend fun withTooling(input: CommandInput, session: CommandSession): StrategyOutcome {
+        val snapshot = tooling.tooling(input)
+        return unusableTooling(snapshot) ?: withModel(Attempt(input, session, snapshot))
+    }
+
+    // Both stop before any provider call: a duplicate tool name would make the request itself invalid, and a plan
+    // with no tool to call could never hold a step.
+    private fun unusableTooling(snapshot: ToolingSnapshot): StrategyOutcome? =
+        when {
+            snapshot.tools.any { it.name == planToolName() } -> unusable(NAME_TAKEN_CODE)
+            stepToolNames(snapshot.tools).isEmpty() -> unusable(NO_TOOLS_CODE)
+            else -> null
+        }
+
+    private fun unusable(code: String): StrategyOutcome = StrategyOutcome.Failed(FailureReason.Other(code))
 
     private suspend fun withModel(attempt: Attempt): StrategyOutcome {
         val model = attempt.session.model()

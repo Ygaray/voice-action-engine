@@ -54,12 +54,15 @@ private fun stepsOf(arguments: JsonObject, snapshot: ToolingSnapshot, maxSteps: 
 
 private fun stepOf(element: JsonElement, snapshot: ToolingSnapshot): PlanStep? {
     val step = element as? JsonObject
+    val tool = textOf(step?.get(TOOL_FIELD))?.takeIf { name -> isRunnable(snapshot, name) }
     val id = textOf(step?.get(ID_FIELD))
-    val tool = textOf(step?.get(TOOL_FIELD))
     val arguments = step?.get(ARGUMENTS_FIELD) as? JsonObject
-    val allowed = tool != null && snapshot.tools.any { it.name == tool && it.mutating && !it.terminal }
-    return if (id != null && tool != null && arguments != null && allowed) PlanStep(id, tool, arguments) else null
+    return tool?.let { t -> id?.let { i -> arguments?.let { a -> PlanStep(i, t, a) } } }
 }
+
+// A step may only call a tool the snapshot offered that changes state and does not end the run.
+private fun isRunnable(snapshot: ToolingSnapshot, name: String): Boolean =
+    snapshot.tools.any { it.name == name && it.mutating && !it.terminal }
 
 private fun textOf(element: JsonElement?): String? =
     (element as? JsonPrimitive)?.takeIf { it.isString }?.content

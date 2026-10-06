@@ -32,6 +32,7 @@ core.strategy           Clarification, ClarificationOption, CommandSession, Comm
                         ToolSpec, ToolSpecProvider, ToolingSnapshot, UserTurnContext, UserTurnRenderer
 core.strategy.agentic   AgenticLoopStrategy
 core.strategy.grammar   GrammarMatch, GrammarPack, LocalGrammarStrategy
+core.strategy.plan      PlanThenExecuteStrategy
 core.strategy.singleshot SingleShotStrategy
 core.telemetry          CommandTrace, PipelineEvent, PipelineEventListener, TierAttempt, TraceCode, TurnRecord, Usage
 core.transcript         AssistantMessage, AssistantPart, CacheDirective, Message, ModelRequest, ModelResponse,
@@ -79,6 +80,7 @@ leaves), annotation class.
 | `SingleShotStrategy` | class | | The one-call tier: force one tool, resolve it locally. |
 | `AgenticLoopStrategy` | class | | The bounded multi-turn tier over your tools. |
 | `LocalGrammarStrategy` | class | | The free, offline grammar tier: matches your declared phrasings, declares `NO_PROVIDER`, never calls a provider, and submits through the gate like every tier. |
+| `PlanThenExecuteStrategy` | class | | The one-planning-call tier: one forced `submit_plan` call over your tools, then each planned step runs in order through your `ToolExecutor` and the gate, one proposal per step. |
 | `GrammarPack` | class | | Your EN/ES phrasings per intent with typed slots; `match(transcript, language)` returns a `GrammarMatch` or null, for corpus tests. |
 | `GrammarMatch` | class | | What a pack matched: tool name, arguments, matched language, terminal flag and an opaque rule id. |
 | `OutcomeResolver` | fun interface | | Your local step that turns an `Extraction` into a `Resolution`. |
@@ -202,6 +204,14 @@ has a stable `code`.
   reason (for example `ProviderUnavailable` for `ProviderId.ON_DEVICE`) before escalating.
 - `AgenticLoopStrategy(id) { tooling, executor, userTurn, reasoning, capabilities, clock }`: a bounded conversation;
   limits come from `TierPolicy`.
+- `PlanThenExecuteStrategy(id) { tooling, executor, userTurn, reasoning, maxSteps, onFailed, capabilities, clock }`:
+  one planning call, for commands that need no lookup: `PlanThenExecuteStrategy` plans from the transcript alone. The
+  model answers the engine's `submit_plan` tool with ordered steps; each step calls one of your non-terminal tools
+  (terminal tools stay offered but never become steps). Every step is prepared by your `executor` and is its own gate
+  proposal, so the gate sees each write, unlike `SingleShotStrategy`, which combines them. Every recorded action
+  carries the planning call's id. `maxSteps` defaults to 8 and must be at least 1. `onFailed` fires and defaults
+  exactly like `SingleShotStrategy`'s. A snapshot that already offers a tool named `submit_plan`, or offers no
+  non-terminal tool, fails before any call.
 - `LocalGrammarStrategy(id) { pack, resolver }`: the free, offline grammar tier (no provider call, `NO_PROVIDER`).
   `GrammarPack { tryOtherLanguage; enFillers/esFillers; enRule/esRule; intent(tool) { integer, decimal, choice, text,
   normalize, terminal, en, es } }` declares the phrasings. A template is words, `[optional]`, `(a|b)`, `{slot}` and
@@ -355,7 +365,7 @@ Everything you implement or pass; each seam is a small interface you give the en
 |---|---|---|
 | `ToolSpecProvider` | system text and tools | a strategy's `tooling` |
 | `OutcomeResolver` | local resolution of the model's tool call | `SingleShotStrategy.resolver` |
-| `ToolExecutor` | preparation of each tool call | `AgenticLoopStrategy.executor` |
+| `ToolExecutor` | preparation of each tool call | `AgenticLoopStrategy.executor`, `PlanThenExecuteStrategy.executor` |
 | `UserTurnRenderer` | the user message text | a strategy's `userTurn` |
 | `PreApplyGate` | approval before any write | builder `gate` |
 | `CommitSink` | journal of actions and run endings | builder `commitSink` |
