@@ -2,7 +2,6 @@ package io.github.ygaray.voiceactionengine.core.strategy.singleshot
 
 import io.github.ygaray.voiceactionengine.core.CommandInput
 import io.github.ygaray.voiceactionengine.core.StrategyId
-import io.github.ygaray.voiceactionengine.core.commit.ToolStep
 import io.github.ygaray.voiceactionengine.core.failure.EscalationReason
 import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
@@ -13,7 +12,6 @@ import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.CurrentZoneClock
 import io.github.ygaray.voiceactionengine.core.strategy.Extraction
 import io.github.ygaray.voiceactionengine.core.strategy.OutcomeResolver
-import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.TerminalCall
@@ -23,6 +21,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
 import io.github.ygaray.voiceactionengine.core.strategy.ceilingCrossed
 import io.github.ygaray.voiceactionengine.core.strategy.ceilingReached
+import io.github.ygaray.voiceactionengine.core.strategy.resolutionOutcome
+import io.github.ygaray.voiceactionengine.core.strategy.submitSteps
 import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
@@ -143,19 +143,7 @@ public class SingleShotStrategy internal constructor(
 
     private suspend fun resolve(attempt: Attempt, call: AssistantPart.ToolCall): StrategyOutcome {
         val resolution = resolver.resolve(Extraction(call.name, call.arguments, call.id), attempt.input)
-        return resolutionOutcome(resolution) { submitAll(attempt.session, it, call.id) }
-    }
-
-    // Finished steps first, in list order; then every mutation, in order, as one step so the gate decides once.
-    // The resolver prepared the reply before the gate ran, so it cannot know whether the apply succeeded: when an
-    // apply reported an error the reply is withheld and the caller reads the outcome's executed list instead. A held
-    // proposal is a normal pending state that the outcome carries, so the reply is kept for it.
-    // Every action of the one call carries that call's provider id.
-    private suspend fun submitAll(session: CommandSession, steps: Resolution.Steps, callId: String): StrategyOutcome {
-        steps.steps.filterIsInstance<ToolStep.Finished>().forEach { session.submit(it, callId) }
-        val mutations = steps.steps.filterIsInstance<ToolStep.Mutation>().flatMap { it.mutations }
-        val applied = if (mutations.isEmpty()) null else session.submit(ToolStep.Mutation(mutations), callId)
-        return StrategyOutcome.Completed(if (applied?.isError == true) null else steps.reply)
+        return resolutionOutcome(resolution) { submitSteps(attempt.session, it, call.id) }
     }
 
     /** Prints the id and the force-tool flag only. */

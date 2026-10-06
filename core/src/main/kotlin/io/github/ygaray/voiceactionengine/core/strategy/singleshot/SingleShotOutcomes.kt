@@ -3,14 +3,12 @@ package io.github.ygaray.voiceactionengine.core.strategy.singleshot
 import io.github.ygaray.voiceactionengine.core.failure.FailureDetails
 import io.github.ygaray.voiceactionengine.core.failure.FailureReason
 import io.github.ygaray.voiceactionengine.core.provider.ModelResult
-import io.github.ygaray.voiceactionengine.core.strategy.Resolution
 import io.github.ygaray.voiceactionengine.core.strategy.StrategyOutcome
 import io.github.ygaray.voiceactionengine.core.strategy.stopFailure
 import io.github.ygaray.voiceactionengine.core.transcript.ModelResponse
 import io.github.ygaray.voiceactionengine.core.transcript.StopReason
 
 private const val UNKNOWN_MODEL_RESULT_CODE = "unknown_model_result"
-private const val UNKNOWN_RESOLUTION_CODE = "unknown_resolution"
 
 /**
  * The outcomes a tier may override. [onNoToolCall] and [onRefusal] receive the response, or null when the provider
@@ -53,17 +51,4 @@ private suspend fun noToolCallOutcome(response: ModelResponse, hooks: OutcomeHoo
         StopReason.END_TURN -> hooks.onNoToolCall(response)
         StopReason.TOOL_USE -> StrategyOutcome.Failed(FailureReason.MalformedResponse())
         else -> StrategyOutcome.Failed(FailureReason.UnknownStop())
-    }
-
-/** Maps every resolution except steps, which [onSteps] handles. The set is open, so anything else fails loudly. */
-internal suspend fun resolutionOutcome(
-    resolution: Resolution,
-    onSteps: suspend (Resolution.Steps) -> StrategyOutcome,
-): StrategyOutcome =
-    when (resolution) {
-        is Resolution.Steps -> onSteps(resolution)
-        is Resolution.NoMatch -> StrategyOutcome.NoMatch()
-        is Resolution.Escalate -> StrategyOutcome.Escalate(resolution.reason, resolution.carry)
-        is Resolution.Failed -> StrategyOutcome.Failed(resolution.reason, resolution.details)
-        else -> StrategyOutcome.Failed(FailureReason.Other(UNKNOWN_RESOLUTION_CODE))
     }
