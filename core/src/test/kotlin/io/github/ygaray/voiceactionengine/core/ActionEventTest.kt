@@ -183,4 +183,44 @@ class ActionEventTest {
             assertNull(outcome.executed.first().context)
         }
     }
+
+    @Test
+    fun anEventsStringFormNeverCarriesTheTokenTargetValuesOrContextText() = runTest {
+        NoNetworkGuard.during {
+            val write = FakeMutation(
+                toolName = "delete_items",
+                behavior = { StepResult("deleted", false, SENTINEL, mapOf("id" to SENTINEL)) },
+                targetIds = mapOf("folder" to SENTINEL),
+                context = SentinelContext(),
+            )
+            val sink = RecordingCommitSink()
+            val pipeline = pipelineOf(ScriptedGate.admitAll(), sink, { _, session ->
+                session.submit(ToolStep.Mutation(write))
+                StrategyOutcome.Completed("ok")
+            })
+
+            pipeline.execute(CommandInput("delete"))
+
+            val event = sink.actions.single()
+            val action = event.action
+            // Positive controls: the sentinel really is carried by the underlying fields.
+            assertEquals(SENTINEL, action.appOutcomeToken)
+            assertEquals(SENTINEL, action.targetIds["id"])
+            assertEquals(SENTINEL, action.targetIds["folder"])
+            assertEquals(SENTINEL, action.context.toString())
+            // The sentinel never reaches either string form.
+            assertFalse(event.toString(), event.toString().contains(SENTINEL))
+            assertFalse(action.toString(), action.toString().contains(SENTINEL))
+            // The intended identifiers are still printed.
+            assertTrue(event.toString(), event.toString().contains(runId))
+            assertTrue(event.toString(), event.toString().contains("toolName=delete_items"))
+        }
+    }
+}
+
+private const val SENTINEL = "zq-sentinel-4b1d-outcome"
+
+/** An app context object whose own string form is the sentinel, so interpolating it instead of its class would leak. */
+private class SentinelContext {
+    override fun toString(): String = SENTINEL
 }
