@@ -1,9 +1,10 @@
 # 17-10 host quiet-window request
 
-grant: open
+grant: consumed
 requested: 2026-10-06
 timebox_s: 3600
 opened: 2026-10-06T23:50:06Z
+closed: 2026-10-07T00:19:47Z
 relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
 date: 2026-10-06
 
@@ -98,3 +99,31 @@ exit status: 0; FAIL lines: none
 == c. additive change stays green
 == d. removal goes red
 API DUMP PROOF OK (real tree untouched; copy removed on exit)
+
+### scripts/jitpack-dry-run.sh (started 2026-10-07T00:17Z, finished ~2026-10-07T00:19Z)
+
+exit status: 0; FAIL lines: none (neither the dry-run nor the probe failure line appeared). Exactly four manifest artifacts published; voice-action-engine-undo is a jar.
+
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-core/dryrun-4cd2b5bf56/voice-action-engine-core-dryrun-4cd2b5bf56.jar
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-providers/dryrun-4cd2b5bf56/voice-action-engine-providers-dryrun-4cd2b5bf56.jar
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-keystore/dryrun-4cd2b5bf56/voice-action-engine-keystore-dryrun-4cd2b5bf56.aar
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-undo/dryrun-4cd2b5bf56/voice-action-engine-undo-dryrun-4cd2b5bf56.jar
+
+--- :jvmconsumer runtimeClasspath (engine lines)
+\--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:dryrun-4cd2b5bf56
+     +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:dryrun-4cd2b5bf56
+--- :app debugRuntimeClasspath (engine lines)
++--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:dryrun-4cd2b5bf56
+|    +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:dryrun-4cd2b5bf56
+\--- com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:dryrun-4cd2b5bf56
+     +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:dryrun-4cd2b5bf56 (*)
+--- :undoalone runtimeClasspath (engine lines)
+\--- com.github.Ygaray.voice-action-engine:voice-action-engine-undo:dryrun-4cd2b5bf56
+PROBE OK (com.github.Ygaray.voice-action-engine:*:dryrun-4cd2b5bf56 from file:///tmp/tmp.aj1RY2GK64/m2/repository) workdir removed on exit
+DRY RUN OK version=dryrun-4cd2b5bf56 group=com.github.Ygaray.voice-action-engine workdir removed on exit
+
+The :undoalone consumer compiled an :undo type (> Task :undoalone:compileKotlin) and its runtimeClasspath engine lines name only voice-action-engine-undo: no voice-action-engine-core and no kotlinx-coroutines.
+
+## Close
+
+Minimum MemAvailable observed at the pre-checks: 8815412 kB (8.4 GiB, before step 1); never below the 5 GiB stop line. No earlyoom kill. No process killed, no --stop, no sudo, no device, no keys. No code, script or test changed.
