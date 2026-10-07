@@ -458,7 +458,59 @@ Plans:
   2. README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every Phase 12–18 tier, seam and module (plus the on-device module if Phase 13 shipped one), with the new per-module coordinates, and the doc-coverage check passes.
   3. A fresh agent wires grammar, plan, the router and undo-all into a new app from the docs alone, and the isolated wiring test passes (re-run on the final SHA in Phase 20).
 
-**Plans**: TBD
+**Plans**: 14 plans (12 waves, serial: one Gradle-running plan per wave, the extra wave-1 plans are bash only; 19-07 is non-autonomous, gated on the relayed live-spend GO and TESTER window; 19-13 is non-autonomous, gated on the RT-02 pre-granted quiet window; 19-14 is non-autonomous, in the same window with no second request, gated on the master-dispatched isolated agent)
+
+Plans:
+**Wave 1**
+
+- [ ] 19-01-PLAN.md — bash only: Gate-1 runner decision-file/evidence-dir env overrides with the Phase 19 default, manifest-driven dirty list, guard scenarios, pending 19-LIVE-LEG-DECISION.md (D-07, D-01)
+- [ ] 19-02-PLAN.md — bash only: clean-cache `:adapteralone` consumer probe (RT-03a); `release-cut.sh` paths retargeted to `.planning/releases/v1.1.0/` (P20-owned file)
+- [ ] 19-03-PLAN.md — RT-04: drop the context-only `commandInputOf`/`toCommandInput` overloads, reflection proof, API.md + INTEGRATION section 12; ActionEvent KDoc confirmed
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 19-04-PLAN.md — `grammar_offline` leg (offlineOnly + tripwire + zero-attempt counts) and `VAE_TRACE` in lockstep (D-05, D-08)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 19-05-PLAN.md — `plan_live` (stateful store, binding) and `router_live` (>= 2 model tiers, Router, PickContext accounting) legs; in-app ceiling 15/16 (D-01, D-02, D-04)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 19-06-PLAN.md — `undo_all` leg: UI "Undo all (N)", refusal and PlanThenExecute-partial sub-cases, `VAE_UNDO` in lockstep (D-06, D-08)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 19-07-PLAN.md — non-autonomous: one TESTER window, one install, all five device legs incl. the D-13 gpt-6-astra smoke under the relayed spend GO
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 19-08-PLAN.md — D-12 consolidated frozen-surface API review of all five modules (`review-api-surface.sh --module`)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 19-09-PLAN.md — INTEGRATION grammar/plan/router/undo-wiring content with compiled DocSnippetsTest regions (D-10)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 19-10-PLAN.md — bash/docs only: manifest-driven coverage gate (C01, C20 + functions, C26-C32, selftest); README v1.1.0 pin, API.md RT-01, ECOSYSTEM final (D-09, D-10)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 19-11-PLAN.md — isolated wiring test for v1.1: stable assets, four surfaces + keystore, W10-W13, `selftest --local`, `prepare-local`, DISPATCH.md (D-11)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [ ] 19-12-PLAN.md — full autonomous gate on the wiring SHA candidate (RT-03b), carry register (D-03 deferral), Gate-2 fragment, quiet-window request
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [ ] 19-13-PLAN.md — non-autonomous quiet window (heavy gates): dry run with `:adapteralone`, clean-clone wiring selftest, negative controls, API dump proof, `:voice-adapter:check`, live-probe exercise (RT-02, RT-03); hands the open window to 19-14 on green, closes it on red
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
+- [ ] 19-14-PLAN.md — non-autonomous, same quiet window: `prepare-local`, master-dispatched isolated agent, wiring PASS record accepted by `release-cut.sh gate wiring`, window close (DOC-02)
+
 **Device note**: Gate-1 runs only on the wired TESTER, never the personal phone. Read `~/.claude/context/devices/common.md` first and always use `adb -s`.
 **Keys note**: the plan and router legs make live calls with the spend-capped test keys (test-keys workflow, bounded request count).
 
@@ -492,5 +544,5 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
-| 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
+| 19. Sample Gate-1 & Docs | v1.1 | 0/13 | Planned | - |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
