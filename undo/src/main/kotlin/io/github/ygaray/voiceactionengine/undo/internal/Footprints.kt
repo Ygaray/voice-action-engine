@@ -16,7 +16,7 @@ internal class Cluster(val entries: List<Entry>)
  */
 internal class Footprints(entries: List<Entry>) {
     private val parent = HashMap<EntityKey, EntityKey>()
-    private val footprints = IdentityHashMap<Entry, Set<EntityKey>>()
+    private val entryFootprints = IdentityHashMap<Entry, Set<EntityKey>>()
     private val membership = IdentityHashMap<Entry, Int>()
 
     /** The components, in the order their first action appears in the list given. */
@@ -25,13 +25,13 @@ internal class Footprints(entries: List<Entry>) {
     init {
         for (entry in entries) {
             val footprint = entry.footprint
-            footprints[entry] = footprint
+            entryFootprints[entry] = footprint
             footprint.forEach { find(it) }
             footprint.zipWithNext().forEach { (a, b) -> union(a, b) }
         }
         val byRoot = LinkedHashMap<Any, MutableList<Entry>>()
         for (entry in entries) {
-            val root: Any = footprints.getValue(entry).firstOrNull()?.let { find(it) } ?: entry
+            val root: Any = entryFootprints.getValue(entry).firstOrNull()?.let { find(it) } ?: entry
             byRoot.getOrPut(root) { ArrayList() }.add(entry)
         }
         components = byRoot.values.mapIndexed { index, members ->
