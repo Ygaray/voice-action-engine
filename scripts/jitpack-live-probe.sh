@@ -16,6 +16,8 @@ REF="${1:?usage: jitpack-live-probe.sh <commit-sha-or-tag>}"
 OWNER="${REPO_OWNER:-Ygaray}"; REPO="${REPO:-voice-action-engine}"
 SERVED_GROUP="${SERVED_GROUP:-com.github.$OWNER.$REPO}"
 HERE_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The manifest of THIS checkout, not of whatever repository the caller's working directory is in.
+export VAE_MODULES_FILE="${VAE_MODULES_FILE:-$HERE_LIB/modules.list}"
 # shellcheck source=/dev/null
 . "$HERE_LIB/lib/modules.sh"
 MODULES="${EXPECT_MODULES:-$(vae_artifacts)}"
@@ -93,6 +95,7 @@ for m in $MODULES; do
   mod="${m#voice-action-engine-}"
   needs_core="$(vae_module_field "$mod" dependsOnCore 2>/dev/null || echo unknown)"
   if [ "$CHECK_CORE_DEP" = 1 ]; then
+    [ "$needs_core" != unknown ] || fail "$m: not in scripts/modules.list, cannot decide its core dependency (set CHECK_CORE_DEP=0 to skip)"
     if [ "$needs_core" = yes ]; then
       grep -q '<artifactId>voice-action-engine-core</artifactId>' "$WORK/$m.pom" || fail "$m.pom does not depend on voice-action-engine-core"
       grep -q "<groupId>$SERVED_GROUP</groupId>" "$WORK/$m.pom" || fail "$m.pom core dependency not under $SERVED_GROUP"
