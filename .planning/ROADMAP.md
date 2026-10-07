@@ -363,7 +363,7 @@ Plans:
   3. An unchanged-since-commit check runs before every restore. If an entity changed after the command, undo refuses loudly for it and never overwrites it. The result either reports complete or lists exactly what it couldn't restore, never a silent partial.
   4. Wired into the pipeline, every committed action of a command is journaled under its `runId`, so an app can offer "Undo all (N)" for the whole command, entangled actions included. Grouping follows A18: entity footprints decide which actions are isolated.
 
-**Plans**: 9/10 plans executed (8 waves, serial: one Gradle-running plan per wave, the extra wave-2 plans are bash-only; 17-10 is non-autonomous, quiet-window gated; no device or live spend)
+**Plans**: 10/10 plans executed (8 waves, serial: one Gradle-running plan per wave, the extra wave-2 plans are bash-only; 17-10 is non-autonomous, quiet-window gated; no device or live spend)
 
 Plans:
 **Wave 1**
@@ -398,7 +398,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 17-10-PLAN.md — non-autonomous quiet window: verify-negative-controls.sh + verify-api-dump.sh, clean-cache jitpack-dry-run.sh with :undoalone (or the recorded deferral)
+- [x] 17-10-PLAN.md — non-autonomous quiet window: verify-negative-controls.sh + verify-api-dump.sh, clean-cache jitpack-dry-run.sh with :undoalone (or the recorded deferral)
 
 **Research flag**: yes. Open items: the journal/memento API; footprint and entanglement computation; where the pipeline hook journals (beside `CommitSink`); how `commitHeld` child runs (`parentRunId`) group under "Undo all".
 
@@ -462,7 +462,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 14. LocalGrammar & Bilingual GrammarPack | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
-| 17. Run-Level Undo | v1.1 | 9/10 | In Progress|  |
+| 17. Run-Level Undo | v1.1 | 10/10 | In Progress|  |
 | 18. Voice Adapter | v1.1 | 0/TBD | Not started | - |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
