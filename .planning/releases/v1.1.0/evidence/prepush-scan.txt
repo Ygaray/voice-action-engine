@@ -1,0 +1,36 @@
+# prepush-scan.txt - Phase 20 plan 01 task 1 (D-06, RT-09(1)). Counts, ids and gate lines only; no match text.
+generated: 2026-10-07T20:32:18Z
+branch: gsd/phase-20-cut-v1-1-0 (cut from main at 9c90763; local main is level with 0fcf44d and is fast-forwarded per rule R1 before the push)
+
+## merge (never rebase)
+ahead-behind-before: 542 1   (git rev-list --left-right --count HEAD...origin/main; origin/main=43768eaada)
+incoming: 43768ea docs(contract): section 11 ledger yahirandroidtaste v2.5.0 (xrepo) - touches only CROSS-REPO-SCOPE-CONTRACT.md (1 insertion)
+merge-command: git merge --no-edit origin/main
+merge-commit: 74a62a7d4f  (strategy ort, no conflicts; a later planning commit 814bbffe24 was added by the master)
+ahead-behind-after: 544 0    (HEAD=814bbffe24, origin/main=43768eaada)
+rebase-used: no (reflog shows only commit/checkout/merge entries)
+
+## ancestor proofs (git merge-base --is-ancestor <ref> HEAD)
+ancestor-ok: 090fd8ec76 (Phase 19 wiring candidate)
+ancestor-ok: ec24a19786 (dry-run head)
+ancestor-ok: 1869950dca (Gate-1 build head)
+ancestor-ok: v1.0.1 (b32840e7eb)
+
+## read-only gates on HEAD (final lines)
+GATE OK create-tag
+GATE OK clean
+GATE OK tags-absent
+GATE OK leak
+gate-leak-note: content_check=skipped(no local fixture)
+RELEASE GATE FAIL pushed: HEAD 814bbffe24 is not origin/main 43768eaada: push first, or pull
+gate-pushed-state: BEFORE-STATE (expected RED until the Task 2 push; HEAD is 544 ahead of origin/main)
+
+## history scan over origin/main..HEAD (544 commits that are about to become public)
+method: git log --no-merges -G over three key shapes (provider key, Google key, bearer token; prefixes assembled from two fragments), then per-hit diff lines classified by gate_leak's own rules (placeholder = fewer than four distinct characters after the prefix; allow-list = the ChatCaptureRunTest constant or the allow marker).
+history-scan: strict_key_shape_commits=0 (no added or removed line in the range matches a provider-key, Google-key or bearer-token shape)
+history-scan: class=placeholder hits=0
+history-scan: class=allow-listed-constant hits=0
+history-scan: class=allow-marker hits=0
+history-scan: class=prefix-mention-only (bare prefix in prose or a short test value, below every key-shape length rule) commits=17 ids=814bbffe24,b399fd7970,2450f3ecc8,0f31b0ce1f,c38d13dcf2,e9a6b61eac,2a81260055,6f4bbb2fa7,53f00fe989,b49377ebbf,70af9d9070,c7e0d0d4ad,ea15216924,b31bd70490,df3d0393c6,fbd61e3265,d1f20d4b32
+history-scan: class=short-test-constant hits=1 commit=df3d0393c6 path=keystore/src/test/.../ApiKeyStoreKeyAccessTest.kt prefix=sk-test-01 (22 chars, not a provider shape per gate_leak: no ant/or/proj/svcacct/admin prefix and fewer than 20 alphanumerics after sk-)
+history-scan: unexplained=0
