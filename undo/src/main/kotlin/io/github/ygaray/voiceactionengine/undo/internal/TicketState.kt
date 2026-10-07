@@ -106,6 +106,7 @@ internal class TicketState {
         synchronized(lock) {
             checkOpen()
             captures.clear()
+            touched.clear()
             compensations.clear()
             nothingWritten = true
         }

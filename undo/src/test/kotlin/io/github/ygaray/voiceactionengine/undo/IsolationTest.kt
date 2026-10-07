@@ -83,6 +83,24 @@ class IsolationTest {
     }
 
     @Test
+    fun aNothingWrittenActionKeepsNoDeclaredTouchesSoItStaysIsolated() {
+        val rig = Rig()
+        rig.store.put("a", "v0")
+        rig.edit("g", 0, "a", "v1")
+        runSuspending {
+            val ticket = rig.journal.newTicket()
+            ticket.touches("item", "a")
+            ticket.nothingWritten()
+            rig.journal.record("g", null, ref(1), false, ticket)
+        }
+
+        assertEquals(listOf(ref(0), ref(1)), rig.groupOf("g").isolated.sortedBy { it.position })
+        val alone = rig.undoEntry("g", ref(0))
+        assertTrue(alone.toString(), alone is UndoResult.Complete)
+        assertEquals("v0", rig.store.get("a")?.value)
+    }
+
+    @Test
     fun sharingIsTransitiveAndAnUnrelatedActionStaysIsolated() {
         val rig = Rig()
         listOf("a", "b", "c", "d", "z").forEach { rig.store.put(it, "v0") }
