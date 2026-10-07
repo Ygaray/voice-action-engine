@@ -414,7 +414,35 @@ Plans:
   1. `:voice-adapter` publishes as `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter` and maps an `:stt` v0.7.0 final segment to `CommandInput`, carrying the transcript and the detected language (`en` / `es`, and `null` when stt detected neither; never a guess).
   2. `:core` still depends on no other hub: the module-graph and `:core` classpath-allowlist gates pass, only `:voice-adapter` depends on `:stt`, and an app that doesn't add `:voice-adapter` never pulls `:stt` in.
 
-**Plans**: TBD
+**Plans**: 0/8 plans executed (6 waves, serial: one Gradle-running plan per wave, the extra wave-2 and wave-3 plans are bash only; 18-08 is non-autonomous, quiet-window gated; no device or live spend)
+
+Plans:
+**Wave 1**
+
+- [ ] 18-01-PLAN.md — `:voice-adapter` AAR scaffold tracer (`:stt` v0.7.0 compileOnly through an exclusiveContent repo, one `FinalSegment` → `CommandInput` in a JVM test), manifest / allowedEdges / ML-scope / jitpack rows (D-01, D-02, D-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 18-02-PLAN.md — bash only: ECOSYSTEM row, INTEGRATION section 12, README and API.md entries, roadmap single-segment wording, documented minimum and the server-path fallback caveat (D-05, D-07)
+- [ ] 18-03-PLAN.md — complete mapper: three `toCommandInput` overloads, `:stt`-free `commandInputOf` + closed-set `normalizeSttLanguageLabel`, redaction sentinels, reflection pin of the frozen surface (D-04, D-05, D-06, D-07)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 18-04-PLAN.md — bash only: `scripts/verify-stt-confinement.sh` (`:stt` repo, pin, wiring, import confinement, documented minimum) with a planted-violation selftest
+- [ ] 18-05-PLAN.md — `:core` only (RT-01): redact-by-default `ActionEvent.toString` policy KDoc + sentinel-never-in-toString tests
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 18-06-PLAN.md — security gates: `verifyAdapterSttCompileOnly` (POM, module.json, classpaths), `verifySttConfined` on every other published module, `:stt` negative controls (Part 6)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 18-07-PLAN.md — AAR-aware `verify-api-seed.sh` + seed proof, full autonomous phase gate, 18-SURFACE-REVIEW.md (frozen names, carry list), quiet-window request
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 18-08-PLAN.md — non-autonomous quiet window: `verify-negative-controls.sh` + `verify-api-dump.sh`, clean-cache `jitpack-dry-run.sh` (or the recorded deferral)
+
 **Research flag**: light. Open items: the exact `:stt` v0.7.0 final-segment and language types; whether `:stt`'s published artifact forces `:voice-adapter` to be an Android library.
 
 #### Phase 19: Sample Gate-1 & Docs
@@ -463,6 +491,6 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
-| 18. Voice Adapter | v1.1 | 0/TBD | Not started | - |
+| 18. Voice Adapter | v1.1 | 0/8 | Planned | - |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |

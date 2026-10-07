@@ -1,0 +1,1 @@
+No external API integration: Phase 18 maps an in-ecosystem `:stt` value type to `CommandInput` in a compile-only Android library; it calls no external service, SDK or HTTP endpoint and has no provider calls.
