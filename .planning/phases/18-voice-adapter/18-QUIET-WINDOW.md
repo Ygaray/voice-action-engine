@@ -1,11 +1,12 @@
 # 18-08 host quiet-window request
 
-grant: open
+grant: consumed
 requested: 2026-10-07
 timebox_s: 3600
 relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
 date: 2026-10-06
 opened: 2026-10-07T03:05:00Z
+closed: 2026-10-07T04:10:17Z
 
 Only the orchestrator relay may change the `grant` line. Plan 18-08 writes `open` or `deferred` from a relayed answer,
 never otherwise, and sets `consumed` when the window closes. Until then the grant is pending and no heavy gate runs:
@@ -53,3 +54,36 @@ ok    [:providers gains the adapter] went red (forbidden project dependencies)
 STT NEGATIVE CONTROLS OK plants=7
 ok    [stt negative controls]
 negative-control failures: 0
+
+### Step 2: scripts/verify-api-dump.sh
+started 2026-10-07T04:03:56Z, finished 2026-10-07T04:07:47Z, exit status 0, no earlyoom kill. Before: MemAvailable 8294768 kB, swap full. After: MemAvailable 10096740 kB.
+
+API DUMP PROOF OK (real tree untouched; copy removed on exit)
+
+### Step 3: scripts/jitpack-dry-run.sh (clean clone of HEAD e15bd36, isolated maven-local, empty-cache consumer probe)
+started 2026-10-07T04:07:54Z, finished 2026-10-07T04:10:13Z, exit status 0, no earlyoom kill. Before: MemAvailable 10170716 kB, no Gradle daemon. After: MemAvailable 9926216 kB.
+
+exactly the five manifest artifacts were published (core, providers, keystore, undo, voice-adapter); no :stt artifact, no sample or test-fixtures artifact:
+
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-core/dryrun-e15bd36c2e/voice-action-engine-core-dryrun-e15bd36c2e.jar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-core/dryrun-e15bd36c2e/voice-action-engine-core-dryrun-e15bd36c2e.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-providers/dryrun-e15bd36c2e/voice-action-engine-providers-dryrun-e15bd36c2e.jar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-providers/dryrun-e15bd36c2e/voice-action-engine-providers-dryrun-e15bd36c2e.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-keystore/dryrun-e15bd36c2e/voice-action-engine-keystore-dryrun-e15bd36c2e.aar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-keystore/dryrun-e15bd36c2e/voice-action-engine-keystore-dryrun-e15bd36c2e.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-undo/dryrun-e15bd36c2e/voice-action-engine-undo-dryrun-e15bd36c2e.jar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-undo/dryrun-e15bd36c2e/voice-action-engine-undo-dryrun-e15bd36c2e.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-voice-adapter/dryrun-e15bd36c2e/voice-action-engine-voice-adapter-dryrun-e15bd36c2e.aar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-voice-adapter/dryrun-e15bd36c2e/voice-action-engine-voice-adapter-dryrun-e15bd36c2e.module
+PROBE OK (com.github.Ygaray.voice-action-engine:*:dryrun-e15bd36c2e from file:///tmp/tmp.RImhXQAt6n/m2/repository) workdir removed on exit
+DRY RUN OK version=dryrun-e15bd36c2e group=com.github.Ygaray.voice-action-engine workdir removed on exit
+
+Note: the consumer probe resolves three projects (:jvmconsumer, :app, :undoalone). It has no :adapteralone project, so the clean-cache :adapteralone consumer probe that plan 07 deferred is still not covered by this run (the voice-adapter AAR was published and its .module metadata is present, but no consumer resolves it from an empty cache). Carry to Phase 19's gate run.
+
+### Window observations
+- The operator timebox (timebox_s 3600 from opened 03:05:00Z) was exceeded: the negative-control suite alone took about 58 min, and steps 2 and 3 finished at 04:10:13Z (about 65 min after opening). No earlyoom kill, no retry, MemAvailable never below 8.0 GiB.
+- Another project's Gradle daemon (BlackJackTrainer, pid 818577) was alive and idle through steps 2 and 3 (its last build had finished 21:52 local); it was not an active build and was not touched. Swap was full again after step 1 (2.0Gi used) without any kill.
+- No code, script or test file was changed; `git status` shows no modified tracked file outside .planning.
+
+### Gate verdict
+Window path green: negative-control failures: 0, API DUMP PROOF OK, DRY RUN OK, PROBE OK. No gap plan needed.
