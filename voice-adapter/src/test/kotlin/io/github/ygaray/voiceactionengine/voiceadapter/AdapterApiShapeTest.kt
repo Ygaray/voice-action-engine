@@ -19,17 +19,18 @@ class AdapterApiShapeTest {
         .filter { Modifier.isPublic(it.modifiers) && Modifier.isStatic(it.modifiers) && !it.isSynthetic }
 
     @Test
-    fun theSegmentFacadeExposesExactlyTheThreeToCommandInputOverloads() {
+    fun theSegmentFacadeExposesExactlyTheTwoToCommandInputForms() {
         val methods = publicStatics(segmentFacade)
 
-        assertEquals(listOf("toCommandInput", "toCommandInput", "toCommandInput"), methods.map { it.name })
+        assertEquals(listOf("toCommandInput", "toCommandInput"), methods.map { it.name })
         val signatures = methods.map { it.parameterTypes.toList() }.toSet()
         val expected = setOf(
             listOf<Class<*>>(FinalSegment::class.java),
-            listOf(FinalSegment::class.java, Any::class.java),
             listOf(FinalSegment::class.java, Any::class.java, String::class.java),
         )
         assertEquals(expected, signatures)
+        val contextOnly = listOf<Class<*>>(FinalSegment::class.java, Any::class.java)
+        assertTrue(methods.none { it.parameterTypes.toList() == contextOnly })
     }
 
     @Test

@@ -55,10 +55,10 @@ class FinalSegmentMappingTest {
     }
 
     @Test
-    fun theOneArgumentOverloadPassesTheContextByIdentityWithNoParentRun() {
+    fun theTwoArgumentOverloadPassesTheContextByIdentityWithANullParentRun() {
         val context = Any()
 
-        val input = FinalSegment("hello", 0, "en").toCommandInput(context)
+        val input = FinalSegment("hello", 0, "en").toCommandInput(context, null)
 
         assertSame(context, input.context)
         assertNull(input.parentRunId)

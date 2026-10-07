@@ -16,22 +16,11 @@ import io.github.ygaray.voiceactionengine.core.CommandInput
 public fun FinalSegment.toCommandInput(): CommandInput = toCommandInput(null, null)
 
 /**
- * Turns one finished speech segment into the command the engine runs, carrying an app [context] object.
- *
- * The text is passed verbatim, the segment id is dropped, the label is normalised to `"en"`, `"es"` or null, and
- * [context] is passed through unchanged. Never throws.
- *
- * A [String] passed here is a context object, not a run id: the parent run stays null. To answer an earlier run, use
- * the two-argument form `toCommandInput(context, parentRunId)`.
- */
-public fun FinalSegment.toCommandInput(context: Any?): CommandInput = toCommandInput(context, null)
-
-/**
  * Turns one finished speech segment into the command the engine runs, carrying an app [context] object and the id of
  * the earlier run this command answers.
  *
- * The text is passed verbatim, the segment id is dropped, the label is normalised to `"en"`, `"es"` or null, and
- * [context] and [parentRunId] are passed through unchanged. Never throws.
+ * Either of [context] and [parentRunId] may be null. The text is passed verbatim, the segment id is dropped, the label
+ * is normalised to `"en"`, `"es"` or null, and [context] and [parentRunId] are passed through unchanged. Never throws.
  */
 public fun FinalSegment.toCommandInput(context: Any?, parentRunId: String?): CommandInput =
     // One mapping for both paths: the stt-free label facade owns it, so the two can never drift apart.
