@@ -197,7 +197,7 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun undoAll(groupKey: String): UndoResult {
         requireToken("groupKey", groupKey)
-        return undone(groupKey, pass.run(groupKey, null, now()))
+        return undone(groupKey, null)
     }
 
     /**
@@ -213,17 +213,23 @@ public class UndoJournal internal constructor(settings: Builder) {
      */
     public suspend fun undoEntry(groupKey: String, entry: EntryRef): UndoResult {
         requireToken("groupKey", groupKey)
-        return undone(groupKey, pass.run(groupKey, entry, now()))
+        return undone(groupKey, entry)
     }
 
     /** How many store calls threw. Always 0 without a [Builder.store]. A store fault never changes a result. */
     public val storeFaults: Int
         get() = mirror.faultCount
 
-    // A refusal wrote nothing, so there is no change for the store to hear about.
-    private suspend fun undone(groupKey: String, result: UndoResult): UndoResult {
-        publish(if (result is UndoResult.Refused) null else groupKey)
-        return result
+    // A refusal wrote nothing, so there is no change for the store to hear about. A cancelled undo may already have
+    // restored entities, so the store hears about it too.
+    private suspend fun undone(groupKey: String, only: EntryRef?): UndoResult {
+        var result: UndoResult? = null
+        try {
+            result = pass.run(groupKey, only, now())
+            return result
+        } finally {
+            publish(if (result is UndoResult.Refused) null else groupKey)
+        }
     }
 
     // The store is app code: it is called here, after the journal's lock was given back.

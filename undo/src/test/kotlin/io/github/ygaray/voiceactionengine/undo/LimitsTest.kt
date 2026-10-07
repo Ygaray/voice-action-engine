@@ -6,6 +6,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.coroutines.cancellation.CancellationException
 
 /** The journal is bounded by group count and age, never while a group is being undone, and never silently. */
 class LimitsTest {
@@ -83,6 +84,31 @@ class LimitsTest {
 
         reading = 1_700_000_000_000 + 3_600_001
         assertNull(rig.group("g"))
+    }
+
+    @Test
+    fun aCancelledUndoStillCountsAsActivityOfTheGroup() {
+        var now = 0L
+        val rig = Rig(configure = {
+            maxAgeMillis = 1000
+            clock = { now }
+        })
+        listOf("x", "y").forEachIndexed { position, id ->
+            rig.store.put(id, "${id}0")
+            rig.edit("g", position, id, "${id}1")
+        }
+        rig.adapter.cancelOnRestore.add("x")
+
+        now = 900
+        try {
+            rig.undoAll("g")
+            throw AssertionError("the cancellation must propagate")
+        } catch (expected: CancellationException) {
+            assertEquals(CANARY, expected.message)
+        }
+
+        now = 1500
+        assertNotNull(rig.group("g"))
     }
 
     @Test

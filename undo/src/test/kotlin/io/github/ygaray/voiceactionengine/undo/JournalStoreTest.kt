@@ -106,6 +106,31 @@ class JournalStoreTest {
     }
 
     @Test
+    fun aCancelledUndoStillTellsTheStoreWhatItAlreadyRestored() {
+        val store = RecordingStore()
+        val rig = rigWith(store)
+        listOf("x", "y").forEachIndexed { position, id ->
+            rig.store.put(id, "${id}0")
+            rig.edit("g", position, id, "${id}1")
+        }
+        val before = store.saved.last()
+        assertEquals(2, before.count)
+        rig.adapter.cancelOnRestore.add("x")
+
+        try {
+            rig.undoAll("g")
+            throw AssertionError("the cancellation must propagate")
+        } catch (expected: CancellationException) {
+            assertNotNull(expected)
+        }
+
+        val after = store.saved.last()
+        assertEquals(1, after.count)
+        assertTrue(after.revision > before.revision)
+        assertEquals(0, rig.journal.storeFaults)
+    }
+
+    @Test
     fun aStoreThatThrowsChangesNothingAndEveryFaultIsCounted() {
         val store = RecordingStore().apply {
             saveFault = IllegalStateException(CANARY)

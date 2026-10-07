@@ -315,7 +315,9 @@ internal class UndoPass(
             reason != null -> UndoResult.Refused(listOf(Blocker(scope.entry, null, reason)))
             scope.pending.isEmpty() -> UndoResult.AlreadyUndone()
             else -> {
-                var changed = false
+                // A pass cut short by a cancellation may already have restored something, so only a result that wrote
+                // nothing (a refusal) leaves the group's activity alone.
+                var changed = true
                 try {
                     restore(scope.pending).also { changed = it !is UndoResult.Refused }
                 } finally {
