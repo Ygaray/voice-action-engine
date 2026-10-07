@@ -36,11 +36,17 @@ ADB="${ADB:-adb}"
 # The key helper: it moves a key by file reference and refuses the personal phone itself. PUSH_TEST_KEY names a binary only.
 PUSH_TEST_KEY="${PUSH_TEST_KEY:-push-test-key}"
 
-# The phase whose decision file and evidence this run uses. Set VAE_GATE1_PHASE_DIR to retarget it (for example once the
-# phase directory is archived) without editing the script.
-PHASE_DIR="${VAE_GATE1_PHASE_DIR:-.planning/phases/12-wave-1-seams-w04-fix}"
-DECISION_FILE="$PHASE_DIR/12-LIVE-LEG-DECISION.md"
-EVIDENCE_DIR="$PHASE_DIR/evidence"
+# The phase whose decision file and evidence this run uses. Three environment variables retarget it without editing the
+# script (they name PLANNING FILES only; none of them can change the device target):
+#   VAE_GATE1_PHASE_DIR       the phase directory (default: the current phase, Phase 19)
+#   VAE_GATE1_DECISION_FILE   the live-leg decision file; wins over the derived default
+#                             <leading digits of the phase directory name>-LIVE-LEG-DECISION.md inside PHASE_DIR
+#   VAE_GATE1_EVIDENCE_DIR    the evidence directory (default: PHASE_DIR/evidence)
+# Phase 20 inherits the same three variables.
+PHASE_DIR="${VAE_GATE1_PHASE_DIR:-.planning/phases/19-sample-gate-1-docs}"
+PHASE_BASE="$(basename "$PHASE_DIR")"
+DECISION_FILE="${VAE_GATE1_DECISION_FILE:-$PHASE_DIR/${PHASE_BASE%%-*}-LIVE-LEG-DECISION.md}"
+EVIDENCE_DIR="${VAE_GATE1_EVIDENCE_DIR:-$PHASE_DIR/evidence}"
 HOST_FIXTURE="sample/src/debug/assets/sb-a10-fixture.json"
 # The expected fixture digest is read from this Kotlin constant (single source of truth), never duplicated here.
 FIXTURE_KT="sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/fixture/FixtureLoader.kt"
@@ -195,7 +201,7 @@ expected_fixture_sha() {
 host_precheck() {
   case "$SUB" in
     push-keys)
-      # D-13: no live spend, and no key leaves the host, until the recorded decision says so. A deferred or missing file refuses.
+      # D-13: no live spend, and no key leaves the host, until the recorded decision says so. Only the exact line passes: pending, deferred, consumed or a missing file all refuse.
       if ! grep -qx 'decision: approved' "$DECISION_FILE" 2>/dev/null; then
         echo "live legs are not approved: $DECISION_FILE does not record 'decision: approved' - not pushing keys"
         finish 2 ERROR "reason=live_legs_not_approved"

@@ -16,7 +16,9 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 SCENARIOS=0
 # The phase directory the runner is pointed at (VAE_GATE1_PHASE_DIR); the one place to retarget when the phase changes.
-PHASE_REL=".planning/phases/12-wave-1-seams-w04-fix"
+PHASE_REL=".planning/phases/19-sample-gate-1-docs"
+# The decision-file name the runner derives for a phase directory: the text before the first hyphen of its basename.
+decision_name_for() { local b; b="$(basename "$1")"; printf '%s-LIVE-LEG-DECISION.md\n' "${b%%-*}"; }
 PKG="io.github.ygaray.voiceactionengine.sample"
 # Key shapes are assembled from fragments so that no literal key-shaped text is committed (the git secret hook scans staged files).
 KEY_SHAPE="(^|[^A-Za-z0-9])s""k-[A-Za-z0-9_-]{20,}|bearer |x-api-key|authorization"
@@ -122,9 +124,9 @@ run_scenario() {
 
   # Skeleton inputs the runner reads on the host: the decision file, the fixture and its digest constant, the cold stamp.
   case "${DECISION:-}" in
-    approved | deferred)
+    approved | deferred | pending | consumed)
       mkdir -p "$dir/repo/$PHASE_REL"
-      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" >"$dir/repo/$PHASE_REL/12-LIVE-LEG-DECISION.md"
+      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" >"$dir/repo/$PHASE_REL/$(decision_name_for "$PHASE_REL")"
       ;;
   esac
   case "${FIXTURE:-}" in
