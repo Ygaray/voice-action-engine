@@ -250,3 +250,18 @@ The dry run's kept probe workdir `/tmp/tmp.FnrVBq4MHu` (KEEP_WORK=1) also stays;
 heavy_gates: green
 kept_m2: /tmp/tmp.iRiTqYvCWA/m2/repository
 dry_run_version: dryrun-ec24a19786
+
+### Plan 14 Task 1 - prepare-local and isolated agent dispatch (orchestrator, headless claude -p)
+
+Pre-check 2026-10-07T18:13Z: MemAvailable 8125308 kB (7.7 GiB), no Gradle daemon, git diff outside .planning against the wiring candidate empty (clean). Mempalace mine still running beside, per the orchestrator ruling.
+
+```
+WIRING PREPARED dir=/tmp/vae-wiring-19/ws version=dryrun-ec24a19786
+```
+
+Workspace placed under /tmp via WIRING_DIR (not ~/.cache) so no ancestor directory holds a CLAUDE.md or a .claude directory (ancestors_clean=yes; /home/yahir/.claude/CLAUDE.md would otherwise be an ancestor of the default cache path).
+
+Dispatch (DISPATCH.md recipe, run by the orchestrator because the executor has no Agent tool and the master delegated the headless run): `cd $WS && CLAUDE_CONFIG_DIR=<throwaway dir with only .credentials.json> claude -p --model sonnet --permission-mode bypassPermissions --no-session-persistence "$(cat TASK.md; printf '\nYour working directory is %s.\n' "$WS")"`, with the low-memory GRADLE_OPTS exported in the agent's environment. Model: sonnet. Dispatch 2026-10-07T18:14:19Z, finish 2026-10-07T18:18:25Z, exit 0. cfg_removed=yes. No .credentials.json in the workspace.
+
+Agent final message (excerpt): "The build is green: ./gradlew :jvmconsumer:test :app:compileDebugKotlin succeeds, and all six WireTest tests pass. I recorded 5 stumbles in STUMBLES.md, and CONSULTED.md lists every file I read." STUMBLES.md and CONSULTED.md are present in the workspace.
+
