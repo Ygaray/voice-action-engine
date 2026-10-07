@@ -213,6 +213,19 @@ prepare() {
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
+# prepare-local <m2dir> <version>: the unpushed tree's local publication (main stays unpushed through Phase 19)
+# ---------------------------------------------------------------------------------------------------------------------
+prepare_local() {
+  local m2="${1:?usage: prepare-local <m2dir> <version>}" version="${2:?usage: prepare-local <m2dir> <version>}" dir
+  [ -d "$m2" ] || { echo "WIRING PREPARE FAIL: $m2 is not a directory (publish the tree into an isolated maven-local first)" >&2; return 1; }
+  m2="$(cd "$m2" && pwd)"
+  dir="${WIRING_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/vae-wiring-test/local-$version}"
+  [ ! -e "$dir" ] || { echo "WIRING PREPARE FAIL: $dir already exists (remove it or set WIRING_DIR)" >&2; return 1; }
+  make_workspace "$dir" "$version" "file://$m2" "HEAD"
+  echo "WIRING PREPARED dir=$dir version=$version"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
 # selftest
 # ---------------------------------------------------------------------------------------------------------------------
 selftest() {
@@ -303,7 +316,8 @@ KTS
 cmd="${1:-}"
 case "$cmd" in
   prepare)  shift; prepare "$@" ;;
+  prepare-local) shift; prepare_local "$@" ;;
   verify)   shift; verify "$@" ;;
   selftest) shift; selftest "$@" ;;
-  *) echo "usage: $0 prepare <sha> | verify <dir> <version> | selftest" >&2; exit 2 ;;
+  *) echo "usage: $0 prepare <sha> | prepare-local <m2dir> <version> | verify <dir> <version> | selftest [--local]" >&2; exit 2 ;;
 esac
