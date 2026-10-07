@@ -25,3 +25,31 @@ Source: cross-session messages from orchestrator `yahir-gsd-control-plane-3b`, r
 - **Merge:** "OK to MERGE origin/main (43768ea, the YAT v2.5.0 ledger row) into main, never rebase, before "pushing main <sha>"."
 - **Quiet windows 20-07/08/10:** "same terms (single daemon, pause below 5 GiB, one retry). Send "quiet window 20-xx" each time and I'll check swap/memory and take the lock."
 - **P17 OI-1 (ruled 2026-10-07, replaces PENDING):** "Accepted: JournalStore is a save/delete-only mirror with no restore in v1.1.0; Undo-all is live-session only. SB 178 (D-05) and CT P75 (UNDO-01/D-05) both confirmed no objection. Condition (SB): JournalStore stays OPTIONAL, and with no store supplied the engine writes nothing to disk. Restore is deferred to a future additive release (SB UNDO-PERSIST)." Plus: "If the no-store/no-disk-write condition isn't already pinned by a test, add one before the tag."
+
+## Relay 1: push main
+
+relayed_by: yahir-gsd-control-plane-3b
+time_utc: 2026-10-07T20:33Z (push performed about 20:33-20:34Z)
+
+**Message sent by the master (verbatim):**
+
+`pushing main 97801136ae456ba6b0a8861ee1ea49932cc7bb75`
+
+Context lines sent with it: origin/main was MERGED, not rebased (74a62a7, including 43768ea), so every recorded SHA is intact; the push hold lifts "with v1.1.0" per D-06; no tag is pushed; the pre-push scan is clean (unexplained=0).
+
+**Answer received (resume signal):**
+
+`push ok 97801136ae456ba6b0a8861ee1ea49932cc7bb75 relayed_by=yahir-gsd-control-plane-3b`
+
+**Orchestrator text (verbatim):**
+
+"OK to push main 97801136ae. I verified it myself: local main = 97801136ae, origin/main (43768ea) is an ancestor (fast-forward, 545 commits), no tag points at it, and no sb-gold/sb-fixture/.env/jks files are tracked. Plain `git push origin main` only: no --force, no tags. Then run `release-cut.sh gate pushed` and tell me GATE OK with the remote sha."
+
+**Push performed:** `git push origin main` -> `43768ea..9780113  main -> main`. Immediately after (before this log was committed): `scripts/release-cut.sh gate pushed` printed `GATE OK pushed`. `git ls-remote origin refs/heads/main` = `97801136ae456ba6b0a8861ee1ea49932cc7bb75 refs/heads/main`. Tags on origin: only v1.0.0 and v1.0.1 (plus peeled lines).
+
+**Early asks (all answered; verbatim text is in the "Appended 2026-10-07" section above):**
+
+- Q1: answered. P15 OI-4..7 and P17 OI-3/OI-5 accepted (see the P15 OI-4..OI-7 / P17 OI-3 / OI-5 lines above); P17 OI-1 ruled ("Accepted: JournalStore is a save/delete-only mirror with no restore in v1.1.0 ...", see the "P17 OI-1 (ruled 2026-10-07, replaces PENDING)" line above). P16 OI-1..9 accepted as defaults (earlier block).
+- Q2: answered yes (see "C11 (a)" line above): "tag ready" may use a clone-simulated tag run, with a real re-run against the pushed tag on JitPack before the ledger-row relay.
+- Q3: answered (see "RT-07 / W03 (b)" line above): JVM-only is enough, no device window.
+- Q4: answered (see "Quiet windows 20-07/08/10" line above): same terms (single daemon, pause below 5 GiB, one retry); send "quiet window 20-xx" each time.

@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 20
 current_phase_name: Cut v1.1.0
-current_plan: Not started
-status: planning
-stopped_at: Phase 19 complete, ready to plan Phase 20
-last_updated: "2026-10-07T18:58:09.066Z"
+current_plan: 2
+status: executing
+stopped_at: Completed 20-01-PLAN.md
+last_updated: "2026-10-07T20:35:09.533Z"
 last_activity: 2026-10-07
-last_activity_desc: Phase 19 complete, transitioned to Phase 20
-state_head: 27c44129e2a0287e3e0b2db58cd52d184308ce30
+last_activity_desc: Phase 20 execution started
+state_head: 97801136ae456ba6b0a8861ee1ea49932cc7bb75
 progress:
   total_phases: 9
   completed_phases: 1
-  total_plans: 75
-  completed_plans: 75
+  total_plans: 87
+  completed_plans: 76
   percent: 11
 ---
 
@@ -26,15 +26,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 19 — Sample Gate-1 & Docs
+**Current focus:** Phase 20 — Cut v1.1.0
 
 ## Current Position
 
-Phase: 20 — Cut v1.1.0
-Current Plan: Not started
-Total Plans in Phase: 14
-Status: Ready to plan
-Last activity: 2026-10-07 — Phase 19 complete, transitioned to Phase 20
+Phase: 20 (Cut v1.1.0) — EXECUTING
+Current Plan: 2
+Total Plans in Phase: 12
+Status: Ready to execute
+Last activity: 2026-10-07 — Phase 20 execution started
 
 Progress: [█░░░░░░░░░] 11%
 
@@ -258,8 +258,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T18:22:10.733Z
-Stopped at: Phase 19 complete, ready to plan Phase 20
+Last session: 2026-10-07T20:35:09.165Z
+Stopped at: Completed 20-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
