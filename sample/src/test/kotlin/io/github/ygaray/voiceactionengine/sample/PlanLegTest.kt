@@ -17,6 +17,7 @@ import io.github.ygaray.voiceactionengine.sample.undo.ITEM_TOOL_CREATE
 import io.github.ygaray.voiceactionengine.sample.undo.ItemToolExecutor
 import io.github.ygaray.voiceactionengine.sample.verdict.VerdictKind
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -225,5 +226,18 @@ class PlanLegTest {
             assertTrue(step.toString(), step is ToolStep.Finished && step.kind == FinishedKind.ERROR)
         }
         assertTrue(world.store.snapshot().isEmpty())
+    }
+
+    @Test
+    fun anExplicitNullParentIsTheSameAsNoParent() = runTest {
+        val world = ItemWorld()
+        val executor: ItemToolExecutor = world.executor
+
+        val step = executor.prepare(
+            Extraction(ITEM_TOOL_CREATE, buildJsonObject { put("title", "ok"); put("parent_id", JsonNull) }),
+            CommandInput("x"),
+        )
+
+        assertTrue(step.toString(), step is ToolStep.Mutation)
     }
 }

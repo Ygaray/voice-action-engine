@@ -12,6 +12,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.undo.UndoJournal
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
@@ -105,7 +106,8 @@ internal class ItemToolExecutor(private val store: ItemStore, private val journa
 
     private fun create(arguments: JsonObject): ToolStep {
         val title = text(arguments[ARG_TITLE])
-        val parent = arguments[ARG_PARENT]
+        // An explicit null for the optional parent is the same as leaving it out (models emit it for an optional field).
+        val parent = arguments[ARG_PARENT]?.takeUnless { it is JsonNull }
         val parentId = text(parent)
         return when {
             title == null -> failed(ITEM_TOOL_CREATE, INVALID_ARGUMENTS)
