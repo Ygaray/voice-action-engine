@@ -38,8 +38,10 @@ public class ActionEvent internal constructor(
      * Prints identifiers and counts only: the run id and the parent run id as they are, the held run id only as set or
      * null, and the action's own string form. Run ids are treated as opaque identifiers, so keep user text out of the
      * ids your run-id seam hands out: a run id and a parent run id are printed verbatim. The held run id's value is
-     * not printed (read it from [heldRunId]). It never prints an outcome token, a target id, a provider call id, an
-     * argument, utterance text, model output or a key.
+     * not printed (read it from [heldRunId]). The run id and the parent run id are the join keys a sink needs to match
+     * a log line to a run, which is why they print verbatim; the held run id's value always equals the held proposal's
+     * run id or a parent run id that is already printed, so printing it would add no join information. It never prints
+     * an outcome token, a target id, a provider call id, an argument, utterance text, model output or a key.
      */
     override fun toString(): String =
         "ActionEvent(runId=$runId, parentRunId=$parentRunId, heldRunId=${if (heldRunId == null) "null" else "set"}, " +

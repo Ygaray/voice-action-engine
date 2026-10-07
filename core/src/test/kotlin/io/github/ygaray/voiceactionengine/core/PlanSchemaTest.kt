@@ -6,19 +6,26 @@ import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpec
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.plan.PlanThenExecuteStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.plan.PlanVerdict
+import io.github.ygaray.voiceactionengine.core.strategy.plan.parsePlan
 import io.github.ygaray.voiceactionengine.core.strategy.plan.submitPlanSpec
 import io.github.ygaray.voiceactionengine.core.testing.FakeAiProvider
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.core.testing.RecordingCommitSink
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedGate
 import io.github.ygaray.voiceactionengine.core.testing.ScriptedToolExecutor
+import io.github.ygaray.voiceactionengine.core.transcript.AssistantPart
 import io.github.ygaray.voiceactionengine.core.transcript.CacheDirective
 import io.github.ygaray.voiceactionengine.core.transcript.ModelRequest
 import io.github.ygaray.voiceactionengine.core.transcript.ReasoningMode
 import io.github.ygaray.voiceactionengine.core.transcript.ToolChoice
 import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -175,4 +182,43 @@ class PlanSchemaTest {
 
         assertEquals("PlanThenExecuteStrategy(id=plan, maxSteps=8)", tier.toString())
     }
+
+    // The parser and the schema each keep their own private copy of the field names (dropping the dedupe was a
+    // recorded decision: a shared constant would leak a public static field). This test reads the names the schema
+    // really advertises and feeds them to the parser, so editing one copy without the other fails here.
+    @Test
+    fun theParsersFieldNamesAreTheSchemasOwnKeys() {
+        val root = submitPlanSpec(offered, 3).inputSchema
+        val rootProperties = root.getValue("properties").jsonObject
+        val stepsKey = rootProperties.keys.single { typeOf(rootProperties, it) == "array" }
+        val lookupKey = rootProperties.keys.single { typeOf(rootProperties, it) == "boolean" }
+        val stepItems = rootProperties.getValue(stepsKey).jsonObject.getValue("items").jsonObject
+        val stepProperties = stepItems.getValue("properties").jsonObject
+        val toolKey = stepProperties.keys.single { stepProperties.getValue(it).jsonObject.containsKey("enum") }
+        val argumentsKey = stepProperties.keys.single { typeOf(stepProperties, it) == "object" }
+        val idKey = stepProperties.keys.single { it != toolKey && it != argumentsKey }
+        val snapshot = planSnapshot(createTool())
+        val step = buildJsonObject {
+            put(idKey, "s1")
+            put(toolKey, PLAN_CREATE_TOOL)
+            put(argumentsKey, buildJsonObject { put("name", "a") })
+        }
+
+        val answer = buildJsonObject { put(stepsKey, buildJsonArray { add(step) }) }
+        val verdict = parsePlan(listOf(AssistantPart.ToolCall("c1", "submit_plan", answer)), snapshot, 3)
+
+        assertTrue(verdict.toString(), verdict is PlanVerdict.Valid)
+        assertEquals(listOf("s1"), (verdict as PlanVerdict.Valid).plan.steps.map { it.id })
+
+        val lookup = buildJsonObject {
+            put(stepsKey, buildJsonArray { })
+            put(lookupKey, true)
+        }
+        val lookupVerdict = parsePlan(listOf(AssistantPart.ToolCall("c2", "submit_plan", lookup)), snapshot, 3)
+
+        assertTrue(lookupVerdict === PlanVerdict.NeedsLookup)
+    }
+
+    private fun typeOf(properties: JsonObject, key: String): String =
+        properties.getValue(key).jsonObject.getValue("type").jsonPrimitive.content
 }

@@ -1,0 +1,17 @@
+RT-01: LEFT, not a trivial one-line cleanup (P15 IN-02, the duplicated plan field-name constants in PlanParse.kt and PlanSchema.kt).
+  Why: a top-level internal const val compiles to a public static field, which
+  ApiShapeTest.noMainClassLeaksAPublicStaticFieldBesidesInstanceAndCompanion rejects; a plain internal val trips detekt
+  MayBeConst; the only compliant route is five accessor functions, which is not a one-line change.
+  PlanParse.kt and PlanSchema.kt are untouched. Drift guard added instead: PlanSchemaTest.theParsersFieldNamesAreTheSchemasOwnKeys
+  reads the step keys (steps, id, tool, arguments) and the needs_lookup key out of submitPlanSpec(...).inputSchema and feeds them to
+  parsePlan (Valid with the step id in order; needs_lookup true gives NeedsLookup). Proof: :core:test PlanSchemaTest 10 tests, 0 failures.
+
+RT-03: ruling applied (redact by default). Behavior already conforming; no toString body changed. Rationale added to the
+  ActionEvent.toString KDoc (phrase "join keys": run id and parent run id are the join keys a sink needs, so they print verbatim;
+  the held run id prints as set or null because its value equals the held proposal's run id or an already printed parent run id).
+  Proof: sentinel tests in ActionEventTest stay green and unedited: anEventsStringFormNeverCarriesTheTokenTargetValuesOrContextText,
+  everyFieldThatCouldCarryUserTextIsAbsentFromBothStringForms; HeldRunIdTest green and unedited.
+
+RT-06: WR-01 verified fixed in Phase 18 (commit 149e906): the ActionEvent.toString KDoc says run id and parent run id print verbatim
+  and the phrase "may carry user text" no longer occurs anywhere under core/src. WR-04 is verified in the final voice-adapter dump
+  (plan 20-02 Task 2, see the RT-04 block and api-dump-final.txt).
