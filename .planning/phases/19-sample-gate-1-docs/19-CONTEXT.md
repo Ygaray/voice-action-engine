@@ -108,3 +108,5 @@ Operator-reviewed decision(s) here (source: human) — treat them as locked: [le
 ## Runtime Decisions
 
 - **RT-01 [ref-regex-doc] (2026-10-06, orchestrator 3b pre-tag ruling on P15 IN-04):** Accept the ASCII-only \s in the plan reference regex, since a missed near-reference stays literal, which is the safe direction. Document this in API.md (the PlanThenExecute reference-syntax section) at the wiring SHA.
+
+- **RT-02 [p17-jitpack-rerun] (2026-10-06, master; P17 deferred obligation):** Before the v1.1.0 cut, in the P19 gate run, re-run scripts/jitpack-dry-run.sh and scripts/jitpack-live-probe.sh (the :undoalone probe) on the final tree. P17 IN-05/IN-06/WR-08 edited these scripts after the 17-10 quiet window, and the edits were checked only by bash -n and the manifest gates. Running the heavy scripts needs an orchestrator-granted quiet window ("quiet window 19-<plan>" handshake), with MemAvailable >= 5 GiB.
