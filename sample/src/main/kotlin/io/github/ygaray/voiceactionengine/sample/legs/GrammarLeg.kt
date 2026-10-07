@@ -119,9 +119,11 @@ internal class GrammarRun(val results: List<GrammarCaseResult>, val verdict: Ver
  * tripwire received (`tripwire_calls`). Any non-zero count fails the leg. No airplane mode is used.
  */
 internal object GrammarLeg {
-    /** The committed cases, in order. */
+    /** The three committed cases, in order: English match, Spanish match, near-miss. */
     val cases: List<GrammarCase> = listOf(
         GrammarCase(GRAMMAR_EN_TRANSCRIPT, LANG_EN, LANG_EN),
+        GrammarCase(GRAMMAR_ES_TRANSCRIPT, LANG_ES, LANG_ES),
+        GrammarCase(GRAMMAR_NEAR_MISS_TRANSCRIPT, LANG_EN, null),
     )
 
     /** The sample pack: one create-item intent with a title text slot, one English and one Spanish phrasing. */
