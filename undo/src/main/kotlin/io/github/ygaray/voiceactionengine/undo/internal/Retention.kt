@@ -1,7 +1,8 @@
 package io.github.ygaray.voiceactionengine.undo.internal
 
 /** The reading of a clock that has never given one: it stamps a group as "not yet aged" and is never compared. */
-internal const val NO_READING: Long = Long.MIN_VALUE
+// Not a const: a const would be a public static field, which the API-shape test keeps out of the frozen surface.
+internal val NO_READING: Long = Long.MIN_VALUE
 
 private const val TOMBSTONES_PER_GROUP = 20L
 private const val MIN_TOMBSTONES = 1000L
