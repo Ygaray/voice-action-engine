@@ -2,7 +2,7 @@
 
 A generic, domain-free Android library that turns a spoken command into a typed outcome. Your app hands it a
 transcript (`CommandInput(transcript, language)`); the engine walks a **tier ladder that you compose**
-(single-shot, agentic loop, more tiers later) over pluggable providers (Anthropic, OpenAI, OpenRouter), cheap tier
+(free offline grammar, single-shot, plan, agentic loop) over pluggable providers (Anthropic, OpenAI, OpenRouter), cheap tier
 first, escalating only when needed. Every write goes through a gate you control, every failure comes back as a
 specific reason, and keys, transcripts and tool arguments never reach a log. It knows nothing about your app: you
 bring the tools, the resolver, the gate and the sink.
@@ -18,7 +18,7 @@ bring the tools, the resolver, the gate and the sink.
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/legs/LegRunner.kt` and
   `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/OutcomeText.kt`.
 
-**Status:** v1.0 releases are immutable git tags, listed in the repository's tags.
+**Status:** v1.1.0 is the current release (v1.0.x before it). Releases are immutable git tags, listed in the repository's tags.
 
 ## Install (JitPack)
 
@@ -34,7 +34,7 @@ dependencyResolutionManagement {
 }
 ```
 
-**Version to pin:** <!-- pin-version:begin -->`v1.0.1`<!-- pin-version:end --> (this is the one place the docs name it; use it
+**Version to pin:** <!-- pin-version:begin -->`v1.1.0`<!-- pin-version:end --> (this is the one place the docs name it; use it
 wherever a snippet says `<version>`).
 
 Depend on the modules you use, per module, never as one aggregate. `<version>` is an immutable release tag (the one
@@ -44,15 +44,31 @@ above), or a commit SHA when you must test an unreleased fix, never a branch sna
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-core:<version>")
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-providers:<version>")
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:<version>")
+implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-undo:<version>")
+implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>")
 ```
 
 Which modules you need: `core` alone is enough for a pipeline, every seam and your own scripted `AiProvider`, so a
 JVM-only consumer (tests included) needs nothing else. Add `providers` only to call Anthropic, OpenAI or OpenRouter over
 HTTP; it compiles against OkHttp 4.12 and is tested on 4.12 and 5.x, so your app keeps its own OkHttp version. Add
 `keystore` only in an Android app (an AAR, minSdk 35) for bring-your-own-key storage; `core` is pure Kotlin.
-Add `voice-adapter` (`com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>`, first published in
-v1.1.0, so pin v1.1.0 or newer for it) only in an Android app that captures speech with `:stt`; the app adds `:stt`
-itself (v0.7.0 or newer), see INTEGRATION.md step 12.
+Add `undo` (pure Kotlin, no dependency, first published in v1.1.0) only if your app offers "Undo all"; see
+[`INTEGRATION.md`](INTEGRATION.md) section 11. Add `voice-adapter` (an Android AAR, first published in v1.1.0) only in an
+Android app that captures speech with `:stt`; the app adds `:stt` itself (v0.7.0 or newer), see
+[`INTEGRATION.md`](INTEGRATION.md) section 12. Both lines above need v1.1.0 or newer.
+
+## What v1.1 adds
+
+- **A free, offline grammar tier** that answers the commands you can spell out, in English and Spanish, with no
+  provider call: [the grammar tier](INTEGRATION.md#the-grammar-tier-free-offline).
+- **A plan tier** that spends one model call to plan several steps, then runs them without further calls:
+  [the plan tier](INTEGRATION.md#the-plan-tier-one-planning-call).
+- **An engine router** that lets a small model choose which tier the walk starts at:
+  [choosing where the model walk starts](INTEGRATION.md#choosing-where-the-model-walk-starts).
+- **Run-level "Undo all (N)"** with the `undo` module, one call that puts a whole command back:
+  [undo a whole command](INTEGRATION.md#11-undo-a-whole-command).
+- **A voice adapter** that turns one final `:stt` segment into a `CommandInput`:
+  [the voice adapter](INTEGRATION.md#12-turn-a-final-stt-segment-into-a-commandinput-optional).
 
 ## Minimal usage
 

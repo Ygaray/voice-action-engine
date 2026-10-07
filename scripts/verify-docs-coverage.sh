@@ -3,7 +3,7 @@
 # ECOSYSTEM.md hygiene rules). Every checklist item is a grep, every Kotlin snippet is compared byte for byte with a
 # region of a compiled, executed snippet test (the sample's DocSnippetsTest, and the voice adapter's own
 # DocSnippetAdapterTest for the adapter snippet), and API.md must name every public top-level type, found at run time.
-#   C01 per-module coordinates in README and INTEGRATION     C13 keystore cause codes, re-enter vs transient retry
+#   C01 every manifest module's coordinate in README+INTEGRATION C13 keystore cause codes, re-enter vs transient retry
 #   C02 no aggregator coordinate in any doc                   C14 uncached and unsupported combos
 #   C03 coordinate lines end in :<version>, version explained C15 ExecutedAction kinds, applied, mutating, held bytes
 #   C04 JitPack repository block                              C16 "never log"
@@ -47,6 +47,7 @@ while IFS= read -r extra_snippets; do
 done < <(find voice-adapter/src/test -name DocSnippetAdapterTest.kt 2>/dev/null | sort)
 REQUIRED_REGIONS="minimal-pipeline scripted-provider register-providers agentic-tier gate-suspend gate-defer render-outcome clarification-follow-up keystore-wiring keystore-fake telemetry"
 COORD_PREFIX='com.github.Ygaray.voice-action-engine:voice-action-engine-'
+COORD_GROUP='com.github.Ygaray.voice-action-engine'
 
 ONLY=""
 while [ $# -gt 0 ]; do
@@ -128,10 +129,11 @@ run() {
   "check_$id"
 }
 
+# Every module in scripts/modules.list needs a per-module coordinate in both docs, so a new module cannot go unnamed.
 check_C01() {
   local f a
   for f in "$README" "$INTEGRATION"; do
-    for a in core providers keystore; do need "$f" "${COORD_PREFIX}${a}:"; done
+    for a in $(vae_modules); do need "$f" "${COORD_GROUP}:$(vae_module_field "$a" artifactId):"; done
   done
 }
 
