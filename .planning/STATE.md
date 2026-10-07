@@ -6,11 +6,11 @@ current_phase: 19
 current_phase_name: Sample Gate-1 & Docs
 current_plan: 12
 status: executing
-stopped_at: Completed 19-11-PLAN.md
-last_updated: "2026-10-07T16:42:13.354Z"
+stopped_at: "19-12 partial: gates run, detekt red (1 finding), carry register + Gate-2 fragment written; awaiting gap plan"
+last_updated: "2026-10-07T16:50:05.062Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 19 execution started
-state_head: 5beaf10f61b342f7dcea7a8a7ea9cac5e65c463f
+state_head: 9bda4e01b13717f2d69c32b26757b6afb8e53827
 progress:
   total_phases: 9
   completed_phases: 0
@@ -240,6 +240,7 @@ None yet.
 - **Devices:** Phases 12 (PROV-16 smoke), 13 (spike) and 19 (Gate-1) use the wired TESTER `…-s22-ultra-2` only, never the personal phone, and never overlap on the device.
 - **Release-cut host OOM:** the `v1.1.0` cut (Phase 20) needs a quiet window, swap headroom and a single-use Gradle daemon (five v1.0.1 attempts were earlyoom-killed).
 - **§11:** always `git pull --rebase` before committing; peers commit contract changes to this repo.
+- 19-12: :voice-adapter:detekt MaxLineLength at DocSnippetAdapterTest.kt:14 (from 19-09 4646b16); wiring SHA candidate not usable until a gap plan fixes it and plan 19-12 gates re-run green
 
 ## Deferred Items
 
@@ -252,9 +253,9 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T16:42:13.216Z
-Stopped at: Completed 19-11-PLAN.md
-Resume file: None
+Last session: 2026-10-07T16:50:04.889Z
+Stopped at: 19-12 partial: gates run, detekt red (1 finding), carry register + Gate-2 fragment written; awaiting gap plan
+Resume file: .planning/phases/19-sample-gate-1-docs/19-12-SUMMARY.md
 
 ## Operator Next Steps
 
