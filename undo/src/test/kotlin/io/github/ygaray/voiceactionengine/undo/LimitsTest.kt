@@ -131,6 +131,28 @@ class LimitsTest {
     }
 
     @Test
+    fun aKeyDroppedLongAgoStaysWithheldBeyondTheGroupCount() {
+        val rig = Rig(configure = { maxGroups = 1 })
+        for (index in 0..30) record(rig, "g$index")
+
+        record(rig, "g0", 1)
+
+        assertTrue(rig.groupOf("g0").withheld)
+    }
+
+    @Test
+    fun theTombstoneMemoryIsBoundedSoAnAncientKeyIsForgotten() {
+        val rig = Rig(configure = { maxGroups = 1 })
+        for (index in 0..1002) record(rig, "g$index")
+
+        record(rig, "g0", 1)
+        assertFalse(rig.groupOf("g0").withheld)
+
+        record(rig, "g1001", 1)
+        assertTrue(rig.groupOf("g1001").withheld)
+    }
+
+    @Test
     fun anUndoneEntrysGroupStillAnswersAlreadyUndoneUntilItIsEvicted() {
         val rig = Rig(configure = { maxGroups = 2 })
         rig.store.put("a", "v0")

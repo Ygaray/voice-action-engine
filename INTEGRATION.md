@@ -855,7 +855,10 @@ To show the result in an undo status of your own, map it like this:
 
 **Limits and the store.** The journal lives in memory and does not survive process death. It keeps at most 50 groups and
 drops a group idle for an hour by default (`maxGroups`, `maxAgeMillis` in the `UndoJournal { }` builder), so snapshots of
-user data neither pile up nor linger. An optional `JournalStore` (`store = ...` in the builder) is told about each
+user data neither pile up nor linger. A late record into a dropped group (a held change confirmed long after its run)
+makes a withheld group, but the journal remembers only the keys of the most recently dropped groups (at most the larger
+of 1000 and 20 times `maxGroups`); past that, a record opens a fresh group that is not withheld, so confirm held changes
+within that span. An optional `JournalStore` (`store = ...` in the builder) is told about each
 group's view and about every dropped group, so you can show history somewhere else. It receives keys, references, flags
 and counts, never a snapshot or a fingerprint, so it cannot restore the journal. A store that throws never changes what the
 journal does; `journal.storeFaults` counts its faults.

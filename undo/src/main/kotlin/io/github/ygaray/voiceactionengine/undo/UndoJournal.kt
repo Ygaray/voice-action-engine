@@ -119,6 +119,12 @@ public class UndoJournal internal constructor(settings: Builder) {
      * @param entry which action this is.
      * @param failed true when the action was applied and reported an error, so it may have written.
      * @param ticket what the action captured, or null when the app has nothing to say about it.
+     *
+     * A record into a group the journal already dropped (a held change confirmed long after its run) makes a withheld
+     * group, so the rest of the command is never offered as a partial undo. The journal remembers the keys of the most
+     * recently dropped groups only, at most the larger of 1000 and 20 times [Builder.maxGroups]; a record into a key
+     * older than that opens a fresh group that is not withheld.
+     *
      * @throws IllegalArgumentException only for an invalid key. Every other anomaly withholds the whole group (so
      *   [undoAll] refuses with [UndoReason.JOURNAL_WITHHELD] and never offers a partial undo): a null ticket, a ticket
      *   from another journal or one already recorded, a repeated run and position, or a ticket left unsealed by an
