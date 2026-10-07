@@ -70,6 +70,22 @@ class LimitsTest {
     }
 
     @Test
+    fun aFailedFirstClockReadingDoesNotAgeTheGroupAtTheNextGoodOne() {
+        var reading: Long? = null
+        val rig = Rig(configure = {
+            maxAgeMillis = 3_600_000
+            clock = { checkNotNull(reading) { CANARY } }
+        })
+        record(rig, "g")
+
+        reading = 1_700_000_000_000
+        assertNotNull(rig.group("g"))
+
+        reading = 1_700_000_000_000 + 3_600_001
+        assertNull(rig.group("g"))
+    }
+
+    @Test
     fun aGroupBeingUndoneIsNotEvictedByEitherBound() {
         var now = 0L
         val rig = Rig(configure = {

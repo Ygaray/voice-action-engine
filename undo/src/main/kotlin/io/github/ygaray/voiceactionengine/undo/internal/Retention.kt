@@ -1,5 +1,8 @@
 package io.github.ygaray.voiceactionengine.undo.internal
 
+/** The reading of a clock that has never given one: it stamps a group as "not yet aged" and is never compared. */
+internal const val NO_READING: Long = Long.MIN_VALUE
+
 private const val TOMBSTONES_PER_GROUP = 20L
 private const val MIN_TOMBSTONES = 1000L
 
@@ -21,8 +24,11 @@ internal class Retention(private val maxGroups: Int, private val maxAgeMillis: L
 
     /** Drops what is too old or too many, never [keep] and never a group being undone. Returns the dropped keys. */
     fun sweep(groups: MutableMap<String, Group>, now: Long, keep: String?): List<String> {
+        // With no reading yet nothing ages. A group stamped before the first reading starts aging at the first one.
+        val aging = now != NO_READING
+        if (aging) groups.values.filter { it.lastActive == NO_READING }.forEach { it.lastActive = now }
         val droppable = groups.values.filter { !it.undoing && it.key != keep }
-        val gone = droppable.filter { now - it.lastActive > maxAgeMillis }.toMutableList()
+        val gone = droppable.filter { aging && now - it.lastActive > maxAgeMillis }.toMutableList()
         val surplus = groups.size - gone.size - maxGroups
         if (surplus > 0) {
             droppable.filter { it !in gone }.sortedBy { it.activity }.take(surplus).forEach { gone.add(it) }

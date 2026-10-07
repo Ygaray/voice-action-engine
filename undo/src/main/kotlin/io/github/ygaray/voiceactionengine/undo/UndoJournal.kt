@@ -1,6 +1,7 @@
 package io.github.ygaray.voiceactionengine.undo
 
 import io.github.ygaray.voiceactionengine.undo.internal.JournalState
+import io.github.ygaray.voiceactionengine.undo.internal.NO_READING
 import io.github.ygaray.voiceactionengine.undo.internal.Recorded
 import io.github.ygaray.voiceactionengine.undo.internal.Retention
 import io.github.ygaray.voiceactionengine.undo.internal.StoreMirror
@@ -13,6 +14,8 @@ private const val GROUP_LIMIT: Int = 50
 
 /** How long a group may be idle, in milliseconds, before the journal drops it unless told otherwise: one hour. */
 private const val AGE_LIMIT_MILLIS: Long = 3_600_000
+
+private const val NANOS_PER_MILLI: Long = 1_000_000
 
 /**
  * A journal of what each command changed, so one call can undo a whole command.
@@ -43,7 +46,7 @@ public class UndoJournal internal constructor(settings: Builder) {
     private val pass: UndoPass
 
     @Volatile
-    private var lastNow = 0L
+    private var lastNow = NO_READING
 
     init {
         require(settings.maxGroups >= 1) { "maxGroups must be at least 1" }
@@ -75,8 +78,11 @@ public class UndoJournal internal constructor(settings: Builder) {
          */
         public var store: JournalStore? = null
 
-        /** The time source for [maxAgeMillis], in milliseconds. Tests replace it; the default is the system clock. */
-        public var clock: () -> Long = { System.currentTimeMillis() }
+        /**
+         * The time source for [maxAgeMillis], in milliseconds. Only differences between readings matter. The default
+         * is a monotonic clock, so a change of the wall clock never ages a group early; tests replace it.
+         */
+        public var clock: () -> Long = { System.nanoTime() / NANOS_PER_MILLI }
 
         /**
          * Registers the adapter for its entity type.
@@ -226,7 +232,8 @@ public class UndoJournal internal constructor(settings: Builder) {
         mirror.deliver(state.drainDropped(), groupKey?.let(state::mirrorView))
     }
 
-    // The time source is app code, so a fault in it never reaches the caller: the last good reading stands in.
+    // The time source is app code, so a fault in it never reaches the caller: the last good reading stands in, and
+    // NO_READING (which ages nothing) before there has been one.
     private fun now(): Long = guardedCall(onFault = { lastNow }) { clock().also { lastNow = it } }
 
     override fun toString(): String = "UndoJournal(groups=${state.groupCount()})"

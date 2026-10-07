@@ -61,8 +61,8 @@ internal class Group(val key: String, var parentGroupKey: String?) {
     /** Rises on every change, so a copy of the group's view can tell it is stale. */
     var revision: Long = 0
 
-    /** When the group last changed, by the journal's clock. */
-    var lastActive: Long = 0
+    /** When the group last changed, by the journal's clock; [NO_READING] until the clock has given a reading. */
+    var lastActive: Long = NO_READING
 
     /** Orders groups by their last change, whatever the clock says. */
     var activity: Long = 0
