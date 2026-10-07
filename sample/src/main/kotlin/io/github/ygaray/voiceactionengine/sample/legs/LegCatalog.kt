@@ -46,6 +46,9 @@ internal enum class LegKind {
 
     /** The offline partial-outcome demo. */
     DEMO_PARTIAL,
+
+    /** The offline grammar leg: EN and ES grammar commands and a capped near-miss, with zero provider calls. */
+    GRAMMAR_OFFLINE,
 }
 
 /**
@@ -180,6 +183,23 @@ internal object LegCatalog {
         needsFixture = false,
     )
 
+    // Offline grammar leg: no key, no budget, no network. It reports as the demo provider so the screen treats it as offline.
+    private val grammarOffline = LegSpec(
+        id = LegId.GRAMMAR_OFFLINE,
+        provider = DEMO_PROVIDER,
+        model = DEMO_MODEL,
+        kind = LegKind.GRAMMAR_OFFLINE,
+        prompts = listOf(GRAMMAR_EN_TRANSCRIPT, GRAMMAR_ES_TRANSCRIPT, GRAMMAR_NEAR_MISS_TRANSCRIPT),
+        forcedTool = null,
+        readTool = null,
+        requestedOptionals = emptySet(),
+        maxIterations = DEMO_ITERATIONS,
+        reservation = 0,
+        optional = false,
+        needsKey = false,
+        needsFixture = false,
+    )
+
     private val specs: Map<LegId, LegSpec> = listOf(
         ver02,
         smoke(LegId.SMOKE_ANTHROPIC, ProviderId.ANTHROPIC, HAIKU),
@@ -190,6 +210,7 @@ internal object LegCatalog {
         responsesProbe,
         demo(LegId.DEMO_CLARIFY, LegKind.DEMO_CLARIFY, "add paper to my list", null),
         demo(LegId.DEMO_PARTIAL, LegKind.DEMO_PARTIAL, "add paper and pens", TOOL_CREATE),
+        grammarOffline,
     ).associateBy { it.id }
 
     /** The spec of [id]. */

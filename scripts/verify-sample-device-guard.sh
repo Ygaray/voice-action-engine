@@ -329,6 +329,10 @@ EVIDENCE_KT="$HERE/../sample/src/main/kotlin/io/github/ygaray/voiceactionengine/
 [ -x "$FILTER_SRC" ] || die "setup: $FILTER_SRC is missing or not executable"
 [ -f "$GOLDEN" ] || die "setup: $GOLDEN is missing"
 EVID_REL="$PHASE_REL/evidence"
+# The happy-path capture counts follow the golden file: every golden line plus the one planted verdict line is kept, the one
+# planted free-text line is dropped. A later line type therefore never needs another edit here.
+GOLDEN_N="$(grep -c '' "$GOLDEN")"
+HAPPY_KEPT=$((GOLDEN_N + 1))
 
 # Planted key-shaped tokens, assembled at run time from fragments (never written as a literal).
 PLANT_A="s""k-ant-api03-abcdefghijklmnopqrstuvwxyz0123"
@@ -411,19 +415,19 @@ FAKE_LOGCAT_FILE="$GOLDEN" run_scenario capture_save_no_verdict 1 "nothing was w
 
 # capture_save_happy: golden lines + a verdict for the leg + noise: the file holds the header and the kept lines only.
 { cat "$GOLDEN"; echo "some free text from another tag"; echo "VAE_VERDICT leg=smoke_openai verdict=PASS trigger=ui"; } >"$WORK/happy.logcat"
-FAKE_LOGCAT_FILE="$WORK/happy.logcat" run_scenario capture_save_happy 0 "-" "OK sub=capture-save kept=13 dropped=1 file=$EVID_REL/gate1-smoke_openai.txt" \
+FAKE_LOGCAT_FILE="$WORK/happy.logcat" run_scenario capture_save_happy 0 "-" "OK sub=capture-save kept=$HAPPY_KEPT dropped=1 file=$EVID_REL/gate1-smoke_openai.txt" \
   capture-save smoke_openai
 ev="$LAST_DIR/repo/$EVID_REL/gate1-smoke_openai.txt"
 [ -f "$ev" ] || die "capture_save_happy: no evidence file"
 head -1 "$ev" | grep -qE '^# gate1 leg=smoke_openai captured_utc=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z target=R5CT10XNKQN head=' \
   || die "capture_save_happy: bad header ($(head -1 "$ev"))"
-[ "$(grep -c '^VAE_' "$ev")" = 13 ] || die "capture_save_happy: expected 13 evidence lines"
+[ "$(grep -c '^VAE_' "$ev")" = "$HAPPY_KEPT" ] || die "capture_save_happy: expected $HAPPY_KEPT evidence lines"
 ! grep -q 'free text' "$ev" || die "capture_save_happy: free text was written"
 assert_calls capture_save_happy "-s R5CT10XNKQN logcat -d -v raw -s VaeSample:I"
 
 # evidence_dir_override: VAE_GATE1_EVIDENCE_DIR receives the evidence file, and the phase directory does not.
 EVIDENCE_DIR_OVERRIDE="elsewhere/evidence" FAKE_LOGCAT_FILE="$WORK/happy.logcat" run_scenario evidence_dir_override 0 "-" \
-  "OK sub=capture-save kept=13 dropped=1 file=elsewhere/evidence/gate1-smoke_openai.txt" capture-save smoke_openai
+  "OK sub=capture-save kept=$HAPPY_KEPT dropped=1 file=elsewhere/evidence/gate1-smoke_openai.txt" capture-save smoke_openai
 [ -f "$LAST_DIR/repo/elsewhere/evidence/gate1-smoke_openai.txt" ] || die "evidence_dir_override: no evidence file in the override directory"
 [ ! -e "$LAST_DIR/repo/$EVID_REL" ] || die "evidence_dir_override: the phase evidence directory was created"
 

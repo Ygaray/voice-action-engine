@@ -1,12 +1,14 @@
 package io.github.ygaray.voiceactionengine.sample
 
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.core.telemetry.Usage
 import io.github.ygaray.voiceactionengine.sample.evidence.ALLOW_PATTERN
 import io.github.ygaray.voiceactionengine.sample.evidence.BudgetSnapshot
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
+import io.github.ygaray.voiceactionengine.sample.evidence.TraceFacts
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
@@ -54,6 +56,20 @@ class EvidenceLineTest {
         ),
         EvidenceLine.budget(BudgetSnapshot(14, 0, mapOf("anthropic" to 3, "openai" to 5, "openrouter" to 6)), "0.01234"),
         EvidenceLine.autorun(LegId.VER02),
+        EvidenceLine.trace(
+            LegId.GRAMMAR_OFFLINE,
+            1,
+            TraceFacts(
+                kind = "completed",
+                capped = null,
+                tiersRun = 1,
+                providerTurns = 0,
+                attempts = 0,
+                tripwireCalls = 0,
+                matchedLang = "en",
+                codes = listOf(TraceCode.TIER_SKIPPED_POLICY),
+            ),
+        ),
     )
 
     private fun golden(): List<String> =
@@ -152,11 +168,11 @@ class EvidenceLineTest {
     }
 
     @Test
-    fun theLegVocabularyIsTheNineWireStrings() {
+    fun theLegVocabularyIsTheTenWireStrings() {
         assertEquals(
             listOf(
                 "ver02", "smoke_anthropic", "smoke_openai", "smoke_openrouter", "multi_openai",
-                "multi_openrouter", "responses_probe", "demo_clarify", "demo_partial",
+                "multi_openrouter", "responses_probe", "demo_clarify", "demo_partial", "grammar_offline",
             ),
             LegId.values().map { it.wire },
         )
@@ -165,7 +181,7 @@ class EvidenceLineTest {
     @Test
     fun everyRenderedLineMatchesTheAllowPattern() {
         val lines = oneOfEach()
-        assertEquals(12, lines.size)
+        assertEquals(13, lines.size)
         for (line in lines) {
             val text = line.render()
             assertTrue(text, allow.matches(text))
@@ -176,6 +192,6 @@ class EvidenceLineTest {
     fun theGoldenFileIsCurrent() {
         val expected = golden()
         assertEquals(oneOfEach().map { it.render() }, expected)
-        assertEquals(11, expected.map { it.substringBefore(' ') }.toSet().size)
+        assertEquals(12, expected.map { it.substringBefore(' ') }.toSet().size)
     }
 }

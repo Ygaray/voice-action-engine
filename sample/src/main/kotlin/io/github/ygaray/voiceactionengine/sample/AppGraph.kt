@@ -18,6 +18,7 @@ import io.github.ygaray.voiceactionengine.sample.fixture.androidFixtureSources
 import io.github.ygaray.voiceactionengine.sample.keys.ApiKeyStoreVault
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
 import io.github.ygaray.voiceactionengine.sample.keys.SampleKeys
+import io.github.ygaray.voiceactionengine.sample.legs.GrammarLegRig
 import io.github.ygaray.voiceactionengine.sample.legs.LegRunner
 import io.github.ygaray.voiceactionengine.sample.net.AttemptTap
 import io.github.ygaray.voiceactionengine.sample.net.OkHttpRuntime
@@ -100,12 +101,17 @@ internal class AppGraph private constructor(context: Context) {
     private val costs = CostTallySink(LogcatEvidenceSink)
     private val tap = AttemptTap(budget, costs)
     private val commits = InMemoryCommitSink()
+    private val providers = ProviderFactory.create(tap, budget)
+    private val credentials = SampleKeys.credentials(store)
     private val engine = SampleEngine(
-        providers = ProviderFactory.create(tap, budget),
-        credentials = SampleKeys.credentials(store),
+        providers = providers,
+        credentials = credentials,
         sink = commits,
         listener = null,
     )
+
+    // The grammar leg's engine: the same providers (so the tap would count any attempt) plus one tripwire.
+    private val grammarRig = GrammarLegRig.create(providers, credentials, commits)
     private val runner = LegRunner(
         engine = engine,
         fixture = { fixtureState },
@@ -114,6 +120,7 @@ internal class AppGraph private constructor(context: Context) {
         tap = tap,
         sink = costs,
         demoSink = commits,
+        grammar = grammarRig,
         nowSeconds = { System.currentTimeMillis() / MILLIS_PER_SECOND },
     )
 

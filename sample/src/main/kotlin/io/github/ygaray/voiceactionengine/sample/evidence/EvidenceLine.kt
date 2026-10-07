@@ -2,8 +2,10 @@ package io.github.ygaray.voiceactionengine.sample.evidence
 
 import android.util.Log
 import io.github.ygaray.voiceactionengine.core.ProviderId
+import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
+import io.github.ygaray.voiceactionengine.core.telemetry.TraceCode
 import io.github.ygaray.voiceactionengine.core.telemetry.TurnRecord
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
@@ -25,6 +27,7 @@ internal enum class LegId(val wire: String) {
     RESPONSES_PROBE("responses_probe"),
     DEMO_CLARIFY("demo_clarify"),
     DEMO_PARTIAL("demo_partial"),
+    GRAMMAR_OFFLINE("grammar_offline"),
 }
 
 /**
@@ -50,12 +53,91 @@ private val LIST_ITEM = Regex("[A-Za-z0-9_.:/-]{1,$MAX_TOKEN_LENGTH}")
 private val FIELD_KEY = Regex("[a-z0-9_]+")
 private val HEX = Regex("[0-9a-f]{1,$MAX_HEX_LENGTH}")
 
+// The closed word sets of a VAE_TRACE line: outcome kinds, grammar languages and start-tier pick outcomes.
+private val TRACE_KINDS = setOf("completed", "failed", "unhandled")
+private val TRACE_LANGS = setOf("en", "es")
+private val TRACE_SELS = setOf("picked", "router_fallback", "cancelled", "timeout", "failed")
+
 /**
  * The full-line grammar of every evidence line. The host filter in 10-07 keeps exactly the lines matching this.
  */
 internal const val ALLOW_PATTERN =
-    "^VAE_(ENV|FIXTURE|KEY|TURN|ATTEMPT|CACHE|SMOKE|OUTCOME|VERDICT|BUDGET|AUTORUN)" +
+    "^VAE_(ENV|FIXTURE|KEY|TURN|ATTEMPT|CACHE|SMOKE|OUTCOME|VERDICT|BUDGET|AUTORUN|TRACE)" +
         "( [a-z0-9_]+=[A-Za-z0-9_.:/,\\[\\]-]{0,96})+$"
+
+/**
+ * What one traced command amounts to, for a `VAE_TRACE` line: counts, booleans, indexes and codes only. Nothing here can
+ * hold a tier id, a transcript, a slot value, a tool argument or a key: the words are checked against closed sets when
+ * the line is built, and the trace codes are typed (the sample cannot construct one).
+ *
+ * @property kind `completed`, `failed` or `unhandled` (anything else renders `invalid_token`).
+ * @property capped for an unhandled outcome, whether the policy skipped a tier; null otherwise.
+ * @property tiersRun how many tiers ran.
+ * @property providerTurns the model round trips the event listener saw.
+ * @property attempts the HTTP requests the request tap saw.
+ * @property tripwireCalls the calls the tripwire provider received.
+ * @property matchedLang `en` or `es` when a grammar tier matched in that language, else null.
+ * @property sel the start-tier pick's outcome word (`picked`, `router_fallback`, ...), or null without a pick.
+ * @property eligible how many model tiers the picker was offered, or null.
+ * @property pickedIndex the picked tier's index among the eligible ones, or null.
+ * @property firstModelIndex the ladder index of the first tier that calls a model, or null when not reported.
+ * @property bypassed the tiers a linear walk would have tried before the picked one, or null.
+ * @property selTurns the model round trips the pick itself took, or null.
+ * @property codes the engine's trace codes for the run, in order.
+ */
+internal class TraceFacts(
+    val kind: String,
+    val capped: Boolean?,
+    val tiersRun: Int,
+    val providerTurns: Int,
+    val attempts: Int,
+    val tripwireCalls: Int,
+    val matchedLang: String?,
+    val sel: String? = null,
+    val eligible: Int? = null,
+    val pickedIndex: Int? = null,
+    val firstModelIndex: Int? = null,
+    val bypassed: Int? = null,
+    val selTurns: Int? = null,
+    val codes: List<TraceCode> = emptyList(),
+) {
+    /** Counts and words only; no list of codes. */
+    override fun toString(): String = "TraceFacts(kind=$kind, tiersRun=$tiersRun, codes=${codes.size})"
+
+    companion object {
+        /**
+         * The facts of a finished [outcome] with the measured counts. The start-tier pick, when there was one, is
+         * reduced to its outcome word, its eligible count, the picked index and the bypass and turn counts.
+         */
+        fun of(
+            outcome: CommandOutcome,
+            providerTurns: Int,
+            attempts: Int,
+            tripwireCalls: Int,
+            matchedLang: String?,
+            firstModelIndex: Int? = null,
+        ): TraceFacts {
+            val trace = outcome.trace
+            val selection = trace.selection
+            return TraceFacts(
+                kind = OutcomeSummary.of(outcome).kind,
+                capped = (outcome as? CommandOutcome.Unhandled)?.cappedByPolicy,
+                tiersRun = trace.attempts.size,
+                providerTurns = providerTurns,
+                attempts = attempts,
+                tripwireCalls = tripwireCalls,
+                matchedLang = matchedLang,
+                sel = selection?.outcome,
+                eligible = selection?.eligible?.size,
+                pickedIndex = selection?.picked?.let { picked -> selection.eligible.indexOf(picked).takeIf { it >= 0 } },
+                firstModelIndex = firstModelIndex,
+                bypassed = selection?.tiersBypassed,
+                selTurns = selection?.turns?.size,
+                codes = trace.codes,
+            )
+        }
+    }
+}
 
 /**
  * One line of Gate-1 evidence. It is a closed vocabulary by construction: the constructor is private, the factories
@@ -257,6 +339,33 @@ internal class EvidenceLine private constructor(
         }
 
         /**
+         * What one traced command did: counts, booleans, indexes and codes only (see [TraceFacts]). [case] is the
+         * 1-based case number inside the leg. Never loud: a failing leg says so in its verdict line.
+         */
+        fun trace(leg: LegId, case: Int, facts: TraceFacts): EvidenceLine = EvidenceLine(
+            "TRACE",
+            false,
+            listOf(
+                "leg" to leg.wire,
+                "case" to case.toString(),
+                "kind" to oneOf(facts.kind, TRACE_KINDS),
+                "capped" to (facts.capped?.toString() ?: NONE),
+                "tiers_run" to facts.tiersRun.toString(),
+                "provider_turns" to facts.providerTurns.toString(),
+                "attempts" to facts.attempts.toString(),
+                "tripwire_calls" to facts.tripwireCalls.toString(),
+                "matched_lang" to oneOfOrNone(facts.matchedLang, TRACE_LANGS),
+                "sel" to oneOfOrNone(facts.sel, TRACE_SELS),
+                "eligible" to numOrNone(facts.eligible),
+                "picked_index" to numOrNone(facts.pickedIndex),
+                "first_model_index" to numOrNone(facts.firstModelIndex),
+                "bypassed" to numOrNone(facts.bypassed),
+                "sel_turns" to numOrNone(facts.selTurns),
+                "codes" to list(facts.codes.map { it.value }),
+            ),
+        )
+
+        /**
          * The requests spent so far, in total and per provider, and the cost estimate ([estUsd] is the text from
          * `CostEstimate.format`).
          */
@@ -287,6 +396,12 @@ internal class EvidenceLine private constructor(
         // A fixture leg reports only that a terminal tool ended the run, never which one.
         private fun terminalTool(leg: LegId, name: String?): String =
             if (leg.fixtureBacked) (if (name == null) NONE else REDACTED) else tokenOrNone(name)
+
+        // A word from a closed set, else invalid_token: a tier id or any free word cannot pass as a trace word.
+        private fun oneOf(value: String, allowed: Set<String>): String = if (value in allowed) value else INVALID_TOKEN
+
+        private fun oneOfOrNone(value: String?, allowed: Set<String>): String =
+            if (value == null) NONE else oneOf(value, allowed)
 
         private fun numOrNone(value: Int?): String = value?.toString() ?: NONE
 

@@ -124,6 +124,7 @@ internal class LegRunner(
     private val sink: EvidenceSink,
     demoSink: CommitSink = NoOpCommitSink,
     demo: DemoProvider = DemoProvider(),
+    private val grammar: GrammarLegRig = GrammarLegRig.standalone(),
     private val nowSeconds: () -> Long,
 ) {
     private val running = Mutex()
@@ -156,6 +157,8 @@ internal class LegRunner(
     }
 
     private suspend fun runLocked(spec: LegSpec, trigger: String): LegResult {
+        // The grammar leg needs no key, fixture or budget, so it is routed before any of those preconditions.
+        if (spec.kind == LegKind.GRAMMAR_OFFLINE) return runGrammar(spec, trigger)
         val loaded = fixture() as? FixtureState.Loaded
         val refusal = precondition(spec, loaded)
         if (refusal != null) return refuse(spec.id, refusal.first, refusal.second, trigger)
@@ -372,6 +375,17 @@ internal class LegRunner(
         sink.emit(EvidenceLine.outcome(spec.id, summary))
         sink.emit(EvidenceLine.verdict(spec.id, verdict, emptyMap(), null, trigger))
         return LegResult(spec.id, verdict, outcome, summary)
+    }
+
+    // The grammar leg: its own engine (real providers behind the tap plus the tripwire), one VAE_TRACE per case, then the
+    // outcome of the last case and one verdict. It sends nothing to a provider; any non-zero count fails it.
+    private suspend fun runGrammar(spec: LegSpec, trigger: String): LegResult {
+        val run = GrammarLeg.run(grammar, tap, sink, spec.id)
+        val last = run.results.last()
+        val summary = OutcomeSummary.of(last.outcome)
+        sink.emit(EvidenceLine.outcome(spec.id, summary))
+        sink.emit(EvidenceLine.verdict(spec.id, run.verdict, run.extras, null, trigger))
+        return LegResult(spec.id, run.verdict, last.outcome, summary)
     }
 
     private fun demoTier(spec: LegSpec): CommandStrategy = when (spec.kind) {

@@ -58,7 +58,7 @@ WARM_WINDOW_SECONDS=360
 
 SUBCOMMANDS="preflight build-install push-fixture push-keys capture-start capture-save cold-stamp verify-keys-gone cleanup"
 # Exactly the LegId.wire set of sample/.../evidence/EvidenceLine.kt (the verifier proves the parity).
-LEGS="ver02 smoke_anthropic smoke_openai smoke_openrouter multi_openai multi_openrouter responses_probe demo_clarify demo_partial"
+LEGS="ver02 smoke_anthropic smoke_openai smoke_openrouter multi_openai multi_openrouter responses_probe demo_clarify demo_partial grammar_offline"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
