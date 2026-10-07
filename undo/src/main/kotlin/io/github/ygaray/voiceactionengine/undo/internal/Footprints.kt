@@ -4,19 +4,19 @@ import io.github.ygaray.voiceactionengine.undo.EntityKey
 import java.util.IdentityHashMap
 
 /**
- * A set of actions that are tied together by the entities they share, and every entity they declared. Actions in
- * different components cannot affect each other, so an undo may carry on with one when another fails.
+ * A set of actions that are tied together by the entities they share. Actions in different components cannot affect
+ * each other, so an undo may carry on with one when another fails.
  */
-internal class Cluster(val entries: List<Entry>, val keys: Set<EntityKey>)
+internal class Cluster(val entries: List<Entry>)
 
 /**
- * The entryKeys of a set of actions, grouped into components. An action's footprint is every entity it captured,
- * created or declared as touched. Two actions are in one component when their entryKeys overlap, directly or through
+ * The footprints of a set of actions, grouped into components. An action's footprint is every entity it captured,
+ * created or declared as touched. Two actions are in one component when their footprints overlap, directly or through
  * a chain of other actions. An action with no entity is a component of its own.
  */
 internal class Footprints(entries: List<Entry>) {
     private val parent = HashMap<EntityKey, EntityKey>()
-    private val entryKeys = IdentityHashMap<Entry, Set<EntityKey>>()
+    private val footprints = IdentityHashMap<Entry, Set<EntityKey>>()
     private val membership = IdentityHashMap<Entry, Int>()
 
     /** The components, in the order their first action appears in the list given. */
@@ -25,18 +25,18 @@ internal class Footprints(entries: List<Entry>) {
     init {
         for (entry in entries) {
             val footprint = entry.footprint
-            entryKeys[entry] = footprint
+            footprints[entry] = footprint
             footprint.forEach { find(it) }
             footprint.zipWithNext().forEach { (a, b) -> union(a, b) }
         }
         val byRoot = LinkedHashMap<Any, MutableList<Entry>>()
         for (entry in entries) {
-            val root: Any = entryKeys.getValue(entry).firstOrNull()?.let { find(it) } ?: entry
+            val root: Any = footprints.getValue(entry).firstOrNull()?.let { find(it) } ?: entry
             byRoot.getOrPut(root) { ArrayList() }.add(entry)
         }
         components = byRoot.values.mapIndexed { index, members ->
             members.forEach { membership[it] = index }
-            Cluster(members, members.flatMap { entryKeys.getValue(it) }.toSet())
+            Cluster(members)
         }
     }
 
