@@ -52,6 +52,10 @@ import kotlinx.coroutines.sync.Mutex
 private const val HTTP_OK = 200
 private const val REASON_MODEL_UNSUPPORTED = "model_unsupported"
 private const val REASON_NO_PROVIDER_CALL = "no_provider_call"
+private const val REASON_NOT_AWAITING_UNDO = "not_awaiting_undo"
+
+/** The reason word of the undo leg's first-press result; it is shown as the leg's status and never written to a line. */
+internal const val REASON_AWAITING_UNDO = "awaiting_undo"
 
 // A tier must declare the providers it may use; the demos declare the demo provider and nothing else.
 private val DEMO_ONLY = StrategyCapabilities(setOf(DEMO_PROVIDER))
@@ -61,12 +65,14 @@ private val DEMO_ONLY = StrategyCapabilities(setOf(DEMO_PROVIDER))
  *
  * @property outcome the engine's outcome, or null when the leg was refused and nothing ran.
  * @property summary [outcome] reduced to codes and counts, or null when nothing ran.
+ * @property undo the "Undo all (N)" prompt when the leg is waiting for its second press (it has no verdict yet), else null.
  */
 internal class LegResult(
     val leg: LegId,
     val verdict: Verdict,
     val outcome: CommandOutcome?,
     val summary: OutcomeSummary?,
+    val undo: UndoPrompt? = null,
 ) {
     override fun toString(): String = "LegResult(leg=${leg.wire}, verdict=$verdict)"
 }
@@ -137,6 +143,9 @@ internal class LegRunner(
     // The legs that have been started from the screen in this process. A live leg's earlier runs are also in the budget file.
     private val startedFromUi = HashSet<LegId>()
 
+    // The undo-all leg between its two presses; null when nothing waits for the second press.
+    private var awaitingUndo: UndoSession? = null
+
     /**
      * Runs [leg] and returns its result. [trigger] is `ui` for a tap or `autorun` for a debug intent. An autorun is a
      * rerun convenience only (D-01): it is refused with `autorun_before_ui` for a leg that has not been run from the
@@ -161,6 +170,8 @@ internal class LegRunner(
     private suspend fun runLocked(spec: LegSpec, trigger: String): LegResult {
         // The grammar leg needs no key, fixture or budget, so it is routed before any of those preconditions.
         if (spec.kind == LegKind.GRAMMAR_OFFLINE) return runGrammar(spec, trigger)
+        // The undo leg is offline too (no key, fixture or budget) and ends only on its second press.
+        if (spec.kind == LegKind.UNDO_ALL) return startUndo(spec)
         val loaded = fixture() as? FixtureState.Loaded
         val refusal = precondition(spec, loaded)
         if (refusal != null) return refuse(spec.id, refusal.first, refusal.second, trigger)
@@ -385,6 +396,39 @@ internal class LegRunner(
                 previous.runId,
             )
             return runDemo(spec, input, trigger, previous.runId)
+        } finally {
+            running.unlock()
+        }
+    }
+
+    // The first press of the undo-all leg: counts N and waits. No verdict line is written until the second press.
+    private suspend fun startUndo(spec: LegSpec): LegResult {
+        val session = UndoLeg.start(sink, spec.id)
+        awaitingUndo = session
+        val outcome = session.outcome
+        return LegResult(
+            spec.id,
+            Verdict(VerdictKind.INCONCLUSIVE, REASON_AWAITING_UNDO),
+            outcome,
+            OutcomeSummary.of(outcome),
+            session.prompt,
+        )
+    }
+
+    /**
+     * The second press of the undo-all leg: undoes the command counted by the first press through the journal, runs the
+     * refusal and the partial cases, and writes the one verdict. Refused with `not_awaiting_undo` when no first press waits.
+     */
+    suspend fun undoAll(trigger: String = TRIGGER_UI): LegResult {
+        val spec = LegCatalog.spec(LegId.UNDO_ALL)
+        if (!running.tryLock()) return refuse(spec.id, "another_leg_running", emptyMap(), trigger)
+        try {
+            val session = awaitingUndo ?: return refuse(spec.id, REASON_NOT_AWAITING_UNDO, emptyMap(), trigger)
+            awaitingUndo = null
+            val finished = session.finish(sink)
+            sink.emit(EvidenceLine.verdict(spec.id, finished.verdict, finished.extras, null, trigger))
+            val outcome = session.outcome
+            return LegResult(spec.id, finished.verdict, outcome, OutcomeSummary.of(outcome))
         } finally {
             running.unlock()
         }

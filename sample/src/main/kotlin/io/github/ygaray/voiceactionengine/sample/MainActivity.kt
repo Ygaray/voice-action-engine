@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
         val actions = SampleActions(
             runLeg = { leg -> model.runLeg(leg) },
             chooseOption = { id -> model.chooseOption(id) },
+            undoAll = { model.undoAll() },
             changeKeyField = { provider, text -> model.onKeyFieldChange(provider, text) },
             saveKey = { provider -> model.saveKey(provider) },
             deleteKey = { provider -> model.deleteKey(provider) },

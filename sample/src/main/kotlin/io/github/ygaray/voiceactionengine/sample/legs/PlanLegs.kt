@@ -4,6 +4,7 @@ import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
 import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
 import io.github.ygaray.voiceactionengine.core.strategy.CommandStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.StrategyCapabilities
 import io.github.ygaray.voiceactionengine.core.strategy.ToolSpecProvider
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.LocalGrammarStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.plan.PlanThenExecuteStrategy
@@ -84,11 +85,16 @@ internal class LegJudgement(val verdict: Verdict, val extras: Map<String, Long>)
  * [ItemWorld], never the canned executor, so a binding or a pick cannot pass vacuously.
  */
 internal object PlanLegs {
-    /** The plan tier over [world]: the model plans, every step is prepared by the stateful executor. */
-    fun planTier(world: ItemWorld): CommandStrategy = PlanThenExecuteStrategy(PLAN_TIER) {
-        tooling = ToolSpecProvider.fixed(ItemTools.snapshot(null))
-        executor = world.executor
-    }
+    /**
+     * The plan tier over [world]: the model plans, every step is prepared by the stateful executor. A tier may use only
+     * the providers it declares, so the offline undo leg passes the capabilities that name its scripted provider.
+     */
+    fun planTier(world: ItemWorld, allowed: StrategyCapabilities? = null): CommandStrategy =
+        PlanThenExecuteStrategy(PLAN_TIER) {
+            tooling = ToolSpecProvider.fixed(ItemTools.snapshot(null))
+            executor = world.executor
+            if (allowed != null) capabilities = allowed
+        }
 
     /** The single-shot tier of the router ladder: one forced `create_item` call, resolved by the same executor. */
     fun singleTier(world: ItemWorld): CommandStrategy = SingleShotStrategy(SINGLE_TIER) {

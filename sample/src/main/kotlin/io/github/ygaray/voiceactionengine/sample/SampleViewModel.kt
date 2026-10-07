@@ -36,6 +36,9 @@ internal const val STATUS_IDLE = "IDLE"
 /** The status word of the leg in progress. */
 internal const val STATUS_RUNNING = "RUNNING"
 
+/** The status word of the undo leg between its two presses: it counted N and waits for "Undo all". */
+internal const val STATUS_AWAITING_UNDO = "awaiting_undo"
+
 /** The `trigger` of a leg started by a tap. */
 internal const val TRIGGER_UI = "ui"
 
@@ -55,7 +58,7 @@ internal data class LegView(val leg: LegId, val status: String, val reason: Stri
         get() = when (status) {
             "PASS" -> Tone.GOOD
             "FAIL", "REFUSED" -> Tone.BAD
-            "WARM", "OUT_OF_BAND", "INCONCLUSIVE", "CAPTURED" -> Tone.WARN
+            "WARM", "OUT_OF_BAND", "INCONCLUSIVE", "CAPTURED", STATUS_AWAITING_UNDO -> Tone.WARN
             else -> Tone.NEUTRAL
         }
 }
@@ -71,6 +74,8 @@ internal data class KeyView(val provider: ProviderId, val text: String, val tone
  *
  * @property running the leg in progress, or null; every run button is disabled while it is not null.
  * @property readout the last leg's rendered outcome, or null before the first leg.
+ * @property undoLabel the text "Undo all (N)" while the undo leg waits for its second press, else null.
+ * @property undoNote the held-proposal note shown apart from the label, or null.
  * @property fixture the fixture banner.
  * @property budgetText the request counts and cost estimate.
  * @property warmWindow the warm-window notice, or null when the window is closed.
@@ -89,6 +94,8 @@ internal data class UiState(
     val legs: List<LegView>,
     val running: LegId?,
     val readout: OutcomeView?,
+    val undoLabel: String? = null,
+    val undoNote: String? = null,
 ) {
     /** Whether the run buttons are enabled. */
     val runEnabled: Boolean get() = running == null
@@ -173,6 +180,18 @@ internal class SampleViewModel(
         viewModelScope.launch { finish(runner.followUp(completed, option)) }
     }
 
+    /**
+     * The second press of the undo leg: calls the journal's undo for the command the first press counted. Ignored while a
+     * leg runs, and when nothing waits (no "Undo all" label is showing), so a stale or double press changes nothing.
+     */
+    fun undoAll() {
+        if (mutableState.value.running != null || mutableState.value.undoLabel == null) return
+        mutableState.update {
+            it.withStatus(LegId.UNDO_ALL, STATUS_RUNNING, null).copy(running = LegId.UNDO_ALL, undoLabel = null, undoNote = null)
+        }
+        viewModelScope.launch { finish(runner.undoAll()) }
+    }
+
     /** Records what is typed into [provider]'s key field. */
     fun onKeyFieldChange(provider: ProviderId, text: String) {
         mutableFields.update { it + (provider to text) }
@@ -244,9 +263,23 @@ internal class SampleViewModel(
         lastResult = result
         val verdict = result.verdict
         val live = LegCatalog.spec(result.leg).provider != DEMO_PROVIDER
+        val prompt = result.undo
         mutableState.update {
-            it.withStatus(result.leg, verdict.kind.name, verdict.reason)
-                .copy(running = null, readout = OutcomeText.render(result, live))
+            val shown = if (prompt == null) {
+                it.withStatus(result.leg, verdict.kind.name, verdict.reason)
+            } else {
+                it.withStatus(result.leg, STATUS_AWAITING_UNDO, null)
+            }
+            val common = shown.copy(running = null, readout = OutcomeText.render(result, live))
+            // Only the undo leg decides the control; another leg's result leaves a waiting "Undo all" in place.
+            if (result.leg != LegId.UNDO_ALL) {
+                common
+            } else {
+                common.copy(
+                    undoLabel = prompt?.let { p -> HeaderText.undoLabel(p.n) },
+                    undoNote = prompt?.let { p -> HeaderText.undoPending(p.pending) },
+                )
+            }
         }
         tick()
     }

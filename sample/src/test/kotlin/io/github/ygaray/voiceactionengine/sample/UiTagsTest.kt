@@ -38,6 +38,8 @@ class UiTagsTest {
             "readout",
             "failure_banner",
             "clarify_question",
+            "undo_all",
+            "undo_label",
         )
         assertTrue(all.toString(), all.containsAll(expectedFixed))
         assertEquals("clarify_option_list-a", UiTags.clarifyOption("list-a"))

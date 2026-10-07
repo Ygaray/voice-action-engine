@@ -30,6 +30,7 @@ internal enum class LegId(val wire: String) {
     GRAMMAR_OFFLINE("grammar_offline"),
     PLAN_LIVE("plan_live"),
     ROUTER_LIVE("router_live"),
+    UNDO_ALL("undo_all"),
 }
 
 /**
@@ -60,11 +61,15 @@ private val TRACE_KINDS = setOf("completed", "failed", "unhandled")
 private val TRACE_LANGS = setOf("en", "es")
 private val TRACE_SELS = setOf("picked", "router_fallback", "cancelled", "timeout", "failed")
 
+// The closed word sets of a VAE_UNDO line: the phase of the undo proof and the engine's undo result codes.
+private val UNDO_PHASES = setOf("counted", "undone", "refused", "partial")
+private val UNDO_RESULTS = setOf("complete", "refused", "partial", "already_undone")
+
 /**
  * The full-line grammar of every evidence line. The host filter in 10-07 keeps exactly the lines matching this.
  */
 internal const val ALLOW_PATTERN =
-    "^VAE_(ENV|FIXTURE|KEY|TURN|ATTEMPT|CACHE|SMOKE|OUTCOME|VERDICT|BUDGET|AUTORUN|TRACE)" +
+    "^VAE_(ENV|FIXTURE|KEY|TURN|ATTEMPT|CACHE|SMOKE|OUTCOME|VERDICT|BUDGET|AUTORUN|TRACE|UNDO)" +
         "( [a-z0-9_]+=[A-Za-z0-9_.:/,\\[\\]-]{0,96})+$"
 
 /**
@@ -139,6 +144,42 @@ internal class TraceFacts(
             )
         }
     }
+}
+
+/**
+ * What one stage of the undo-all proof amounts to, for a `VAE_UNDO` line: counts, booleans and stable codes only. Nothing
+ * here can hold an item id, a title or a transcript: the phase and the result are checked against closed sets when the
+ * line is built, and the reason is the library's stable `UndoReason.value`.
+ *
+ * @property phase `counted` (the command ran), `undone`, `refused` or `partial` (anything else renders `invalid_token`).
+ * @property n the number the "Undo all (N)" control shows: the applied actions in the group.
+ * @property committed the changes the command committed.
+ * @property pending the held proposals shown apart from N.
+ * @property withheld whether the journal withheld "Undo all" for the group.
+ * @property partial whether the command ended as a partial completion.
+ * @property remaining the plan steps that never ran.
+ * @property result `UndoResult.code` once an undo was tried, else null.
+ * @property restored the actions an undo restored, or null.
+ * @property blockers the reasons an undo was refused, or null.
+ * @property reason the first `UndoReason.value` involved, or null.
+ * @property storeOk whether the store held what the stage expected, or null before an undo.
+ */
+internal class UndoFacts(
+    val phase: String,
+    val n: Int,
+    val committed: Int,
+    val pending: Int,
+    val withheld: Boolean,
+    val partial: Boolean,
+    val remaining: Int,
+    val result: String? = null,
+    val restored: Int? = null,
+    val blockers: Int? = null,
+    val reason: String? = null,
+    val storeOk: Boolean? = null,
+) {
+    /** Counts and words only. */
+    override fun toString(): String = "UndoFacts(phase=$phase, n=$n, result=$result)"
 }
 
 /**
@@ -364,6 +405,32 @@ internal class EvidenceLine private constructor(
                 "bypassed" to numOrNone(facts.bypassed),
                 "sel_turns" to numOrNone(facts.selTurns),
                 "codes" to list(facts.codes.map { it.value }),
+            ),
+        )
+
+        /**
+         * What one stage of the undo-all proof did: counts, booleans and stable codes only (see [UndoFacts]). [case] is
+         * the 1-based sub-case (1 the whole command, 2 the refusal, 3 the PlanThenExecute partial). Never loud: a failing
+         * leg says so in its verdict line.
+         */
+        fun undo(leg: LegId, case: Int, facts: UndoFacts): EvidenceLine = EvidenceLine(
+            "UNDO",
+            false,
+            listOf(
+                "leg" to leg.wire,
+                "case" to case.toString(),
+                "phase" to oneOf(facts.phase, UNDO_PHASES),
+                "n" to facts.n.toString(),
+                "committed" to facts.committed.toString(),
+                "pending" to facts.pending.toString(),
+                "withheld" to facts.withheld.toString(),
+                "partial" to facts.partial.toString(),
+                "remaining" to facts.remaining.toString(),
+                "result" to oneOfOrNone(facts.result, UNDO_RESULTS),
+                "restored" to numOrNone(facts.restored),
+                "blockers" to numOrNone(facts.blockers),
+                "reason" to tokenOrNone(facts.reason),
+                "store_ok" to (facts.storeOk?.toString() ?: NONE),
             ),
         )
 

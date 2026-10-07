@@ -42,6 +42,7 @@ private val WARN_COLOR = Color(0xFFB26A00)
 internal class SampleActions(
     val runLeg: (LegId) -> Unit,
     val chooseOption: (String) -> Unit,
+    val undoAll: () -> Unit,
     val changeKeyField: (ProviderId, String) -> Unit,
     val saveKey: (ProviderId) -> Unit,
     val deleteKey: (ProviderId) -> Unit,
@@ -86,6 +87,7 @@ internal fun SampleScreen(state: UiState, keyFields: Map<ProviderId, String>, ac
         Header(state)
         Keys(state, keyFields, actions)
         Legs(state, actions)
+        UndoControls(state, actions)
         Readout(state, actions)
     }
 }
@@ -162,6 +164,24 @@ private fun Legs(state: UiState, actions: SampleActions) {
                 Text(row.leg.wire)
             }
             Text(row.text, Modifier.testTag(UiTags.status(row.leg)), color = toneColor(row.tone))
+        }
+    }
+}
+
+// The "Undo all (N)" label and button; both exist only while the undo leg waits for its second press.
+@Composable
+private fun UndoControls(state: UiState, actions: SampleActions) {
+    val label = state.undoLabel ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(CONTROL_GAP)) {
+        Text(label, Modifier.testTag(UiTags.UNDO_LABEL), style = MaterialTheme.typography.titleMedium)
+        val note = state.undoNote
+        if (note != null) Text(note, color = WARN_COLOR)
+        Button(
+            onClick = actions.undoAll,
+            enabled = state.runEnabled,
+            modifier = Modifier.testTag(UiTags.UNDO_ALL),
+        ) {
+            Text("Undo all")
         }
     }
 }

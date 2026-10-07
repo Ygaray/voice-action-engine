@@ -19,6 +19,12 @@ internal object UiTags {
     const val FAILURE_BANNER = "failure_banner"
     const val CLARIFY_QUESTION = "clarify_question"
 
+    /** The "Undo all (N)" button, shown only while the undo leg waits for its second press. */
+    const val UNDO_ALL = "undo_all"
+
+    /** The text "Undo all (N)" that the button acts on. */
+    const val UNDO_LABEL = "undo_label"
+
     /** The button that starts [leg]. */
     fun run(leg: LegId): String = "run_" + leg.wire
 
@@ -53,6 +59,8 @@ internal object UiTags {
             READOUT,
             FAILURE_BANNER,
             CLARIFY_QUESTION,
+            UNDO_ALL,
+            UNDO_LABEL,
         ) + legs.flatMap { listOf(run(it), status(it)) } +
             providers.flatMap { listOf(keyState(it), keyField(it), keySave(it), keyDelete(it)) }
 }

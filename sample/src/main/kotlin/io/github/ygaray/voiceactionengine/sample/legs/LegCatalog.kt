@@ -62,6 +62,9 @@ internal enum class LegKind {
 
     /** A live router-chosen start tier: two eligible model tiers behind a grammar head, picked by the engine's router. */
     ROUTER,
+
+    /** The offline undo-all leg: a multi-action command counted, then undone, refused after a later edit, and a partial. */
+    UNDO_ALL,
 }
 
 /**
@@ -256,6 +259,23 @@ internal object LegCatalog {
         needsFixture = false,
     )
 
+    // Offline undo-all leg: no key, no budget, no network. The scripted provider answers a fixed plan per sub-case.
+    private val undoAll = LegSpec(
+        id = LegId.UNDO_ALL,
+        provider = DEMO_PROVIDER,
+        model = DEMO_MODEL,
+        kind = LegKind.UNDO_ALL,
+        prompts = listOf(UNDO_TRANSCRIPT_WHOLE),
+        forcedTool = null,
+        readTool = null,
+        requestedOptionals = emptySet(),
+        maxIterations = PLAN_ITERATIONS,
+        reservation = 0,
+        optional = false,
+        needsKey = false,
+        needsFixture = false,
+    )
+
     private val specs: Map<LegId, LegSpec> = listOf(
         ver02,
         smoke(LegId.SMOKE_ANTHROPIC, ProviderId.ANTHROPIC, HAIKU),
@@ -269,6 +289,7 @@ internal object LegCatalog {
         grammarOffline,
         planLive,
         routerLive,
+        undoAll,
     ).associateBy { it.id }
 
     /** The spec of [id]. */

@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.sample.evidence.BudgetSnapshot
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.evidence.TraceFacts
+import io.github.ygaray.voiceactionengine.sample.evidence.UndoFacts
 import io.github.ygaray.voiceactionengine.sample.evidence.fixtureBacked
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
@@ -70,6 +71,11 @@ class EvidenceLineTest {
                 matchedLang = "en",
                 codes = listOf(TraceCode.TIER_SKIPPED_POLICY),
             ),
+        ),
+        EvidenceLine.undo(
+            LegId.UNDO_ALL,
+            1,
+            UndoFacts(phase = "counted", n = 3, committed = 3, pending = 0, withheld = false, partial = false, remaining = 0),
         ),
     )
 
@@ -197,6 +203,32 @@ class EvidenceLineTest {
     }
 
     @Test
+    fun anUndoLineCarriesOnlyCountsBooleansAndStableCodes() {
+        // Would-be field values that fit the token alphabet: a phase word, an item id, a title and a result word.
+        val facts = UndoFacts(
+            phase = "item-1",
+            n = 3,
+            committed = 3,
+            pending = 1,
+            withheld = false,
+            partial = true,
+            remaining = 1,
+            result = "seeded-title",
+            restored = 2,
+            blockers = 1,
+            reason = "changed_since",
+            storeOk = true,
+        )
+        val text = EvidenceLine.undo(LegId.UNDO_ALL, 3, facts).render()
+        for (leaked in listOf("item-1", "seeded-title")) assertFalse(text, text.contains(leaked))
+        assertTrue(text, text.contains(" phase=invalid_token n=3 committed=3 pending=1 withheld=false partial=true remaining=1 "))
+        assertTrue(text, text.endsWith(" result=invalid_token restored=2 blockers=1 reason=changed_since store_ok=true"))
+        assertTrue(text, allow.matches(text))
+        assertFalse(EvidenceLine.undo(LegId.UNDO_ALL, 1, facts).loud)
+        assertFalse(LegId.UNDO_ALL.fixtureBacked)
+    }
+
+    @Test
     fun aTraceLineIsNeverLoudAndNeverFixtureRedacted() {
         val facts = TraceFacts("unhandled", true, 1, 0, 0, 0, null)
         val line = EvidenceLine.trace(LegId.GRAMMAR_OFFLINE, 1, facts)
@@ -206,12 +238,12 @@ class EvidenceLineTest {
     }
 
     @Test
-    fun theLegVocabularyIsTheTwelveWireStrings() {
+    fun theLegVocabularyIsTheThirteenWireStrings() {
         assertEquals(
             listOf(
                 "ver02", "smoke_anthropic", "smoke_openai", "smoke_openrouter", "multi_openai",
                 "multi_openrouter", "responses_probe", "demo_clarify", "demo_partial", "grammar_offline",
-                "plan_live", "router_live",
+                "plan_live", "router_live", "undo_all",
             ),
             LegId.values().map { it.wire },
         )
@@ -220,7 +252,7 @@ class EvidenceLineTest {
     @Test
     fun everyRenderedLineMatchesTheAllowPattern() {
         val lines = oneOfEach()
-        assertEquals(13, lines.size)
+        assertEquals(14, lines.size)
         for (line in lines) {
             val text = line.render()
             assertTrue(text, allow.matches(text))
@@ -231,6 +263,6 @@ class EvidenceLineTest {
     fun theGoldenFileIsCurrent() {
         val expected = golden()
         assertEquals(oneOfEach().map { it.render() }, expected)
-        assertEquals(12, expected.map { it.substringBefore(' ') }.toSet().size)
+        assertEquals(13, expected.map { it.substringBefore(' ') }.toSet().size)
     }
 }

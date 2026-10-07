@@ -13,7 +13,7 @@
 set -uo pipefail
 export LC_ALL=C
 
-ALLOW_RE='^VAE_(ENV|FIXTURE|KEY|TURN|ATTEMPT|CACHE|SMOKE|OUTCOME|VERDICT|BUDGET|AUTORUN|TRACE)( [a-z0-9_]+=[][A-Za-z0-9_.:/,-]{0,96})+$'
+ALLOW_RE='^VAE_(ENV|FIXTURE|KEY|TURN|ATTEMPT|CACHE|SMOKE|OUTCOME|VERDICT|BUDGET|AUTORUN|TRACE|UNDO)( [a-z0-9_]+=[][A-Za-z0-9_.:/,-]{0,96})+$'
 # Key shapes and credential header words, assembled from fragments so no key-shaped literal sits in this file.
 KEY_RE="(^|[^A-Za-z0-9])(s""k-(ant|or|proj)-|s""k-[A-Za-z0-9_-]{20})|bearer|x-api-key|authorization"
 

@@ -11,3 +11,4 @@ VAE_VERDICT leg=ver02 verdict=PASS turn1_write=7016 min_read=7016 calls=2 key_ch
 VAE_BUDGET core=14 optional=0 anthropic=3 openai=5 openrouter=6 est_usd=0.01234
 VAE_AUTORUN leg=ver02
 VAE_TRACE leg=grammar_offline case=1 kind=completed capped=none tiers_run=1 provider_turns=0 attempts=0 tripwire_calls=0 matched_lang=en sel=none eligible=none picked_index=none first_model_index=none bypassed=none sel_turns=none codes=[tier_skipped_policy]
+VAE_UNDO leg=undo_all case=1 phase=counted n=3 committed=3 pending=0 withheld=false partial=false remaining=0 result=none restored=none blockers=none reason=none store_ok=none

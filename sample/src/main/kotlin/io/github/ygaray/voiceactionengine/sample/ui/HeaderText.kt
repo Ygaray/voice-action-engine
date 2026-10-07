@@ -18,6 +18,12 @@ internal class ToneText(val text: String, val tone: Tone) {
 
 /** The header, keys and import texts of the screen as pure functions, so the wording is testable and in one place. */
 internal object HeaderText {
+    /** The undo control's label: the applied actions of the command, as the journal counts them. */
+    fun undoLabel(n: Int): String = "Undo all ($n)"
+
+    /** The note shown apart from the label when held proposals exist; they are not part of N. Null when there are none. */
+    fun undoPending(pending: Int): String? = if (pending > 0) "$pending held, not counted" else null
+
     /**
      * The fixture banner: green with the 8-hex digest prefix (never the suffix: LE-7), tool count and source when it
      * loaded; red and specific for every other state. A fixture that is not usable must be impossible to miss.
