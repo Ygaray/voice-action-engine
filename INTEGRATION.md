@@ -92,7 +92,9 @@ Sample: `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/tools/
 
 The ladder is the order of your `tier(...)` calls: the first tier added runs first and a tier hands the command up
 only by returning an escalation. Tier ids (`StrategyId`) must be unique. By default a command starts at the first tier
-that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named tier.
+that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named tier. Tiers run in the order they are
+added, and the zero-call grammar head (the tiers at the head of the ladder that make no model call) always runs first
+under `Linear`, `Custom` and `Router`; `Fixed(id)` is the exception, because it starts exactly at its tier.
 
 ### Choosing where the model walk starts
 
@@ -261,6 +263,95 @@ fun buildLadder(
 
 Sample: `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/SampleEngine.kt` (the one composition root)
 and `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/tools/CannedToolExecutor.kt`.
+
+### The grammar tier (free, offline)
+
+`LocalGrammarStrategy` answers a spoken command from phrasings you declare, with no provider call. It declares no
+provider, so it costs nothing, needs no key and no network, and runs under `offlineOnly` and under any provider policy.
+It is the zero-call head described above: put it first. Its changes still go through the gate like every other tier's.
+
+- **Phrasings per intent.** A `GrammarPack` holds one `intent(toolName)` per tool, with its English phrasings in `en(...)`
+  and its Spanish ones in `es(...)`. A phrasing is a template of words: plain words matched one for one, `[optional
+  words]`, `(this|that)` groups, `<name>` sub-rules declared with `enRule` or `esRule`, and `{slot}`s. There is no regular
+  expression. Case, vowel accents, apostrophes and punctuation at the edges of a word do not matter (`ñ` does), and a
+  phrasing needs at least one literal word on every path. A mistake in the declarations throws when the pack is built,
+  never while a command is matched.
+- **Slots.** Declare each slot once per intent with `text(name, maxWords)`, `integer(name, min, max)`,
+  `decimal(name, min, max)` or `choice(name) { option(id) { en(...); es(...) } }`. The one declaration serves the English
+  and the Spanish phrasing, so both languages bind the same typed arguments. A slot written only inside `[ ]` is
+  optional. `normalize(slot) { words, language -> value }` lets you replace a `text` or `choice` value with your own
+  canonical one: answering null or blank rejects the match, and so does a hook that throws.
+- **The tier never guesses.** The whole transcript must equal one phrasing (apart from the fillers you declare with
+  `enFillers` and `esFillers`): never a prefix, never a part of a longer sentence. An ambiguous reading, a language label
+  that is not `en` or `es`, a rejected slot and a transcript too long to match all hand the command on with the carry
+  cleared, so the next tier starts fresh with the original transcript. A null label tries both packs, which must agree;
+  `tryOtherLanguage` makes a labeled command try the other pack as well.
+- **Which language matched.** `Extraction.matchedLanguage` is `"en"` or `"es"` for a grammar match. It is null after a
+  model tier and when both packs agreed on a command that has no label, so fall back to your own locale when it is null.
+  The resolver in the block below does that.
+- **Terminal intents.** `terminal()` marks an intent that writes nothing, such as navigation or a question. On a match
+  the tier ends handled with a `terminalCall` that carries the tool name and the slot values, with no resolver, no gate
+  and no recorded action. A pack whose intents are all terminal needs no resolver.
+- **Offline.** Under `offlineOnly` a command the grammar does not match ends `Unhandled` with `cappedByPolicy` true,
+  because no model tier may run. Render that as a plain "not understood", not as a provider failure.
+- **Why a command was handed on.** The trace codes `grammar_ambiguous`, `grammar_input_too_long`,
+  `grammar_language_unsupported`, `grammar_normalize_error`, `grammar_resolver_rejected` and `grammar_slot_rejected` in
+  `outcome.trace.codes` say why.
+- **Test your phrasings alone.** `GrammarPack.match(transcript, language)` is pure: it returns a `GrammarMatch` (the tool
+  name, the arguments, `matchedLanguage`, `terminal`, and a `ruleId` that is opaque, so do not parse it) or null. Run it
+  over a corpus of what people say, in a plain unit test.
+
+The block needs these imports on top of the ones the earlier blocks use:
+
+```text
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarPack
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.LocalGrammarStrategy
+```
+
+<!-- doc-snippet: grammar-tier -->
+```kotlin
+// The phrasings you declare, per tool. {title} is a slot of up to four words, [please] is optional and (add|put) is a
+// choice. The one slot serves both languages, and no regular expression is involved.
+fun myGrammarPack(): GrammarPack = GrammarPack {
+    intent("create_item") {
+        text("title", 4)
+        en("[please] (add|put) {title} (to|on) my list")
+        es("[por favor] (agrega|pon) {title} (a|en) mi lista")
+    }
+}
+
+// matchedLanguage is "en" or "es" for a grammar match and null after a model tier, so keep your own locale as the
+// fallback. Only the language is kept here, never the words.
+class MyGrammarResolver(private val items: MutableList<String>, private val locale: String) : OutcomeResolver {
+    val spoken: MutableList<String> = mutableListOf()
+
+    override suspend fun resolve(extraction: Extraction, input: CommandInput): Resolution {
+        spoken.add(extraction.matchedLanguage ?: locale)
+        return MyResolver(items).resolve(extraction, input)
+    }
+}
+
+// The grammar tier costs nothing and calls no provider: a command it does not match is handed on unchanged.
+fun grammarTier(grammarResolver: OutcomeResolver): CommandStrategy =
+    LocalGrammarStrategy(StrategyId("grammar")) {
+        pack = myGrammarPack()
+        resolver = grammarResolver
+    }
+
+// Put it first. A command it matches ends there; every other command reaches the model tiers as if it had not run.
+fun grammarLadder(
+    aiProvider: AiProvider,
+    credentialSource: CredentialSource,
+    approval: PreApplyGate,
+    items: MutableList<String>,
+    grammarResolver: OutcomeResolver,
+): CommandPipeline = buildPipeline(
+    listOf(grammarTier(grammarResolver), singleShotTier(items)),
+    aiProvider,
+    credentialSource,
+    approval,
+)
+```
 
 ## 6. The write path
 

@@ -54,6 +54,8 @@ import io.github.ygaray.voiceactionengine.core.strategy.ToolingSnapshot
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnContext
 import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
 import io.github.ygaray.voiceactionengine.core.strategy.agentic.AgenticLoopStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarPack
+import io.github.ygaray.voiceactionengine.core.strategy.grammar.LocalGrammarStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
@@ -548,6 +550,50 @@ class UndoCommitSink(private val journal: UndoJournal) : CommitSink {
 }
 // doc-snippet:end undo-bridge
 
+// doc-snippet:start grammar-tier
+// The phrasings you declare, per tool. {title} is a slot of up to four words, [please] is optional and (add|put) is a
+// choice. The one slot serves both languages, and no regular expression is involved.
+fun myGrammarPack(): GrammarPack = GrammarPack {
+    intent("create_item") {
+        text("title", 4)
+        en("[please] (add|put) {title} (to|on) my list")
+        es("[por favor] (agrega|pon) {title} (a|en) mi lista")
+    }
+}
+
+// matchedLanguage is "en" or "es" for a grammar match and null after a model tier, so keep your own locale as the
+// fallback. Only the language is kept here, never the words.
+class MyGrammarResolver(private val items: MutableList<String>, private val locale: String) : OutcomeResolver {
+    val spoken: MutableList<String> = mutableListOf()
+
+    override suspend fun resolve(extraction: Extraction, input: CommandInput): Resolution {
+        spoken.add(extraction.matchedLanguage ?: locale)
+        return MyResolver(items).resolve(extraction, input)
+    }
+}
+
+// The grammar tier costs nothing and calls no provider: a command it does not match is handed on unchanged.
+fun grammarTier(grammarResolver: OutcomeResolver): CommandStrategy =
+    LocalGrammarStrategy(StrategyId("grammar")) {
+        pack = myGrammarPack()
+        resolver = grammarResolver
+    }
+
+// Put it first. A command it matches ends there; every other command reaches the model tiers as if it had not run.
+fun grammarLadder(
+    aiProvider: AiProvider,
+    credentialSource: CredentialSource,
+    approval: PreApplyGate,
+    items: MutableList<String>,
+    grammarResolver: OutcomeResolver,
+): CommandPipeline = buildPipeline(
+    listOf(grammarTier(grammarResolver), singleShotTier(items)),
+    aiProvider,
+    credentialSource,
+    approval,
+)
+// doc-snippet:end grammar-tier
+
 private val NO_KEYS = CredentialSource { CredentialLookup.Missing() }
 
 private fun titleArgs(title: String): JsonObject = buildJsonObject { put("title", title) }
@@ -825,6 +871,62 @@ class DocSnippetsTest {
             val table = registered.capabilityTable
             assertEquals(false, table.lookup(ProviderId.ANTHROPIC, "claude-opus-5-5-20261001").supportsForcedToolChoice)
             assertEquals(true, table.lookup(ProviderId.ANTHROPIC, "claude-haiku-4-5").supportsForcedToolChoice)
+        }
+    }
+
+    @Test
+    fun theGrammarTierAnswersBothLanguagesWithoutAProviderCall() = runTest {
+        NoNetworkGuard.during {
+            val items = mutableListOf<String>()
+            val provider = MyScriptedProvider(emptyList())
+            val resolver = MyGrammarResolver(items, "en")
+            val pipeline = grammarLadder(provider, NO_KEYS, MyAdmitAll, items, resolver)
+
+            val english = pipeline.execute(CommandInput("please add buy paper to my list", "en"))
+            val spanish = pipeline.execute(CommandInput("por favor pon comprar papel en mi lista", "es"))
+
+            assertTrue(english.toString(), english is CommandOutcome.Completed)
+            assertTrue(spanish.toString(), spanish is CommandOutcome.Completed)
+            assertEquals(listOf("buy paper", "comprar papel"), items)
+            assertEquals(listOf("en", "es"), resolver.spoken)
+            assertEquals(emptyList<ProviderRequest>(), provider.requests)
+            assertEquals(listOf("grammar"), english.trace.attempts.map { it.strategy.value })
+            assertEquals(0L, english.trace.usage.total)
+            assertEquals(0L, spanish.trace.usage.total)
+        }
+    }
+
+    @Test
+    fun aGrammarNearMissIsNullAndAnOfflineCommandIsCappedByPolicy() = runTest {
+        NoNetworkGuard.during {
+            val items = mutableListOf<String>()
+            val pack = myGrammarPack()
+
+            assertEquals("en", pack.match("please add buy paper to my list", "en")?.matchedLanguage)
+            assertEquals("es", pack.match("agrega comprar papel a mi lista", "es")?.matchedLanguage)
+            assertEquals(
+                "buy paper",
+                (pack.match("add buy paper to my list", "en")?.arguments?.get("title") as? JsonPrimitive)?.contentOrNull,
+            )
+            assertNotNull(pack.match("add buy paper to my list", null))
+            assertNull(pack.match("add buy paper to my list right now", "en"))
+            assertNull(pack.match("add buy paper to my list", "fr"))
+
+            val provider = MyScriptedProvider(emptyList())
+            val pipeline = buildPipeline(
+                listOf(grammarTier(MyGrammarResolver(items, "en")), singleShotTier(items)),
+                provider,
+                NO_KEYS,
+                MyAdmitAll,
+                configure = { policy = TierPolicySource.fixed(TierPolicy { offlineOnly = true }) },
+            )
+
+            val missed = pipeline.execute(CommandInput("add buy paper to my list right now", "en"))
+
+            assertTrue(missed.toString(), missed is CommandOutcome.Unhandled)
+            assertTrue(missed.toString(), (missed as CommandOutcome.Unhandled).cappedByPolicy)
+            assertTrue(items.isEmpty())
+            assertEquals(emptyList<ProviderRequest>(), provider.requests)
         }
     }
 
