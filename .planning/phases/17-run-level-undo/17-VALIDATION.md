@@ -2,9 +2,9 @@
 phase: "17"
 slug: "run-level-undo"
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-06"
 ---
 
@@ -39,10 +39,10 @@ created: "2026-10-06"
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 17-XX-XX | — | — | UNDO-01 | — | no dependency beyond stdlib; standalone JVM app journals/undoes | unit + gate | `:undo:test --tests '*UndoStandaloneTest*'`, `:undo:verifyUndoZeroDeps :undo:verifyModuleGraph` | ❌ W0 | ⬜ pending |
-| 17-XX-XX | — | — | UNDO-02 | — | adapter round trip; compensators after DB restore | unit | `:undo:test --tests '*AdapterRoundTrip*' --tests '*Compensator*'` | ❌ W0 | ⬜ pending |
-| 17-XX-XX | — | — | UNDO-03 | T-17 refuse-loudly | edit-since → Refused, store untouched; Partial exact lists; withheld never N-1; redaction | unit | `:undo:test --tests '*RefuseLoudly*' --tests '*Partial*' --tests '*Withheld*' --tests '*Redaction*'` | ❌ W0 | ⬜ pending |
-| 17-XX-XX | — | — | UNDO-04 | — | heldRunId + compositeSink isolation; end-to-end through real pipeline | unit | `:core:test --tests '*HeldRunId*' --tests '*CompositeSink*'`; `:sample:testDebugUnitTest --tests '*UndoEndToEnd*'` | ❌ W0 | ⬜ pending |
+| 17-XX-XX | — | — | UNDO-01 | — | no dependency beyond stdlib; standalone JVM app journals/undoes | unit + gate | `:undo:test --tests '*UndoStandaloneTest*'`, `:undo:verifyUndoZeroDeps :undo:verifyModuleGraph` | ✅ | ✅ green |
+| 17-XX-XX | — | — | UNDO-02 | — | adapter round trip; compensators after DB restore | unit | `:undo:test --tests '*AdapterRoundTrip*' --tests '*Compensator*'` | ✅ | ✅ green |
+| 17-XX-XX | — | — | UNDO-03 | T-17 refuse-loudly | edit-since → Refused, store untouched; Partial exact lists; withheld never N-1; redaction | unit | `:undo:test --tests '*RefuseLoudly*' --tests '*Partial*' --tests '*Withheld*' --tests '*Redaction*'` | ✅ | ✅ green |
+| 17-XX-XX | — | — | UNDO-04 | — | heldRunId + compositeSink isolation; end-to-end through real pipeline | unit | `:core:test --tests '*HeldRunId*' --tests '*CompositeSink*'`; `:sample:testDebugUnitTest --tests '*UndoEndToEnd*'` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,11 +50,11 @@ created: "2026-10-06"
 
 ## Wave 0 Requirements
 
-- [ ] `undo/` module scaffold (`build.gradle.kts`, header-only `api.txt` seed, test helper, in-memory fake store)
-- [ ] `scripts/modules.list`, `scripts/lib/modules.sh`, `scripts/verify-module-manifest.sh` + planted-module control
-- [ ] `verifyUndoZeroDeps` + negative controls
-- [ ] `core` tests: `HeldRunIdTest`, `CompositeSinkTest`
-- [ ] `sample`: `UndoEndToEndTest`, bridge region + docs parity test
+- [x] `undo/` module scaffold (`build.gradle.kts`, header-only `api.txt` seed, test helper, in-memory fake store)
+- [x] `scripts/modules.list`, `scripts/lib/modules.sh`, `scripts/verify-module-manifest.sh` + planted-module control
+- [x] `verifyUndoZeroDeps` + negative controls
+- [x] `core` tests: `HeldRunIdTest`, `CompositeSinkTest`
+- [x] `sample`: `UndoEndToEndTest`, bridge region + docs parity test
 
 ---
 
@@ -62,7 +62,7 @@ created: "2026-10-06"
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Clean-cache `:undoalone` consumer probe (`jitpack-dry-run.sh`) and `verify-negative-controls.sh` | UNDO-01 | heavy; host memory (earlyoom) needs a quiet window | run in a quiet window after all waves land |
+| Clean-cache `:undoalone` consumer probe (`jitpack-dry-run.sh`) and `verify-negative-controls.sh` | UNDO-01 | heavy; host memory (earlyoom) needs a quiet window | DONE in the 17-10 relayed quiet window (negative-control failures 0, API DUMP PROOF OK, DRY RUN OK / PROBE OK; see 17-QUIET-WINDOW.md). A re-run of the dry run and live probe on the final tree (post-window script edits) is a deferred obligation owned by Phase 19's gate run (17-VERIFICATION.md). |
 
 ---
 
@@ -71,11 +71,18 @@ created: "2026-10-06"
 > **Plan-time state is a DRAFT.** Leave frontmatter `status: draft` and `nyquist_compliant: false`.
 > These are finalized ONLY post-execution by the Nyquist finalizer.
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 300s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` — leave `false` at plan time
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 300s
+- [x] _(finalizer-only, post-execution)_ `nyquist_compliant: true`
 
-**Approval:** pending — finalizer-owned, not set at plan time
+**Approval:** 2026-10-07 finalized. Audit: 0 gaps found. Every requirement (UNDO-01..04) maps to named, passing tests; post-fix fresh runs: `:undo` 113, `:core` 1110, `:sample` 160 tests, 0 failures/errors/skipped (JUnit XML, Gate-1 run), `:undo:detekt`/`verifyUndoZeroDeps`/`verifyModuleGraph`/`metalavaCheckCompatibility` green, full `./gradlew check` green, heavy gates green in the 17-10 quiet window. No tests added by the finalizer.
+
+## Validation Audit 2026-10-07
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
