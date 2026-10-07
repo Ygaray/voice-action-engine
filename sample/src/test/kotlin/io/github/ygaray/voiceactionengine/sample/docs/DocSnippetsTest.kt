@@ -86,8 +86,10 @@ import io.github.ygaray.voiceactionengine.sample.undo.CreateItem
 import io.github.ygaray.voiceactionengine.sample.undo.ItemAdapter
 import io.github.ygaray.voiceactionengine.sample.undo.ItemStore
 import io.github.ygaray.voiceactionengine.sample.undo.RenameItem
+import io.github.ygaray.voiceactionengine.undo.EntityAdapter
 import io.github.ygaray.voiceactionengine.undo.EntryRef
 import io.github.ygaray.voiceactionengine.undo.UndoJournal
+import io.github.ygaray.voiceactionengine.undo.UndoReason
 import io.github.ygaray.voiceactionengine.undo.UndoResult
 import io.github.ygaray.voiceactionengine.undo.UndoTicket
 import kotlinx.coroutines.CoroutineScope
@@ -710,6 +712,117 @@ fun pickSummary(outcome: CommandOutcome): String {
 }
 // doc-snippet:end router-selector
 
+// doc-snippet:start undo-wiring
+class MyItem(val id: String, val title: String, val version: Int)
+
+// Stands in for your database. Every write takes a new version, which the adapter reports as the fingerprint.
+class MyItemStore {
+    private val items = LinkedHashMap<String, MyItem>()
+    private var created = 0
+    private var versions = 0
+
+    fun get(id: String): MyItem? = items[id]
+
+    fun titles(): List<String> = items.values.map { it.title }
+
+    fun add(title: String): MyItem = MyItem("item-${++created}", title, ++versions).also { items[it.id] = it }
+
+    fun rename(id: String, title: String) {
+        if (items.containsKey(id)) items[id] = MyItem(id, title, ++versions)
+    }
+
+    // Do the check and the write in one transaction of yours. A null snapshot deletes the item.
+    fun restoreIf(id: String, expected: String?, snapshot: MyItem?): Boolean {
+        if (items[id]?.version?.toString() != expected) return false
+        if (snapshot == null) items.remove(id) else items[id] = snapshot
+        return true
+    }
+}
+
+class MyItemAdapter(private val store: MyItemStore) : EntityAdapter {
+    override val entityType: String = "item"
+
+    override suspend fun read(id: String): Any? = store.get(id)
+
+    override suspend fun fingerprint(id: String): String? = store.get(id)?.version?.toString()
+
+    override suspend fun restoreIf(id: String, expectedFingerprint: String?, snapshot: Any?): Boolean =
+        store.restoreIf(id, expectedFingerprint, snapshot as MyItem?)
+}
+
+// The ticket is the mutation's context: the bridge hands it to the journal when the action is recorded.
+class MyAddItem(
+    private val store: MyItemStore,
+    private val ticket: UndoTicket,
+    private val title: String,
+) : PendingMutation {
+    override val toolName: String = "create_item"
+    override val context: UndoTicket = ticket
+
+    override suspend fun apply(): StepResult {
+        val item = store.add(title)
+        ticket.created("item", item.id)
+        return StepResult("""{"status":"created"}""")
+    }
+}
+
+class MyRenameItem(
+    private val store: MyItemStore,
+    private val ticket: UndoTicket,
+    private val id: String,
+    private val title: String,
+) : PendingMutation {
+    override val toolName: String = "rename_item"
+    override val context: UndoTicket = ticket
+
+    override suspend fun apply(): StepResult {
+        if (store.get(id) == null) {
+            ticket.nothingWritten()
+            return StepResult("""{"status":"not_found"}""", true)
+        }
+        ticket.capture("item", id)
+        store.rename(id, title)
+        ticket.settle("item", id)
+        return StepResult("""{"status":"renamed"}""")
+    }
+}
+
+fun myJournal(store: MyItemStore): UndoJournal = UndoJournal { adapter(MyItemAdapter(store)) }
+
+// One ticket per mutation: build the steps in your ToolExecutor, so every change the engine applies has its own.
+fun addItemStep(journal: UndoJournal, store: MyItemStore, title: String): ToolStep =
+    ToolStep.Mutation(MyAddItem(store, journal.newTicket(), title))
+
+fun renameItemStep(journal: UndoJournal, store: MyItemStore, id: String, title: String): ToolStep =
+    ToolStep.Mutation(MyRenameItem(store, journal.newTicket(), id, title))
+
+// The journal's sink goes FIRST, so it already holds an action when your own sink reacts to it.
+fun PipelineBuilder.undoWiring(journal: UndoJournal, appSink: CommitSink): UndoCommitSink {
+    val bridge = UndoCommitSink(journal)
+    commitSink = compositeSink(bridge, appSink)
+    return bridge
+}
+
+// N is journal.group(key)?.count. A withheld group means the journal missed an action, so offer nothing.
+suspend fun undoLabel(journal: UndoJournal, groupKey: String): String? {
+    val group = journal.group(groupKey) ?: return null
+    return if (group.withheld || group.count == 0) null else "Undo all (${group.count})"
+}
+
+// UndoResult is closed, so the outer when has no else. UndoReason is open, so the inner one keeps an else.
+suspend fun undoAllStatus(journal: UndoJournal, groupKey: String): String =
+    when (val result = journal.undoAll(groupKey)) {
+        is UndoResult.Complete -> "Undone (${result.restored.size})"
+        is UndoResult.Refused -> when (val reason = result.blockers.first().reason) {
+            UndoReason.CHANGED_SINCE -> "Not undone: something changed since"
+            UndoReason.IN_PROGRESS -> "An undo is already running"
+            else -> "Not undone (${reason.value})"
+        }
+        is UndoResult.Partial -> "Some changes could not be restored (${result.notRestored.size})"
+        is UndoResult.AlreadyUndone -> "Nothing to undo"
+    }
+// doc-snippet:end undo-wiring
+
 private val NO_KEYS = CredentialSource { CredentialLookup.Missing() }
 
 private fun titleArgs(title: String): JsonObject = buildJsonObject { put("title", title) }
@@ -1166,6 +1279,64 @@ class DocSnippetsTest {
             assertEquals("agentic", ran.last())
             // The router asked for the small model; the tier that ran asked for its own.
             assertEquals(listOf("my-small-model", "my-model"), provider.requests.map { it.model })
+        }
+    }
+
+    @Test
+    fun theUndoWiringRegionCountsOneCommandAndUndoAllRestoresTheStore() = runTest {
+        NoNetworkGuard.during {
+            val store = MyItemStore()
+            val seed = store.add("buy paper")
+            val before = store.titles()
+            val journal = myJournal(store)
+            val recording = RecordingCommitSink()
+            val pipeline = commandPipeline {
+                tier(
+                    ScriptedStrategy(StrategyId("tier"), { _, session ->
+                        session.submit(addItemStep(journal, store, "buy pens"))
+                        session.submit(renameItemStep(journal, store, seed.id, "buy more paper"))
+                        StrategyOutcome.Completed("done")
+                    }),
+                )
+                gate = ScriptedGate.admitAll()
+                undoWiring(journal, recording)
+                runIds = { "run-1" }
+            }
+
+            pipeline.execute(CommandInput("add pens and rename the paper"))
+
+            assertEquals(listOf("buy more paper", "buy pens"), store.titles())
+            assertEquals("Undo all (2)", undoLabel(journal, "run-1"))
+            assertNull(undoLabel(journal, "no-such-run"))
+            assertEquals("Undone (2)", undoAllStatus(journal, "run-1"))
+            assertEquals(before, store.titles())
+            assertEquals("Nothing to undo", undoAllStatus(journal, "run-1"))
+            assertEquals(2, recording.actions.size)
+        }
+    }
+
+    @Test
+    fun theUndoWiringRegionRefusesWhenTheItemChangedSinceTheCommand() = runTest {
+        NoNetworkGuard.during {
+            val store = MyItemStore()
+            val seed = store.add("buy paper")
+            val journal = myJournal(store)
+            val pipeline = commandPipeline {
+                tier(
+                    ScriptedStrategy(StrategyId("tier"), { _, session ->
+                        session.submit(renameItemStep(journal, store, seed.id, "buy more paper"))
+                        StrategyOutcome.Completed("done")
+                    }),
+                )
+                gate = ScriptedGate.admitAll()
+                undoWiring(journal, RecordingCommitSink())
+                runIds = { "run-1" }
+            }
+            pipeline.execute(CommandInput("rename the paper"))
+            store.rename(seed.id, "edited elsewhere")
+
+            assertEquals("Not undone: something changed since", undoAllStatus(journal, "run-1"))
+            assertEquals(listOf("edited elsewhere"), store.titles())
         }
     }
 

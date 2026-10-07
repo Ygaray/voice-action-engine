@@ -35,6 +35,7 @@ a commit SHA directly):
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-core:<version>")
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-providers:<version>")
 implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:<version>")
+implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-undo:<version>")
 ```
 
 - `core` is pure Kotlin: the pipeline, the strategies, the seams and the neutral types. It has no HTTP dependency.
@@ -45,6 +46,8 @@ implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keysto
 - `keystore` is an Android library (AAR, minSdk 35) that stores a bring-your-own API key encrypted with a device key.
   Add it only in an Android app, and skip it if you keep keys elsewhere. It exposes `androidx.datastore:datastore-preferences` as an `api` dependency (the store takes
   your `DataStore<Preferences>`), so step 7 needs no extra dependency line in the app.
+- `undo` (optional) is pure Kotlin with no dependency at all, not even `core`: an undo journal that puts a whole command
+  back with one call (section 11). Add it only in an app that offers "Undo all".
 - `voice-adapter` (optional) is an Android library (AAR, minSdk 35) that turns one final `:stt` segment into a
   `CommandInput`; its coordinate is `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>`.
   Add it only in an app that captures speech with `:stt`, and add `:stt` yourself; see section 12.
@@ -1076,6 +1079,132 @@ class UndoCommitSink(private val journal: UndoJournal) : CommitSink {
 Wire it as `commitSink = compositeSink(UndoCommitSink(journal), yourSink)`, with the journal first so your own sink sees an
 up-to-date count when it reacts. The reference wiring is
 `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/undo/UndoCommitSink.kt`.
+
+**All of it together.** The block below is the whole wiring over a tiny in-memory store: the entity adapter, two
+mutations that carry a ticket from the journal as their context, the journal built with that adapter, the pipeline's
+sink with the journal first, the label for the control (N from `journal.group(key)?.count`) and the status text for a
+press of "Undo all". It uses `UndoCommitSink` from the bridge block above, and it needs these imports on top of the ones
+the earlier blocks use:
+
+```text
+import io.github.ygaray.voiceactionengine.undo.EntityAdapter
+import io.github.ygaray.voiceactionengine.undo.UndoJournal
+import io.github.ygaray.voiceactionengine.undo.UndoReason
+import io.github.ygaray.voiceactionengine.undo.UndoResult
+import io.github.ygaray.voiceactionengine.undo.UndoTicket
+```
+
+<!-- doc-snippet: undo-wiring -->
+```kotlin
+class MyItem(val id: String, val title: String, val version: Int)
+
+// Stands in for your database. Every write takes a new version, which the adapter reports as the fingerprint.
+class MyItemStore {
+    private val items = LinkedHashMap<String, MyItem>()
+    private var created = 0
+    private var versions = 0
+
+    fun get(id: String): MyItem? = items[id]
+
+    fun titles(): List<String> = items.values.map { it.title }
+
+    fun add(title: String): MyItem = MyItem("item-${++created}", title, ++versions).also { items[it.id] = it }
+
+    fun rename(id: String, title: String) {
+        if (items.containsKey(id)) items[id] = MyItem(id, title, ++versions)
+    }
+
+    // Do the check and the write in one transaction of yours. A null snapshot deletes the item.
+    fun restoreIf(id: String, expected: String?, snapshot: MyItem?): Boolean {
+        if (items[id]?.version?.toString() != expected) return false
+        if (snapshot == null) items.remove(id) else items[id] = snapshot
+        return true
+    }
+}
+
+class MyItemAdapter(private val store: MyItemStore) : EntityAdapter {
+    override val entityType: String = "item"
+
+    override suspend fun read(id: String): Any? = store.get(id)
+
+    override suspend fun fingerprint(id: String): String? = store.get(id)?.version?.toString()
+
+    override suspend fun restoreIf(id: String, expectedFingerprint: String?, snapshot: Any?): Boolean =
+        store.restoreIf(id, expectedFingerprint, snapshot as MyItem?)
+}
+
+// The ticket is the mutation's context: the bridge hands it to the journal when the action is recorded.
+class MyAddItem(
+    private val store: MyItemStore,
+    private val ticket: UndoTicket,
+    private val title: String,
+) : PendingMutation {
+    override val toolName: String = "create_item"
+    override val context: UndoTicket = ticket
+
+    override suspend fun apply(): StepResult {
+        val item = store.add(title)
+        ticket.created("item", item.id)
+        return StepResult("""{"status":"created"}""")
+    }
+}
+
+class MyRenameItem(
+    private val store: MyItemStore,
+    private val ticket: UndoTicket,
+    private val id: String,
+    private val title: String,
+) : PendingMutation {
+    override val toolName: String = "rename_item"
+    override val context: UndoTicket = ticket
+
+    override suspend fun apply(): StepResult {
+        if (store.get(id) == null) {
+            ticket.nothingWritten()
+            return StepResult("""{"status":"not_found"}""", true)
+        }
+        ticket.capture("item", id)
+        store.rename(id, title)
+        ticket.settle("item", id)
+        return StepResult("""{"status":"renamed"}""")
+    }
+}
+
+fun myJournal(store: MyItemStore): UndoJournal = UndoJournal { adapter(MyItemAdapter(store)) }
+
+// One ticket per mutation: build the steps in your ToolExecutor, so every change the engine applies has its own.
+fun addItemStep(journal: UndoJournal, store: MyItemStore, title: String): ToolStep =
+    ToolStep.Mutation(MyAddItem(store, journal.newTicket(), title))
+
+fun renameItemStep(journal: UndoJournal, store: MyItemStore, id: String, title: String): ToolStep =
+    ToolStep.Mutation(MyRenameItem(store, journal.newTicket(), id, title))
+
+// The journal's sink goes FIRST, so it already holds an action when your own sink reacts to it.
+fun PipelineBuilder.undoWiring(journal: UndoJournal, appSink: CommitSink): UndoCommitSink {
+    val bridge = UndoCommitSink(journal)
+    commitSink = compositeSink(bridge, appSink)
+    return bridge
+}
+
+// N is journal.group(key)?.count. A withheld group means the journal missed an action, so offer nothing.
+suspend fun undoLabel(journal: UndoJournal, groupKey: String): String? {
+    val group = journal.group(groupKey) ?: return null
+    return if (group.withheld || group.count == 0) null else "Undo all (${group.count})"
+}
+
+// UndoResult is closed, so the outer when has no else. UndoReason is open, so the inner one keeps an else.
+suspend fun undoAllStatus(journal: UndoJournal, groupKey: String): String =
+    when (val result = journal.undoAll(groupKey)) {
+        is UndoResult.Complete -> "Undone (${result.restored.size})"
+        is UndoResult.Refused -> when (val reason = result.blockers.first().reason) {
+            UndoReason.CHANGED_SINCE -> "Not undone: something changed since"
+            UndoReason.IN_PROGRESS -> "An undo is already running"
+            else -> "Not undone (${reason.value})"
+        }
+        is UndoResult.Partial -> "Some changes could not be restored (${result.notRestored.size})"
+        is UndoResult.AlreadyUndone -> "Nothing to undo"
+    }
+```
 
 **Grouping and "Undo all (N)".** The bridge groups by `heldRunId ?: runId`, so a change confirmed later with `commitHeld`
 joins the command that held it, and a clarification reply is its own group whose `parentGroupKey` names the group it
