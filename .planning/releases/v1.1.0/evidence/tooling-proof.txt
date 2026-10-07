@@ -1,0 +1,11 @@
+# tooling-proof.txt - plan 20-06 proofs (final lines of each run)
+
+## Task 1 tracer: gate api-baseline
+$ scripts/release-cut.sh gate api-baseline v1.1.0
+API NOTE: new in this release (no baseline): undo voice-adapter
+API NOTE: api.txt compared with the baseline released in v1.0.1 (additive only)
+GATE OK api-baseline
+exit=0
+$ scripts/release-cut.sh gate api-baseline v1.0.2   (patch contrast, must fail)
+RELEASE GATE FAIL api-check: core/api.txt differs from the baseline released in v1.0.1: a patch release (v1.0.2) changes no public API
+exit=1

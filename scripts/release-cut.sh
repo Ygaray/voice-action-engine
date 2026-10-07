@@ -41,8 +41,9 @@
 #                   module api.txt files committed in HEAD, byte for byte
 #   11 hygiene      PRE_RELEASE=0 repository hygiene (api.txt tracked, no fixture, no baseline)
 #   12 api-check    the committed api.txt is checked against the one released in the previous release tag (a patch release
-#                   must be byte-identical to it, a minor or major release may only add lines), then ./gradlew apiCheck is
-#                   green AND every module's compatibility task actually executed
+#                   must be byte-identical to it, a minor or major release may only add lines; a module whose directory is
+#                   absent from the previous tag is new in this release and needs a real committed dump instead), then
+#                   ./gradlew apiCheck is green AND every module's compatibility task actually executed
 #   13 dry-run      clean-clone JitPack dry run from jitpack.yml's install list (never :sample), VERSION=<tag>
 #   14 leak         tracked-content scan for the A10 fixture name and key-shaped strings
 #   15 version      the published coordinates carry the tag version (POM, .module; every dependsOnCore=yes module depends on
@@ -55,6 +56,7 @@
 # GATE ARGUMENTS (pinned; a wrong count or an unknown gate is a usage error, exit 2, never a gate verdict):
 #   gate tag-format <tag> [<wiringSHA>]   gate tags-absent <tag>        gate wiring <wiringSHA>   gate diff <wiringSHA>
 #   gate dry-run <tag>                    gate version <tag>            gate waiver <tag>         gate api-check <tag>
+#   gate api-baseline <tag>               (diagnostic, outside preflight: only the api.txt baseline half of api-check, no Gradle)
 #   every other gate takes no argument
 #
 # The script only READS the repository's .planning/config.json and CROSS-REPO-SCOPE-CONTRACT.md. The helper scripts it
@@ -92,6 +94,8 @@ manifest_names() { awk '{ sub(/#.*/, "") } NF == 5 { printf "%s%s", (n++ ? " " :
 MODULES="$(manifest_names <<<"$HEAD_MANIFEST")"
 # The artifactId (third column) of module $1 in HEAD's manifest.
 vae_artifact_of() { awk -v m="$1" '{ sub(/#.*/, "") } NF == 5 && $1 == m { print $3; exit }' <<<"$HEAD_MANIFEST"; }
+# The kotlinPackage (fourth column) of module $1 in HEAD's manifest: the last segment of its package under io.github.ygaray.voiceactionengine.
+vae_pkg_of() { awk -v m="$1" '{ sub(/#.*/, "") } NF == 5 && $1 == m { print $4; exit }' <<<"$HEAD_MANIFEST"; }
 [ -n "$MODULES" ] || { echo "RELEASE USAGE: HEAD's scripts/modules.list lists no module" >&2; exit 2; }
 CONTRACT="CROSS-REPO-SCOPE-CONTRACT.md"
 # Paths excluded from the clean gate. Each is orchestrator bookkeeping that never reaches an artifact, because every
@@ -136,6 +140,7 @@ usage() {
     echo "  gate version <tag>"
     echo "  gate waiver <tag>"
     echo "  gate api-check <tag>"
+    echo "  gate api-baseline <tag>   (diagnostic: only the api.txt baseline half of api-check, no Gradle)"
     echo "  gate create-tag | clean | pushed | prefreeze | check | api-dump | hygiene | leak   (no argument)"
   } >&2
   exit 2
@@ -498,8 +503,12 @@ gate_hygiene() {
 # carries before any build runs. Identical is the pass for a patch release (same MAJOR.MINOR as the previous tag); a minor
 # or major release may only ADD lines (no line of the previous baseline disappears). Without any previous release tag there
 # is no baseline to compare with (the first release dumps it).
+# A module whose DIRECTORY is absent from the previous release tag is NEW IN THIS RELEASE (D-01, RT-02): it has no baseline to
+# compare with, so the check is that HEAD tracks a real dump of it (more than the one header line, with its own package line).
+# Newness is keyed on the directory, never on api.txt, so a released module whose baseline file was deleted still fails; a
+# patch release can never introduce a module.
 api_baseline_check() {
-  local tag="$1" known prior pmm tmm m
+  local tag="$1" known prior pmm tmm m pkg newmods="" lines
   known="$(release_tags)" || gate_fail api-check "cannot list the tags on origin (network or remote problem)"
   prior="$(greatest_below "$tag" <<<"$known")"
   if [ -z "$prior" ]; then
@@ -511,6 +520,19 @@ api_baseline_check() {
   pmm="${prior%.*}"
   tmm="${tag%.*}"
   for m in $MODULES; do
+    if ! git cat-file -e "$prior:$m" 2>/dev/null; then
+      [ "$pmm" != "$tmm" ] \
+        || gate_fail api-check "$m is not in the previous release $prior and $tag is a patch release: a patch release introduces no module"
+      git cat-file -e "HEAD:$m/api.txt" 2>/dev/null || gate_fail api-check "$m/api.txt is not tracked in HEAD"
+      pkg="$(vae_pkg_of "$m")"
+      lines="$(git show "HEAD:$m/api.txt" | wc -l)"
+      if [ "$lines" -le 1 ] \
+        || ! git show "HEAD:$m/api.txt" | awk -v p="io.github.ygaray.voiceactionengine.$pkg" '$1 == "package" && $2 == p { f = 1 } END { exit !f }'; then
+        gate_fail api-check "$m is new in this release but its committed api.txt is a header-only seed or lacks the package io.github.ygaray.voiceactionengine.$pkg: dump it before the cut"
+      fi
+      newmods="${newmods:+$newmods }$m"
+      continue
+    fi
     git cat-file -e "$prior:$m/api.txt" 2>/dev/null || gate_fail api-check "$m/api.txt is not in the previous release $prior, so there is no baseline"
     git cat-file -e "HEAD:$m/api.txt" 2>/dev/null || gate_fail api-check "$m/api.txt is not tracked in HEAD"
     if [ "$pmm" = "$tmm" ]; then
@@ -522,7 +544,14 @@ api_baseline_check() {
       fi
     fi
   done
+  if [ -n "$newmods" ]; then echo "API NOTE: new in this release (no baseline): $newmods"; fi
   echo "API NOTE: api.txt compared with the baseline released in $prior ($([ "$pmm" = "$tmm" ] && echo identical || echo additive only))"
+}
+
+# Diagnostic only (outside the preflight gate list, no Gradle): the api.txt baseline half of api-check on its own.
+gate_api_baseline() {
+  api_baseline_check "$1"
+  gate_ok api-baseline
 }
 
 gate_api_check() {
@@ -748,6 +777,7 @@ run_gate() {
     version) [ $# -eq 1 ] || usage; version_static_checks "$1"; gate_dry_run "$1"; gate_version "$1" ;;
     waiver) [ $# -eq 1 ] || usage; gate_waiver "$1" ;;
     api-check) [ $# -eq 1 ] || usage; gate_api_check "$1" ;;
+    api-baseline) [ $# -eq 1 ] || usage; gate_api_baseline "$1" ;;
     create-tag | clean | pushed | prefreeze | check | api-dump | hygiene | leak)
       [ $# -eq 0 ] || usage
       call_gate "$name" "" ""
