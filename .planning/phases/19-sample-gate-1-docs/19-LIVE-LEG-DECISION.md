@@ -1,10 +1,11 @@
 # Phase 19 live-leg request (VER-06, D-13)
 
-decision: approved
+decision: consumed
+consumed: 2026-10-07T16:12:07Z requests=4 of 16 (core 3, optional 1) est_usd=0.00443 of 0.05
 requested_by: plan 19-01 for the relay plan 19-07 waits on
 relayed_by: yahir-gsd-control-plane-3b (via master)
 date: 2026-10-07
-window: open 2026-10-07T16:03:52Z
+window: closed 2026-10-07T16:12:07Z
 
 The runner (`scripts/run-sample-gate1.sh push-keys`) refuses to move any key until the line above reads exactly
 `decision: approved`. Pending, deferred, consumed and a missing file all refuse. The ceilings below are the ASK the
