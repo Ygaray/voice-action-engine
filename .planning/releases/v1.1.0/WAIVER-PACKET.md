@@ -32,20 +32,22 @@ Categories (exactly one per row): A = cannot be exercised in v1.1 (waiver needed
 Reply per row W01 to W10 with one of: waive, accept, carry-to-gate-2, ok or needs-fix. Rows are only ever filled from relayed answers, never inferred. The block below is deliberately unanswered; plan 20-07 records the relayed answers.
 
 ## Answer block
-packet_status: pending
-answered_by: -
-answered_at: -
+packet_status: accepted
+answered_by: Yahir (in-session: "all as proposed"; relayed by orchestrator yahir-gsd-control-plane-3b via the milestone master)
+answered_at: 2026-10-07T23:10Z
 answers:
-- W01: pending
-- W02: pending
-- W03: pending
-- W04: pending
-- W05: pending
-- W06: pending
-- W07: pending
-- W08: pending
-- W09: pending
-- W10: pending
+- W01: waive
+- W02: carry-to-gate-2
+- W03: accept
+- W04: ok
+- W05: ok
+- W06: ok
+- W07: ok
+- W08: ok
+- W09: ok
+- W10: ok
+
+Relay note (verbatim): Yahir's answers to the v1.1.0 waiver packet, verbatim relay (orchestrator 3b, 2026-10-07, Yahir in-session: "all as proposed"). packet_status -> accepted. Yahir also did the swap reset. Source: evidence/relay-log.md "Relay 2" (time_utc 2026-10-07T23:10Z is the recording time in that log; the orchestrator reported the send time only as "2026-10-07, UTC, now").
 
 ### Rules for the answer block
 
