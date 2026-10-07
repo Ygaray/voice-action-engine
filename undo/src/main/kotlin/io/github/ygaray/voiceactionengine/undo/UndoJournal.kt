@@ -136,9 +136,13 @@ public class UndoJournal internal constructor(settings: Builder) {
      *   from another journal or one already recorded, a repeated run and position, or a ticket left unsealed by an
      *   action that did not fail.
      */
-    // One line on purpose: the plan's contract check greps the exact signature, which is wider than 120 columns.
-    @Suppress("MaxLineLength")
-    public suspend fun record(groupKey: String, parentGroupKey: String?, entry: EntryRef, failed: Boolean, ticket: UndoTicket?) {
+    public suspend fun record(
+        groupKey: String,
+        parentGroupKey: String?,
+        entry: EntryRef,
+        failed: Boolean,
+        ticket: UndoTicket?,
+    ) {
         requireToken("groupKey", groupKey)
         if (parentGroupKey != null) requireToken("parentGroupKey", parentGroupKey)
         val data = ticket?.takeIf { it.owner === this }?.freeze()
