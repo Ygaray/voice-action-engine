@@ -1,6 +1,9 @@
 # 19-13 host quiet-window request (written by plan 19-12)
 
-grant: pending
+grant: open
+relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
+date: 2026-10-07
+opened: 2026-10-07T16:58:00Z
 requested: 2026-10-07
 timebox_s: 9000
 wiring_sha_candidate: 090fd8ec761178d5922523faaf24dc3ffb7b686b
@@ -74,6 +77,10 @@ gate1_build_delta: none
 Basis: B is the `head=` value of the header of `evidence/gate1-grammar_offline.txt` (`# gate1 leg=grammar_offline captured_utc=2026-10-07T16:07:32Z target=R5CT10XNKQN head=1869950dca`); it matches the build-install `head=1869950dca` in `19-07-SUMMARY.md` (no mismatch). `git diff --stat 1869950dca 090fd8ec761178d5922523faaf24dc3ffb7b686b -- sample/src/main sample/build.gradle.kts core providers keystore undo voice-adapter/src/main voice-adapter/build.gradle.kts gradle settings.gradle.kts build.gradle.kts` is empty (recomputed on the fix HEAD). Between B and the candidate, non-`.planning` changes are docs (API.md, ECOSYSTEM.md, INTEGRATION.md, README.md), `sample/src/test` `DocSnippetsTest.kt`, `voice-adapter/src/test` `DocSnippetAdapterTest.kt` (including the fix: two comment lines) and scripts (`agent-wiring-test.sh`, `review-api-surface.sh`, `verify-docs-coverage.sh`); none is in the installed APK.
 
 ## Relay log (verbatim)
+
+Relayed by the milestone master in the RE-DISPATCH prompt (also recorded in 19-CONTEXT.md RT-07, commit 2e0629e):
+
+> QUIET WINDOW CONFIRMED (19-CONTEXT.md RT-07, 2e0629e): orchestrator yahir-gsd-control-plane-3b holds the VAE build lock (control-plane 9c4c93a). Record verbatim in 19-QUIET-WINDOW.md (grant: open, relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master, date: 2026-10-07); set grant: consumed when 19-13/14 finish; window <= 9000 s; put open/close times in your final notes. NO swap reset: swap is full, so earlyoom fires at ~3.2 GiB - check /proc/meminfo MemAvailable between every heavy gate and STOP (needs_human, type quiet_window_memory) below 5 GiB; single Gradle daemon (or --no-daemon), workers.max=2, parallel=false; ONE retry per earlyoom-killed step, then stop and report. Never kill a mempalace process.
 
 ## Pre-checks
 
