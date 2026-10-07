@@ -34,6 +34,12 @@ internal object UiTags {
     /** The text that shows the key state of [provider]. */
     fun keyState(provider: ProviderId): String = "key_state_" + provider.value
 
+    /**
+     * The tags whose text carries the key fingerprint (RT-07), one per provider in order. A Gate-1 tester or helper reads
+     * these on screen only and never copies their text into notes, evidence, logs or messages.
+     */
+    fun neverEchoed(providers: List<ProviderId>): List<String> = providers.map { keyState(it) }
+
     /** The masked field where the key of [provider] is typed. */
     fun keyField(provider: ProviderId): String = "key_field_" + provider.value
 

@@ -21,6 +21,9 @@ App: `:sample` (debug build, never published), driven through its real UI by res
   -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m"` exported before `build-install`. One
   Gradle job at a time. Never `./gradlew --stop`.
 - Never read or print a key. Keys move only through `push-keys` (file reference). Never type a real key.
+- Never copy the text of any `key_state_*` tag into notes, evidence, logs or messages: it carries the key fingerprint
+  (RT-07 of Phase 20; this bullet was added on purpose to this closed phase's runbook). `UiTags.neverEchoed` is the list.
+  This runbook reads only the tags it names (section 2); the `key_state_*` tags are not among them.
 - uiautomator dumps and screenshots stay in the session scratchpad. Nothing but `evidence/gate1-*.txt` is committed.
 - One install for the whole window (uninstall wipes the in-app budget counter). Every leg's first run is a UI press
   (`trigger=ui`); autorun is refused before a first UI run by design. No leg is pressed twice unless the stop rules allow it.

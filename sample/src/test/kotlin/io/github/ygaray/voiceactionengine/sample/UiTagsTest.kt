@@ -44,4 +44,14 @@ class UiTagsTest {
         assertTrue(all.toString(), all.containsAll(expectedFixed))
         assertEquals("clarify_option_list-a", UiTags.clarifyOption("list-a"))
     }
+
+    @Test
+    fun neverEchoedListsExactlyTheKeyStateTags() {
+        val never = UiTags.neverEchoed(PROVIDERS)
+        assertEquals(listOf("key_state_anthropic", "key_state_openai", "key_state_openrouter"), never)
+        assertEquals(PROVIDERS.map { UiTags.keyState(it) }, never)
+        val all = UiTags.all(LegId.entries, PROVIDERS)
+        assertTrue(all.containsAll(never))
+        assertEquals(never, all.filter { it.startsWith("key_state_") })
+    }
 }
