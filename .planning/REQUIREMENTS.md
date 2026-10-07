@@ -68,7 +68,7 @@ alone to keep one.
 
 ### Voice adapter (§6.2 step 12, V11-06)
 
-- [ ] **ADPT-01**: the `:voice-adapter` module (`voice-action-engine-voice-adapter`) maps an `:stt` v0.7.0 final segment, including its detected language, to `CommandInput`. `:core` still depends on no other hub.
+- [x] **ADPT-01**: the `:voice-adapter` module (`voice-action-engine-voice-adapter`) maps an `:stt` v0.7.0 final segment, including its detected language, to `CommandInput`. `:core` still depends on no other hub.
 
 ### Docs, sample and release
 
@@ -137,7 +137,7 @@ alone to keep one.
 | UNDO-02 | Phase 17 | Complete |
 | UNDO-03 | Phase 17 | Complete |
 | UNDO-04 | Phase 17 | Complete |
-| ADPT-01 | Phase 18 | Pending |
+| ADPT-01 | Phase 18 | Complete |
 | DOC-01 | Phase 12 | Complete |
 | DOC-02 | Phase 19 | Pending |
 | VER-06 | Phase 19 | Pending |

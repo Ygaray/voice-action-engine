@@ -414,12 +414,12 @@ Plans:
   1. `:voice-adapter` publishes as `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter` and maps an `:stt` v0.7.0 final segment to `CommandInput`, carrying the transcript and the detected language (`en` / `es`, and `null` when stt detected neither; never a guess).
   2. `:core` still depends on no other hub: the module-graph and `:core` classpath-allowlist gates pass, only `:voice-adapter` depends on `:stt`, and an app that doesn't add `:voice-adapter` never pulls `:stt` in.
 
-**Plans**: 0/8 plans executed (6 waves, serial: one Gradle-running plan per wave, the extra wave-2 and wave-3 plans are bash only; 18-08 is non-autonomous, quiet-window gated; no device or live spend)
+**Plans**: 1/8 plans executed (6 waves, serial: one Gradle-running plan per wave, the extra wave-2 and wave-3 plans are bash only; 18-08 is non-autonomous, quiet-window gated; no device or live spend)
 
 Plans:
 **Wave 1**
 
-- [ ] 18-01-PLAN.md — `:voice-adapter` AAR scaffold tracer (`:stt` v0.7.0 compileOnly through an exclusiveContent repo, one `FinalSegment` → `CommandInput` in a JVM test), manifest / allowedEdges / ML-scope / jitpack rows (D-01, D-02, D-03)
+- [x] 18-01-PLAN.md — `:voice-adapter` AAR scaffold tracer (`:stt` v0.7.0 compileOnly through an exclusiveContent repo, one `FinalSegment` → `CommandInput` in a JVM test), manifest / allowedEdges / ML-scope / jitpack rows (D-01, D-02, D-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -491,6 +491,6 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
-| 18. Voice Adapter | v1.1 | 0/8 | Planned | - |
+| 18. Voice Adapter | v1.1 | 1/8 | In Progress|  |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
