@@ -28,9 +28,14 @@ Consumers depend on the per-module coordinates only. The old two-segment aggrega
 | `:providers` | jar | `com.github.Ygaray.voice-action-engine:voice-action-engine-providers:<version>` | `api` on `:core` and on OkHttp (4.12.0 compile floor; consumers keep their own OkHttp) |
 | `:keystore` | aar | `com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:<version>` | `api` on `:core` |
 | `:undo` | jar, pure Kotlin/JVM | `com.github.Ygaray.voice-action-engine:voice-action-engine-undo:<version>` | nothing, not even `:core` (only the Kotlin standard library) |
+| `:voice-adapter` | aar, minSdk 35 | `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>` | `api` on `:core`, and `compileOnly` on `:stt` (`com.github.Ygaray.voice-engine-android:voice-engine-android`, v0.7.0 or newer), so the app adds `:stt` itself |
 
-`voice-action-engine-undo` (above) and `voice-action-engine-voice-adapter` are planned for v1.1 and **not yet published**; the first tag that carries them is v1.1.0.
+The undo module and the adapter (both rows are in the table above) are new in v1.1 and **not yet published**; the first tag that carries them is v1.1.0.
 The `:sample` app module is never published.
+
+The adapter (artifact `voice-action-engine-voice-adapter`) is optional. It turns one final `:stt` segment into a `CommandInput`; the engine core never depends on it or
+on `:stt`, so an app that does not add it never pulls `:stt`. The app keeps its own multi-segment session aggregation
+(see INTEGRATION.md section 12).
 
 **Phase 1 proof:** all three modules resolve from an empty Gradle cache by commit SHA (first proven at
 `7f9db2294461d76832116e33cc0a724f05f445e8`; the final phase-gate SHA is recorded alongside it in
