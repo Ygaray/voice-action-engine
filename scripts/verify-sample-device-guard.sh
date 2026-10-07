@@ -123,12 +123,19 @@ run_scenario() {
   mkdir -p "$dir/state/dev"
 
   # Skeleton inputs the runner reads on the host: the decision file, the fixture and its digest constant, the cold stamp.
+  # DECISION is the phase's own file (PHASE_DIR_VALUE names the phase directory, default PHASE_REL); OVERRIDE_DECISION is a file
+  # elsewhere in the sandbox that DECISION_FILE_OVERRIDE (VAE_GATE1_DECISION_FILE) points at.
   case "${DECISION:-}" in
     approved | deferred | pending | consumed)
-      mkdir -p "$dir/repo/$PHASE_REL"
-      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" >"$dir/repo/$PHASE_REL/$(decision_name_for "$PHASE_REL")"
+      mkdir -p "$dir/repo/${PHASE_DIR_VALUE:-$PHASE_REL}"
+      printf 'decision: %s\nrelayed_by: test\n' "$DECISION" \
+        >"$dir/repo/${PHASE_DIR_VALUE:-$PHASE_REL}/$(decision_name_for "${PHASE_DIR_VALUE:-$PHASE_REL}")"
       ;;
   esac
+  if [ -n "${OVERRIDE_DECISION:-}" ] && [ -n "${DECISION_FILE_OVERRIDE:-}" ]; then
+    mkdir -p "$dir/repo/$(dirname "$DECISION_FILE_OVERRIDE")"
+    printf 'decision: %s\nrelayed_by: test\n' "$OVERRIDE_DECISION" >"$dir/repo/$DECISION_FILE_OVERRIDE"
+  fi
   case "${FIXTURE:-}" in
     good | bad | missing)
       local loader_dir="$dir/repo/sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/fixture" sha
@@ -148,15 +155,20 @@ run_scenario() {
   fi
 
   local out code
+  # Knobs that retarget planning files (never the device): the phase directory, an explicit decision file (relative to the
+  # sandbox repo) and an evidence directory (also relative).
+  local -a path_env=("VAE_GATE1_PHASE_DIR=${PHASE_DIR_VALUE:-$PHASE_REL}")
+  [ -n "${DECISION_FILE_OVERRIDE:-}" ] && path_env+=("VAE_GATE1_DECISION_FILE=$DECISION_FILE_OVERRIDE")
+  [ -n "${EVIDENCE_DIR_OVERRIDE:-}" ] && path_env+=("VAE_GATE1_EVIDENCE_DIR=$EVIDENCE_DIR_OVERRIDE")
   # BASH_ENV is cleared: on this host it re-exports ANDROID_SERIAL (the TESTER) into every non-interactive bash, which would
   # silently overwrite the scenario's own value.
   if [ -n "${ANDROID_SERIAL_VALUE:-}" ]; then
     out="$(env -u BASH_ENV SCENARIO="$name" CALLS_LOG="$dir/calls.log" STATE_DIR="$dir/state" ADB="$dir/adb" \
-      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" VAE_GATE1_PHASE_DIR="$PHASE_REL" \
+      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" "${path_env[@]}" \
       ANDROID_SERIAL="$ANDROID_SERIAL_VALUE" "$dir/repo/scripts/run-sample-gate1.sh" "$@" 8>&- 2>&1)"; code=$?
   else
     out="$(env -u BASH_ENV -u ANDROID_SERIAL SCENARIO="$name" CALLS_LOG="$dir/calls.log" STATE_DIR="$dir/state" ADB="$dir/adb" \
-      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" VAE_GATE1_PHASE_DIR="$PHASE_REL" \
+      XDG_CACHE_HOME="$dir/cache" PUSH_TEST_KEY="$dir/push-test-key" "${path_env[@]}" \
       "$dir/repo/scripts/run-sample-gate1.sh" "$@" 8>&- 2>&1)"; code=$?
   fi
   LAST_OUT="$out"
@@ -246,6 +258,25 @@ DECISION=approved run_scenario push_keys_happy 0 "foreground:" "OK sub=push-keys
 for p in anthropic openai openrouter; do
   grep -qxF "$p --device R5CT10XNKQN --package $PKG" "$LAST_DIR/push.log" || die "push_keys_happy: no exact call for $p"
 done
+
+# decision_override_wins: VAE_GATE1_DECISION_FILE beats the derived default, in both directions.
+DECISION=pending OVERRIDE_DECISION=approved DECISION_FILE_OVERRIDE="elsewhere/decision.md" run_scenario decision_override_wins_approved 0 "foreground:" \
+  "OK sub=push-keys providers=anthropic,openai,openrouter" push-keys
+[ "$(wc -l <"$LAST_DIR/push.log" | tr -d ' ')" = 3 ] || die "decision_override_wins_approved: push-test-key was not called exactly three times"
+DECISION=approved OVERRIDE_DECISION=pending DECISION_FILE_OVERRIDE="elsewhere/decision.md" CALLS_EMPTY=1 run_scenario decision_override_wins_pending 2 \
+  "not pushing keys" "ERROR sub=push-keys reason=live_legs_not_approved" push-keys
+[ ! -s "$LAST_DIR/push.log" ] || die "decision_override_wins_pending: push-test-key was called"
+
+# decision_derived_name: the prefix rule for a phase directory other than 19 (20-cut-sample reads 20-LIVE-LEG-DECISION.md).
+DECISION=approved PHASE_DIR_VALUE=".planning/phases/20-cut-sample" run_scenario decision_derived_name 0 "foreground:" \
+  "OK sub=push-keys providers=anthropic,openai,openrouter" push-keys
+[ -f "$LAST_DIR/repo/.planning/phases/20-cut-sample/20-LIVE-LEG-DECISION.md" ] || die "decision_derived_name: the derived file was not the one written"
+[ "$(wc -l <"$LAST_DIR/push.log" | tr -d ' ')" = 3 ] || die "decision_derived_name: push-test-key was not called exactly three times"
+
+# push_keys_consumed: the state the Phase 12 file is in refuses exactly like deferred or a missing file.
+DECISION=consumed CALLS_EMPTY=1 run_scenario push_keys_consumed 2 "not pushing keys" \
+  "ERROR sub=push-keys reason=live_legs_not_approved" push-keys
+[ ! -s "$LAST_DIR/push.log" ] || die "push_keys_consumed: push-test-key was called"
 
 STAMP_AGE=10 CALLS_EMPTY=1 run_scenario cold_stamp_warm 3 "WARM WINDOW" "INFRA sub=cold-stamp reason=warm_window remaining=3" cold-stamp check
 STAMP_AGE=400 CALLS_EMPTY=1 run_scenario cold_stamp_cold 0 "-" "OK sub=cold-stamp cold=yes" cold-stamp check
@@ -367,6 +398,12 @@ head -1 "$ev" | grep -qE '^# gate1 leg=smoke_openai captured_utc=[0-9]{4}-[0-9]{
 [ "$(grep -c '^VAE_' "$ev")" = 13 ] || die "capture_save_happy: expected 13 evidence lines"
 ! grep -q 'free text' "$ev" || die "capture_save_happy: free text was written"
 assert_calls capture_save_happy "-s R5CT10XNKQN logcat -d -v raw -s VaeSample:I"
+
+# evidence_dir_override: VAE_GATE1_EVIDENCE_DIR receives the evidence file, and the phase directory does not.
+EVIDENCE_DIR_OVERRIDE="elsewhere/evidence" FAKE_LOGCAT_FILE="$WORK/happy.logcat" run_scenario evidence_dir_override 0 "-" \
+  "OK sub=capture-save kept=13 dropped=1 file=elsewhere/evidence/gate1-smoke_openai.txt" capture-save smoke_openai
+[ -f "$LAST_DIR/repo/elsewhere/evidence/gate1-smoke_openai.txt" ] || die "evidence_dir_override: no evidence file in the override directory"
+[ ! -e "$LAST_DIR/repo/$EVID_REL" ] || die "evidence_dir_override: the phase evidence directory was created"
 
 # capture-start is not a counted scenario: it only clears the log buffer on the TESTER.
 UNCOUNTED=1 run_scenario capture_start_clears 0 "-" "OK sub=capture-start" capture-start
