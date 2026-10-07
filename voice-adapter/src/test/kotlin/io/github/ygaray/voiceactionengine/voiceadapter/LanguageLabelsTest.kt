@@ -64,7 +64,7 @@ class LanguageLabelsTest {
         val context = Any()
         val parentRunId = "run-7"
 
-        val withContext = commandInputOf("hello", "en", context)
+        val withContext = commandInputOf("hello", "en", context, null)
         val withBoth = commandInputOf("hello", "en", context, parentRunId)
 
         assertSame(context, withContext.context)

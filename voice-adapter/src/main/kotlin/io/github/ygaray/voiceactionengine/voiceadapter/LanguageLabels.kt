@@ -26,30 +26,18 @@ public fun normalizeSttLanguageLabel(raw: String?): String? {
 /**
  * Builds a command from plain text and a language label, for callers with no speech-engine class on their classpath.
  *
- * The text is passed verbatim (no trimming, no validation) and the label goes through [normalizeSttLanguageLabel], so
- * the language is `"en"`, `"es"` or null. Never throws.
+ * The command carries no context and no parent run. The text is passed verbatim (no trimming, no validation) and the
+ * label goes through [normalizeSttLanguageLabel], so the language is `"en"`, `"es"` or null. Never throws.
  */
 public fun commandInputOf(transcript: String, languageLabel: String?): CommandInput =
     commandInputOf(transcript, languageLabel, null, null)
 
 /**
- * Builds a command from plain text and a language label, carrying an app [context] object.
- *
- * The text is passed verbatim, the label is normalised to `"en"`, `"es"` or null, and [context] is passed through
- * unchanged. Never throws.
- *
- * A [String] passed as [context] is a context object, not a run id: the parent run stays null. To answer an earlier
- * run, use the four-argument form `commandInputOf(transcript, languageLabel, context, parentRunId)`.
- */
-public fun commandInputOf(transcript: String, languageLabel: String?, context: Any?): CommandInput =
-    commandInputOf(transcript, languageLabel, context, null)
-
-/**
  * Builds a command from plain text and a language label, carrying an app [context] object and the id of the earlier
  * run this command answers.
  *
- * The text is passed verbatim, the label is normalised to `"en"`, `"es"` or null, and [context] and [parentRunId] are
- * passed through unchanged. Never throws.
+ * Either of [context] and [parentRunId] may be null. The text is passed verbatim, the label is normalised to `"en"`,
+ * `"es"` or null, and [context] and [parentRunId] are passed through unchanged. Never throws.
  */
 public fun commandInputOf(
     transcript: String,

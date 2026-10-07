@@ -9,7 +9,7 @@ import org.junit.Test
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
-/** Reflection pin of the public surface frozen at the tag: the two JVM facades, the overload sets and no joiner. */
+/** Reflection pin of the public surface frozen at the tag: the two JVM facades, two forms each, and no joiner. */
 class AdapterApiShapeTest {
     private val segmentFacade = "io.github.ygaray.voiceactionengine.voiceadapter.FinalSegmentCommandInput"
     private val labelFacade = "io.github.ygaray.voiceactionengine.voiceadapter.SttLanguageLabels"
@@ -33,10 +33,31 @@ class AdapterApiShapeTest {
     }
 
     @Test
-    fun theLabelFacadeExposesCommandInputOfThreeTimesAndTheNormalizerOnce() {
-        val names = publicStatics(labelFacade).map { it.name }.sorted()
+    fun theLabelFacadeExposesCommandInputOfTwiceAndTheNormalizerOnce() {
+        val methods = publicStatics(labelFacade)
 
-        assertEquals(listOf("commandInputOf", "commandInputOf", "commandInputOf", "normalizeSttLanguageLabel"), names)
+        val names = methods.map { it.name }.sorted()
+        assertEquals(listOf("commandInputOf", "commandInputOf", "normalizeSttLanguageLabel"), names)
+        val signatures = methods.filter { it.name == "commandInputOf" }.map { it.parameterTypes.toList() }.toSet()
+        val expected = setOf(
+            listOf<Class<*>>(String::class.java, String::class.java),
+            listOf(String::class.java, String::class.java, Any::class.java, String::class.java),
+        )
+        assertEquals(expected, signatures)
+    }
+
+    /**
+     * There is deliberately no label-facade method taking only a context after the text and the label. The call shape
+     * `commandInputOf("yes", "en", "run-42")` therefore fails to compile instead of silently treating "run-42" as the
+     * context. A compile failure cannot be asserted at run time, so this reflection check is the guard.
+     */
+    @Test
+    fun aThreeArgumentStringCallHasNoContextOnlyTarget() {
+        val contextOnly = listOf<Class<*>>(String::class.java, String::class.java, Any::class.java)
+
+        val found = publicStatics(labelFacade).filter { it.parameterTypes.toList() == contextOnly }
+
+        assertTrue(found.isEmpty())
     }
 
     @Test
