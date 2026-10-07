@@ -53,3 +53,53 @@ Context lines sent with it: origin/main was MERGED, not rebased (74a62a7, includ
 - Q2: answered yes (see "C11 (a)" line above): "tag ready" may use a clone-simulated tag run, with a real re-run against the pushed tag on JitPack before the ledger-row relay.
 - Q3: answered (see "RT-07 / W03 (b)" line above): JVM-only is enough, no device window.
 - Q4: answered (see "Quiet windows 20-07/08/10" line above): same terms (single daemon, pause below 5 GiB, one retry); send "quiet window 20-xx" each time.
+
+## Relay 2: the v1.1.0 waiver packet (plan 20-05 Task 3)
+
+relayed_by: yahir-gsd-control-plane-3b
+time_utc: 2026-10-07T23:10Z (recording time, from `date -u` when this entry was written, after plan 20-05 Task 2; the orchestrator reported the send time only as "2026-10-07, UTC, now")
+
+**Message sent for Yahir (verbatim packet ask):**
+
+Two documents to read before any quiet window opens:
+
+- Waiver packet (WAIVER-PACKET.md, rows W01..W10): https://chimuelo-blackcat.turtle-massometer.ts.net/Doc/waiver-packet.html
+- C7 shipped defaults, marked FINAL (C7-DEFAULTS-FINAL.md): https://chimuelo-blackcat.turtle-massometer.ts.net/Doc/c7-defaults-final.html
+
+Please give one answer per row W01..W10, each in {waive, accept, carry-to-gate-2, ok, needs-fix}. The category C rows W06..W10 accept only ok, accept or waive (or needs-fix, which changes the public API and restarts Phase 20 from the dump). Proposed answers:
+
+- W01: waive
+- W02: carry-to-gate-2
+- W03: accept
+- W04: ok
+- W05: ok
+- W06: ok
+- W07: ok
+- W08: ok
+- W09: ok
+- W10: ok
+
+Outstanding asks from plan 20-01 (P15/P16/P17 OI ruling texts, SB 178 / CT confirmation for P17 OI-1) were already answered, see the "Appended 2026-10-07" section above. No quiet window opens until the answers are in.
+
+**Resume signal received:**
+
+`packet sent 2026-10-07 (orchestrator-reported "UTC, now", relayed after 20-05 T2) relayed_by=yahir-gsd-control-plane-3b`
+
+**Answers received (recorded here as relayed; plan 20-07 Task 1 writes them into WAIVER-PACKET.md):**
+
+Yahir's answers to the v1.1.0 waiver packet, verbatim relay (orchestrator 3b, 2026-10-07, Yahir in-session: "all as proposed"):
+
+answered_by: Yahir (relayed by orchestrator yahir-gsd-control-plane-3b)
+
+- W01: waive
+- W02: carry-to-gate-2
+- W03: accept
+- W04: ok
+- W05: ok
+- W06: ok
+- W07: ok
+- W08: ok
+- W09: ok
+- W10: ok
+
+packet_status -> accepted. Yahir also did the swap reset.
