@@ -49,3 +49,12 @@ ok    [api-check-baseline-deleted] went red (api-check: matched 'undo/api.txt is
 ok    [api-check-new-module-patch] went red (api-check: matched 'is a patch release')
 real-repo guard: unchanged (tags, remote tags, status, config.json, contract)
 RELEASE SELFTEST PARTIAL (SELFTEST_ONLY set) happy=0 negatives=14 positives=3
+
+## Task 3: D-02 descriptor-diff helper
+$ scripts/verify-binary-diff.sh --selftest
+BINARY DIFF SELFTEST OK cases=13
+$ scripts/verify-binary-diff.sh   (no arguments, must exit 2)
+exit=2
+$ sanity against the real built artifacts, old = new (not a release comparison)
+BINARY DIFF OK classes=207 removed=0 internal_removed=0 added=0
+BINARY DIFF OK classes=11 removed=0 internal_removed=0 added=0
