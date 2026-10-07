@@ -22,6 +22,11 @@ public interface EntityAdapter {
      * An opaque hash of the entity's current content and version, or null when it does not exist.
      *
      * Two reads of an unchanged entity give equal values; any change gives a different one.
+     *
+     * "The entity" is everything [read] snapshots and [restoreIf] writes back. For a parent that carries its children,
+     * the fingerprint must change when any such child changes too (fold the children's versions into it). The journal
+     * compares only this value, so a child edit it cannot see would be overwritten by the restore, silently losing a
+     * later edit. [restoreIf] must compare that same fingerprint.
      */
     public suspend fun fingerprint(id: String): String?
 

@@ -192,7 +192,7 @@ The public functions are `commandPipeline { }`, which composes a `CommandPipelin
 |---|---|---|---|
 | `UndoJournal` | class | | A journal of what each command changed: `newTicket()`, `record`, `runClosed`, `withhold`, `group(key)`, `undoAll(key)`, `undoEntry(key, entry)`; built with `UndoJournal { }`. |
 | `UndoTicket` | class | | What the app tells the journal while one action is applied: `capture`, `settle`, `created`, `touches`, `compensate`, `nothingWritten`. |
-| `EntityAdapter` | interface | | The app's window onto one entity type: read it, fingerprint it, restore it atomically. |
+| `EntityAdapter` | interface | | The app's window onto one entity type: read it, fingerprint it (a parent's fingerprint also covers its snapshotted children), restore it atomically. |
 | `Compensator` | fun interface | | Reverses one effect outside the database; idempotent. |
 | `EntryRef` | class | | One recorded action: run id, position and tool name. |
 | `EntityKey` | class | | One entity an action touched: type and id. |

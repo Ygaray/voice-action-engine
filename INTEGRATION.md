@@ -748,7 +748,9 @@ puts everything back, or refuses and writes nothing.
 **What you write.** The journal never touches your storage; you describe it.
 
 - Register one `EntityAdapter` per entity type: `read(id)` returns an opaque snapshot (a parent carries its children),
-  `fingerprint(id)` returns a value that changes whenever the entity does, and `restoreIf(id, expectedFingerprint,
+  `fingerprint(id)` returns a value that changes whenever the entity does (for a parent, also whenever any child that
+  `read` snapshots changes, so fold the children's versions into it: a child edit the fingerprint cannot see would be
+  overwritten by the restore), and `restoreIf(id, expectedFingerprint,
   snapshot)` checks the fingerprint and writes in one transaction of yours, re-inserting a missing entity with its
   original id and children. Build the journal with `UndoJournal { adapter(...) }`.
 - Give every mutation its own ticket from `journal.newTicket()` and hand it to the engine as the `PendingMutation.context`
