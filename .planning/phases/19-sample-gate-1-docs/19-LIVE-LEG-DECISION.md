@@ -1,7 +1,10 @@
 # Phase 19 live-leg request (VER-06, D-13)
 
-decision: pending
+decision: approved
 requested_by: plan 19-01 for the relay plan 19-07 waits on
+relayed_by: yahir-gsd-control-plane-3b (via master)
+date: 2026-10-07
+window: open 2026-10-07T16:03:52Z
 
 The runner (`scripts/run-sample-gate1.sh push-keys`) refuses to move any key until the line above reads exactly
 `decision: approved`. Pending, deferred, consumed and a missing file all refuse. The ceilings below are the ASK the
@@ -46,3 +49,16 @@ value other than `approved` means no live call is made. Nothing in this file may
 
 ## Approval record
 
+Recorded by plan 19-07 Task 1 from the relayed answers in 19-CONTEXT.md (RT-05, RT-06). Quoted verbatim:
+
+RT-05 [p19-relay] (2026-10-07, orchestrator yahir-gsd-control-plane-3b, relayed by the master), item (1) SPEND GO:
+
+> ceiling 16 requests / USD 0.05, spend-capped test keys only, no retries past the ceiling. Per Yahir's D-01 + D-13, the live API calls are plan + router + the astra smoke ONLY. The grammar and undo legs must make 0 API calls; if either would spend, stop and tell me.
+
+RT-05 item (2) TESTER start handshake: pre-approved; the handshake was completed by the master before this dispatch (the plan 19-07 run was re-dispatched after "device start tester 19-07"). Release the TESTER right after cleanup.
+
+RT-06 [tester-window] (2026-10-07):
+
+> CONFIRMED by orchestrator yahir-gsd-control-plane-3b: TESTER R5CT10XNKQN is free and granted for 19-07. Use `adb -s R5CT10XNKQN` only and stay within the 16 req / USD 0.05 ceiling. Do full cleanup and uninstall, and restore the volume. The master sends "device done tester" with the verdict lines and the spend line.
+
+Interpretation: GO for 16 requests and USD 0.05 (equal to the ask, so the app's hard ceiling 15 core + 1 optional is not above the GO). Window open on R5CT10XNKQN, one install, every leg in this window.
