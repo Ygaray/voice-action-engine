@@ -160,3 +160,93 @@ WIRING TEST: FAIL W5: no 'when' with an 'else ->' branch in jvmconsumer main sou
 WIRING TEST: FAIL W12: TierSelector.Router is not referenced in jvmconsumer main source
 WIRING SELFTEST OK
 ```
+
+### Step 3 - :voice-adapter:check (RT-03(c))
+
+Command: `./gradlew --offline -q :voice-adapter:check` (low-memory recipe). Start 2026-10-07T17:25:30Z, end 2026-10-07T17:25:49Z, exit status 0, no output (`-q`). MemAvailable before: 11968676 kB (11.4 GiB), after: 12656928 kB (12.1 GiB). Short because Gradle reused the up-to-date results of the pre-window run on the same inputs (HEAD outside .planning equals the candidate).
+
+### Step 4 - Metalava wiring proof (RT-03(c))
+
+Command: `scripts/verify-api-dump.sh` (low-memory recipe). Start 2026-10-07T17:25:55Z, end 2026-10-07T17:30:38Z, exit status 0. MemAvailable before: 12612988 kB (12.0 GiB), after: 11319548 kB (10.8 GiB). Final lines verbatim:
+
+```
+   voice-adapter/api.txt: 16 lines
+== b. planted public class -> dump -> check
+== c. additive change stays green
+== d. removal goes red
+API DUMP PROOF OK (real tree untouched; copy removed on exit)
+```
+
+### Step 5 - negative-control suite (RT-03(c))
+
+Command: `scripts/verify-negative-controls.sh` (low-memory recipe). Start 2026-10-07T17:30:48Z, end 2026-10-07T18:10:52Z, exit status 0. MemAvailable before: 11413660 kB (10.9 GiB), after: 8087772 kB (7.7 GiB). No earlyoom kill. Working tree clean outside .planning afterwards (`git status --porcelain -- . ':!.planning' ':!graphify-out' ':!.gsd'` empty). The voice-adapter and stt control lines and the failure count, verbatim:
+
+```
+ok    [public without modifier (voice-adapter)] went red (Visibility must be specified in explicit API mode)
+ok    [DI import (voice-adapter)] went red (weighted issues)
+ok    [DI import (voice-adapter)] went red (Banned constructs)
+ok    [okhttp internal import (voice-adapter)] went red (weighted issues)
+ok    [okhttp internal import (voice-adapter)] went red (Banned constructs)
+ok    [android.util.Log import (voice-adapter)] went red (weighted issues)
+ok    [android.util.Log import (voice-adapter)] went red (Banned constructs)
+ok    [mockwebserver3 import (voice-adapter)] went red (weighted issues)
+ok    [mockwebserver3 import (voice-adapter)] went red (Banned constructs)
+ok    [runCatching (voice-adapter)] went red (Banned constructs)
+ok    [println (voice-adapter)] went red (Banned constructs)
+ok    [runCatching in string template (voice-adapter)] went red (Banned constructs)
+ok    [FQ kotlin.io.println (voice-adapter)] went red (Banned constructs)
+ok    [printStackTrace (voice-adapter)] went red (Banned constructs)
+ok    [FQ DI annotation (voice-adapter)] went red (Banned constructs)
+ok    [planning id comment (voice-adapter)] went red (weighted issues)
+ok    [planning id comment (voice-adapter)] went red (Banned constructs)
+ok    [app-domain name (voice-adapter)] went red (Banned constructs)
+ok    [hard-coded tool count (voice-adapter)] went red (Banned constructs)
+ok    [api.txt missing once released (voice-adapter)] went red (api.txt is missing)
+ok    [voice-adapter gains an ML dependency] went red (resolves ML artifacts)
+ok    [:voice-adapter clean tree] stayed green
+== Part 6: :stt gates (adapter publication, confinement on core/keystore, providers project edge)
+ok    [:voice-adapter publication gate clean tree] stayed green
+ok    [adapter publishes the speech engine] went red (must keep :stt compileOnly)
+ok    [:keystore gains the speech engine] went red (resolves the :stt group)
+ok    [:core gains the speech engine] went red (resolves the :stt group)
+STT NEGATIVE CONTROLS OK plants=7
+ok    [stt negative controls]
+negative-control failures: 0
+```
+
+### Step 6 - live-probe script exercise on tag v1.0.1 (RT-02, PD-02)
+
+Command: `EXPECT_MODULES="voice-action-engine-core voice-action-engine-providers voice-action-engine-keystore" SKIP_CONSUMER=1 scripts/jitpack-live-probe.sh v1.0.1`. Start 2026-10-07T18:11:11Z, end 2026-10-07T18:11:14Z, exit status 0. MemAvailable before: 8373844 kB (8.0 GiB). No Gradle (consumer skipped). Output verbatim:
+
+```
+== JitPack live probe  ref=v1.0.1  repo=Ygaray/voice-action-engine  2026-10-07T18:11:11Z
+   status=ok
+   api: {"version":"v1.0.1","status":"ok","commit":"b32840e7ebe7066bfe8432b71ddb9e0eaca8e5f3","isTag":true,"modules":["voice-action-engine-core","voice-action-engine-keystore","voice-action-engine-providers"]}
+   log: Running install command:
+   log: ./gradlew :core:publishReleasePublicationToMavenLocal :providers:publishReleasePublicationToMavenLocal :keystore:publishReleasePublicationToMavenLocal
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.1
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.0.1
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.0.1
+   served coordinates:
+     com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.0.1
+     com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.0.1
+     com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.0.1
+   voice-action-engine-core: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers -> core dependency version line: <version>v1.0.1</version>
+   voice-action-engine-keystore: pom 200, module 200 <packaging>aar</packaging>
+   voice-action-engine-keystore -> core dependency version line: <version>v1.0.1</version>
+   aggregator pom: 200, lists all expected modules, no forbidden artifact
+LIVE PROBE PASS ref=v1.0.1  (workdir removed on exit)
+```
+
+The pushed-SHA live run of the :undoalone and :adapteralone path is Phase 20's (carry register C2): JitPack cannot build an unpushed SHA.
+
+## Handoff to plan 14
+
+All six steps green on the wiring SHA candidate. The grant stays open for plan 14 (same window, no second request); nothing is closed here.
+The dry run's kept probe workdir `/tmp/tmp.FnrVBq4MHu` (KEEP_WORK=1) also stays; plan 14 removes it with the kept maven-local's parent `/tmp/tmp.iRiTqYvCWA`.
+
+heavy_gates: green
+kept_m2: /tmp/tmp.iRiTqYvCWA/m2/repository
+dry_run_version: dryrun-ec24a19786

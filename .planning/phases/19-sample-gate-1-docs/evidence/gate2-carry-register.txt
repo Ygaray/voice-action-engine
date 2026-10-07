@@ -13,6 +13,7 @@ C2 Live JitPack probe of the pushed SHA (the :undoalone and :adapteralone path)
   disposition: CARRIED to Phase 20, after the push, when JitPack can build the pushed SHA with all five modules
   owner: Phase 20 (agent-owned release cut)
   evidence pointer: 19-QUIET-WINDOW.md Results (plan 19-13); scripts/jitpack-live-probe.sh
+  plan 19-13 evidence: 19-QUIET-WINDOW.md "### Step 1 - clean-cache JitPack dry run" (DRY RUN OK version=dryrun-ec24a19786, PROBE OK incl :undoalone and :adapteralone, 2026-10-07T17:20:44Z) and 19-QUIET-WINDOW.md "### Step 6 - live-probe script exercise on tag v1.0.1" (LIVE PROBE PASS ref=v1.0.1, exit 0, 2026-10-07T18:11:14Z)
 
 C3 Phase 18 Gate-2 fragment (uat-pending/18-voice-adapter.md)
   source: 19-CONTEXT.md RT-03 ("also drain the P18 Gate-2 fragment at milestone Gate-2"); .planning/uat-pending/18-voice-adapter.md
@@ -20,6 +21,7 @@ C3 Phase 18 Gate-2 fragment (uat-pending/18-voice-adapter.md)
   disposition: CARRIED. The fragment is drained at milestone Gate-2 by the milestone verifier; its only agent-owned obligation (item 4) is discharged by plan 19-13
   owner: milestone verifier (Gate-2)
   evidence pointer: .planning/uat-pending/18-voice-adapter.md; 19-QUIET-WINDOW.md Results (plan 19-13)
+  plan 19-13 evidence (item 4 discharged): 19-QUIET-WINDOW.md "### Step 1 - clean-cache JitPack dry run", block "--- :adapteralone debugRuntimeClasspath (engine lines)": voice-adapter resolves with core and no :stt from an empty cache; PROBE OK
 
 C4 Phase 20 mandatory wiring rerun on its final SHA
   source: 19-CONTEXT.md D-09 and gate 7 (docs and scripts are final at the wiring SHA; only .planning and api.txt may change after it)
