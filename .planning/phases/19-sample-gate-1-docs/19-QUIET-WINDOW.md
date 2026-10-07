@@ -96,4 +96,67 @@ Effect: the mempalace mine (pid 3106604, ~4.6 GiB RSS) may keep running beside t
 - No earlyoom kill, nothing killed, no `./gradlew --stop`.
 - Plan 19-13 executor start (2026-10-07T16:58:11Z): MemAvailable 8377656 kB (8.0 GiB), swap 228 kB free of 2.0Gi (full), no Gradle daemon, no VAE Gradle wrapper, HEAD 3b65090 (diff vs wiring_sha_candidate outside .planning: none, tree clean). Memory floor passed, BUT a `mempalace mine` of a CalTracker session transcript (pid 3106604, RSS 4.4 GiB, state D) was running. The plan prohibits starting a heavy gate while a memory-index mine runs, and earlyoom would pick that 4.4 GiB process first (FTS5 corruption risk). Waited on the pid (no kill): 17:06:44Z MemAvailable 7501068 kB, mine still running; 17:15:53Z MemAvailable 7920428 kB, mine still running (~28 min elapsed). No heavy step started; grant stays `open`, window not closed. Executor stopped and reported to the master.
 
+- Plan 19-13 executor resume (ruling applied), immediately before the first heavy gate (2026-10-07T17:17:43Z): MemAvailable:    7587960 kB; swap full; no Gradle daemon, no VAE wrapper; mempalace mine pid 3106604 still running (never killed). Guard passed (>= 5 GiB).
+
+gates_started: 2026-10-07T17:17:43Z
+
 ## Results
+
+### Step 1 - clean-cache JitPack dry run with :undoalone and :adapteralone (RT-02, RT-03(a))
+
+Command: `KEEP_WORK=1 scripts/jitpack-dry-run.sh` (low-memory recipe, HEAD ec24a19786 = wiring_sha_candidate for every non-.planning path; the clone is `git archive HEAD`).
+Start 2026-10-07T17:17:46Z, end 2026-10-07T17:20:44Z, exit status 0. MemAvailable before: 7587960 kB (7.2 GiB, reading at gates_started; the mempalace mine was still running), at the 17:20Z check after: 11404276 kB (10.9 GiB).
+The probe ran against an EMPTY Gradle cache (the dry run builds its own isolated cache); the five manifest artifacts are the five `artifact:` lines, none is :stt or :sample. Final lines verbatim (gradle task chatter dropped):
+
+```
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-core/dryrun-ec24a19786/voice-action-engine-core-dryrun-ec24a19786.jar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-core/dryrun-ec24a19786/voice-action-engine-core-dryrun-ec24a19786.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-providers/dryrun-ec24a19786/voice-action-engine-providers-dryrun-ec24a19786.jar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-providers/dryrun-ec24a19786/voice-action-engine-providers-dryrun-ec24a19786.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-keystore/dryrun-ec24a19786/voice-action-engine-keystore-dryrun-ec24a19786.aar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-keystore/dryrun-ec24a19786/voice-action-engine-keystore-dryrun-ec24a19786.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-undo/dryrun-ec24a19786/voice-action-engine-undo-dryrun-ec24a19786.jar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-undo/dryrun-ec24a19786/voice-action-engine-undo-dryrun-ec24a19786.module
+artifact: com/github/Ygaray/voice-action-engine/voice-action-engine-voice-adapter/dryrun-ec24a19786/voice-action-engine-voice-adapter-dryrun-ec24a19786.aar
+metadata: com/github/Ygaray/voice-action-engine/voice-action-engine-voice-adapter/dryrun-ec24a19786/voice-action-engine-voice-adapter-dryrun-ec24a19786.module
+Welcome to Gradle 9.4.1!
+Here are the highlights of this release:
+ - Java 26 support
+ - Non-class-based JVM tests
+ - Enhanced console progress bar
+For more details see https://docs.gradle.org/9.4.1/release-notes.html
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.4.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+--- :jvmconsumer runtimeClasspath (engine lines)
+\--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:dryrun-ec24a19786
+     +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:dryrun-ec24a19786
+--- :app debugRuntimeClasspath (engine lines)
++--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:dryrun-ec24a19786
+|    +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:dryrun-ec24a19786
+\--- com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:dryrun-ec24a19786
+     +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:dryrun-ec24a19786 (*)
+--- :undoalone runtimeClasspath (engine lines)
+\--- com.github.Ygaray.voice-action-engine:voice-action-engine-undo:dryrun-ec24a19786
+--- :adapteralone debugRuntimeClasspath (engine lines)
+\--- com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:dryrun-ec24a19786
+     +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:dryrun-ec24a19786
+PROBE OK (com.github.Ygaray.voice-action-engine:*:dryrun-ec24a19786 from file:///tmp/tmp.iRiTqYvCWA/m2/repository) workdir=/tmp/tmp.FnrVBq4MHu (kept)
+DRY RUN OK version=dryrun-ec24a19786 group=com.github.Ygaray.voice-action-engine m2=/tmp/tmp.iRiTqYvCWA/m2/repository (kept)
+```
+
+### Step 2 - clean-clone wiring selftest (RT-03(a))
+
+Command: `scripts/agent-wiring-test.sh selftest` (low-memory recipe). Start 2026-10-07T17:21:12Z, end 2026-10-07T17:25:00Z, exit status 0. MemAvailable after: 11948908 kB (11.4 GiB). Full output verbatim (the six FAIL lines are the expected verdict on the planted bad copy; the reference solution passed):
+
+```
+--- reference solution verdict
+WIRING TEST: PASS checks=13
+--- planted bad copy verdict
+WIRING TEST: FAIL W1: gradle build failed (exit 1): * What went wrong: > Could not resolve all files for configuration ':jvmconsumer:compileClasspath'.    > Could not resolve com.github.Ygaray:voice-action-engine:dryrun-ec24a19786. 
+WIRING TEST: FAIL W2: test results show tests=0 failures+errors=0 (need tests>=6, failures+errors=0)
+WIRING TEST: FAIL W3: engine dependency lines that are not per-module coordinates at version dryrun-ec24a19786: [    implementation("com.github.Ygaray:voice-action-engine:dryrun-ec24a19786")]
+WIRING TEST: FAIL W4: aggregator coordinate com.github.Ygaray:voice-action-engine: used (per-module coordinates only)
+WIRING TEST: FAIL W5: no 'when' with an 'else ->' branch in jvmconsumer main source
+WIRING TEST: FAIL W12: TierSelector.Router is not referenced in jvmconsumer main source
+WIRING SELFTEST OK
+```
