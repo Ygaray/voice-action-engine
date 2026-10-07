@@ -268,12 +268,13 @@ val verifyExplicitApi = tasks.register("verifyExplicitApiStrict") {
     }
 }
 
-// One-way graph: :sample -> {:providers, :keystore, :undo} -> :core; :undo depends on nothing.
+// One-way graph: :sample -> {:providers, :keystore, :undo} -> :core; :undo depends on nothing; :voice-adapter depends on :core only.
 val allowedEdges = mapOf(
     ":core" to emptySet<String>(),
     ":providers" to setOf(":core"),
     ":keystore" to setOf(":core"),
     ":undo" to emptySet<String>(),
+    ":voice-adapter" to setOf(":core"),
 )
 val sampleRequiredEdges = setOf(":providers", ":keystore", ":undo")
 val sampleAllowedEdges = setOf(":core", ":providers", ":keystore", ":undo")
@@ -335,7 +336,7 @@ tasks.named("check") { dependsOn(verifyNoDi) }
 
 // SC4: no ML runtime on a published module's compile or runtime classpath. Scoped by module name (never a shared
 // rule) so a dedicated on-device module is not blocked by its own gates.
-if (project.name in setOf("core", "providers", "keystore", "undo")) {
+if (project.name in setOf("core", "providers", "keystore", "undo", "voice-adapter")) {
     val deniedMlGroupPrefixes = listOf("com.google.ai.edge", "com.google.mediapipe", "org.tensorflow", "com.google.mlkit")
     val deniedMlNameTokens = listOf("litert", "tflite")
     val verifyNoMl = tasks.register("verifyNoMlArtifacts") {
