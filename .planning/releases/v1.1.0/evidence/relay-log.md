@@ -24,3 +24,4 @@ Source: cross-session messages from orchestrator `yahir-gsd-control-plane-3b`, r
 - **RT-07 / W03 (b):** "JVM-only is enough for RT-07 / W03. No device window."
 - **Merge:** "OK to MERGE origin/main (43768ea, the YAT v2.5.0 ledger row) into main, never rebase, before "pushing main <sha>"."
 - **Quiet windows 20-07/08/10:** "same terms (single daemon, pause below 5 GiB, one retry). Send "quiet window 20-xx" each time and I'll check swap/memory and take the lock."
+- **P17 OI-1 (ruled 2026-10-07, replaces PENDING):** "Accepted: JournalStore is a save/delete-only mirror with no restore in v1.1.0; Undo-all is live-session only. SB 178 (D-05) and CT P75 (UNDO-01/D-05) both confirmed no objection. Condition (SB): JournalStore stays OPTIONAL, and with no store supplied the engine writes nothing to disk. Restore is deferred to a future additive release (SB UNDO-PERSIST)." Plus: "If the no-store/no-disk-write condition isn't already pinned by a test, add one before the tag."
