@@ -30,4 +30,26 @@ RT-02 [quiet-window] (2026-10-06): CONFIRMED by orchestrator yahir-gsd-control-p
 
 ## Pre-checks
 
+- opened 2026-10-07T03:05:00Z (= 2026-10-06 21:05 local MDT); run recipe GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m"; one Gradle process at a time.
+- Before verify-negative-controls.sh (2026-10-07T03:04:41Z): MemAvailable 12176064 kB (11 GiB), swap 0B used of 2.0Gi, no Gradle daemon (pgrep exit 1).
+- During the run MemAvailable stayed 8.2-11.0 GiB (spot readings 8175420, 9855944, 10980764, 9911868 kB).
+- After verify-negative-controls.sh (2026-10-07T04:02:50Z): MemAvailable 8409216 kB (8.0 GiB), swap 2.0Gi used (full again), no earlyoom kill. A Gradle daemon pid 818577 was present: it belongs to another project (/home/yahir/Projects/AndroidApps/Shared/BlackJackTrainer, started 2026-10-06 21:43 local, last build finished 21:52, idle at 0% CPU); it was not killed or touched.
+
 ## Results
+
+### Step 1: scripts/verify-negative-controls.sh
+started 2026-10-07T03:04:41Z, finished 2026-10-07T04:02:50Z (about 58 min), exit status 0, no earlyoom kill, no retry. Full output kept in the session scratchpad (nc.out, 151 ok lines, 0 FAIL lines).
+
+ok    [DI import (voice-adapter)] went red (weighted issues)
+ok    [DI import (voice-adapter)] went red (Banned constructs)
+ok    [api.txt missing once released (voice-adapter)] went red (api.txt is missing)
+ok    [voice-adapter gains an ML dependency] went red (resolves ML artifacts)
+ok    [:voice-adapter clean tree] stayed green
+ok    [:voice-adapter publication gate clean tree] stayed green
+ok    [adapter publishes the speech engine] went red (must keep :stt compileOnly)
+ok    [:keystore gains the speech engine] went red (resolves the :stt group)
+ok    [:core gains the speech engine] went red (resolves the :stt group)
+ok    [:providers gains the adapter] went red (forbidden project dependencies)
+STT NEGATIVE CONTROLS OK plants=7
+ok    [stt negative controls]
+negative-control failures: 0
