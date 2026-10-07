@@ -7,6 +7,7 @@
 #   Part 3  matrix guard: a wrong expected OkHttp version must fail each leg
 #   Part 4  opt-in seam: KeyAccess and its ApiKeyStore constructor need @OptIn from another module (scripts/verify-keyaccess-opt-in.sh)
 #   Part 5  ML denial (D-09): scripts/verify-ml-denial-controls.sh
+#   Part 6  :stt gates (publication and confinement): scripts/verify-stt-negative-controls.sh
 # Every plant is removed on exit (trap); the script then asserts the touched build files are byte-identical to their backups.
 # Never commit a plant. Run:  scripts/verify-negative-controls.sh   (a few minutes warm)
 set -uo pipefail
@@ -165,6 +166,9 @@ if scripts/verify-keyaccess-opt-in.sh; then echo "ok    [keyaccess opt-in]"; els
 
 echo "== Part 5: ML denial (D-09: dependency, :core token, hygiene and jitpack plants)"
 if scripts/verify-ml-denial-controls.sh; then echo "ok    [ml denial controls]"; else echo "FAIL  [ml denial controls]"; fails=$((fails+1)); fi
+
+echo "== Part 6: :stt gates (adapter publication, confinement on core/keystore, providers project edge)"
+if scripts/verify-stt-negative-controls.sh; then echo "ok    [stt negative controls]"; else echo "FAIL  [stt negative controls]"; fails=$((fails+1)); fi
 
 for f in "${RESTORE[@]}"; do
   if ! cmp -s "$f" "$BAK/$(key "$f")"; then echo "FAIL  [restore] $f differs from its backup"; fails=$((fails+1)); fi
