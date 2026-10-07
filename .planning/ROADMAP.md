@@ -58,7 +58,7 @@ documents them so an agent can wire them. Phase 20 cuts the tag.
 - [x] **Phase 15: PlanThenExecute Strategy** - §6.2 step 9: one planning call, ordered gated steps, write-output step binding, at most one replan (completed 2026-10-06)
 - [x] **Phase 16: Start-Tier Selection** - §6.2 step 10: `TierSelector.Custom(StartTierPicker)` + opt-in `TierSelector.Router`, grammar pre-pass, loud fallback to Linear (completed 2026-10-06)
 - [x] **Phase 17: Run-Level Undo** - A18: standalone `:undo` journal (entity adapters, compensators, refuse-loudly check) + pipeline integration for "Undo all (N)" (completed 2026-10-06)
-- [ ] **Phase 18: Voice Adapter** - §6.2 step 12: `:stt` v0.7.0 final segment → `CommandInput`, `:core` still hub-free
+- [x] **Phase 18: Voice Adapter** - §6.2 step 12: `:stt` v0.7.0 final segment → `CommandInput`, `:core` still hub-free (completed 2026-10-06)
 - [ ] **Phase 19: Sample Gate-1 & Docs** - grammar, plan, router and undo-all proven end to end on the TESTER; docs an agent can wire from
 - [ ] **Phase 20: Cut v1.1.0** - §6.2 step 13 / §11: gated release, JitPack for every published module, ledger row to the orchestrator
 
@@ -491,6 +491,6 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
-| 18. Voice Adapter | v1.1 | 8/8 | In Progress|  |
+| 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
