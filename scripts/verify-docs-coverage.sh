@@ -351,14 +351,21 @@ check_C21() {
 
 check_C22() { need "$README" "(INTEGRATION.md)" "(API.md)"; }
 
+# C23: the tag the README tells integrators to pin must exist. The docs legitimately announce a release before its tag is cut
+# (Phase 19 ships the docs for v1.1.0, Phase 20 tags it), so until then a missing tag is a loud NOTE, not a failure: the
+# PRE-TAG ALLOWANCE. VAE_DOCS_REQUIRE_PINNED_TAG=1 turns the allowance off and a missing tag fails C23; Phase 20's release cut
+# runs the gate with it set, and the allowance is dropped (default flipped to 1) once v1.1.0 is tagged.
+REQUIRE_PINNED_TAG="${VAE_DOCS_REQUIRE_PINNED_TAG:-0}"
 check_C23() {
-  local f tag
-  tag="$(git tag --list v1.0.0 2>/dev/null)"
-  [ -z "$tag" ] || return 0
-  for f in "$README" "$INTEGRATION" "$API" "$ECOSYSTEM"; do
-    [ -f "$f" ] || continue
-    if grep -Eq ':v1\.' "$f"; then fail C23 "$f contains a :v1. coordinate while the v1.0.0 tag does not exist"; fi
-  done
+  local pin
+  pin="$(sed -n 's/.*<!-- pin-version:begin -->`\(v[0-9][0-9.]*\)`<!-- pin-version:end -->.*/\1/p' "$README" 2>/dev/null | head -1)"
+  [ -n "$pin" ] || return 0   # C24 reports a missing or malformed marker
+  git rev-parse -q --verify "refs/tags/$pin" >/dev/null 2>&1 && return 0
+  if [ "$REQUIRE_PINNED_TAG" = 1 ]; then
+    fail C23 "$README pins $pin but that tag does not exist"
+  else
+    echo "DOC COVERAGE NOTE: C23: $README pins $pin but that tag does not exist yet (pre-tag allowance; VAE_DOCS_REQUIRE_PINNED_TAG=1 makes this a failure)" >&2
+  fi
 }
 
 # The pinned version lives in one replaceable spot: README, between <!-- pin-version:begin --> and <!-- pin-version:end -->.
@@ -426,7 +433,7 @@ check_C32() { need "$API" onFailed ReasoningMode providerCallId carryIn; }
 # --selftest: copy only what the gate reads (the four docs, scripts/, every snippet test file, the main sources of every
 # manifest module, and the sample paths the docs point at) into a temp directory, require the copied gate to be green
 # there, then plant one violation per fresh copy and require a failure line naming the expected check. The planning files
-# are never copied, and git is not needed in the copy (C23 asks git for a tag, so it is left out of the copy runs).
+# are never copied, and git is not needed in the copy (C23 asks git for a tag, so it is left out of the copy runs and exercised by selftest_c23 in a throwaway git repo).
 SELFTEST_CHECKS=""
 for n in $(seq 1 32); do
   [ "$n" -eq 23 ] || SELFTEST_CHECKS="${SELFTEST_CHECKS:+$SELFTEST_CHECKS,}$(printf 'C%02d' "$n")"
@@ -474,6 +481,30 @@ apply_plant() {
   esac
 }
 
+# selftest_c23: C23 needs git, so it runs in its own throwaway repository: strict + no tag is red, the pre-tag allowance is
+# green but says so, strict + the tag is green.
+selftest_c23() {
+  local d="$SELF/c23" out pin
+  make_copy "$d"
+  pin="$(sed -n 's/.*<!-- pin-version:begin -->`\(v[0-9][0-9.]*\)`<!-- pin-version:end -->.*/\1/p' "$d/README.md" | head -1)"
+  [ -n "$pin" ] || { echo "DOC COVERAGE SELFTEST FAIL: c23: no pin in the copy"; exit 1; }
+  git -C "$d" init -q >/dev/null 2>&1 && git -C "$d" add -A >/dev/null 2>&1 \
+    && git -C "$d" -c user.name=selftest -c user.email=selftest@example.invalid -c commit.gpgsign=false commit -q -m copy >/dev/null 2>&1 \
+    || { echo "DOC COVERAGE SELFTEST FAIL: c23: could not build the throwaway repository"; exit 1; }
+  out="$(cd "$d" && env -u VAE_MODULES_FILE -u BASH_ENV VAE_DOCS_REQUIRE_PINNED_TAG=1 bash scripts/verify-docs-coverage.sh --only C23 2>&1)" && {
+    echo "DOC COVERAGE SELFTEST FAIL: c23-strict-no-tag: stayed green (the check is vacuous)"; exit 1; }
+  printf '%s\n' "$out" | grep -qF -- "FAIL: C23: README.md pins $pin but that tag does not exist" \
+    || { echo "DOC COVERAGE SELFTEST FAIL: c23-strict-no-tag: red without the expected line (got: $(printf '%s' "$out" | head -2 | tr '\n' ' '))"; exit 1; }
+  out="$(cd "$d" && env -u VAE_MODULES_FILE -u BASH_ENV -u VAE_DOCS_REQUIRE_PINNED_TAG bash scripts/verify-docs-coverage.sh --only C23 2>&1)" \
+    || { echo "DOC COVERAGE SELFTEST FAIL: c23-allowance: the pre-tag allowance went red"; exit 1; }
+  printf '%s\n' "$out" | grep -qF -- "pre-tag allowance" \
+    || { echo "DOC COVERAGE SELFTEST FAIL: c23-allowance: green but silent about the missing tag"; exit 1; }
+  git -C "$d" -c user.name=selftest -c user.email=selftest@example.invalid tag "$pin" >/dev/null 2>&1
+  out="$(cd "$d" && env -u VAE_MODULES_FILE -u BASH_ENV VAE_DOCS_REQUIRE_PINNED_TAG=1 bash scripts/verify-docs-coverage.sh --only C23 2>&1)" \
+    || { echo "DOC COVERAGE SELFTEST FAIL: c23-strict-tagged: red although the tag exists"; exit 1; }
+  plants=$((plants + 3))
+}
+
 selftest() {
   local before after out plant want why plants=0 bt='`'
   local table=(
@@ -513,6 +544,8 @@ selftest() {
     if [ -n "$why" ]; then echo "DOC COVERAGE SELFTEST FAIL: $plant: $why"; exit 1; fi
     plants=$((plants + 1))
   done
+
+  selftest_c23
 
   after="$(git status --porcelain 2>/dev/null || true)"
   if [ "$before" != "$after" ]; then
