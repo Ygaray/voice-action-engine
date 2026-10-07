@@ -82,6 +82,12 @@ Relayed by the milestone master in the RE-DISPATCH prompt (also recorded in 19-C
 
 > QUIET WINDOW CONFIRMED (19-CONTEXT.md RT-07, 2e0629e): orchestrator yahir-gsd-control-plane-3b holds the VAE build lock (control-plane 9c4c93a). Record verbatim in 19-QUIET-WINDOW.md (grant: open, relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master, date: 2026-10-07); set grant: consumed when 19-13/14 finish; window <= 9000 s; put open/close times in your final notes. NO swap reset: swap is full, so earlyoom fires at ~3.2 GiB - check /proc/meminfo MemAvailable between every heavy gate and STOP (needs_human, type quiet_window_memory) below 5 GiB; single Gradle daemon (or --no-daemon), workers.max=2, parallel=false; ONE retry per earlyoom-killed step, then stop and report. Never kill a mempalace process.
 
+Follow-up ruling, relayed by the milestone master (orchestrator yahir-gsd-control-plane-3b, 2026-10-07), verbatim:
+
+> Master relay, orchestrator 3b ruling (2026-10-07): PROCEED NOW under the 5 GiB stop rule. Do NOT wait for the mempalace mine to exit, and never kill it. Check MemAvailable before each heavy gate. If it is below 5 GiB, PAUSE that gate until it recovers; do not abort the window or return needs_human for a dip alone. Allow one retry per earlyoom-killed step. The 9000 s clock counts from when the gates actually start, so record that start time in 19-QUIET-WINDOW.md.
+
+Effect: the mempalace mine (pid 3106604, ~4.6 GiB RSS) may keep running beside the heavy gates; it is never killed. The prohibition on starting beside a memory-index mine is lifted by this ruling for 19-13/14. The timebox clock (9000 s) starts at `gates_started:` below (written when the first heavy gate starts), not at `opened:`.
+
 ## Pre-checks
 
 - Immediately before the fix verification run (2026-10-07T16:51Z): MemAvailable 12838180 kB (12.2 GiB), VAE wrapper pgrep exit 1 (no VAE Gradle build), no Gradle daemon. Guard passed. (An earlier attempt at this step failed on an unwritable log path before Gradle started; nothing ran.)
