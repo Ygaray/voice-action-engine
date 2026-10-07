@@ -41,7 +41,7 @@ G="$(grep -E '^engineGroup=' gradle.properties | cut -d= -f2)"
 . "$CLONE/scripts/lib/modules.sh"
 export VAE_MODULES_FILE="$CLONE/scripts/modules.list"
 expected="$(vae_artifacts_sorted)" || { echo "DRY RUN FAIL: cannot read scripts/modules.list" >&2; exit 1; }
-found="$(find "$M2" -type d -name 'voice-action-engine-*' -prune | sed 's#.*/##' | sort | tr '\n' ' ')"
+found="$(find "$M2" -type d -name 'voice-action-engine-*' -prune | sed 's#.*/##' | LC_ALL=C sort | tr '\n' ' ')"
 [ "$found" = "$expected" ] \
   || { echo "DRY RUN FAIL: published artifact set is [$found], expected [$expected] (scripts/modules.list)" >&2; exit 1; }
 # Match artifact names only (-iname), never the full path: the mktemp prefix must not be able to cause a false failure.
