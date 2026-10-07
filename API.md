@@ -449,7 +449,7 @@ Everything you implement or pass; each seam is a small interface you give the en
 | `OnDeviceCapability` | on-device availability | builder `onDevice` |
 | `EntityAdapter` | read, fingerprint and restore one entity type | `UndoJournal { adapter(...) }` |
 | `Compensator` | reverse one out-of-database effect | `UndoJournal { compensator(kind, ...) }` |
-| `JournalStore` | mirror the journal's groups | `UndoJournal { store = ... }` |
+| `JournalStore` | mirror the journal's groups | `UndoJournal { store = ... }` (inside that builder `store` is its own property and shadows an outer variable called `store`, so name your own variable differently) |
 | `capabilities(provider, model) { }` | facts about one exact model id | builder, once per pair |
 | `AiProvider` | a whole provider (also your test fake) | builder `provider(...)` |
 | `CommandStrategy` | a whole tier | builder `tier(...)` |

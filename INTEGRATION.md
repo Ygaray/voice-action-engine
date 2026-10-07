@@ -1039,7 +1039,10 @@ puts everything back, or refuses and writes nothing.
   `read` snapshots changes, so fold the children's versions into it: a child edit the fingerprint cannot see would be
   overwritten by the restore), and `restoreIf(id, expectedFingerprint,
   snapshot)` checks the fingerprint and writes in one transaction of yours, re-inserting a missing entity with its
-  original id and children. Build the journal with `UndoJournal { adapter(...) }`.
+  original id and children. Build the journal with `UndoJournal { adapter(...) }`. Watch the name `store`: inside the
+  `UndoJournal { }` builder, `store` is the builder's own `JournalStore` property and it shadows any outer variable called
+  `store`, so `adapter(MyAdapter(store))` fails to compile with a confusing type mismatch (`JournalStore?`). Give your
+  own variable another name (the examples call theirs `items`).
 - Give every mutation its own ticket from `journal.newTicket()` and hand it to the engine as the `PendingMutation.context`
   of that mutation.
 - Inside `apply`, in the same transaction as the write, call `ticket.capture(type, id)` before the write and
@@ -1050,7 +1053,18 @@ puts everything back, or refuses and writes nothing.
   state at that moment, not the state when it was proposed.
 
 **The bridge.** A small `CommitSink` feeds the journal from the pipeline. This is the reference wiring, copied from the
-compiled and executed sample:
+compiled and executed sample. The block needs these imports on top of the ones the earlier blocks use:
+
+```text
+import io.github.ygaray.voiceactionengine.core.commit.ActionEvent
+import io.github.ygaray.voiceactionengine.core.commit.ActionKind
+import io.github.ygaray.voiceactionengine.core.commit.CommitSink
+import io.github.ygaray.voiceactionengine.core.commit.RunTermination
+import io.github.ygaray.voiceactionengine.undo.EntryRef
+import io.github.ygaray.voiceactionengine.undo.UndoJournal
+import io.github.ygaray.voiceactionengine.undo.UndoTicket
+import java.util.concurrent.ConcurrentHashMap
+```
 
 <!-- doc-snippet: undo-bridge -->
 ```kotlin
