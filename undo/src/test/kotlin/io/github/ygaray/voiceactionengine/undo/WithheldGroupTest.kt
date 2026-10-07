@@ -1,5 +1,10 @@
 package io.github.ygaray.voiceactionengine.undo
 
+import io.github.ygaray.voiceactionengine.undo.internal.Capture
+import io.github.ygaray.voiceactionengine.undo.internal.JournalState
+import io.github.ygaray.voiceactionengine.undo.internal.Recorded
+import io.github.ygaray.voiceactionengine.undo.internal.Retention
+import io.github.ygaray.voiceactionengine.undo.internal.TicketData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -250,5 +255,41 @@ class WithheldGroupTest {
         val view = rig.groupOf("secret-group-key")
 
         assertEquals("UndoGroup(count=1, entries=1, withheld=false, revision=${view.revision})", view.toString())
+    }
+
+    private fun stateWithOneSnapshot(): Pair<JournalState, Capture> {
+        val state = JournalState(Retention(maxGroups = 50, maxAgeMillis = 3_600_000), mirrored = false)
+        val capture = Capture(EntityKey("item", "a"), "snapshot", "f0", "f1", true, null, null)
+        val data = TicketData(listOf(capture), emptySet(), emptyList(), nothingWritten = false, sealed = true)
+        state.append("g", null, Recorded(ref("g", 0), false, data), 0)
+        assertEquals("snapshot", capture.snapshot)
+        return state to capture
+    }
+
+    @Test
+    fun withholdingAGroupReleasesTheSnapshotsItAlreadyHolds() {
+        val (state, capture) = stateWithOneSnapshot()
+
+        state.withhold("g", 1)
+
+        assertNull(capture.snapshot)
+    }
+
+    @Test
+    fun aRunClosedMismatchReleasesTheSnapshotsToo() {
+        val (state, capture) = stateWithOneSnapshot()
+
+        state.runClosed("g", "g", setOf(0, 1), 1)
+
+        assertNull(capture.snapshot)
+    }
+
+    @Test
+    fun anAnomalousRecordingReleasesTheSnapshotsOfTheEarlierActions() {
+        val (state, capture) = stateWithOneSnapshot()
+
+        state.append("g", null, Recorded(ref("g", 1), false, null), 1)
+
+        assertNull(capture.snapshot)
     }
 }

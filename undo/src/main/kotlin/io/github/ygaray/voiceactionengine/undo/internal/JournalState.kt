@@ -84,6 +84,15 @@ internal class Group(val key: String, var parentGroupKey: String?) {
         entries.forEach { it.dropSnapshots() }
     }
 
+    /**
+     * Withholds the group. A withheld group is never undone, so the snapshots its earlier actions already hold are
+     * dead weight of user data and are released now.
+     */
+    fun withhold() {
+        withheld = true
+        dropSnapshots()
+    }
+
     /** The positions recorded for [runId]. */
     fun positionsOf(runId: String): Set<Int> = entries.filter { it.ref.runId == runId }.map { it.ref.position }.toSet()
 }
@@ -133,7 +142,7 @@ internal class JournalState(private val retention: Retention, private val mirror
             if (group.parentGroupKey == null) group.parentGroupKey = parentGroupKey
             val duplicate = group.entries.any { it.ref == ref }
             val usable = data != null && (failed || data.sealed) && !duplicate
-            if (!usable) group.withheld = true
+            if (!usable) group.withhold()
             if (!duplicate) {
                 val kept = if (usable && !group.withheld) data else null
                 group.entries.add(Entry(group, ref, nextSequence++, failed, kept ?: UNUSABLE))
@@ -148,7 +157,7 @@ internal class JournalState(private val retention: Retention, private val mirror
             sweep(now, null)
             if (appliedPositions.isEmpty() && groupKey !in groups) return
             val group = open(groupKey, now)
-            if (!group.positionsOf(runId).containsAll(appliedPositions)) group.withheld = true
+            if (!group.positionsOf(runId).containsAll(appliedPositions)) group.withhold()
             group.touch(now, nextActivity++)
         }
     }
@@ -157,7 +166,7 @@ internal class JournalState(private val retention: Retention, private val mirror
     fun withhold(groupKey: String, now: Long) {
         synchronized(lock) {
             val group = open(groupKey, now)
-            group.withheld = true
+            group.withhold()
             group.touch(now, nextActivity++)
         }
     }
