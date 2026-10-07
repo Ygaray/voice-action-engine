@@ -114,14 +114,14 @@ verify() {
     fails+=("W1: gradle build failed (exit $rc): $(grep -m3 -E '^e: |error:|FAILED|What went wrong|Could not' "$log" | tr '\n' ' ' | cut -c1-400 || true)")
   fi
 
-  # W2 tests >= 2, no failures
+  # W2 tests >= 6 (the v1.1 task asks for six), no failures
   local tests=0 failed=0
   read -r tests failed < <(cat "$dir"/jvmconsumer/build/test-results/test/*.xml 2>/dev/null | grep -o '<testsuite [^>]*' \
     | awk '{ for (i = 1; i <= NF; i++) {
                if ($i ~ /^tests=/) { gsub(/[^0-9]/, "", $i); t += $i }
                if ($i ~ /^(failures|errors)=/) { gsub(/[^0-9]/, "", $i); f += $i } } }
            END { print t + 0, f + 0 }')
-  { [ "$tests" -ge 2 ] && [ "$failed" -eq 0 ]; } || fails+=("W2: test results show tests=$tests failures+errors=$failed (need tests>=2, failures+errors=0)")
+  { [ "$tests" -ge 6 ] && [ "$failed" -eq 0 ]; } || fails+=("W2: test results show tests=$tests failures+errors=$failed (need tests>=6, failures+errors=0)")
 
   # W3 per-module coordinates at the given version only; jvmconsumer has core or providers, app has keystore
   local bad_dep="" line mod ver jvm_ok=0 app_ok=0
@@ -155,6 +155,21 @@ verify() {
     fails+=("W6: 'partial' is not referenced in jvmconsumer main source")
   fi
 
+  # W10 grammar tier, W11 plan tier, W12 router selector, W13 undo journal + undoAll (+ the undo dependency)
+  if ! { [ -d "$main_src" ] && grep -rqw --include='*.kt' 'GrammarPack' "$main_src" && grep -rqw --include='*.kt' 'LocalGrammarStrategy' "$main_src"; }; then
+    fails+=("W10: GrammarPack and LocalGrammarStrategy are not both referenced in jvmconsumer main source")
+  fi
+  if ! { [ -d "$main_src" ] && grep -rqw --include='*.kt' 'PlanThenExecuteStrategy' "$main_src"; }; then
+    fails+=("W11: PlanThenExecuteStrategy is not referenced in jvmconsumer main source")
+  fi
+  if ! { [ -d "$main_src" ] && grep -rqF --include='*.kt' 'TierSelector.Router' "$main_src"; }; then
+    fails+=("W12: TierSelector.Router is not referenced in jvmconsumer main source")
+  fi
+  if ! { [ -d "$main_src" ] && grep -rqw --include='*.kt' 'UndoJournal' "$main_src" && grep -rqw --include='*.kt' 'undoAll' "$main_src" \
+      && grep -qF "voice-action-engine-undo:$version\"" "$dir/jvmconsumer/build.gradle.kts" 2>/dev/null; }; then
+    fails+=("W13: UndoJournal and undoAll in jvmconsumer main source plus a voice-action-engine-undo:$version dependency are required")
+  fi
+
   # W7 no engine internals, no :core test fixtures; W8 no FakeAiProvider
   if grep -rqE --include='*.kt' 'import[[:space:]]+io\.github\.ygaray\.voiceactionengine\.([A-Za-z0-9_.]*\.)?internal([.;[:space:]]|$)|import[[:space:]]+io\.github\.ygaray\.voiceactionengine\.core\.testing' \
       "$dir/jvmconsumer/src" "$dir/app/src" 2>/dev/null; then
@@ -171,7 +186,7 @@ verify() {
 
   verify_cleanup
   if [ "${#fails[@]}" -eq 0 ]; then
-    echo "WIRING TEST: PASS checks=9"
+    echo "WIRING TEST: PASS checks=13"
     return 0
   fi
   local f
@@ -248,6 +263,7 @@ selftest() {
 dependencies {
     implementation("$GROUP:voice-action-engine-core:$version")
     implementation("$GROUP:voice-action-engine-providers:$version")
+    implementation("$GROUP:voice-action-engine-undo:$version")
 }
 KTS
   cat >> "$ws/app/build.gradle.kts" <<KTS
@@ -267,18 +283,18 @@ KTS
   cp -a "$ws" "$bad"
   sed -i "s#com.github.Ygaray.voice-action-engine:voice-action-engine-core:#com.github.Ygaray:voice-action-engine:#" \
     "$bad/jvmconsumer/build.gradle.kts"
-  sed -i '/else[[:space:]]*->/d' "$bad/jvmconsumer/src/main/kotlin/wire/Wire.kt"
+  sed -i '/else[[:space:]]*->/d; /TierSelector\.Router/d' "$bad/jvmconsumer/src/main/kotlin/wire/Wire.kt"
 
   export WIRING_HOST_CACHE=1
   out="$(verify "$ws" "$version" 2>&1)" || rc=$?
   echo "--- reference solution verdict"; echo "$out"
-  { [ "$rc" -eq 0 ] && grep -q '^WIRING TEST: PASS checks=9$' <<<"$out"; } || sf "the reference solution did not PASS"
+  { [ "$rc" -eq 0 ] && grep -q '^WIRING TEST: PASS checks=13$' <<<"$out"; } || sf "the reference solution did not PASS"
 
   rc=0
   out="$(verify "$bad" "$version" 2>&1)" || rc=$?
   echo "--- planted bad copy verdict"; echo "$out"
   [ "$rc" -ne 0 ] || sf "the planted bad copy passed (the judge is vacuous)"
-  for d in W4 W5; do
+  for d in W4 W5 W12; do
     grep -q "^WIRING TEST: FAIL $d:" <<<"$out" || sf "the planted bad copy did not fail $d"
   done
   echo "WIRING SELFTEST OK"
