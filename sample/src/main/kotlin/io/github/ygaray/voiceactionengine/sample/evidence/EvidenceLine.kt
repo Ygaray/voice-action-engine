@@ -29,6 +29,7 @@ internal enum class LegId(val wire: String) {
     DEMO_PARTIAL("demo_partial"),
     GRAMMAR_OFFLINE("grammar_offline"),
     PLAN_LIVE("plan_live"),
+    ROUTER_LIVE("router_live"),
 }
 
 /**

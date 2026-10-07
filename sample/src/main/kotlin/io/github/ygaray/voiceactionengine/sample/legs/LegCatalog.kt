@@ -31,6 +31,9 @@ private const val DEMO_ITERATIONS = 3
 private const val PLAN_ITERATIONS = 4
 private const val PLAN_RESERVATION = 6
 
+// The router leg: the router's own call, the plan call and one replan, each at the worst case of 3 requests.
+private const val ROUTER_RESERVATION = 9
+
 /** What a leg runs: the strategy, the data behind it and how its verdict is decided. */
 internal enum class LegKind {
     /** An agentic loop over the loaded LE-1 fixture (VER-02, the Anthropic cold run). */
@@ -56,6 +59,9 @@ internal enum class LegKind {
 
     /** A live PlanThenExecute command over a stateful store: the second step uses the first step's new id. */
     PLAN,
+
+    /** A live router-chosen start tier: two eligible model tiers behind a grammar head, picked by the engine's router. */
+    ROUTER,
 }
 
 /**
@@ -228,6 +234,28 @@ internal object LegCatalog {
         needsFixture = false,
     )
 
+    // Live router leg: the transcript needs two dependent writes, so the plan tier (index 1 of the two model tiers) is the
+    // only correct start; the single-shot tier cannot know the first item's new id.
+    private val routerLive = LegSpec(
+        id = LegId.ROUTER_LIVE,
+        provider = ProviderId.ANTHROPIC,
+        model = HAIKU,
+        kind = LegKind.ROUTER,
+        prompts = listOf(
+            "Create an item called gamma, and then create an item called delta under it.",
+            "First create an item called gamma. Then create an item called delta under the new gamma item. " +
+                "The second change needs the id that the first change makes.",
+        ),
+        forcedTool = null,
+        readTool = null,
+        requestedOptionals = emptySet(),
+        maxIterations = PLAN_ITERATIONS,
+        reservation = ROUTER_RESERVATION,
+        optional = false,
+        needsKey = true,
+        needsFixture = false,
+    )
+
     private val specs: Map<LegId, LegSpec> = listOf(
         ver02,
         smoke(LegId.SMOKE_ANTHROPIC, ProviderId.ANTHROPIC, HAIKU),
@@ -240,6 +268,7 @@ internal object LegCatalog {
         demo(LegId.DEMO_PARTIAL, LegKind.DEMO_PARTIAL, "add paper and pens", TOOL_CREATE),
         grammarOffline,
         planLive,
+        routerLive,
     ).associateBy { it.id }
 
     /** The spec of [id]. */

@@ -184,6 +184,11 @@ internal class LegRunner(
             listener = legListener
             // The engine would refuse a Responses-only model before sending; the probe wants the transport's own answer.
             if (spec.kind == LegKind.RESPONSES_PROBE) capabilities(spec.provider, spec.model) { supportsTools = true }
+            if (spec.kind == LegKind.ROUTER) {
+                // The grammar head is the pipeline's first tier; the single-shot and plan tiers climb above it.
+                PlanLegs.routerLadder(world).drop(1).forEach { tier(it) }
+                selector = PlanLegs.routerSelector()
+            }
         }
 
         if (spec.kind == LegKind.AGENTIC_FIXTURE && fixtureForLeg != null) {
@@ -270,6 +275,7 @@ internal class LegRunner(
                 executor = CannedToolExecutor(LegCatalog.liveTools)
             }
             LegKind.PLAN -> PlanLegs.planTier(world)
+            LegKind.ROUTER -> PlanLegs.grammarTier(world)
             else -> error("leg kind ${spec.kind} is not a live leg")
         }
 
@@ -316,6 +322,7 @@ internal class LegRunner(
             Judged(verdict, extras)
         }
         LegKind.PLAN -> PlanLegs.judgePlan(facts.outcome, facts.world).let { Judged(it.verdict, it.extras) }
+        LegKind.ROUTER -> PlanLegs.judgeRouter(facts.outcome).let { Judged(it.verdict, it.extras) }
         else -> error("leg kind ${facts.spec.kind} is not a live leg")
     }
 
@@ -323,7 +330,7 @@ internal class LegRunner(
         val spec = facts.spec
         val judged = judge(facts)
         // The plan and router legs report the trace of their one command before the outcome; no other leg does.
-        if (spec.kind == LegKind.PLAN) sink.emit(EvidenceLine.trace(spec.id, 1, traceFacts(facts)))
+        if (spec.kind == LegKind.PLAN || spec.kind == LegKind.ROUTER) sink.emit(EvidenceLine.trace(spec.id, 1, traceFacts(facts)))
         sink.emit(EvidenceLine.outcome(spec.id, facts.summary))
         if (judged.smokeWord != null) {
             sink.emit(
