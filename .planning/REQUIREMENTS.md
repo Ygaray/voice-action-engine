@@ -74,7 +74,7 @@ alone to keep one.
 
 - [x] **DOC-01**: the 3 open v1.0.1 wiring stumbles are fixed: INTEGRATION §7 (what `ProviderId` prints), §10 (`runTest`/JUnit imports), §5/6 (SingleShot can't serve reads). Plus a note that a single-tool SingleShot prefix won't cache on Haiku/OpenAI.
 - [ ] **DOC-02**: README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every new tier, seam and module well enough that an agent can wire them from the docs alone (isolated wiring test PASS on the final SHA).
-- [ ] **VER-06**: a `:sample` Gate-1 on the TESTER exercises grammar (offline, zero calls), plan, the router and undo-all end to end.
+- [x] **VER-06**: a `:sample` Gate-1 on the TESTER exercises grammar (offline, zero calls), plan, the router and undo-all end to end.
 - [ ] **VER-07**: `v1.1.0` is cut only on green verification:
   - the API is strictly additive vs v1.0.1 (`apiDump` diff is `+`-only);
   - seams honor the contract;
@@ -140,7 +140,7 @@ alone to keep one.
 | ADPT-01 | Phase 18 | Complete |
 | DOC-01 | Phase 12 | Complete |
 | DOC-02 | Phase 19 | Pending |
-| VER-06 | Phase 19 | Pending |
+| VER-06 | Phase 19 | Complete |
 | VER-07 | Phase 20 | Pending |
 
 **Coverage:** 37/37 v1.1 requirements mapped to Phases 12-20 (no orphans, no duplicates).
