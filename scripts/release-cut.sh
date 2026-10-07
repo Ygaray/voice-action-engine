@@ -28,7 +28,7 @@
 #   3  create-tag   .planning/config.json git.create_tag is exactly false (D-02: GSD's milestone close must not tag)
 #   4  clean        nothing staged; no uncommitted or untracked file outside the orchestrator bookkeeping paths
 #   5  pushed       HEAD equals origin/main exactly
-#   6  wiring       the wiring SHA is an ancestor of HEAD and 11-WIRING-RERUN.md (read from HEAD) passes for exactly it
+#   6  wiring       the wiring SHA is an ancestor of HEAD and the release's WIRING-RERUN.md (read from HEAD) passes for exactly it
 #   7  diff         since the wiring SHA only the module api.txt files (scripts/modules.list), paths under .planning/ and
 #                   (ledger rows only) the contract's section 11 table changed
 #   8  waiver       a PATCH release may carry, in HEAD, a no-waiver statement .planning/releases/<tag>/NO-WAIVERS.md (the
@@ -74,11 +74,16 @@ SELFTEST_TAG="v1.0.1"
 # A patch release with no waivers states it here, in HEAD, one directory per tag.
 NO_WAIVER_DIR=".planning/releases"
 NO_WAIVER_LINE="no waivers: patch release"
-# The record 11-06 writes after the isolated wiring rerun: frontmatter status, tested_sha, consulted_only_workspace. A new
-# release rewrites it for its own wiring SHA (the previous release's record stays in git history at that release's tag).
-WIRING_RECORD=".planning/phases/11-cut-v1-0-0/11-WIRING-RERUN.md"
-# The waiver packet and its answer block (grammar from 11-01). Used when a release has no no-waiver statement.
-WAIVER_PACKET=".planning/phases/11-cut-v1-0-0/11-WAIVER-PACKET.md"
+# The stable per-release directory for this release's wiring record and waiver packet. It survives the milestone archive
+# (a phase directory does not), which is why the v1.0 locations under the archived Phase 11 directory are gone.
+RELEASE_DIR=".planning/releases/v1.1.0"
+# The record written after the isolated wiring rerun: frontmatter status, tested_sha, consulted_only_workspace. Phase 19
+# plan 14 writes it for Phase 19's wiring SHA; Phase 20 rewrites it for its own final SHA (the previous release's record
+# stays in git history at that release's tag).
+WIRING_RECORD="$RELEASE_DIR/WIRING-RERUN.md"
+# The waiver packet and its answer block (grammar from 11-01), written by Phase 20. Used when a release has no no-waiver
+# statement.
+WAIVER_PACKET="$RELEASE_DIR/WAIVER-PACKET.md"
 # The api.txt dumps of every published module (HEAD's scripts/modules.list), committed with the first release that carries
 # each module and kept from then on as the released-API baseline.
 HEAD_MANIFEST="$(git show HEAD:scripts/modules.list 2>/dev/null)" || { echo "RELEASE USAGE: HEAD has no scripts/modules.list" >&2; exit 2; }
@@ -859,12 +864,17 @@ build_green_sandbox() { # <dir>
   git clone --quiet "$SB_BARE" "$SB_CLONE"
   sandbox_git_config "$SB_CLONE"
 
-  # 2. Overlay the real working-tree scripts/ and the phase directory, so uncommitted script edits are what gets tested.
-  #    The real release statements (.planning/releases) are dropped: each control plants the statement it needs.
-  tar -C "$REPO" --exclude='*.done.json' -cf - scripts .planning/phases/11-cut-v1-0-0 | tar -C "$SB_CLONE" -xf -
-  git -C "$SB_CLONE" add -- scripts .planning/phases/11-cut-v1-0-0
+  # 2. Overlay the real working-tree scripts/ and the release directory, so uncommitted script edits are what gets tested.
+  #    The real release statements (.planning/releases) are dropped: each control plants the statement it needs. The
+  #    current release directory (wiring record and waiver packet) is overlaid AFTER that removal, so it is not dropped again.
+  tar -C "$REPO" --exclude='*.done.json' -cf - scripts | tar -C "$SB_CLONE" -xf -
+  git -C "$SB_CLONE" add -- scripts
   git -C "$SB_CLONE" rm --quiet -r --ignore-unmatch -- "$NO_WAIVER_DIR"
-  if ! git -C "$SB_CLONE" diff --cached --quiet; then git -C "$SB_CLONE" commit --quiet -m "selftest: overlay working-tree scripts and phase directory"; fi
+  if [ -d "$REPO/$RELEASE_DIR" ]; then
+    tar -C "$REPO" --exclude='*.done.json' -cf - "$RELEASE_DIR" | tar -C "$SB_CLONE" -xf -
+    git -C "$SB_CLONE" add -- "$RELEASE_DIR"
+  fi
+  if ! git -C "$SB_CLONE" diff --cached --quiet; then git -C "$SB_CLONE" commit --quiet -m "selftest: overlay working-tree scripts and release directory"; fi
   GREEN_W="$(git -C "$SB_CLONE" rev-parse HEAD)"
 
   # The clone has the committed config.json; pin the value the create-tag guard reads (uncommitted, under .planning/).
@@ -872,6 +882,7 @@ build_green_sandbox() { # <dir>
   printf '{"git":{"create_tag":false}}\n' >"$SB_CLONE/.planning/config.json"
 
   # 3. A synthetic wiring record (status pass for W) and an accepted packet with every row ok.
+  mkdir -p "$SB_CLONE/$RELEASE_DIR"
   cat >"$SB_CLONE/$WIRING_RECORD" <<EOF
 ---
 status: pass
