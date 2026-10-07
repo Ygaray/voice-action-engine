@@ -1,0 +1,9 @@
+# gate1 leg=router_live captured_utc=2026-10-07T16:11:35Z target=R5CT10XNKQN head=5e376f4ee6
+VAE_ATTEMPT leg=router_live provider=anthropic n=1 kind=initial http=200 finish=none tool_calls=0
+VAE_TURN leg=router_live iteration=1 model=claude-haiku-4-5 stop_reason=tool_use tools=[pick_start_tier] tool_count=1 input_tokens=877 output_tokens=24 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=1154
+VAE_ATTEMPT leg=router_live provider=anthropic n=1 kind=initial http=200 finish=none tool_calls=0
+VAE_TURN leg=router_live iteration=2 model=claude-haiku-4-5 stop_reason=tool_use tools=[submit_plan] tool_count=1 input_tokens=1147 output_tokens=120 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=1107
+VAE_TRACE leg=router_live case=1 kind=completed capped=none tiers_run=2 provider_turns=2 attempts=2 tripwire_calls=0 matched_lang=none sel=picked eligible=2 picked_index=1 first_model_index=1 bypassed=1 sel_turns=1 codes=[grammar_input_too_long]
+VAE_OUTCOME leg=router_live kind=completed partial=false reason=none executed=2 committed=2 held=0 reply_len=0 terminal_tool=none
+VAE_VERDICT leg=router_live verdict=PASS eligible=2 picked_index=1 sel_turns=1 router_tokens=901 key_charset=ok trigger=ui
+VAE_BUDGET core=3 optional=0 anthropic=3 openai=0 openrouter=0 est_usd=0.00275

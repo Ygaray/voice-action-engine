@@ -1,0 +1,6 @@
+# gate1 leg=responses_probe captured_utc=2026-10-07T16:11:53Z target=R5CT10XNKQN head=5e376f4ee6
+VAE_ATTEMPT leg=responses_probe provider=openai n=1 kind=initial http=400 finish=none tool_calls=0
+VAE_TURN leg=responses_probe iteration=1 model=gpt-6-astra stop_reason=none tools=[] tool_count=0 input_tokens=0 output_tokens=0 cache_creation_input_tokens=0 cache_read_input_tokens=0 prefix_chars=none latency_ms=2077
+VAE_OUTCOME leg=responses_probe kind=failed partial=false reason=model_unsupported executed=0 committed=0 held=0 reply_len=0 terminal_tool=none
+VAE_VERDICT leg=responses_probe verdict=PASS reason=model_unsupported http=400 trigger=ui
+VAE_BUDGET core=3 optional=1 anthropic=3 openai=1 openrouter=0 est_usd=unknown
