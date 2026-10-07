@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # Header-only api.txt seed proof for a published module that has not been released yet.
 #   a. <module>/api.txt is exactly the one Signature-format header line, and the module has public API (not vacuous)
-#   b. in an ISOLATED COPY of the working tree, :<module>:metalavaCheckCompatibility exits 0 and actually executes
-#      (never SKIPPED / UP-TO-DATE / NO-SOURCE / FROM-CACHE): additions against the empty baseline are accepted
+#   b. in an ISOLATED COPY of the working tree, the module's Metalava compatibility task exits 0 and actually executes
+#      (never SKIPPED / UP-TO-DATE / NO-SOURCE / FROM-CACHE): additions against the empty baseline are accepted.
+#      The task follows the packaging column of scripts/modules.list: :<m>:metalavaCheckCompatibility for a jar
+#      module, :<m>:metalavaCheckCompatibilityRelease for an aar module
 #   c. in the copy, a baseline that declares a class the source lacks makes the same task fail with "Removed"
 #   d. the real working tree is unchanged by the run
 # Usage: scripts/verify-api-seed.sh <module>
+#   VAE_PRINT_TASK=1 scripts/verify-api-seed.sh <module>   prints the chosen Metalava task and exits 0 before any other
+#   check and without Gradle (works for any listed module, header-only seed or released)
 # Prints "API SEED OK module=<m> executed=yes removal=red", or "API SEED FAIL: <reason>" (exit 1; exit 2 when the
 # module's api.txt is not a header-only seed). KEEP_WORK=1 keeps the isolated copy.
 set -euo pipefail
@@ -19,6 +23,16 @@ MODULE="$1"
 # shellcheck source=lib/modules.sh
 source "$ROOT/scripts/lib/modules.sh"
 KPKG="$(vae_module_field "$MODULE" kotlinPackage)" || fail "$MODULE is not in scripts/modules.list"
+PACKAGING="$(vae_module_field "$MODULE" packaging)" || fail "$MODULE is not in scripts/modules.list"
+case "$PACKAGING" in
+  aar) TASK=":$MODULE:metalavaCheckCompatibilityRelease" ;;
+  jar) TASK=":$MODULE:metalavaCheckCompatibility" ;;
+  *) fail "$MODULE has unsupported packaging '$PACKAGING' in scripts/modules.list" ;;
+esac
+if [ "${VAE_PRINT_TASK:-0}" = 1 ]; then
+  echo "$TASK"
+  exit 0
+fi
 
 # a. header-only seed and non-vacuity, before any Gradle run
 if [ ! -f "$MODULE/api.txt" ] || [ "$(cat "$MODULE/api.txt")" != "$HEADER" ]; then
@@ -31,7 +45,6 @@ fi
 # Low-memory recipe (host runs earlyoom): single-use daemon, two workers, in-process Kotlin.
 export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m"
 GRADLE_FLAGS=(--offline --console=plain --no-build-cache -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false)
-TASK=":$MODULE:metalavaCheckCompatibility"
 
 WORK="$(mktemp -d)"; COPY="$WORK/repo"; mkdir -p "$COPY"
 trap '[ "${KEEP_WORK:-0}" = 1 ] || rm -rf "$WORK"' EXIT
