@@ -41,7 +41,13 @@ class UndoCommitSink(private val journal: UndoJournal) : CommitSink {
             val entry = EntryRef(event.runId, action.position, action.toolName)
             journal.record(group, parent, entry, action.kind == ActionKind.IS_ERROR, action.context as? UndoTicket)
         } catch (_: IllegalArgumentException) {
-            journal.withhold(group) // an action the journal cannot take must withhold "Undo all", never shrink it
+            // An action the journal cannot take must withhold "Undo all", never shrink it. A group key the journal
+            // rejects (blank, over 256 characters) cannot be withheld either: no group exists to offer "Undo all" for.
+            try {
+                journal.withhold(group)
+            } catch (_: IllegalArgumentException) {
+                // nothing to withhold
+            }
         }
     }
 
