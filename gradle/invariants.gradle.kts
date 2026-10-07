@@ -334,6 +334,46 @@ val verifyNoDi = tasks.register("verifyNoDiArtifacts") {
 }
 tasks.named("check") { dependsOn(verifyNoDi) }
 
+// Only the speech adapter may see the speech engine. No other published module may resolve a component of its group, nor
+// request a dependency of it: the engine ships as an AAR, so on a JVM module the declaration cannot resolve and only the
+// requested selector reveals it. The adapter's own gate is its publication check. (This script cannot share a value with
+// a build file, so the group literal is held here as well as in the adapter's build file.)
+if (project.name != "voice-adapter") {
+    val sttGroup = "com.github.Ygaray.voice-engine-android"
+    val verifySttConfined = tasks.register("verifySttConfined") {
+        group = "verification"
+        val modulePath = project.path
+        val classpathNames = if (plugins.hasPlugin("com.android.library")) {
+            listOf("releaseCompileClasspath", "releaseRuntimeClasspath")
+        } else {
+            listOf("compileClasspath", "runtimeClasspath")
+        }
+        val classpaths = classpathNames.map { configurations.named(it) }
+        doLast {
+            val hits = classpaths.flatMap { cp ->
+                val result = cp.get().incoming.resolutionResult
+                val components = result.allComponents.mapNotNull { it.moduleVersion }
+                if (components.isEmpty()) {
+                    throw GradleException("$modulePath :stt confinement check is vacuous: ${cp.name} resolved no component")
+                }
+                val resolved = components
+                    .filter { it.group == sttGroup }
+                    .map { "${cp.name}: ${it.group}:${it.name}:${it.version}" }
+                val requested = result.allDependencies
+                    .map { it.requested }
+                    .filterIsInstance<org.gradle.api.artifacts.component.ModuleComponentSelector>()
+                    .filter { it.group == sttGroup }
+                    .map { "${cp.name}: requested ${it.group}:${it.module}" }
+                resolved + requested
+            }.distinct()
+            if (hits.isNotEmpty()) {
+                throw GradleException("$modulePath resolves the :stt group ($sttGroup):\n" + hits.joinToString("\n") { "  $it" })
+            }
+        }
+    }
+    tasks.named("check") { dependsOn(verifySttConfined) }
+}
+
 // SC4: no ML runtime on a published module's compile or runtime classpath. Scoped by module name (never a shared
 // rule) so a dedicated on-device module is not blocked by its own gates.
 if (project.name in setOf("core", "providers", "keystore", "undo", "voice-adapter")) {
