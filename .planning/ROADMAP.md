@@ -458,7 +458,7 @@ Plans:
   2. README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every Phase 12–18 tier, seam and module (plus the on-device module if Phase 13 shipped one), with the new per-module coordinates, and the doc-coverage check passes.
   3. A fresh agent wires grammar, plan, the router and undo-all into a new app from the docs alone, and the isolated wiring test passes (re-run on the final SHA in Phase 20).
 
-**Plans**: 9/14 plans executed (12 waves, serial: one Gradle-running plan per wave, the extra wave-1 plans are bash only; 19-07 is non-autonomous, gated on the relayed live-spend GO and TESTER window; 19-13 is non-autonomous, gated on the RT-02 pre-granted quiet window; 19-14 is non-autonomous, in the same window with no second request, gated on the master-dispatched isolated agent)
+**Plans**: 10/14 plans executed (12 waves, serial: one Gradle-running plan per wave, the extra wave-1 plans are bash only; 19-07 is non-autonomous, gated on the relayed live-spend GO and TESTER window; 19-13 is non-autonomous, gated on the RT-02 pre-granted quiet window; 19-14 is non-autonomous, in the same window with no second request, gated on the master-dispatched isolated agent)
 
 Plans:
 **Wave 1**
@@ -493,7 +493,7 @@ Plans:
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 19-10-PLAN.md — bash/docs only: manifest-driven coverage gate (C01, C20 + functions, C26-C32, selftest); README v1.1.0 pin, API.md RT-01, ECOSYSTEM final (D-09, D-10)
+- [x] 19-10-PLAN.md — bash/docs only: manifest-driven coverage gate (C01, C20 + functions, C26-C32, selftest); README v1.1.0 pin, API.md RT-01, ECOSYSTEM final (D-09, D-10)
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
@@ -544,5 +544,5 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
-| 19. Sample Gate-1 & Docs | v1.1 | 9/14 | In Progress|  |
+| 19. Sample Gate-1 & Docs | v1.1 | 10/14 | In Progress|  |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |

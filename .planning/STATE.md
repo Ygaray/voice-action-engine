@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 19
 current_phase_name: Sample Gate-1 & Docs
-current_plan: 10
+current_plan: 11
 status: executing
-stopped_at: Completed 19-09-PLAN.md
-last_updated: "2026-10-07T16:29:38.644Z"
+stopped_at: Completed 19-10-PLAN.md
+last_updated: "2026-10-07T16:35:58.851Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 19 execution started
-state_head: 4646b164f96179189cffb1b3e85311b857f7a945
+state_head: c1d0fc0e4ccdcee81056e69065a6a9f75590f8f4
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 75
-  completed_plans: 70
+  completed_plans: 71
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 19 (Sample Gate-1 & Docs) — EXECUTING
-Current Plan: 10
+Current Plan: 11
 Total Plans in Phase: 14
 Status: Ready to execute
 Last activity: 2026-10-07 — Phase 19 execution started
@@ -166,6 +166,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19 P07 | 9min | 4 tasks | 7 files |
 | Phase 19 P08 | 25min | 2 tasks | 2 files |
 | Phase 19 P09 | 20 min | 4 tasks | 4 files |
+| Phase 19 P10 | 25min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -222,6 +223,7 @@ Recent decisions affecting current work:
 - [Phase 19]: 19-06: undo_all is two presses (run_undo_all counts N, undo_all runs the whole undo, the changed_since refusal and the partial case); verdict FAIL codes undo_incomplete, refusal_missing, wrong_refusal_reason, not_partial, wrong_count
 - [Phase 19]: [Phase 19] 19-08: frozen-surface review of all five modules from one isolated dump; removals 0 vs baselines, verdict no shape fix needed; review-api-surface.sh gained --module/--dump
 - [Phase 19]: 19-09: undo-wiring snippet matches UndoResult exhaustively (no else) and keeps its else on the open UndoReason; adapter-wiring region compiled in :voice-adapter's own tests
+- [Phase 19]: 19-10: API.md documents ASCII-only plan reference whitespace as it really behaves (NBSP joins the key and fails closed as plan_binding_unresolved)
 
 ### Pending Todos
 
@@ -249,8 +251,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T16:29:38.511Z
-Stopped at: Completed 19-09-PLAN.md
+Last session: 2026-10-07T16:35:58.733Z
+Stopped at: Completed 19-10-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
