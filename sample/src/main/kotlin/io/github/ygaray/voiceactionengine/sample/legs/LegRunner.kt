@@ -31,6 +31,7 @@ import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceListener
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceSink
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.evidence.RequestBudget
+import io.github.ygaray.voiceactionengine.sample.evidence.TraceFacts
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
@@ -108,6 +109,7 @@ private class RunFacts(
     val attempts: List<AttemptRecord>,
     val turns: List<TurnRecord>,
     val smoke: SmokeResolver,
+    val world: ItemWorld,
 )
 
 /**
@@ -172,8 +174,10 @@ internal class LegRunner(
         val fixtureForLeg = if (spec.needsFixture) loaded else null
         val legListener = EvidenceListener(spec.id, sink, fixtureForLeg?.prefixChars)
         val smoke = SmokeResolver(LegCatalog.liveTools)
+        // A fresh store and journal per run, so one run's items never reach the next run's verdict.
+        val world = ItemWorld()
         val pipeline = engine.pipeline(
-            tier = tierFor(spec, smoke, fixtureForLeg),
+            tier = tierFor(spec, smoke, fixtureForLeg, world),
             selection = ProviderSelection(spec.provider, spec.model),
             policy = TierPolicy { maxIterations = spec.maxIterations },
         ) {
@@ -194,7 +198,7 @@ internal class LegRunner(
             tap.current = null
         }
         val summary = OutcomeSummary.of(outcome)
-        val facts = RunFacts(spec, variant, outcome, summary, context.attempts, legListener.turns, smoke)
+        val facts = RunFacts(spec, variant, outcome, summary, context.attempts, legListener.turns, smoke, world)
         return finish(facts, trigger)
     }
 
@@ -242,7 +246,12 @@ internal class LegRunner(
         is FixtureState.Malformed -> "malformed"
     }
 
-    private fun tierFor(spec: LegSpec, smoke: SmokeResolver, loaded: FixtureState.Loaded?): CommandStrategy =
+    private fun tierFor(
+        spec: LegSpec,
+        smoke: SmokeResolver,
+        loaded: FixtureState.Loaded?,
+        world: ItemWorld,
+    ): CommandStrategy =
         when (spec.kind) {
             LegKind.SINGLE_SHOT, LegKind.RESPONSES_PROBE -> SingleShotStrategy(StrategyId("single")) {
                 tooling = ToolSpecProvider.fixed(LegCatalog.liveSnapshot(spec.forcedTool))
@@ -260,6 +269,7 @@ internal class LegRunner(
                 tooling = ToolSpecProvider.fixed(LegCatalog.liveSnapshot(null))
                 executor = CannedToolExecutor(LegCatalog.liveTools)
             }
+            LegKind.PLAN -> PlanLegs.planTier(world)
             else -> error("leg kind ${spec.kind} is not a live leg")
         }
 
@@ -305,12 +315,15 @@ internal class LegRunner(
             }
             Judged(verdict, extras)
         }
+        LegKind.PLAN -> PlanLegs.judgePlan(facts.outcome, facts.world).let { Judged(it.verdict, it.extras) }
         else -> error("leg kind ${facts.spec.kind} is not a live leg")
     }
 
     private fun finish(facts: RunFacts, trigger: String): LegResult {
         val spec = facts.spec
         val judged = judge(facts)
+        // The plan and router legs report the trace of their one command before the outcome; no other leg does.
+        if (spec.kind == LegKind.PLAN) sink.emit(EvidenceLine.trace(spec.id, 1, traceFacts(facts)))
         sink.emit(EvidenceLine.outcome(spec.id, facts.summary))
         if (judged.smokeWord != null) {
             sink.emit(
@@ -329,6 +342,16 @@ internal class LegRunner(
         sink.emit(EvidenceLine.budget(budget.snapshot(), CostEstimate.format(CostEstimate.usd(facts.turns))))
         return LegResult(spec.id, judged.verdict, facts.outcome, facts.summary)
     }
+
+    // Counts, indexes and codes of the one command; no tripwire exists in the live legs.
+    private fun traceFacts(facts: RunFacts): TraceFacts = TraceFacts.of(
+        outcome = facts.outcome,
+        providerTurns = facts.turns.size,
+        attempts = facts.attempts.size,
+        tripwireCalls = 0,
+        matchedLang = null,
+        firstModelIndex = PlanLegs.firstModelIndex(facts.outcome.trace),
+    )
 
     /**
      * Starts a NEW command that answers the clarification [previous] ended on. The chosen [option] reaches the model

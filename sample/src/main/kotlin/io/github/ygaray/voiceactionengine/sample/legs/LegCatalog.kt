@@ -27,6 +27,10 @@ private const val MULTI_RESERVATION = 6
 private const val PROBE_RESERVATION = 1
 private const val DEMO_ITERATIONS = 3
 
+// A plan leg asks for a plan at most twice; each ask is one logical call of at most PER_CALL_WORST_CASE (3) requests.
+private const val PLAN_ITERATIONS = 4
+private const val PLAN_RESERVATION = 6
+
 /** What a leg runs: the strategy, the data behind it and how its verdict is decided. */
 internal enum class LegKind {
     /** An agentic loop over the loaded LE-1 fixture (VER-02, the Anthropic cold run). */
@@ -49,6 +53,9 @@ internal enum class LegKind {
 
     /** The offline grammar leg: EN and ES grammar commands and a capped near-miss, with zero provider calls. */
     GRAMMAR_OFFLINE,
+
+    /** A live PlanThenExecute command over a stateful store: the second step uses the first step's new id. */
+    PLAN,
 }
 
 /**
@@ -200,6 +207,27 @@ internal object LegCatalog {
         needsFixture = false,
     )
 
+    // Live plan leg: the second step must use the first step's new id on a stateful store. Two calls at the worst case.
+    private val planLive = LegSpec(
+        id = LegId.PLAN_LIVE,
+        provider = ProviderId.ANTHROPIC,
+        model = HAIKU,
+        kind = LegKind.PLAN,
+        prompts = listOf(
+            "Create an item called alpha, and then create an item called beta under it.",
+            "First create an item called alpha. Then create an item called beta whose parent is the new alpha item: " +
+                "pass the id that the first step returns as the parent_id of the second step, through the step reference.",
+        ),
+        forcedTool = null,
+        readTool = null,
+        requestedOptionals = emptySet(),
+        maxIterations = PLAN_ITERATIONS,
+        reservation = PLAN_RESERVATION,
+        optional = false,
+        needsKey = true,
+        needsFixture = false,
+    )
+
     private val specs: Map<LegId, LegSpec> = listOf(
         ver02,
         smoke(LegId.SMOKE_ANTHROPIC, ProviderId.ANTHROPIC, HAIKU),
@@ -211,6 +239,7 @@ internal object LegCatalog {
         demo(LegId.DEMO_CLARIFY, LegKind.DEMO_CLARIFY, "add paper to my list", null),
         demo(LegId.DEMO_PARTIAL, LegKind.DEMO_PARTIAL, "add paper and pens", TOOL_CREATE),
         grammarOffline,
+        planLive,
     ).associateBy { it.id }
 
     /** The spec of [id]. */

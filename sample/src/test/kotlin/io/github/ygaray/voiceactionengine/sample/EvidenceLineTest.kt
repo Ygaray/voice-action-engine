@@ -206,11 +206,12 @@ class EvidenceLineTest {
     }
 
     @Test
-    fun theLegVocabularyIsTheTenWireStrings() {
+    fun theLegVocabularyIsTheElevenWireStrings() {
         assertEquals(
             listOf(
                 "ver02", "smoke_anthropic", "smoke_openai", "smoke_openrouter", "multi_openai",
                 "multi_openrouter", "responses_probe", "demo_clarify", "demo_partial", "grammar_offline",
+                "plan_live",
             ),
             LegId.values().map { it.wire },
         )

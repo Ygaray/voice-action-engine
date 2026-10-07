@@ -28,6 +28,7 @@ internal enum class LegId(val wire: String) {
     DEMO_CLARIFY("demo_clarify"),
     DEMO_PARTIAL("demo_partial"),
     GRAMMAR_OFFLINE("grammar_offline"),
+    PLAN_LIVE("plan_live"),
 }
 
 /**
