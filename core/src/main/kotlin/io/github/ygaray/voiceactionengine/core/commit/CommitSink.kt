@@ -35,10 +35,11 @@ public class ActionEvent internal constructor(
     public val heldRunId: String?,
 ) {
     /**
-     * Prints identifiers and counts only: the run id, the parent run id, the held run id only as set or null, and the
-     * action's own string form. The run-id seam is app code, so an id may carry user text; that is why the held run
-     * id's value is never printed. It never prints an outcome token, a target id, a provider call id, an argument,
-     * utterance text, model output or a key.
+     * Prints identifiers and counts only: the run id and the parent run id as they are, the held run id only as set or
+     * null, and the action's own string form. Run ids are treated as opaque identifiers, so keep user text out of the
+     * ids your run-id seam hands out: a run id and a parent run id are printed verbatim. The held run id's value is
+     * not printed (read it from [heldRunId]). It never prints an outcome token, a target id, a provider call id, an
+     * argument, utterance text, model output or a key.
      */
     override fun toString(): String =
         "ActionEvent(runId=$runId, parentRunId=$parentRunId, heldRunId=${if (heldRunId == null) "null" else "set"}, " +
