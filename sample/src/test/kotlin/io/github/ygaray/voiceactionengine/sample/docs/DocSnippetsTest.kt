@@ -12,6 +12,7 @@ import io.github.ygaray.voiceactionengine.core.StrategyId
 import io.github.ygaray.voiceactionengine.core.commit.ActionEvent
 import io.github.ygaray.voiceactionengine.core.commit.ActionKind
 import io.github.ygaray.voiceactionengine.core.commit.AwaitingConfirmGate
+import io.github.ygaray.voiceactionengine.core.commit.CommitProposal
 import io.github.ygaray.voiceactionengine.core.commit.CommitSink
 import io.github.ygaray.voiceactionengine.core.commit.ConfirmationPolicy
 import io.github.ygaray.voiceactionengine.core.commit.FinishedKind
@@ -29,6 +30,7 @@ import io.github.ygaray.voiceactionengine.core.pipeline.CommandPipeline
 import io.github.ygaray.voiceactionengine.core.pipeline.PipelineBuilder
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy
 import io.github.ygaray.voiceactionengine.core.pipeline.TierPolicySource
+import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
 import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline
 import io.github.ygaray.voiceactionengine.core.provider.AiProvider
 import io.github.ygaray.voiceactionengine.core.provider.CredentialLookup
@@ -56,6 +58,7 @@ import io.github.ygaray.voiceactionengine.core.strategy.UserTurnRenderer
 import io.github.ygaray.voiceactionengine.core.strategy.agentic.AgenticLoopStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.GrammarPack
 import io.github.ygaray.voiceactionengine.core.strategy.grammar.LocalGrammarStrategy
+import io.github.ygaray.voiceactionengine.core.strategy.plan.PlanThenExecuteStrategy
 import io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEvent
 import io.github.ygaray.voiceactionengine.core.telemetry.PipelineEventListener
@@ -106,6 +109,7 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -594,6 +598,118 @@ fun grammarLadder(
 )
 // doc-snippet:end grammar-tier
 
+// doc-snippet:start plan-tier
+class MyRow(val id: String, val title: String, val parentId: String?)
+
+// A write tool whose description names the key it returns. A later step passes that key on as $<stepId>.id.
+object MyPlanTools {
+    val createItem = ToolSpec(
+        "create_item",
+        "Creates one item with a title, optionally under the item named by parent_id. " +
+            "Returns the key id: the id of the new item.",
+        buildJsonObject {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("title") { put("type", "string") }
+                putJsonObject("parent_id") { put("type", "string") }
+            }
+            putJsonArray("required") { add("title") }
+        },
+        mutating = true,
+    )
+}
+
+class MyPlanCreate(
+    private val rows: MutableList<MyRow>,
+    private val title: String,
+    private val parentId: String?,
+) : PendingMutation {
+    override val toolName: String = "create_item"
+
+    override suspend fun apply(): StepResult {
+        val row = MyRow("row-${rows.size + 1}", title, parentId)
+        rows.add(row)
+        // The ids you return here are what a later step's $<stepId>.id is replaced with.
+        return StepResult("""{"status":"created"}""", false, null, mapOf("id" to row.id))
+    }
+}
+
+class MyPlanExecutor(private val rows: MutableList<MyRow>) : ToolExecutor {
+    override suspend fun prepare(call: Extraction, input: CommandInput): ToolStep {
+        val title = (call.arguments["title"] as? JsonPrimitive)?.contentOrNull
+        val parentId = (call.arguments["parent_id"] as? JsonPrimitive)?.contentOrNull
+        return if (call.toolName == "create_item" && !title.isNullOrBlank()) {
+            ToolStep.Mutation(MyPlanCreate(rows, title, parentId))
+        } else {
+            ToolStep.Finished(call.toolName, FinishedKind.ERROR, StepResult("""{"status":"error"}""", true))
+        }
+    }
+}
+
+// One planning call, then each step runs in order and is its own proposal to the gate.
+fun planTier(rows: MutableList<MyRow>): CommandStrategy =
+    PlanThenExecuteStrategy(StrategyId("plan")) {
+        tooling = ToolSpecProvider.fixed(
+            ToolingSnapshot("You manage a plain list of items.", listOf(MyPlanTools.createItem), null),
+        )
+        executor = MyPlanExecutor(rows)
+    }
+
+// A hold ends the plan as a partial completion: say what was done, what waits and what never started.
+fun planSummary(outcome: CommandOutcome): String = when (outcome) {
+    is CommandOutcome.Completed ->
+        if (outcome.partial) {
+            "Did ${outcome.commits.size} action(s), couldn't finish " +
+                "(${outcome.held.size} waiting, ${outcome.remainingStepIds.size} not started)"
+        } else {
+            "Done"
+        }
+    is CommandOutcome.Failed -> "Failed: ${outcome.reason.code}"
+    is CommandOutcome.Unhandled -> "Not handled"
+}
+// doc-snippet:end plan-tier
+
+// doc-snippet:start router-selector
+// Sent to the router's provider: one line per tier, in your own words, and never a secret.
+fun routerSelector(): TierSelector.Router = TierSelector.Router {
+    tierDescriptions = mapOf(
+        StrategyId("single_shot") to "One simple change to one item.",
+        StrategyId("agentic") to "Several changes, or a question that needs a lookup first.",
+    )
+}
+
+// The router asks for its model with its own id (start_tier_router unless you set one): map it like a tier id.
+fun routedSelection(aiProvider: AiProvider, router: TierSelector.Router): ProviderSelectionSource =
+    ProviderSelectionSource { request ->
+        val model = if (request.strategy == router.id) "my-small-model" else "my-model"
+        ProviderSelection(aiProvider.id, model)
+    }
+
+fun routedLadder(
+    aiProvider: AiProvider,
+    credentialSource: CredentialSource,
+    approval: PreApplyGate,
+    items: MutableList<String>,
+): CommandPipeline {
+    val router = routerSelector()
+    return buildPipeline(
+        listOf(grammarTier(MyGrammarResolver(items, "en")), singleShotTier(items), agenticTier(items)),
+        aiProvider,
+        credentialSource,
+        approval,
+    ) {
+        selector = router
+        providerSelection = routedSelection(aiProvider, router)
+    }
+}
+
+// Read what the pick did from the trace: how it ended, the tier it named and how many tiers it skipped.
+fun pickSummary(outcome: CommandOutcome): String {
+    val selection = outcome.trace.selection ?: return "no pick"
+    return "${selection.outcome}: ${selection.picked?.value ?: "none"}, skipped ${selection.tiersBypassed}"
+}
+// doc-snippet:end router-selector
+
 private val NO_KEYS = CredentialSource { CredentialLookup.Missing() }
 
 private fun titleArgs(title: String): JsonObject = buildJsonObject { put("title", title) }
@@ -604,6 +720,26 @@ private fun clarificationArgs(): JsonObject = buildJsonObject {
         add(buildJsonObject { put("id", "list-a"); put("label", "List A") })
         add(buildJsonObject { put("id", "list-b"); put("label", "List B") })
     }
+}
+
+private fun stepOf(id: String, title: String, parentRef: String? = null): JsonObject = buildJsonObject {
+    put("id", id)
+    put("tool", "create_item")
+    putJsonObject("arguments") {
+        put("title", title)
+        if (parentRef != null) put("parent_id", parentRef)
+    }
+}
+
+private fun planAnswer(vararg steps: JsonObject): ModelResult =
+    toolCallAnswer("submit_plan", buildJsonObject { putJsonArray("steps") { steps.forEach { add(it) } } })
+
+// Holds the second proposal it is asked about and admits every other one.
+private class HoldSecondGate : PreApplyGate {
+    private var asked = 0
+
+    override suspend fun admit(proposal: CommitProposal): GateDecision =
+        if (++asked == 2) GateDecision.Hold("needs_review") else GateDecision.Admit()
 }
 
 /** Runs every doc snippet region over the public API with the consumer's own scripted provider, offline. */
@@ -927,6 +1063,109 @@ class DocSnippetsTest {
             assertTrue(missed.toString(), (missed as CommandOutcome.Unhandled).cappedByPolicy)
             assertTrue(items.isEmpty())
             assertEquals(emptyList<ProviderRequest>(), provider.requests)
+        }
+    }
+
+    @Test
+    fun theSecondPlanStepReceivesTheFirstStepsId() = runTest {
+        NoNetworkGuard.during {
+            val rows = mutableListOf<MyRow>()
+            val provider = MyScriptedProvider(
+                listOf(planAnswer(stepOf("first", "Groceries"), stepOf("second", "Milk", "\$first.id"))),
+            )
+            val pipeline = buildPipeline(listOf(planTier(rows)), provider, NO_KEYS, MyAdmitAll)
+
+            val outcome = pipeline.execute(CommandInput("make a list called groceries with milk under it", "en"))
+
+            val completed = outcome as CommandOutcome.Completed
+            assertEquals(outcome.toString(), 2, completed.commits.size)
+            assertEquals(false, completed.partial)
+            assertTrue(completed.remainingStepIds.isEmpty())
+            assertEquals(1, provider.requests.size)
+            assertEquals(listOf("Groceries", "Milk"), rows.map { it.title })
+            assertNull(rows[0].parentId)
+            assertEquals(rows[0].id, rows[1].parentId)
+            assertEquals("Done", planSummary(outcome))
+        }
+    }
+
+    @Test
+    fun aHoldEndsThePlanPartiallyAndListsTheStepsThatNeverRan() = runTest {
+        NoNetworkGuard.during {
+            val rows = mutableListOf<MyRow>()
+            val provider = MyScriptedProvider(
+                listOf(planAnswer(stepOf("first", "One"), stepOf("second", "Two"), stepOf("third", "Three"))),
+            )
+            val pipeline = buildPipeline(listOf(planTier(rows)), provider, NO_KEYS, HoldSecondGate())
+
+            val outcome = pipeline.execute(CommandInput("make three items", "en"))
+
+            val completed = outcome as CommandOutcome.Completed
+            assertTrue(completed.partial)
+            assertEquals(1, completed.commits.size)
+            assertEquals(1, completed.held.size)
+            assertEquals(listOf("third"), completed.remainingStepIds)
+            assertEquals(listOf("One"), rows.map { it.title })
+            assertEquals(
+                "Did 1 action(s), couldn't finish (1 waiting, 1 not started)",
+                planSummary(outcome),
+            )
+        }
+    }
+
+    @Test
+    fun aPlanThatNeedsALookupHandsOnWithNothingRun() = runTest {
+        NoNetworkGuard.during {
+            val rows = mutableListOf<MyRow>()
+            val needsLookup = toolCallAnswer(
+                "submit_plan",
+                buildJsonObject {
+                    putJsonArray("steps") { }
+                    put("needs_lookup", true)
+                },
+            )
+            val pipeline = buildPipeline(
+                listOf(planTier(rows)),
+                MyScriptedProvider(listOf(needsLookup)),
+                NO_KEYS,
+                MyAdmitAll,
+            )
+
+            val outcome = pipeline.execute(CommandInput("add the thing from last week", "en"))
+
+            assertTrue(outcome.toString(), outcome is CommandOutcome.Unhandled)
+            assertTrue(rows.isEmpty())
+            assertEquals("Not handled", planSummary(outcome))
+        }
+    }
+
+    @Test
+    fun aScriptedRouterAnswerStartsTheWalkAtTheNamedTier() = runTest {
+        NoNetworkGuard.during {
+            val items = mutableListOf<String>()
+            val provider = MyScriptedProvider(
+                listOf(
+                    toolCallAnswer("pick_start_tier", buildJsonObject { put("tier", "agentic") }),
+                    textAnswer("You have nothing about paper."),
+                ),
+            )
+            val pipeline = routedLadder(provider, NO_KEYS, MyAdmitAll, items)
+
+            val outcome = pipeline.execute(CommandInput("what do I have about paper", "en"))
+
+            val completed = outcome as CommandOutcome.Completed
+            assertEquals("You have nothing about paper.", completed.reply)
+            val selection = completed.trace.selection!!
+            assertEquals("picked", selection.outcome)
+            assertEquals(StrategyId("agentic"), selection.picked)
+            assertEquals(listOf(StrategyId("single_shot"), StrategyId("agentic")), selection.eligible)
+            assertEquals(1, selection.tiersBypassed)
+            assertEquals("picked: agentic, skipped 1", pickSummary(completed))
+            val ran = completed.trace.attempts.map { it.strategy.value }
+            assertFalse(ran.toString(), "single_shot" in ran)
+            assertEquals("agentic", ran.last())
+            // The router asked for the small model; the tier that ran asked for its own.
+            assertEquals(listOf("my-small-model", "my-model"), provider.requests.map { it.model })
         }
     }
 

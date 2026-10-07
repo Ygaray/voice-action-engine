@@ -92,9 +92,10 @@ Sample: `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/tools/
 
 The ladder is the order of your `tier(...)` calls: the first tier added runs first and a tier hands the command up
 only by returning an escalation. Tier ids (`StrategyId`) must be unique. By default a command starts at the first tier
-that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named tier. Tiers run in the order they are
-added, and the zero-call grammar head (the tiers at the head of the ladder that make no model call) always runs first
-under `Linear`, `Custom` and `Router`; `Fixed(id)` is the exception, because it starts exactly at its tier.
+that may run (`TierSelector.Linear`); `TierSelector.Fixed(id)` starts at a named tier.
+Tiers run in the order they are added, and the zero-call grammar head (the tiers at the head of the ladder that make no
+model call) always runs first under `Linear`, `Custom` and `Router`; `Fixed(id)` is the exception, because it starts
+exactly at its tier.
 
 ### Choosing where the model walk starts
 
@@ -122,8 +123,61 @@ under `Linear`, `Custom` and `Router`; `Fixed(id)` is the exception, because it 
   the tier the answer names. Map `start_tier_router` (or the `id` you give the Router) to a small, fast model; the engine
   names none. `tierDescriptions` is one line per tier id, in your own words, saying when that tier is the right start.
   They are sent to the router's provider, so they must never contain secrets.
+
+The router and the mapping of its id, on a ladder with a grammar head and two model tiers (the router makes no call when
+only one model tier is eligible). The block needs these imports on top of the ones the earlier blocks use:
+
+```text
+import io.github.ygaray.voiceactionengine.core.pipeline.TierSelector
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelection
+import io.github.ygaray.voiceactionengine.core.provider.ProviderSelectionSource
+```
+
+<!-- doc-snippet: router-selector -->
+```kotlin
+// Sent to the router's provider: one line per tier, in your own words, and never a secret.
+fun routerSelector(): TierSelector.Router = TierSelector.Router {
+    tierDescriptions = mapOf(
+        StrategyId("single_shot") to "One simple change to one item.",
+        StrategyId("agentic") to "Several changes, or a question that needs a lookup first.",
+    )
+}
+
+// The router asks for its model with its own id (start_tier_router unless you set one): map it like a tier id.
+fun routedSelection(aiProvider: AiProvider, router: TierSelector.Router): ProviderSelectionSource =
+    ProviderSelectionSource { request ->
+        val model = if (request.strategy == router.id) "my-small-model" else "my-model"
+        ProviderSelection(aiProvider.id, model)
+    }
+
+fun routedLadder(
+    aiProvider: AiProvider,
+    credentialSource: CredentialSource,
+    approval: PreApplyGate,
+    items: MutableList<String>,
+): CommandPipeline {
+    val router = routerSelector()
+    return buildPipeline(
+        listOf(grammarTier(MyGrammarResolver(items, "en")), singleShotTier(items), agenticTier(items)),
+        aiProvider,
+        credentialSource,
+        approval,
+    ) {
+        selector = router
+        providerSelection = routedSelection(aiProvider, router)
+    }
+}
+
+// Read what the pick did from the trace: how it ended, the tier it named and how many tiers it skipped.
+fun pickSummary(outcome: CommandOutcome): String {
+    val selection = outcome.trace.selection ?: return "no pick"
+    return "${selection.outcome}: ${selection.picked?.value ?: "none"}, skipped ${selection.tiersBypassed}"
+}
+```
+
 - **What a pick saved.** Read `trace.selection.tiersBypassed` for the number of tiers the pick skipped compared with
-  `TierSelector.Linear`. It is an upper bound, not proven savings.
+  `TierSelector.Linear`. It is an upper bound, not proven savings. A listener hears the same record as
+  `PipelineEvent.StartTierSelected`, after the picker's own provider calls and before the first picked tier starts.
 
 - **SingleShot** makes one provider call that forces the tool named by `ToolingSnapshot.singleShotTool`, hands the
   model's first tool call to your `OutcomeResolver`, and submits what it returns. The resolver validates the arguments
@@ -351,6 +405,114 @@ fun grammarLadder(
     credentialSource,
     approval,
 )
+```
+
+### The plan tier (one planning call)
+
+`PlanThenExecuteStrategy` is for a command that has several steps and needs no lookup, so the model can plan it from
+the transcript alone. It makes one forced call to the engine's own `submit_plan` tool; the model answers with ordered
+steps, each naming one of your non-terminal tools and its arguments. Your `ToolExecutor` prepares every step, and every
+step is its own proposal to the gate, in plan order, so the gate sees each write (a SingleShot tier combines them).
+
+- **Passing a result on.** An argument whose entire value is the string `$<stepId>.<key>` is replaced, before your
+  executor sees the step, with the `targetIds[key]` that the earlier step committed. Return the key in the
+  `StepResult` of your `apply`, and say in the write tool's description which key it returns, because the model reads
+  that description to write the reference. A reference inside a longer string stays literal, a step may refer only to
+  an earlier one, and the exact syntax and its limits (step id characters, the 64 character cap, whitespace) are in
+  [`API.md`](API.md). A reference to an unknown step rejects the plan before any step runs; a key the earlier step did
+  not return stops the plan before that step.
+- **A step counts as run only when its change was committed.** A step that ends as a preview, a read result or an error
+  is a failed step: nothing it produced can be passed on, and the plan stops there. Keep previews and reads out of a
+  plan.
+- **Lookups are not planned.** A plan that sets `needs_lookup`, or lists a read tool as a step, hands the command to the
+  next tier with nothing run (trace code `plan_needs_lookup`). Put an `AgenticLoopStrategy` after it for those commands.
+- **A hold ends the plan, partially.** The tier stops at the first held step and never resumes: the command ends
+  `Completed(partial = true)`, the commits made before the hold are kept, the held proposal is in `held`, and
+  `remainingStepIds` lists the steps that never ran, in plan order (the held step itself is in `held`).
+  `commitHeld` applies that one proposal only and never runs the remaining steps. Render the result as "did X, couldn't
+  finish", never as success, as the block below does.
+- **Limits and replanning.** `maxSteps` (8 by default) caps the plan. When the plan is rejected before any step runs, or
+  the first step fails before anything was applied or held, the tier asks once more; it never asks a third time and
+  never asks again after a change was applied or held. The trace codes `plan_rejected`, `plan_replanned` and
+  `plan_binding_unresolved` say what happened. A snapshot that already offers a tool named `submit_plan`, or offers no
+  non-terminal tool, fails before any call.
+
+The block needs these imports on top of the ones the earlier blocks use:
+
+```text
+import io.github.ygaray.voiceactionengine.core.strategy.plan.PlanThenExecuteStrategy
+```
+
+<!-- doc-snippet: plan-tier -->
+```kotlin
+class MyRow(val id: String, val title: String, val parentId: String?)
+
+// A write tool whose description names the key it returns. A later step passes that key on as $<stepId>.id.
+object MyPlanTools {
+    val createItem = ToolSpec(
+        "create_item",
+        "Creates one item with a title, optionally under the item named by parent_id. " +
+            "Returns the key id: the id of the new item.",
+        buildJsonObject {
+            put("type", "object")
+            putJsonObject("properties") {
+                putJsonObject("title") { put("type", "string") }
+                putJsonObject("parent_id") { put("type", "string") }
+            }
+            putJsonArray("required") { add("title") }
+        },
+        mutating = true,
+    )
+}
+
+class MyPlanCreate(
+    private val rows: MutableList<MyRow>,
+    private val title: String,
+    private val parentId: String?,
+) : PendingMutation {
+    override val toolName: String = "create_item"
+
+    override suspend fun apply(): StepResult {
+        val row = MyRow("row-${rows.size + 1}", title, parentId)
+        rows.add(row)
+        // The ids you return here are what a later step's $<stepId>.id is replaced with.
+        return StepResult("""{"status":"created"}""", false, null, mapOf("id" to row.id))
+    }
+}
+
+class MyPlanExecutor(private val rows: MutableList<MyRow>) : ToolExecutor {
+    override suspend fun prepare(call: Extraction, input: CommandInput): ToolStep {
+        val title = (call.arguments["title"] as? JsonPrimitive)?.contentOrNull
+        val parentId = (call.arguments["parent_id"] as? JsonPrimitive)?.contentOrNull
+        return if (call.toolName == "create_item" && !title.isNullOrBlank()) {
+            ToolStep.Mutation(MyPlanCreate(rows, title, parentId))
+        } else {
+            ToolStep.Finished(call.toolName, FinishedKind.ERROR, StepResult("""{"status":"error"}""", true))
+        }
+    }
+}
+
+// One planning call, then each step runs in order and is its own proposal to the gate.
+fun planTier(rows: MutableList<MyRow>): CommandStrategy =
+    PlanThenExecuteStrategy(StrategyId("plan")) {
+        tooling = ToolSpecProvider.fixed(
+            ToolingSnapshot("You manage a plain list of items.", listOf(MyPlanTools.createItem), null),
+        )
+        executor = MyPlanExecutor(rows)
+    }
+
+// A hold ends the plan as a partial completion: say what was done, what waits and what never started.
+fun planSummary(outcome: CommandOutcome): String = when (outcome) {
+    is CommandOutcome.Completed ->
+        if (outcome.partial) {
+            "Did ${outcome.commits.size} action(s), couldn't finish " +
+                "(${outcome.held.size} waiting, ${outcome.remainingStepIds.size} not started)"
+        } else {
+            "Done"
+        }
+    is CommandOutcome.Failed -> "Failed: ${outcome.reason.code}"
+    is CommandOutcome.Unhandled -> "Not handled"
+}
 ```
 
 ## 6. The write path
