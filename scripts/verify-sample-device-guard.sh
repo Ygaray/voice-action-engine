@@ -281,13 +281,21 @@ for p in anthropic openai openrouter; do
   grep -qxF "$p --device R5CT10XNKQN --package $PKG" "$LAST_DIR/push.log" || die "push_keys_happy: no exact call for $p"
 done
 
-# decision_override_wins: VAE_GATE1_DECISION_FILE beats the derived default, in both directions.
-DECISION=pending OVERRIDE_DECISION=approved DECISION_FILE_OVERRIDE="elsewhere/decision.md" run_scenario decision_override_wins_approved 0 "foreground:" \
+# decision_override_wins: VAE_GATE1_DECISION_FILE beats the derived default, in both directions (the file must sit under .planning/).
+DECISION=pending OVERRIDE_DECISION=approved DECISION_FILE_OVERRIDE=".planning/elsewhere/decision.md" run_scenario decision_override_wins_approved 0 "foreground:" \
   "OK sub=push-keys providers=anthropic,openai,openrouter" push-keys
 [ "$(wc -l <"$LAST_DIR/push.log" | tr -d ' ')" = 3 ] || die "decision_override_wins_approved: push-test-key was not called exactly three times"
-DECISION=approved OVERRIDE_DECISION=pending DECISION_FILE_OVERRIDE="elsewhere/decision.md" CALLS_EMPTY=1 run_scenario decision_override_wins_pending 2 \
+DECISION=approved OVERRIDE_DECISION=pending DECISION_FILE_OVERRIDE=".planning/elsewhere/decision.md" CALLS_EMPTY=1 run_scenario decision_override_wins_pending 2 \
   "not pushing keys" "ERROR sub=push-keys reason=live_legs_not_approved" push-keys
 [ ! -s "$LAST_DIR/push.log" ] || die "decision_override_wins_pending: push-test-key was called"
+
+# decision_override_outside_planning: an approved file OUTSIDE .planning/ (or reached by ../) never unlocks push-keys.
+DECISION=pending OVERRIDE_DECISION=approved DECISION_FILE_OVERRIDE="elsewhere/decision.md" CALLS_EMPTY=1 run_scenario decision_override_outside_planning 2 \
+  "not pushing keys" "ERROR sub=push-keys reason=decision_file_outside_planning" push-keys
+[ ! -s "$LAST_DIR/push.log" ] || die "decision_override_outside_planning: push-test-key was called"
+DECISION=pending OVERRIDE_DECISION=approved DECISION_FILE_OVERRIDE=".planning/../elsewhere/decision.md" CALLS_EMPTY=1 run_scenario decision_override_dotdot_escape 2 \
+  "not pushing keys" "ERROR sub=push-keys reason=decision_file_outside_planning" push-keys
+[ ! -s "$LAST_DIR/push.log" ] || die "decision_override_dotdot_escape: push-test-key was called"
 
 # decision_derived_name: the prefix rule for a phase directory other than 19 (20-cut-sample reads 20-LIVE-LEG-DECISION.md).
 DECISION=approved PHASE_DIR_VALUE=".planning/phases/20-cut-sample" run_scenario decision_derived_name 0 "foreground:" \

@@ -37,7 +37,8 @@ ADB="${ADB:-adb}"
 PUSH_TEST_KEY="${PUSH_TEST_KEY:-push-test-key}"
 
 # The phase whose decision file and evidence this run uses. Three environment variables retarget it without editing the
-# script (they name PLANNING FILES only; none of them can change the device target):
+# script (they name PLANNING FILES only, enforced for the decision file: it must resolve under <repo>/.planning/; none of
+# them can change the device target):
 #   VAE_GATE1_PHASE_DIR       the phase directory (default: the current phase, Phase 19)
 #   VAE_GATE1_DECISION_FILE   the live-leg decision file; wins over the derived default
 #                             <leading digits of the phase directory name>-LIVE-LEG-DECISION.md inside PHASE_DIR
@@ -210,7 +211,19 @@ host_precheck() {
   case "$SUB" in
     push-keys)
       # D-13: no live spend, and no key leaves the host, until the recorded decision says so. Only the exact line passes: pending, deferred, consumed or a missing file all refuse.
-      if ! grep -qx 'decision: approved' "$DECISION_FILE" 2>/dev/null; then
+      # The decision file must live under this repository's .planning/ (resolved, so ../ and symlinks cannot escape), and the
+      # recorded decision is the FIRST 'decision: ' line of the file, not any matching line quoted further down.
+      local decision_abs planning_abs
+      decision_abs="$(realpath -m -- "$DECISION_FILE" 2>/dev/null || true)"
+      planning_abs="$(realpath -m -- "$ROOT/.planning" 2>/dev/null || true)"
+      case "$decision_abs" in
+        "$planning_abs"/?*) ;;
+        *)
+          echo "decision file is outside $planning_abs: $DECISION_FILE - not pushing keys"
+          finish 2 ERROR "reason=decision_file_outside_planning"
+          ;;
+      esac
+      if [ "$(sed -n 's/^decision: //p' "$decision_abs" 2>/dev/null | head -1)" != approved ]; then
         echo "live legs are not approved: $DECISION_FILE does not record 'decision: approved' - not pushing keys"
         finish 2 ERROR "reason=live_legs_not_approved"
       fi
