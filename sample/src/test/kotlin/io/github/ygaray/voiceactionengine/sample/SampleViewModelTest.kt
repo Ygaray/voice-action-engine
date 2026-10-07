@@ -13,6 +13,7 @@ import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.keys.KeyImport
+import io.github.ygaray.voiceactionengine.sample.keys.KeyUx
 import io.github.ygaray.voiceactionengine.sample.keys.KeyVault
 import io.github.ygaray.voiceactionengine.sample.ui.HeaderText
 import io.github.ygaray.voiceactionengine.sample.ui.Tone
@@ -70,7 +71,7 @@ private class LineSink : EvidenceSink {
     override fun toString(): String = "LineSink(${lines.size})"
 }
 
-/** A vault that counts saves and answers Ready with the last four characters of what was saved. */
+/** A vault that counts saves, answers Ready with the last four characters of what was saved, and fingerprints the key. */
 private class CountingVault : KeyVault {
     var saves = 0
     private val keys = HashMap<ProviderId, String>()
@@ -86,6 +87,8 @@ private class CountingVault : KeyVault {
     override suspend fun delete(provider: ProviderId) {
         keys.remove(provider)
     }
+
+    override suspend fun fingerprint(provider: ProviderId): String? = keys[provider]?.let { KeyUx.fingerprint(it) }
 
     override fun toString(): String = "CountingVault"
 
@@ -320,12 +323,14 @@ class SampleViewModelTest {
 
             assertEquals(1, vault.saves)
             val row = viewModel.state.value.keys.first { it.provider == ProviderId.OPENAI }
-            assertTrue(row.text, "Ready" in row.text && "1234" in row.text)
+            val fingerprint = KeyUx.fingerprint("dummy-value-1234")
+            assertEquals("Ready - fp $fingerprint", row.text)
+            assertFalse(row.text, "1234" in row.text || "dummy" in row.text)
             assertEquals(Tone.GOOD, row.tone)
             assertEquals("", viewModel.keyFields.value[ProviderId.OPENAI])
             val printed = own.lines.map { it.render() } + rig.sink.rendered + viewModel.state.value.toString()
             for (line in printed) {
-                assertFalse(line, "dummy-value" in line || "1234" in line)
+                assertFalse(line, "dummy-value" in line || "1234" in line || fingerprint in line)
             }
         }
     }
@@ -342,7 +347,9 @@ class SampleViewModelTest {
             runCurrent()
 
             assertEquals(1, vault.saves)
-            assertTrue(viewModel.state.value.keys.first { it.provider == ProviderId.ANTHROPIC }.text.endsWith("abcd"))
+            val anthropicRow = viewModel.state.value.keys.first { it.provider == ProviderId.ANTHROPIC }.text
+            assertEquals("Ready - fp ${KeyUx.fingerprint("placeholder-abcd")}", anthropicRow)
+            assertFalse(anthropicRow, "abcd" in anthropicRow)
             assertEquals("", viewModel.keyFields.value[ProviderId.ANTHROPIC])
 
             viewModel.deleteKey(ProviderId.ANTHROPIC)

@@ -51,9 +51,12 @@ internal object HeaderText {
     fun warmWindow(remainingSeconds: Long): String? =
         if (remainingSeconds > 0L) "Anthropic warm window: wait $remainingSeconds s" else null
 
-    /** The key row of a provider: the library's wording, green when ready, red when the key is lost or damaged. */
-    fun keyRow(state: KeyState): ToneText = ToneText(
-        KeyUx.label(state),
+    /**
+     * The key row of a provider: the library's wording plus the key [fingerprint] when ready, green when ready, red when
+     * the key is lost or damaged.
+     */
+    fun keyRow(state: KeyState, fingerprint: String? = null): ToneText = ToneText(
+        KeyUx.label(state, fingerprint),
         when (state) {
             is KeyState.Ready -> Tone.GOOD
             is KeyState.NotConfigured -> Tone.NEUTRAL

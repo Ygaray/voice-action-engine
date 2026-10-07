@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.ygaray.voiceactionengine.core.ProviderId
 import io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome
+import io.github.ygaray.voiceactionengine.keystore.KeyState
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceSink
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
@@ -65,7 +66,7 @@ internal data class LegView(val leg: LegId, val status: String, val reason: Stri
 
 /** One provider's key row: the state wording and its tone. */
 internal data class KeyView(val provider: ProviderId, val text: String, val tone: Tone) {
-    /** Prints no wording: it can include the last four characters of a key. */
+    /** Prints no wording: the row text can include the key fingerprint (RT-07), so it stays out of any printout. */
     override fun toString(): String = "KeyView(provider=${provider.value}, tone=$tone)"
 }
 
@@ -290,7 +291,9 @@ internal class SampleViewModel(
             if (provider == noted && note != null) {
                 KeyView(provider, note, Tone.BAD)
             } else {
-                val row = HeaderText.keyRow(vault.read(provider))
+                val state = vault.read(provider)
+                val fingerprint = if (state is KeyState.Ready) vault.fingerprint(provider) else null
+                val row = HeaderText.keyRow(state, fingerprint)
                 KeyView(provider, row.text, row.tone)
             }
         }
