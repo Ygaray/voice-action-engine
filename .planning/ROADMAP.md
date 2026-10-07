@@ -527,7 +527,54 @@ Plans:
   2. JitPack's build log for `v1.1.0` succeeds, and every published coordinate resolves from an empty Gradle cache: `voice-action-engine-{core,providers,keystore,undo,voice-adapter}`, plus the on-device module if green.
   3. The full §11 row is messaged to the orchestrator (A14) and never committed here. `git.create_tag` stays false, so GSD's milestone close creates no stray `v1.1` marker tag.
 
-**Plans**: TBD
+**Plans**: 0/12 plans executed (11 waves, serial: one Gradle-running plan per wave, 20-04 is bash only beside 20-03; 20-01, 20-05 and 20-07 to 20-12 are non-autonomous relay or handshake plans; every code, doc, sample and script change lands before the wiring SHA W, which plan 20-07 fixes; 20-12 is a conditional rollback that is a recorded no-op on the success path)
+
+Plans:
+**Wave 1**
+
+- [ ] 20-01-PLAN.md — non-autonomous: merge origin/main (never rebase), pre-push scan, push main after "pushing main <sha>", open the relay log, early asks (D-06, RT-09(1)); phase map and coverage table
+
+**Wave 2**
+
+- [ ] 20-02-PLAN.md — core: ActionEvent.toString rationale, RT-01 left + agreement test, the five final `api.txt` dumps, RT-04 and the D-02 seam review (RT-01, RT-02, RT-03, RT-04, RT-06, D-01, D-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 20-03-PLAN.md — sample: key fingerprint (first 6 hex of sha256) instead of the last characters, no-echo tests and the Gate-1 tag contract (RT-07)
+- [ ] 20-04-PLAN.md — bash/docs only: the five Phase 19 doc stumbles, prose outside the compiled regions (C9)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 20-05-PLAN.md — non-autonomous: waiver packet draft proven against gate 8, C7 defaults marked FINAL with rulings cited, PD-04 counts, ask Yahir before any window (D-05, RT-08)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 20-06-PLAN.md — `release-cut.sh`: gate-12 new-module branch + `gate api-baseline`, `:stt` confinement in gate 11, five controls, partial selftest, descriptor-diff helper (D-01, D-02, D-03, D-04, RT-02, RT-05)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 20-07-PLAN.md — non-autonomous: waiver answers recorded, quiet window 20-01 (real gates 10 and 12, `selftest all`, bash gates), W fixed (D-05, D-07, RT-02, RT-09(4))
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 20-08-PLAN.md — non-autonomous: quiet window 20-02, push W, JitPack live probe of the pushed SHA with `:undoalone` and `:adapteralone`, D-02 binary-diff evidence (C2, D-02, RT-09(1))
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 20-09-PLAN.md — non-autonomous: isolated wiring rerun on W against JitPack, wiring record, C10 delta, push, window 20-02 closed (C4, C10, C11)
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 20-10-PLAN.md — non-autonomous: quiet window 20-03, 15-gate preflight, C11 clone simulation, "tag ready v1.1.0 <sha>", the cut (RT-09(2), RT-09(4), C11)
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [ ] 20-11-PLAN.md — non-autonomous: live probe of the tag, strict docs gate, LEDGER-ROW.md relayed to the orchestrator (never committed to section 11), record pushed, windows closed (SC2, SC3, RT-09(2))
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [ ] 20-12-PLAN.md — non-autonomous, conditional: scenario decision and, only if no tag exists, revert of the v1.1.0 announcement in README and ECOSYSTEM (RT-09(3))
+
 **Host note**: five v1.0.1 cut attempts were earlyoom-killed. Run the cut in a quiet window with swap headroom and a single-use Gradle daemon.
 
 ## Progress
@@ -545,4 +592,4 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
 | 19. Sample Gate-1 & Docs | v1.1 | 14/14 | Complete    | 2026-10-07 |
-| 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
+| 20. Cut v1.1.0 | v1.1 | 0/12 | Not started | - |
