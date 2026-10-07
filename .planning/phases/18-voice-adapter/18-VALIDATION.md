@@ -2,9 +2,9 @@
 phase: "18"
 slug: voice-adapter
 # status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-06"
 ---
 
@@ -39,15 +39,15 @@ created: "2026-10-06"
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 18-xx | TBD | TBD | ADPT-01 | transcript leak | text verbatim, segment never stringified | unit | `:voice-adapter:testDebugUnitTest --tests '*FinalSegmentMappingTest*'` | ❌ W0 | ⬜ pending |
-| 18-xx | TBD | TBD | ADPT-01 | mislabeled language | closed set en/es/null, never a default | unit | `--tests '*LanguageLabelsTest*'` | ❌ W0 | ⬜ pending |
-| 18-xx | TBD | TBD | ADPT-01 | transcript leak | no sentinel in `CommandInput.toString()` | unit | `--tests '*RedactionTest*'` | ❌ W0 | ⬜ pending |
-| 18-xx | TBD | TBD | ADPT-01 | API freeze | public surface exactly intended | gate | `scripts/verify-api-seed.sh voice-adapter` | ❌ W0 | ⬜ pending |
-| 18-xx | TBD | TBD | ADPT-01 | hub leakage | POM/module.json name no `voice-engine-android`; runtime classpath has no :stt | gate | `:voice-adapter:verifyAdapterSttCompileOnly` | ❌ W0 | ⬜ pending |
-| 18-xx | TBD | TBD | ADPT-01 | hub leakage | no other module resolves the :stt group | gate | `verifySttConfined` on core/providers/keystore/undo | ❌ W0 | ⬜ pending |
-| 18-xx | TBD | TBD | ADPT-01 | hub leakage | :core still depends on no hub | gate | `:core:verifyCoreDependencyAllowlist :voice-adapter:verifyModuleGraph` | ✅ | ⬜ pending |
-| 18-xx | TBD | TBD | ADPT-01 | manifest drift | manifest consistent incl. new module | bash | `scripts/verify-module-manifest.sh` | ✅ | ⬜ pending |
-| 18-xx | TBD | TBD | RT-01 | toString leak | sentinel never in `ActionEvent.toString()` | unit | `:core:test --tests '*ActionEventTest*'` | ✅ add test | ⬜ pending |
+| 18-01..03 | TBD | TBD | ADPT-01 | transcript leak | text verbatim, segment never stringified | unit | `:voice-adapter:testDebugUnitTest --tests '*FinalSegmentMappingTest*'` | ✅ | ✅ green |
+| 18-01..03 | TBD | TBD | ADPT-01 | mislabeled language | closed set en/es/null, never a default | unit | `--tests '*LanguageLabelsTest*'` | ✅ | ✅ green |
+| 18-01..03 | TBD | TBD | ADPT-01 | transcript leak | no sentinel in `CommandInput.toString()` | unit | `--tests '*RedactionTest*'` | ✅ | ✅ green |
+| 18-01/18-05 | TBD | TBD | ADPT-01 | API freeze | public surface exactly intended | gate | `scripts/verify-api-seed.sh voice-adapter` | ✅ | ✅ green |
+| 18-04/18-07 | TBD | TBD | ADPT-01 | hub leakage | POM/module.json name no `voice-engine-android`; runtime classpath has no :stt | gate | `:voice-adapter:verifyAdapterSttCompileOnly` | ✅ | ✅ green |
+| 18-04 | TBD | TBD | ADPT-01 | hub leakage | no other module resolves the :stt group | gate | `verifySttConfined` on core/providers/keystore/undo | ✅ | ✅ green |
+| 18-04 | TBD | TBD | ADPT-01 | hub leakage | :core still depends on no hub | gate | `:core:verifyCoreDependencyAllowlist :voice-adapter:verifyModuleGraph` | ✅ | ✅ green |
+| 18-02 | TBD | TBD | ADPT-01 | manifest drift | manifest consistent incl. new module | bash | `scripts/verify-module-manifest.sh` | ✅ | ✅ green |
+| 18-06 | TBD | TBD | RT-01 | toString leak | sentinel never in `ActionEvent.toString()` | unit | `:core:test --tests '*ActionEventTest*'` | ✅ add test | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -55,12 +55,12 @@ created: "2026-10-06"
 
 ## Wave 0 Requirements
 
-- [ ] `voice-adapter/` module (build file, api.txt seed, source + test dirs)
-- [ ] `scripts/modules.list` row, `settings.gradle.kts` include + exclusiveContent, `allowedEdges`, `jitpack.yml` line
-- [ ] `verifyAdapterSttCompileOnly` and `verifySttConfined` gates and their negative controls
-- [ ] `scripts/verify-api-seed.sh` aar task-name branch
-- [ ] ML-denial scope list gains `voice-adapter`
-- [ ] `ActionEventTest` sentinel test
+- [x] `voice-adapter/` module (build file, api.txt seed, source + test dirs)
+- [x] `scripts/modules.list` row, `settings.gradle.kts` include + exclusiveContent, `allowedEdges`, `jitpack.yml` line
+- [x] `verifyAdapterSttCompileOnly` and `verifySttConfined` gates and their negative controls
+- [x] `scripts/verify-api-seed.sh` aar task-name branch
+- [x] ML-denial scope list gains `voice-adapter`
+- [x] `ActionEventTest` sentinel test
 
 ---
 
@@ -72,14 +72,34 @@ All phase behaviors have automated verification. Heavy jitpack dry-run and negat
 
 ## Validation Sign-Off
 
-> **Plan-time state is a DRAFT.** Leave frontmatter `status: draft` and `nyquist_compliant: false`.
-> These are finalized ONLY post-execution by the Nyquist finalizer.
+> Finalized post-execution by the Nyquist finalizer (2026-10-06).
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 600s
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` — leave `false` at plan time
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 600s
+- [x] _(finalizer-only)_ `nyquist_compliant: true`
 
-**Approval:** pending
+**Approval:** validated 2026-10-06
+
+---
+
+## Validation Audit 2026-10-06
+
+Evidence: 18-VERIFICATION.md (passed, 2/2 SC, ADPT-01 satisfied), 18-SELF-UAT.md (all_pass), 18-SECURITY.md (secured),
+18-QUIET-WINDOW.md (negative controls 0 failures, API DUMP PROOF OK, DRY RUN OK, PROBE OK), 18-REVIEW-FIX.md
+(`:voice-adapter` 33 tests green, `:core` ActionEvent tests green). All nine map rows resolve to an existing test or gate
+(`FinalSegmentMappingTest`, `LanguageLabelsTest`, `RedactionTest`, `AdapterApiShapeTest`, `SttFreeFacadeTest`,
+`ActionEventTest`; gates `verifyAdapterSttCompileOnly`, `verifySttConfined`, `verify-api-seed.sh`,
+`verify-module-manifest.sh`). No Gradle run by this audit (results are the recorded ones).
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Non-automatable / carried (not gaps against ADPT-01 or SC1-2): clean-cache `:adapteralone` consumer probe (owner Phase 19
+gate / Phase 20 dry run); wiring `verify-stt-confinement.sh` into release-cut (Phase 20); `:voice-adapter:check` and the
+negative-control suite were last run on e15bd36, not the final SHA (re-run by Phase 19 gate / Phase 20 cut).
