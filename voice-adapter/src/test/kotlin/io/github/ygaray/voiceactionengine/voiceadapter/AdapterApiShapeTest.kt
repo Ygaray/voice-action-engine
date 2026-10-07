@@ -1,0 +1,67 @@
+package io.github.ygaray.voiceactionengine.voiceadapter
+
+import io.github.ygaray.sttengine.FinalSegment
+import io.github.ygaray.voiceactionengine.core.CommandInput
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
+
+/** Reflection pin of the public surface frozen at the tag: the two JVM facades, the overload sets and no joiner. */
+class AdapterApiShapeTest {
+    private val segmentFacade = "io.github.ygaray.voiceactionengine.voiceadapter.FinalSegmentCommandInput"
+    private val labelFacade = "io.github.ygaray.voiceactionengine.voiceadapter.SttLanguageLabels"
+    private val sttPackagePrefix = "io.github.ygaray.sttengine"
+
+    private fun publicStatics(className: String): List<Method> = Class.forName(className).declaredMethods
+        .filter { Modifier.isPublic(it.modifiers) && Modifier.isStatic(it.modifiers) && !it.isSynthetic }
+
+    @Test
+    fun theSegmentFacadeExposesExactlyTheThreeToCommandInputOverloads() {
+        val methods = publicStatics(segmentFacade)
+
+        assertEquals(listOf("toCommandInput", "toCommandInput", "toCommandInput"), methods.map { it.name })
+        val signatures = methods.map { it.parameterTypes.toList() }.toSet()
+        val expected = setOf(
+            listOf<Class<*>>(FinalSegment::class.java),
+            listOf(FinalSegment::class.java, Any::class.java),
+            listOf(FinalSegment::class.java, Any::class.java, String::class.java),
+        )
+        assertEquals(expected, signatures)
+    }
+
+    @Test
+    fun theLabelFacadeExposesCommandInputOfThreeTimesAndTheNormalizerOnce() {
+        val names = publicStatics(labelFacade).map { it.name }.sorted()
+
+        assertEquals(listOf("commandInputOf", "commandInputOf", "commandInputOf", "normalizeSttLanguageLabel"), names)
+    }
+
+    @Test
+    fun noSignatureInTheLabelFacadeNamesAnSttType() {
+        for (method in publicStatics(labelFacade)) {
+            val types = method.parameterTypes.toList() + method.returnType
+            assertTrue(method.name, types.none { it.name.startsWith(sttPackagePrefix) })
+        }
+    }
+
+    @Test
+    fun noPublicMethodOfEitherFacadeTakesACollectionIterableOrList() {
+        val joinerTypes = listOf(Collection::class.java, Iterable::class.java, List::class.java)
+        for (method in publicStatics(segmentFacade) + publicStatics(labelFacade)) {
+            for (type in method.parameterTypes) {
+                assertFalse(method.name, joinerTypes.any { it.isAssignableFrom(type) } || type.isArray)
+            }
+        }
+    }
+
+    @Test
+    fun everyMethodReturnsACommandInputOrAString() {
+        for (method in publicStatics(segmentFacade) + publicStatics(labelFacade)) {
+            val returns = method.returnType
+            assertTrue(method.name, returns == CommandInput::class.java || returns == String::class.java)
+        }
+    }
+}
