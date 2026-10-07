@@ -1,0 +1,6 @@
+# gate1 leg=grammar_offline captured_utc=2026-10-07T16:07:32Z target=R5CT10XNKQN head=1869950dca
+VAE_TRACE leg=grammar_offline case=1 kind=completed capped=none tiers_run=1 provider_turns=0 attempts=0 tripwire_calls=0 matched_lang=en sel=none eligible=none picked_index=none first_model_index=none bypassed=none sel_turns=none codes=[tier_skipped_policy]
+VAE_TRACE leg=grammar_offline case=2 kind=completed capped=none tiers_run=1 provider_turns=0 attempts=0 tripwire_calls=0 matched_lang=es sel=none eligible=none picked_index=none first_model_index=none bypassed=none sel_turns=none codes=[tier_skipped_policy]
+VAE_TRACE leg=grammar_offline case=3 kind=unhandled capped=true tiers_run=1 provider_turns=0 attempts=0 tripwire_calls=0 matched_lang=none sel=none eligible=none picked_index=none first_model_index=none bypassed=none sel_turns=none codes=[tier_skipped_policy]
+VAE_OUTCOME leg=grammar_offline kind=unhandled partial=false reason=none executed=0 committed=0 held=0 reply_len=0 terminal_tool=none
+VAE_VERDICT leg=grammar_offline verdict=PASS en=1 es=1 near_miss_capped=1 provider_turns=0 attempts=0 tripwire_calls=0 trigger=ui

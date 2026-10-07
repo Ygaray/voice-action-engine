@@ -1,0 +1,7 @@
+# gate1 leg=undo_all captured_utc=2026-10-07T16:09:56Z target=R5CT10XNKQN head=1869950dca
+VAE_UNDO leg=undo_all case=1 phase=counted n=3 committed=3 pending=0 withheld=false partial=false remaining=0 result=none restored=none blockers=none reason=none store_ok=none
+VAE_UNDO leg=undo_all case=1 phase=undone n=3 committed=3 pending=0 withheld=false partial=false remaining=0 result=complete restored=3 blockers=none reason=none store_ok=true
+VAE_UNDO leg=undo_all case=2 phase=refused n=1 committed=1 pending=0 withheld=false partial=false remaining=0 result=refused restored=none blockers=1 reason=changed_since store_ok=true
+VAE_UNDO leg=undo_all case=3 phase=partial n=2 committed=2 pending=1 withheld=false partial=true remaining=1 result=none restored=none blockers=none reason=none store_ok=none
+VAE_UNDO leg=undo_all case=3 phase=undone n=2 committed=2 pending=1 withheld=false partial=true remaining=1 result=complete restored=2 blockers=none reason=none store_ok=true
+VAE_VERDICT leg=undo_all verdict=PASS n=3 restored=3 blockers=1 partial_n=2 pending=1 trigger=ui
