@@ -1,7 +1,9 @@
 package io.github.ygaray.voiceactionengine.core
 
+import io.github.ygaray.voiceactionengine.core.commit.ActionEvent
 import io.github.ygaray.voiceactionengine.core.commit.ActionKind
 import io.github.ygaray.voiceactionengine.core.commit.DispatchResult
+import io.github.ygaray.voiceactionengine.core.commit.ExecutedAction
 import io.github.ygaray.voiceactionengine.core.commit.FinishedKind
 import io.github.ygaray.voiceactionengine.core.commit.StepResult
 import io.github.ygaray.voiceactionengine.core.commit.ToolStep
@@ -215,6 +217,47 @@ class ActionEventTest {
             assertTrue(event.toString(), event.toString().contains(runId))
             assertTrue(event.toString(), event.toString().contains("toolName=delete_items"))
         }
+    }
+
+    @Test
+    fun everyFieldThatCouldCarryUserTextIsAbsentFromBothStringForms() {
+        val action = ExecutedAction(
+            position = 0,
+            kind = ActionKind.COMMITTED,
+            applied = true,
+            appOutcomeToken = SENTINEL,
+            toolName = "delete_items",
+            targetIds = mapOf(SENTINEL to SENTINEL),
+            context = SentinelContext(),
+            providerCallId = SENTINEL,
+            mutating = true,
+        )
+        val event = ActionEvent(runId = "run-7", parentRunId = "parent-3", action = action, heldRunId = SENTINEL)
+
+        // Positive controls: the sentinel really is carried by every field under test.
+        assertEquals(SENTINEL, action.appOutcomeToken)
+        assertEquals(SENTINEL, action.providerCallId)
+        assertEquals(setOf(SENTINEL), action.targetIds.keys)
+        assertEquals(SENTINEL, action.targetIds.getValue(SENTINEL))
+        assertEquals(SENTINEL, event.heldRunId)
+
+        assertFalse(event.toString(), event.toString().contains(SENTINEL))
+        assertFalse(action.toString(), action.toString().contains(SENTINEL))
+
+        val text = event.toString()
+        listOf(
+            "runId=run-7",
+            "parentRunId=parent-3",
+            "heldRunId=set",
+            "position=0",
+            "kind=${ActionKind.COMMITTED}",
+            "toolName=delete_items",
+            "targetIds=1",
+            "mutating=true",
+        ).forEach { assertTrue(text, text.contains(it)) }
+
+        val unheld = ActionEvent(runId = "run-7", parentRunId = null, action = action, heldRunId = null)
+        assertTrue(unheld.toString(), unheld.toString().contains("heldRunId=null"))
     }
 }
 

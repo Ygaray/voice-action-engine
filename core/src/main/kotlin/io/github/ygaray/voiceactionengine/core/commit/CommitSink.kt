@@ -34,7 +34,12 @@ public class ActionEvent internal constructor(
     public val action: ExecutedAction,
     public val heldRunId: String?,
 ) {
-    /** Prints only whether a held run id is set, never its value. */
+    /**
+     * Prints identifiers and counts only: the run id, the parent run id, the held run id only as set or null, and the
+     * action's own string form. The run-id seam is app code, so an id may carry user text; that is why the held run
+     * id's value is never printed. It never prints an outcome token, a target id, a provider call id, an argument,
+     * utterance text, model output or a key.
+     */
     override fun toString(): String =
         "ActionEvent(runId=$runId, parentRunId=$parentRunId, heldRunId=${if (heldRunId == null) "null" else "set"}, " +
             "action=$action)"
@@ -68,7 +73,11 @@ public class ExecutedAction internal constructor(
     public val providerCallId: String?,
     public val mutating: Boolean = true,
 ) {
-    /** Prints position, kind, tool name and the context's class name; never tokens or content. */
+    /**
+     * Prints the position, kind, applied flag, tool name, the count of target ids, the context's class name and the
+     * mutating flag only. It never prints an outcome token, a target id key or value, a provider call id, an argument,
+     * utterance text, model output or a key, and it never prints the context object's own string form.
+     */
     override fun toString(): String =
         "ExecutedAction(position=$position, kind=$kind, applied=$applied, toolName=$toolName, " +
             "targetIds=${targetIds.size}, context=${context?.let { it::class.simpleName }}, mutating=$mutating)"
