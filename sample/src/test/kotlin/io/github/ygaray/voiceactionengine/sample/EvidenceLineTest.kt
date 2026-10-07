@@ -9,6 +9,7 @@ import io.github.ygaray.voiceactionengine.sample.evidence.BudgetSnapshot
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.evidence.TraceFacts
+import io.github.ygaray.voiceactionengine.sample.evidence.fixtureBacked
 import io.github.ygaray.voiceactionengine.sample.fixture.FixtureState
 import io.github.ygaray.voiceactionengine.sample.keys.ImportReport
 import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
@@ -165,6 +166,43 @@ class EvidenceLineTest {
         assertTrue(EvidenceLine.key(ImportReport(ProviderId.OPENAI, ImportReport.READY, null, false, null)).loud)
         assertTrue(EvidenceLine.key(ImportReport(ProviderId.OPENAI, ImportReport.READY, null, true, true)).loud)
         assertFalse(EvidenceLine.key(ImportReport(ProviderId.OPENAI, ImportReport.ABSENT_FILE, null, true, null)).loud)
+    }
+
+    @Test
+    fun aTraceLineCarriesOnlyCountsCodesAndIndexes() {
+        // Would-be field values that are a tier id, a transcript word and a slot value: all fit the token alphabet.
+        val facts = TraceFacts(
+            kind = "tier-single-id",
+            capped = true,
+            tiersRun = 2,
+            providerTurns = 0,
+            attempts = 0,
+            tripwireCalls = 0,
+            matchedLang = "paper",
+            sel = "single",
+            eligible = 2,
+            pickedIndex = 1,
+            firstModelIndex = 1,
+            bypassed = 1,
+            selTurns = 1,
+            codes = listOf(TraceCode.TIER_SKIPPED_POLICY, TraceCode.ROUTER_FALLBACK),
+        )
+        val text = EvidenceLine.trace(LegId.GRAMMAR_OFFLINE, 3, facts).render()
+        for (leaked in listOf("tier-single-id", "paper", "single")) assertFalse(text, text.contains(leaked))
+        assertTrue(text, text.contains(" kind=invalid_token "))
+        assertTrue(text, text.contains(" matched_lang=invalid_token sel=invalid_token "))
+        assertTrue(text, text.contains(" eligible=2 picked_index=1 first_model_index=1 bypassed=1 sel_turns=1 "))
+        assertTrue(text, text.endsWith(" codes=[tier_skipped_policy,router_fallback]"))
+        assertTrue(text, allow.matches(text))
+    }
+
+    @Test
+    fun aTraceLineIsNeverLoudAndNeverFixtureRedacted() {
+        val facts = TraceFacts("unhandled", true, 1, 0, 0, 0, null)
+        val line = EvidenceLine.trace(LegId.GRAMMAR_OFFLINE, 1, facts)
+        assertFalse(line.loud)
+        assertTrue(line.render(), line.render().contains(" matched_lang=none "))
+        assertFalse(LegId.GRAMMAR_OFFLINE.fixtureBacked)
     }
 
     @Test
