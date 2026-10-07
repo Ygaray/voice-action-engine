@@ -5,20 +5,27 @@
 #   verify <dir> <version>   judge the agent's work mechanically, from an EMPTY Gradle cache against the repository
 #                            in <dir>/settings.gradle.kts (JitPack) -> WIRING TEST: PASS checks=<n>
 #                            or one "WIRING TEST: FAIL <id>: <why>" line per failed check (exit 1)
-#   selftest                 prove the judge is not vacuous: an isolated local publication (the JitPack dry run), the
-#                            committed reference solution must PASS and a planted bad copy must FAIL on W4 and W5
-#                            -> WIRING SELFTEST OK | WIRING SELFTEST FAIL: <why>
+#   selftest                 prove the judge is not vacuous: an isolated local publication (the JitPack dry run, clean
+#                            clone of HEAD), the committed reference solution must PASS and a planted bad copy must
+#                            FAIL on W4, W5 and W12 -> WIRING SELFTEST OK | WIRING SELFTEST FAIL: <why>
+#   selftest --local         the same proof, cheaper: publishes the WORKING TREE with the jitpack.yml install list into an
+#                            isolated maven-local (--offline, host Gradle cache), no dry run and no clean clone
+#   prepare-local <m2dir> <version>
+#                            build the workspace against a file:// repository (the unpushed tree's local publication)
+#                            with the docs of HEAD -> WIRING PREPARED dir=<dir> version=<version>
 # The workspace holds the three docs, a skeleton derived from scripts/jitpack-consumer-probe.sh and TASK.md. It never
 # holds engine or sample source, the planning tree, the reference solution or any key. The dispatch of the fresh agent
-# is the master's job (an executor has no Agent tool): see .planning/phases/10-sample-harness-gate-1-docs/10-WIRING-TEST.md.
+# is the master's job (an executor has no Agent tool): see .planning/releases/v1.1.0/wiring-test/DISPATCH.md.
 # Env: WIRING_DIR=<dir> overrides the prepare target; REPO_URL overrides https://jitpack.io (prepare);
+#      VAE_WIRING_ASSET_DIR=<dir> overrides the prompt + reference-solution directory;
 #      WIRING_HOST_CACHE=1 makes verify reuse the host Gradle cache with --offline (selftest only, never for the real run).
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-PHASE_DIR="$ROOT/.planning/phases/10-sample-harness-gate-1-docs"
-PROMPT="$PHASE_DIR/wiring-test/AGENT-PROMPT.md"
-REFERENCE="$PHASE_DIR/wiring-test/reference"
+# Stable, non-phase location: it survives the milestone archive (the Phase 10 copies stay in the archive untouched).
+ASSET_DIR="${VAE_WIRING_ASSET_DIR:-$ROOT/.planning/releases/v1.1.0/wiring-test}"
+PROMPT="$ASSET_DIR/AGENT-PROMPT.md"
+REFERENCE="$ASSET_DIR/reference"
 # W3 accepts every module of the manifest. VAE_MODULES_FILE is set explicitly so the reader never needs git.
 VAE_MODULES_FILE="${VAE_MODULES_FILE:-$ROOT/scripts/modules.list}"; export VAE_MODULES_FILE
 # shellcheck source=lib/modules.sh
@@ -194,7 +201,8 @@ prepare() {
 # selftest
 # ---------------------------------------------------------------------------------------------------------------------
 selftest() {
-  local dry_log m2 version ws bad out rc=0 d
+  local local_mode=0 dry_log m2 version ws bad out rc=0 d
+  if [ "${1:-}" = "--local" ]; then local_mode=1; elif [ -n "${1:-}" ]; then echo "usage: $0 selftest [--local]" >&2; return 2; fi
   SELFTEST_TMP="$(mktemp -d)"
   dry_log="$SELFTEST_TMP/dry-run.log"
   mkdir -p "$SELFTEST_TMP/dry"
@@ -210,10 +218,28 @@ selftest() {
   trap cleanup_selftest EXIT
   sf() { echo "WIRING SELFTEST FAIL: $*"; exit 1; }
 
-  TMPDIR="$SELFTEST_TMP/dry" KEEP_WORK=1 "$ROOT/scripts/jitpack-dry-run.sh" >"$dry_log" 2>&1 || { tail -20 "$dry_log" >&2; sf "jitpack dry run failed"; }
-  m2="$(grep -oE 'm2=[^ ]+ \(kept\)' "$dry_log" | tail -1 | sed -E 's/^m2=//; s/ \(kept\)$//')"
-  version="$(grep -oE 'DRY RUN OK version=[^ ]+' "$dry_log" | tail -1 | sed 's/.*version=//')"
-  [ -d "$m2" ] && [ -n "$version" ] || sf "could not parse m2/version from the dry run output"
+  if [ "$local_mode" = 1 ]; then
+    # The working tree, the jitpack.yml install list (same awk as scripts/jitpack-dry-run.sh), an isolated maven-local,
+    # --offline on the host Gradle cache. Nothing is cloned and no dry run runs.
+    local c cmds=()
+    [ -f "$ROOT/jitpack.yml" ] || sf "no jitpack.yml in $ROOT"
+    mapfile -t cmds < <(awk '/^install:/{f=1;next} f&&/^[^[:space:]#-]/{f=0} f&&/^[[:space:]]*-[[:space:]]/{sub(/^[[:space:]]*-[[:space:]]*/,"");print}' "$ROOT/jitpack.yml")
+    [ "${#cmds[@]}" -gt 0 ] || sf "no install commands found in jitpack.yml"
+    m2="$SELFTEST_TMP/m2/repository"; mkdir -p "$m2"
+    version="local-$(git -C "$ROOT" rev-parse --short=10 HEAD)"
+    for c in "${cmds[@]}"; do
+      case "$c" in *":sample"*) sf "jitpack.yml install list names :sample: $c";; esac
+      echo ">>> $c --offline -Dmaven.repo.local=$m2"
+      (cd "$ROOT" && VERSION="$version" bash -c "$c --offline -Dmaven.repo.local=$m2" >"$dry_log" 2>&1) \
+        || { tail -20 "$dry_log" >&2; sf "local publication failed"; }
+    done
+    [ -n "$(find "$m2" -name "voice-action-engine-core-$version.jar" -print -quit)" ] || sf "the local publication holds no core artifact for $version"
+  else
+    TMPDIR="$SELFTEST_TMP/dry" KEEP_WORK=1 "$ROOT/scripts/jitpack-dry-run.sh" >"$dry_log" 2>&1 || { tail -20 "$dry_log" >&2; sf "jitpack dry run failed"; }
+    m2="$(grep -oE 'm2=[^ ]+ \(kept\)' "$dry_log" | tail -1 | sed -E 's/^m2=//; s/ \(kept\)$//')"
+    version="$(grep -oE 'DRY RUN OK version=[^ ]+' "$dry_log" | tail -1 | sed 's/.*version=//')"
+    [ -d "$m2" ] && [ -n "$version" ] || sf "could not parse m2/version from the dry run output"
+  fi
 
   ws="$SELFTEST_TMP/ws"
   make_workspace "$ws" "$version" "file://$m2" "HEAD" || sf "make_workspace failed"
@@ -262,6 +288,6 @@ cmd="${1:-}"
 case "$cmd" in
   prepare)  shift; prepare "$@" ;;
   verify)   shift; verify "$@" ;;
-  selftest) selftest ;;
+  selftest) shift; selftest "$@" ;;
   *) echo "usage: $0 prepare <sha> | verify <dir> <version> | selftest" >&2; exit 2 ;;
 esac
