@@ -57,8 +57,10 @@ COORD_PREFIX='com.github.Ygaray.voice-action-engine:voice-action-engine-'
 COORD_GROUP='com.github.Ygaray.voice-action-engine'
 
 ONLY=""
+SELFTEST=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --selftest) SELFTEST=1; shift ;;
     --only) [ $# -ge 2 ] || { echo "DOC COVERAGE FAIL: usage: --only needs a list" >&2; exit 1; }; ONLY=",$2,"; shift 2 ;;
     *) echo "DOC COVERAGE FAIL: usage: unknown argument $1" >&2; exit 1 ;;
   esac
@@ -68,7 +70,8 @@ failures=()
 checks=0
 types=0
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+SELF=""
+trap 'rm -rf "$WORK"; [ -z "$SELF" ] || rm -rf "$SELF"' EXIT
 
 fail() { failures+=("DOC COVERAGE FAIL: $1: $2"); }
 selected() { [ -z "$ONLY" ] || case "$ONLY" in *",$1,"*) return 0 ;; *) return 1 ;; esac; }
@@ -419,6 +422,109 @@ check_C31() {
 }
 
 check_C32() { need "$API" onFailed ReasoningMode providerCallId carryIn; }
+
+# --selftest: copy only what the gate reads (the four docs, scripts/, every snippet test file, the main sources of every
+# manifest module, and the sample paths the docs point at) into a temp directory, require the copied gate to be green
+# there, then plant one violation per fresh copy and require a failure line naming the expected check. The planning files
+# are never copied, and git is not needed in the copy (C23 asks git for a tag, so it is left out of the copy runs).
+SELFTEST_CHECKS=""
+for n in $(seq 1 32); do
+  [ "$n" -eq 23 ] || SELFTEST_CHECKS="${SELFTEST_CHECKS:+$SELFTEST_CHECKS,}$(printf 'C%02d' "$n")"
+done
+
+# make_copy <dir>: populate an isolated copy of the files the gate reads.
+make_copy() {
+  local dir="$1" f m path
+  mkdir -p "$dir"
+  cp "$README" "$INTEGRATION" "$API" "$ECOSYSTEM" "$dir/"
+  cp -r scripts "$dir/scripts"
+  for f in "${SNIPPET_FILES[@]}"; do cp --parents "$f" "$dir/"; done
+  for m in $(vae_modules); do
+    [ -d "$(main_sources "$m")" ] && cp -r --parents "$(main_sources "$m")" "$dir/"
+  done
+  while IFS= read -r path; do
+    path="${path#\`}"; path="${path%\`}"
+    [ -e "$path" ] && cp -r --parents "$path" "$dir/"
+  done < <(grep -ohE '`sample/[^` ]*`' "$README" "$INTEGRATION" "$API" 2>/dev/null | sort -u)
+  return 0
+}
+
+# run_copy <dir>: the copied gate's combined output; VAE_MODULES_FILE must not leak in from this run.
+run_copy() {
+  (cd "$1" && env -u VAE_MODULES_FILE -u BASH_ENV bash scripts/verify-docs-coverage.sh --only "$SELFTEST_CHECKS" 2>&1) || true
+}
+
+# apply_plant <name> <dir>: the one violation of this plant.
+apply_plant() {
+  local name="$1" d="$2"
+  case "$name" in
+    undo-coordinate) sed -i '/voice-action-engine-undo:/d' "$d/README.md" ;;
+    api-type) sed -i 's/`UndoGroup`/UndoGroup/g' "$d/API.md" ;;
+    api-function) sed -i 's/`toCommandInput`/toCommandInput/g' "$d/API.md" ;;
+    old-overloads) printf '\nThree overloads exist for the mapping.\n' >> "$d/API.md" ;;
+    lone-context) printf '\nCall segment.toCommandInput(context) for the run context.\n' >> "$d/INTEGRATION.md" ;;
+    api-ascii-note) sed -i 's/ASCII/plain/g' "$d/API.md" ;;
+    adapter-block) sed -i '/^<!-- doc-snippet: adapter-wiring -->/,/^```$/ s/segment/segmnt/' "$d/INTEGRATION.md" ;;
+    adapter-test-missing) find "$d/voice-adapter/src/test" -name DocSnippetAdapterTest.kt -delete ;;
+    empty-manifest) printf '# no module rows\n' > "$d/scripts/modules.list" ;;
+    empty-module)
+      printf 'ghost jar voice-action-engine-ghost ghost no\n' >> "$d/scripts/modules.list"
+      mkdir -p "$d/ghost/src/main/kotlin" ;;
+    *) echo "unknown plant $name" >&2; return 1 ;;
+  esac
+}
+
+selftest() {
+  local before after out plant want why plants=0 bt='`'
+  local table=(
+    "undo-coordinate|FAIL: C01: README.md lacks 'com.github.Ygaray.voice-action-engine:voice-action-engine-undo:'"
+    "api-type|FAIL: C20: API.md does not name the public type ${bt}UndoGroup${bt}"
+    "api-function|FAIL: C20: API.md does not name the public function ${bt}toCommandInput${bt}"
+    "old-overloads|FAIL: C31: API.md still carries the old overload count"
+    "lone-context|FAIL: C31: INTEGRATION.md shows toCommandInput with a lone argument"
+    "api-ascii-note|FAIL: C31: API.md lacks 'ASCII'"
+    "adapter-block|FAIL: C06: INTEGRATION.md: block 'adapter-wiring' differs from its region"
+    "adapter-test-missing|FAIL: C06: INTEGRATION.md: no region 'adapter-wiring'"
+    "empty-manifest|lists no module"
+    "empty-module|FAIL: C20: module ghost has no public top-level type or function"
+  )
+  SELF="$(mktemp -d)"
+  before="$(git status --porcelain 2>/dev/null || true)"
+
+  make_copy "$SELF/base"
+  out="$(run_copy "$SELF/base")"
+  case "$out" in
+    "DOC COVERAGE OK checks="*) ;;
+    *) echo "DOC COVERAGE SELFTEST FAIL: baseline: the unplanted copy is not green: $(printf '%s' "$out" | head -3 | tr '\n' ' ')"; exit 1 ;;
+  esac
+
+  for entry in "${table[@]}"; do
+    plant="${entry%%|*}"; want="${entry#*|}"
+    make_copy "$SELF/$plant"
+    if ! apply_plant "$plant" "$SELF/$plant"; then
+      echo "DOC COVERAGE SELFTEST FAIL: $plant: the plant could not be applied"; exit 1
+    fi
+    out="$(run_copy "$SELF/$plant")"
+    case "$out" in
+      "DOC COVERAGE OK"*) why="the planted copy stayed green (the check is vacuous)" ;;
+      *) if printf '%s\n' "$out" | grep -qF -- "$want"; then why=""; else
+           why="red, but without the expected line '$want' (got: $(printf '%s' "$out" | head -2 | tr '\n' ' '))"; fi ;;
+    esac
+    if [ -n "$why" ]; then echo "DOC COVERAGE SELFTEST FAIL: $plant: $why"; exit 1; fi
+    plants=$((plants + 1))
+  done
+
+  after="$(git status --porcelain 2>/dev/null || true)"
+  if [ "$before" != "$after" ]; then
+    echo "DOC COVERAGE SELFTEST FAIL: real tree: git status changed during the selftest"; exit 1
+  fi
+  echo "DOC COVERAGE SELFTEST OK plants=$plants"
+}
+
+if [ "$SELFTEST" = 1 ]; then
+  selftest
+  exit 0
+fi
 
 for id in C01 C02 C03 C04 C05 C06 C07 C08 C09 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C24 C25 C26 C27 C28 C29 C30 C31 C32; do
   run "$id"
