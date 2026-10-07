@@ -5,6 +5,34 @@ status: passed
 score: 6/6 must-haves verified
 covered_files:
   - .planning/REQUIREMENTS.md
+  - .planning/phases/19-sample-gate-1-docs/19-01-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-01-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-02-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-02-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-03-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-03-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-04-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-04-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-05-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-05-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-06-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-06-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-07-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-07-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-08-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-08-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-09-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-09-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-10-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-10-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-11-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-11-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-12-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-12-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-13-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-13-SUMMARY.md
+  - .planning/phases/19-sample-gate-1-docs/19-14-PLAN.md
+  - .planning/phases/19-sample-gate-1-docs/19-14-SUMMARY.md
   - .planning/phases/19-sample-gate-1-docs/evidence/gate1-grammar_offline.txt
   - .planning/phases/19-sample-gate-1-docs/evidence/gate1-plan_live.txt
   - .planning/phases/19-sample-gate-1-docs/evidence/gate1-responses_probe.txt
@@ -21,7 +49,7 @@ covered_files:
   - scripts/run-sample-gate1.sh
   - scripts/verify-docs-coverage.sh
   - scripts/verify-sample-device-guard.sh
-covered_digest: "v1:sha256:ab24a157d303ea3ced699f56c9c59c353f661e2c60c2dfa7f42ab5d489e81888"
+covered_digest: "v1:sha256:af9fcdbd8ad9cc41d6aa7b11403475fba74143c6545e92c926b5936d9ed15489"
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
