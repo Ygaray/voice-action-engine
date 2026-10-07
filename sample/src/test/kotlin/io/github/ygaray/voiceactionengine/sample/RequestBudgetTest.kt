@@ -13,11 +13,14 @@ import io.github.ygaray.voiceactionengine.core.transcript.UserMessage
 import io.github.ygaray.voiceactionengine.sample.evidence.BudgetState
 import io.github.ygaray.voiceactionengine.sample.evidence.BudgetStore
 import io.github.ygaray.voiceactionengine.sample.evidence.BudgetedProvider
+import io.github.ygaray.voiceactionengine.sample.evidence.CORE_REQUEST_CEILING
 import io.github.ygaray.voiceactionengine.sample.evidence.CostEstimate
 import io.github.ygaray.voiceactionengine.sample.evidence.EvidenceLine
 import io.github.ygaray.voiceactionengine.sample.evidence.FileBudgetStore
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
 import io.github.ygaray.voiceactionengine.sample.evidence.RequestBudget
+import io.github.ygaray.voiceactionengine.sample.evidence.TOTAL_REQUEST_CEILING
+import io.github.ygaray.voiceactionengine.sample.legs.LegCatalog
 import io.github.ygaray.voiceactionengine.sample.net.AttemptTap
 import io.github.ygaray.voiceactionengine.sample.net.LegContext
 import io.github.ygaray.voiceactionengine.sample.verdict.AttemptRecord
@@ -54,7 +57,7 @@ class RequestBudgetTest {
 
     @Test
     fun aLegStartsOnlyWithItsReservation() {
-        val budget = RequestBudget(MemoryStore(state(core = 28)))
+        val budget = RequestBudget(MemoryStore(state(core = 10)))
         assertFalse(budget.canStart(6, optional = false))
         assertTrue(budget.canStart(3, optional = false))
     }
@@ -62,14 +65,14 @@ class RequestBudgetTest {
     @Test
     fun aCallIsRefusedBeforeItIsSentWhenHeadroomIsBelowThree() = runTest {
         val refused = FakeAiProvider(ProviderId.ANTHROPIC)
-        val tight = BudgetedProvider(refused, RequestBudget(MemoryStore(state(core = 31))), { false })
+        val tight = BudgetedProvider(refused, RequestBudget(MemoryStore(state(core = 13))), { false })
         val result = tight.complete(request())
         assertTrue(result.toString(), result is ModelResult.Failure)
         assertEquals("sample_budget_exhausted", (result as ModelResult.Failure).reason.code)
         assertEquals(0, refused.callCount)
 
         val open = FakeAiProvider(ProviderId.ANTHROPIC, FakeAiProvider.reply("ok", Usage.ZERO))
-        val roomy = BudgetedProvider(open, RequestBudget(MemoryStore(state(core = 30))), { false })
+        val roomy = BudgetedProvider(open, RequestBudget(MemoryStore(state(core = 12))), { false })
         assertTrue(roomy.complete(request()) is ModelResult.Success)
         assertEquals(1, open.callCount)
     }
@@ -84,22 +87,55 @@ class RequestBudgetTest {
     }
 
     @Test
-    fun theOptionalProbeRunsOnceAndNeverPushesTheTotalPast34() {
-        assertTrue(RequestBudget(MemoryStore(state(core = 31))).headroomFor(optional = true))
-        assertFalse(RequestBudget(MemoryStore(state(core = 31, optional = 1))).headroomFor(optional = true))
-        assertFalse(RequestBudget(MemoryStore(state(core = 32))).headroomFor(optional = true))
-        assertTrue(RequestBudget(MemoryStore(state(core = 31))).canStart(3, optional = true))
-        assertFalse(RequestBudget(MemoryStore(state(core = 31))).canStart(4, optional = true))
+    fun theOptionalProbeRunsOnceAndNeverPushesTheTotalPast16() {
+        assertTrue(RequestBudget(MemoryStore(state(core = 13))).headroomFor(optional = true))
+        assertFalse(RequestBudget(MemoryStore(state(core = 13, optional = 1))).headroomFor(optional = true))
+        assertFalse(RequestBudget(MemoryStore(state(core = 14))).headroomFor(optional = true))
+        assertTrue(RequestBudget(MemoryStore(state(core = 13))).canStart(3, optional = true))
+        assertFalse(RequestBudget(MemoryStore(state(core = 13))).canStart(4, optional = true))
     }
 
     @Test
     fun theTotalCeilingHoldsInEitherOrder() {
-        // The probe spent 2 requests first; core may then not climb to a total above 34 (33 core alone would be 35).
-        val afterProbe = RequestBudget(MemoryStore(state(core = 30, optional = 2)))
+        // The probe spent 2 requests first; core may then not climb to a total above 16 (15 core alone would be 17).
+        val afterProbe = RequestBudget(MemoryStore(state(core = 12, optional = 2)))
         assertFalse(afterProbe.headroomFor(optional = false))
         assertFalse(afterProbe.canStart(3, optional = false))
-        assertTrue(RequestBudget(MemoryStore(state(core = 28, optional = 2))).headroomFor(optional = false))
-        assertTrue(RequestBudget(MemoryStore(state(core = 30, optional = 0))).headroomFor(optional = false))
+        assertTrue(RequestBudget(MemoryStore(state(core = 10, optional = 2))).headroomFor(optional = false))
+        assertTrue(RequestBudget(MemoryStore(state(core = 12, optional = 0))).headroomFor(optional = false))
+    }
+
+    @Test
+    fun bothLiveLegsAndTheProbeFitOneInstallAtWorstCase() {
+        // The ceilings equal the ASK in 19-LIVE-LEG-DECISION.md: 16 requests, 15 core worst case plus 1 optional.
+        assertEquals(15, CORE_REQUEST_CEILING)
+        assertEquals(16, TOTAL_REQUEST_CEILING)
+        val plan = LegCatalog.spec(LegId.PLAN_LIVE).reservation
+        val router = LegCatalog.spec(LegId.ROUTER_LIVE).reservation
+        val probe = LegCatalog.spec(LegId.RESPONSES_PROBE)
+        // Read from the real specs, so a reservation that grows past what one install can hold fails here.
+        assertTrue("plan $plan + router $router", plan + router <= CORE_REQUEST_CEILING)
+        assertTrue(probe.optional)
+        assertEquals(1, probe.reservation)
+        assertEquals(1, TOTAL_REQUEST_CEILING - CORE_REQUEST_CEILING)
+
+        assertTrue(RequestBudget(MemoryStore(state(core = 0))).canStart(plan, optional = false))
+        assertTrue(RequestBudget(MemoryStore(state(core = 2))).canStart(router, optional = false))
+        // Even if the plan leg used its whole reservation first, the router leg still starts.
+        assertTrue(RequestBudget(MemoryStore(state(core = plan))).canStart(router, optional = false))
+        assertFalse(RequestBudget(MemoryStore(state(core = plan + 1))).canStart(router, optional = false))
+
+        // With the core pool used up, no core leg can start; the optional pool still admits exactly one probe request.
+        val exhausted = state(core = CORE_REQUEST_CEILING)
+        for (id in LegId.entries) {
+            val spec = LegCatalog.spec(id)
+            if (!spec.optional && spec.reservation > 0) {
+                assertFalse(id.wire, RequestBudget(MemoryStore(exhausted)).canStart(spec.reservation, optional = false))
+            }
+        }
+        assertTrue(RequestBudget(MemoryStore(exhausted)).canStart(probe.reservation, optional = true))
+        assertFalse(RequestBudget(MemoryStore(state(core = CORE_REQUEST_CEILING, optional = 1))).canStart(1, optional = true))
+        assertFalse(RequestBudget(MemoryStore(state(core = CORE_REQUEST_CEILING))).canStart(2, optional = true))
     }
 
     @Test

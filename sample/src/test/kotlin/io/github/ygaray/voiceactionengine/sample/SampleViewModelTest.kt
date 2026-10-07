@@ -382,7 +382,7 @@ class SampleViewModelTest {
             rig.clock.seconds += 260
             viewModel.tick()
             assertNull(viewModel.state.value.warmWindow)
-            assertTrue(viewModel.state.value.budgetText, viewModel.state.value.budgetText.startsWith("requests 2/33"))
+            assertTrue(viewModel.state.value.budgetText, viewModel.state.value.budgetText.startsWith("requests 2/15"))
         }
     }
 

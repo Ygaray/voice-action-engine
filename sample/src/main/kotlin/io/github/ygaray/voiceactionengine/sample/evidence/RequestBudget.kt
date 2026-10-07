@@ -11,11 +11,19 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-/** The core legs share this many HTTP requests, in total, across restarts. */
-internal const val CORE_REQUEST_CEILING = 33
+/**
+ * The core legs share this many HTTP requests, in total, across restarts. It equals the core part of the ceiling ASKED
+ * in the Phase 19 live-leg decision file (`19-LIVE-LEG-DECISION.md`): the plan leg reserves 6 and the router leg 9, so
+ * both fit one install at worst case. A relayed GO below this value stops the TESTER window; the constant is never
+ * edited inside the window.
+ */
+internal const val CORE_REQUEST_CEILING = 15
 
-/** Core plus the one optional probe may never exceed this many HTTP requests. */
-internal const val TOTAL_REQUEST_CEILING = 34
+/**
+ * Core plus the one optional probe may never exceed this many HTTP requests. It equals the total ASKED in the Phase 19
+ * live-leg decision file (15 core worst case plus 1 optional); a relayed GO below it stops the TESTER window.
+ */
+internal const val TOTAL_REQUEST_CEILING = 16
 
 /**
  * The most HTTP requests one logical provider call can send: the first, one transient retry and one forced-tool
