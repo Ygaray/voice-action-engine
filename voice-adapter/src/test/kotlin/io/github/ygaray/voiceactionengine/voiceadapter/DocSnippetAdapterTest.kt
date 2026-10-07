@@ -11,8 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 // INTEGRATION.md section 12 quotes the region below byte for byte after removing its common indentation;
-// scripts/verify-docs-coverage.sh compares them. It lives in this module's own tests, so the snippet is compiled and run
-// against the real adapter and :sample needs no dependency on :voice-adapter or :stt. The region holds only what a
+// scripts/verify-docs-coverage.sh compares them. It lives in this module's own tests, so the snippet is compiled and
+// run against the real adapter and :sample needs no dependency on :voice-adapter or :stt. The region holds only what a
 // consumer would write; the assertions stay outside it.
 
 // doc-snippet:start adapter-wiring
