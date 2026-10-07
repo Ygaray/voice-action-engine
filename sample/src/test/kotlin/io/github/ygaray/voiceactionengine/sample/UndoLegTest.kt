@@ -3,7 +3,11 @@ package io.github.ygaray.voiceactionengine.sample
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.sample.evidence.ALLOW_PATTERN
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
+import io.github.ygaray.voiceactionengine.sample.legs.CaseCounts
 import io.github.ygaray.voiceactionengine.sample.legs.UndoLeg
+import io.github.ygaray.voiceactionengine.sample.legs.UndoStep
+import io.github.ygaray.voiceactionengine.sample.legs.UndoVerdicts
+import io.github.ygaray.voiceactionengine.sample.verdict.Verdict
 import io.github.ygaray.voiceactionengine.sample.verdict.VerdictKind
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -189,5 +193,76 @@ class UndoLegTest {
             // The verdict line is the last one: it is written only once every case has been judged.
             assertTrue(rig.sink.rendered.last().startsWith("VAE_VERDICT leg=undo_all verdict=PASS "))
         }
+    }
+
+    // The three cases as they look when everything works; each FAIL test breaks exactly one thing.
+    private val goodWhole = CaseCounts(n = 3, pending = 0, committed = 3, held = 0, partial = false, remaining = 0)
+    private val goodWholeUndo = UndoStep("complete", 3, null, null, true)
+    private val goodRefusal = UndoStep("refused", null, 1, "changed_since", true)
+    private val goodPartial = CaseCounts(n = 2, pending = 1, committed = 2, held = 1, partial = true, remaining = 1)
+    private val goodPartialUndo = UndoStep("complete", 2, null, null, true)
+
+    private fun judge(
+        whole: CaseCounts = goodWhole,
+        wholeUndo: UndoStep = goodWholeUndo,
+        refusal: UndoStep = goodRefusal,
+        partial: CaseCounts = goodPartial,
+        partialUndo: UndoStep = goodPartialUndo,
+    ) = UndoVerdicts.judge(whole, wholeUndo, refusal, partial, partialUndo)
+
+    private fun assertFails(code: String, verdict: Verdict) {
+        assertEquals(verdict.toString(), VerdictKind.FAIL, verdict.kind)
+        assertEquals(code, verdict.reason)
+    }
+
+    @Test
+    fun theVerdictPassesOnlyWhenAllThreeCasesHold() {
+        assertEquals(VerdictKind.PASS, judge().kind)
+    }
+
+    @Test
+    fun anUndoThatDidNotRestoreEverythingFailsUndoIncomplete() {
+        assertFails("undo_incomplete", judge(wholeUndo = UndoStep("refused", null, 1, "changed_since", true)))
+        assertFails("undo_incomplete", judge(wholeUndo = UndoStep("complete", 3, null, null, false)))
+        assertFails("undo_incomplete", judge(partialUndo = UndoStep("partial", 1, null, "restore_failed", true)))
+        assertFails("undo_incomplete", judge(partialUndo = UndoStep("complete", 2, null, null, false)))
+    }
+
+    @Test
+    fun aMissingRefusalFailsRefusalMissing() {
+        assertFails("refusal_missing", judge(refusal = UndoStep("complete", 1, null, null, true)))
+    }
+
+    @Test
+    fun aRefusalForTheWrongReasonOrOverATouchedStoreFailsWrongRefusalReason() {
+        assertFails("wrong_refusal_reason", judge(refusal = UndoStep("refused", null, 1, "entangled", true)))
+        assertFails("wrong_refusal_reason", judge(refusal = UndoStep("refused", null, 2, "changed_since", true)))
+        assertFails("wrong_refusal_reason", judge(refusal = UndoStep("refused", null, 1, "changed_since", false)))
+    }
+
+    @Test
+    fun aPlanThatDidNotEndPartialFailsNotPartial() {
+        assertFails("not_partial", judge(partial = CaseCounts(2, 1, 2, 1, partial = false, remaining = 1)))
+        assertFails("not_partial", judge(partial = CaseCounts(2, 1, 2, 1, partial = true, remaining = 0)))
+        assertFails("not_partial", judge(partial = CaseCounts(2, 1, 3, 0, partial = true, remaining = 1)))
+    }
+
+    @Test
+    fun aHeldProposalCountedInNOrAWrongNFailsWrongCount() {
+        // N of three for the partial plan would mean the held proposal was counted as applied.
+        assertFails("wrong_count", judge(partial = CaseCounts(3, 0, 2, 1, partial = true, remaining = 1)))
+        assertFails("wrong_count", judge(partial = CaseCounts(2, 0, 2, 1, partial = true, remaining = 1)))
+        assertFails("wrong_count", judge(whole = CaseCounts(2, 0, 3, 0, partial = false, remaining = 0)))
+    }
+
+    @Test
+    fun theFirstFailingCodeInTheFixedOrderIsTheOneReported() {
+        val verdict = judge(
+            wholeUndo = UndoStep("refused", null, 1, "changed_since", true),
+            refusal = UndoStep("complete", 1, null, null, true),
+            partial = CaseCounts(1, 0, 1, 0, partial = false, remaining = 0),
+        )
+        assertFails("undo_incomplete", verdict)
+        assertFails("refusal_missing", judge(refusal = UndoStep("complete", 1, null, null, true), partial = CaseCounts(1, 0, 1, 0, false, 0)))
     }
 }

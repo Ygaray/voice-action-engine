@@ -32,6 +32,7 @@ import io.github.ygaray.voiceactionengine.sample.undo.Item
 import io.github.ygaray.voiceactionengine.sample.undo.ItemStore
 import io.github.ygaray.voiceactionengine.sample.undo.UndoCommitSink
 import io.github.ygaray.voiceactionengine.sample.verdict.Verdict
+import io.github.ygaray.voiceactionengine.undo.UndoReason
 import io.github.ygaray.voiceactionengine.undo.UndoResult
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -40,6 +41,8 @@ import kotlinx.serialization.json.put
 import java.util.concurrent.atomic.AtomicInteger
 
 private const val CASE_WHOLE = 1
+private const val CASE_REFUSAL = 2
+private const val CASE_PARTIAL = 3
 
 private const val PLAN_TOOL = "submit_plan"
 private const val UNDO_ITERATIONS = 4
@@ -55,12 +58,22 @@ private const val LATER_TITLE = "edited later"
 /** The expected shape of the whole-command case: two creates and one rename, so N is three. */
 internal const val EXPECTED_WHOLE_N = 3
 
+/** The expected shape of the partial case: two commits, one held proposal, one step that never ran. */
+internal const val EXPECTED_PARTIAL_N = 2
+private const val EXPECTED_PARTIAL_HELD = 1
+private const val EXPECTED_PARTIAL_REMAINING = 1
+private const val HOLD_AT = 3
 
 /** The transcripts of the three sub-cases. Plain words: the scripted provider ignores them and answers its fixed plan. */
 internal const val UNDO_TRANSCRIPT_WHOLE = "Make a list, make a second one under it, and rename the seeded one."
+internal const val UNDO_TRANSCRIPT_REFUSAL = "Rename the seeded one."
+internal const val UNDO_TRANSCRIPT_PARTIAL = "Make one, rename the seeded one, make another, rename it again."
 
 /** Why the undo leg failed: the stable codes of its verdict, in the order they are reported. */
 internal const val REASON_UNDO_INCOMPLETE = "undo_incomplete"
+internal const val REASON_REFUSAL_MISSING = "refusal_missing"
+internal const val REASON_WRONG_REFUSAL_REASON = "wrong_refusal_reason"
+internal const val REASON_NOT_PARTIAL = "not_partial"
 internal const val REASON_WRONG_COUNT = "wrong_count"
 
 /**
@@ -90,6 +103,16 @@ internal class UndoScriptProvider(private val plan: JsonObject) : AiProvider {
     override fun toString(): String = "UndoScriptProvider"
 }
 
+/** A sample [PreApplyGate] that holds the [nth] proposal it is asked about and admits every other one. */
+internal class HoldNthGate(private val nth: Int) : PreApplyGate {
+    private val asked = AtomicInteger()
+
+    override suspend fun admit(proposal: CommitProposal): GateDecision =
+        if (asked.incrementAndGet() == nth) GateDecision.Hold("confirm", null) else GateDecision.Admit()
+
+    override fun toString(): String = "HoldNthGate(nth=$nth)"
+}
+
 /** A sample [PreApplyGate] that admits every proposal. */
 internal object AdmitAllGate : PreApplyGate {
     override suspend fun admit(proposal: CommitProposal): GateDecision = GateDecision.Admit()
@@ -100,6 +123,27 @@ internal object AdmitAllGate : PreApplyGate {
 /** What the screen needs to show "Undo all (N)": N, and the held proposals that are shown apart and not counted in N. */
 internal class UndoPrompt(val n: Int, val pending: Int) {
     override fun toString(): String = "UndoPrompt(n=$n, pending=$pending)"
+}
+
+/**
+ * The counts of one command that the verdict rules read, apart from the engine's outcome so a rule can be tested alone.
+ *
+ * @property n applied actions in the group (what the control shows).
+ * @property pending held proposals, shown apart and not in [n].
+ * @property committed changes the command committed.
+ * @property held held proposals the outcome carries.
+ * @property partial whether the command ended as a partial completion.
+ * @property remaining plan steps that never ran.
+ */
+internal class CaseCounts(
+    val n: Int,
+    val pending: Int,
+    val committed: Int,
+    val held: Int,
+    val partial: Boolean,
+    val remaining: Int,
+) {
+    override fun toString(): String = "CaseCounts(n=$n, pending=$pending)"
 }
 
 /**
@@ -124,6 +168,9 @@ internal class CommandRun(
 
     /** Plan steps that never ran. */
     val remaining: Int get() = (outcome as? CommandOutcome.Completed)?.remainingStepIds?.size ?: 0
+
+    /** The counts the verdict rules read. */
+    val counts: CaseCounts get() = CaseCounts(n, pending, committed, held, partial, remaining)
 
     /** The `VAE_UNDO` facts of this command at [phase]. */
     fun facts(phase: String): UndoFacts = UndoFacts(phase, n, committed, pending, withheld, partial, remaining)
@@ -258,22 +305,60 @@ internal object UndoPlans {
         create("steptwo", "second", "\$stepone.id"),
         rename("stepthree", "renamed"),
     )
+
+    /** One rename of the seeded item. */
+    fun single(): JsonObject = plan(rename("stepone", "renamed"))
+
+    /** Four steps; the sample gate holds the third, so the first two commit and the fourth never runs. */
+    fun four(): JsonObject = plan(
+        create("stepone", "first"),
+        rename("steptwo", "renamed"),
+        create("stepthree", "third"),
+        rename("stepfour", "renamed again"),
+    )
+
+    /** One create, then a create under a parent that does not exist: the second is an applied error that writes nothing. */
+    fun appliedError(): JsonObject = plan(
+        create("stepone", "first"),
+        step(
+            "steptwo",
+            ITEM_TOOL_CREATE,
+            buildJsonObject {
+                put("title", "orphan")
+                put("parent_id", "no-such-item")
+            },
+        ),
+    )
 }
 
 /** The pure verdict rules of the undo leg. */
 internal object UndoVerdicts {
-    /** PASS only when the whole-command undo restored every action and left the store as it was before the command. */
-    fun judge(whole: CommandRun, wholeUndo: UndoStep): Verdict {
-        val done = wholeUndo.result == UNDONE && wholeUndo.storeOk && wholeUndo.restored == EXPECTED_WHOLE_N
+    /**
+     * PASS only when the whole-command undo restored everything, the refusal was `changed_since` with one blocker and left
+     * the store alone, and the partial case counted two applied actions with one held proposal and was undone. A failure
+     * names the first of `undo_incomplete`, `refusal_missing`, `wrong_refusal_reason`, `not_partial` and `wrong_count`.
+     */
+    fun judge(whole: CaseCounts, wholeUndo: UndoStep, refusal: UndoStep, partial: CaseCounts, partialUndo: UndoStep): Verdict {
+        val wholeDone = wholeUndo.result == UNDONE && wholeUndo.storeOk && wholeUndo.restored == EXPECTED_WHOLE_N
+        val partialDone = partialUndo.result == UNDONE && partialUndo.storeOk && partialUndo.restored == EXPECTED_PARTIAL_N
+        val partialShape = partial.partial && partial.remaining == EXPECTED_PARTIAL_REMAINING &&
+            partial.committed == EXPECTED_PARTIAL_N && partial.held == EXPECTED_PARTIAL_HELD
+        val countsRight = whole.n == EXPECTED_WHOLE_N && whole.pending == 0 &&
+            partial.n == EXPECTED_PARTIAL_N && partial.pending == EXPECTED_PARTIAL_HELD
         val code = when {
-            !done -> REASON_UNDO_INCOMPLETE
-            whole.n != EXPECTED_WHOLE_N || whole.pending != 0 -> REASON_WRONG_COUNT
+            !wholeDone || !partialDone -> REASON_UNDO_INCOMPLETE
+            refusal.result != REFUSED -> REASON_REFUSAL_MISSING
+            refusal.reason != UndoReason.CHANGED_SINCE.value || refusal.blockers != 1 || !refusal.storeOk ->
+                REASON_WRONG_REFUSAL_REASON
+            !partialShape -> REASON_NOT_PARTIAL
+            !countsRight -> REASON_WRONG_COUNT
             else -> null
         }
         return if (code == null) Verdict.pass() else Verdict.fail(code)
     }
 
     private const val UNDONE = "complete"
+    private const val REFUSED = "refused"
 }
 
 /** What the second press produced. */
@@ -292,12 +377,32 @@ internal class UndoSession(private val leg: LegId, val whole: UndoWorld, private
     /** The number the control shows and the held proposals shown apart. */
     val prompt: UndoPrompt = UndoPrompt(wholeRun.n, wholeRun.pending)
 
-    /** The second press: undo the whole command through the journal and judge it. */
+    /** The second press: undo the whole command, then the refusal case, then the partial case, and judge all three. */
     suspend fun finish(sink: EvidenceSink): UndoFinish {
         val wholeUndo = whole.undoAll(wholeRun, whole.seeded)
         sink.emit(EvidenceLine.undo(leg, CASE_WHOLE, wholeUndo.facts("undone", wholeRun)))
-        val extras = linkedMapOf("n" to wholeRun.n.toLong(), "restored" to (wholeUndo.restored ?: 0).toLong())
-        return UndoFinish(UndoVerdicts.judge(wholeRun, wholeUndo), extras)
+
+        val refusalWorld = UndoWorld()
+        val refusalRun = refusalWorld.run(UndoPlans.single(), UNDO_TRANSCRIPT_REFUSAL, AdmitAllGate)
+        refusalWorld.editSeededItem()
+        val refusal = refusalWorld.undoAll(refusalRun, refusalWorld.world.store.snapshot())
+        sink.emit(EvidenceLine.undo(leg, CASE_REFUSAL, refusal.facts("refused", refusalRun)))
+
+        val partialWorld = UndoWorld()
+        val partialRun = partialWorld.run(UndoPlans.four(), UNDO_TRANSCRIPT_PARTIAL, HoldNthGate(HOLD_AT))
+        sink.emit(EvidenceLine.undo(leg, CASE_PARTIAL, partialRun.facts("partial")))
+        val partialUndo = partialWorld.undoAll(partialRun, partialWorld.seeded)
+        sink.emit(EvidenceLine.undo(leg, CASE_PARTIAL, partialUndo.facts("undone", partialRun)))
+
+        val verdict = UndoVerdicts.judge(wholeRun.counts, wholeUndo, refusal, partialRun.counts, partialUndo)
+        val extras = linkedMapOf(
+            "n" to wholeRun.n.toLong(),
+            "restored" to (wholeUndo.restored ?: 0).toLong(),
+            "blockers" to (refusal.blockers ?: 0).toLong(),
+            "partial_n" to partialRun.n.toLong(),
+            "pending" to partialRun.pending.toLong(),
+        )
+        return UndoFinish(verdict, extras)
     }
 
     override fun toString(): String = "UndoSession(n=${wholeRun.n})"

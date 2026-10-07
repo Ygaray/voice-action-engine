@@ -265,7 +265,7 @@ internal object LegCatalog {
         provider = DEMO_PROVIDER,
         model = DEMO_MODEL,
         kind = LegKind.UNDO_ALL,
-        prompts = listOf(UNDO_TRANSCRIPT_WHOLE),
+        prompts = listOf(UNDO_TRANSCRIPT_WHOLE, UNDO_TRANSCRIPT_REFUSAL, UNDO_TRANSCRIPT_PARTIAL),
         forcedTool = null,
         readTool = null,
         requestedOptionals = emptySet(),
