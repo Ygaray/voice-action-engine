@@ -47,6 +47,7 @@ keystore                ApiKeyStore, DelicateKeyAccess, KeyAccess, KeySlot, KeyS
                         KeystoreCredentialSource
 undo                    Blocker, Compensator, EntityAdapter, EntityKey, EntryRef, JournalStore, NotRestored, UndoGroup,
                         UndoJournal, UndoReason, UndoResult, UndoTicket
+voiceadapter            no types; the top-level functions toCommandInput, commandInputOf and normalizeSttLanguageLabel
 ```
 
 For example `import io.github.ygaray.voiceactionengine.core.pipeline.commandPipeline` and
@@ -205,6 +206,18 @@ The public functions are `commandPipeline { }`, which composes a `CommandPipelin
 
 The journal depends on nothing but the Kotlin standard library, lives in memory and does not survive process death.
 Its coordinate is `voice-action-engine-undo:<version>`; see INTEGRATION.md section 11.
+
+### `voice-adapter` (Android AAR, optional)
+
+| Function | Purpose |
+|---|---|
+| `toCommandInput` | On a `:stt` `FinalSegment`: the text and a normalized language as a `CommandInput`. Three overloads: no argument, with a context, and with a context and a `parentRunId`. |
+| `commandInputOf` | The same mapping from a plain text and label, for a caller with no `:stt` type. Three overloads, matching `toCommandInput`. |
+| `normalizeSttLanguageLabel` | A label becomes `en` or `es` (case and surrounding whitespace ignored), anything else becomes null (unknown). |
+
+There is no joiner: one final segment maps to one `CommandInput`, verbatim, and the app keeps its own multi-segment
+aggregation. The adapter keeps `:stt` compile-only, so the app adds `:stt` itself. Its coordinate is
+`voice-action-engine-voice-adapter:<version>`; see INTEGRATION.md section 12.
 
 ## Pipeline and outcomes
 

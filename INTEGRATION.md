@@ -45,6 +45,9 @@ implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-keysto
 - `keystore` is an Android library (AAR, minSdk 35) that stores a bring-your-own API key encrypted with a device key.
   Add it only in an Android app, and skip it if you keep keys elsewhere. It exposes `androidx.datastore:datastore-preferences` as an `api` dependency (the store takes
   your `DataStore<Preferences>`), so step 7 needs no extra dependency line in the app.
+- `voice-adapter` (optional) is an Android library (AAR, minSdk 35) that turns one final `:stt` segment into a
+  `CommandInput`; its coordinate is `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>`.
+  Add it only in an app that captures speech with `:stt`, and add `:stt` yourself; see section 12.
 - What you get transitively: `core` exposes `kotlinx-serialization-json` (tool schemas and arguments are
   `JsonObject`s) and `kotlinx-coroutines-core`; `providers` exposes OkHttp. You do not declare these yourself.
 - **Your `:app` module's Kotlin and Android Gradle Plugin.** The engine is built with Kotlin 2.3.20 and AGP 9.2.1 and
@@ -870,6 +873,74 @@ within that span. An optional `JournalStore` (`store = ...` in the builder) is t
 group's view and about every dropped group, so you can show history somewhere else. It receives keys, references, flags
 and counts, never a snapshot or a fingerprint, so it cannot restore the journal. A store that throws never changes what the
 journal does; `journal.storeFaults` counts its faults.
+
+## 12. Turn a final :stt segment into a CommandInput (optional)
+
+`voice-adapter` is an optional Android library (AAR, minSdk 35) that turns one final speech segment from `:stt` into the
+`CommandInput` the pipeline takes. The first tag that carries it is v1.1.0. Skip it if your app captures speech some other
+way: `commandInputOf` below lets you build the same input without the `:stt` types.
+
+**What it gives you.** One call maps one final segment. Nothing else is in the module: no types, only top-level functions.
+
+- `toCommandInput()` on a `FinalSegment`, with two more overloads, `toCommandInput(context)` and
+  `toCommandInput(context, parentRunId)`, for the run context and the id of the run a reply continues.
+- `commandInputOf(text, label)`, also with a context, and with a context and a `parentRunId`, for a caller that has no
+  `:stt` type on its classpath (a different capture path, or a test).
+- `normalizeSttLanguageLabel(raw)`, the label rule on its own.
+
+The transcript is passed verbatim: it is not trimmed and not validated, so guard a blank transcript yourself before you
+call `execute`. The segment id is dropped.
+
+**One segment per call.** The adapter has no joiner. If your session produces several final segments, keep your own
+aggregation (the longest, the last, or all of them joined) and pass the one result; the engine does not choose for you.
+
+**The language label passes through, and null means unknown.** A label of `en` or `es` (ignoring case and surrounding
+whitespace) becomes the `CommandInput` language. Anything else becomes null: a regional tag such as `en-US`, `auto`, a
+blank, another language, or null itself. The engine never turns a null into `en`, and the adapter never guesses.
+
+- Null means `:stt` produced no usable label. On API 34 and newer its native backend leaves `language` null when the
+  detection is not confident, and a session that is not in `auto` mode carries no label.
+- The server backend always answers `en` or `es`, with an `en` fallback that the adapter cannot tell apart from a real
+  detection. Treat a server label as a hint, not as proof of what was spoken. A detected-versus-fallback signal is tracked
+  in the `:stt` project's own backlog, not in this module, and the adapter works around nothing.
+
+**Never log a segment.** A `FinalSegment`'s string form prints the raw transcript. Do not log it, interpolate it into a
+message, or put it in a crash report. The adapter never stringifies one.
+
+**The documented minimum.** `:stt` v0.7.0 or newer; the `language` property compiles against v0.6.0. The property exists
+since v0.6.0, and the adapter is compiled against it, but v0.7.0 is the first version whose native `auto` mode fills it.
+The module needs minSdk 35. Below API 34 the native `auto` mode stamps a literal `en` without detecting, which would
+look like a detection and is not one.
+
+**Add `:stt` yourself.** The adapter keeps `:stt` compile-only, so it is never transitive: it does not pull `:stt`, its
+OkHttp 5.x, its corrections or its coroutines-android onto your app. You add the speech engine, and you let Gradle fetch
+it from JitPack through a repository that serves exactly the two groups you need. In **`settings.gradle.kts`**:
+
+```kts
+dependencyResolutionManagement {
+    repositories {
+        exclusiveContent {
+            forRepository { maven { url = uri("https://jitpack.io") } }
+            filter {
+                includeGroup("com.github.Ygaray.voice-action-engine")
+                includeGroup("com.github.Ygaray.voice-engine-android")
+            }
+        }
+        google()
+        mavenCentral()
+    }
+}
+```
+
+Then, in your app module:
+
+```kts
+implementation("com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>")
+implementation("com.github.Ygaray.voice-engine-android:voice-engine-android:v0.7.0")
+```
+
+Use the per-module `:stt` coordinate above, never the plain aggregator coordinate, which pulls all five `:stt` modules. An
+app that already declares the JitPack repository plainly (step 1) may keep that and skip the filter.
 
 ## Notes and gotchas
 
