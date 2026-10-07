@@ -34,9 +34,5 @@ public fun FinalSegment.toCommandInput(context: Any?): CommandInput = toCommandI
  * [context] and [parentRunId] are passed through unchanged. Never throws.
  */
 public fun FinalSegment.toCommandInput(context: Any?, parentRunId: String?): CommandInput =
-    CommandInput(
-        transcript = text,
-        language = normalizeSttLanguageLabel(language),
-        context = context,
-        parentRunId = parentRunId,
-    )
+    // One mapping for both paths: the stt-free label facade owns it, so the two can never drift apart.
+    commandInputOf(text, language, context, parentRunId)
