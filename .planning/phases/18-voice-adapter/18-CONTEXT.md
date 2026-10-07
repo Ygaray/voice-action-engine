@@ -89,3 +89,9 @@ No specific requirements beyond the decisions above — open to standard approac
 ---
 
 *Phase: 18-voice-adapter*
+
+## Runtime Decisions
+
+- **[stt-scope] refreshed (2026-10-06, ai-auto; dependency P17 complete):** Unchanged: compileOnly on the stt engine, a POM-absence gate, and a documented minimum. That avoids pushing OkHttp 5.2.1, corrections, coroutines-android or an :stt floor onto consumers (A1 again). Repo: exclusiveContent jitpack.io filtered to com.github.Ygaray.voice-engine-android, per-module coordinate, never the aggregator.
+- **[gate] refreshed (2026-10-06, ai-auto; dependency P17 complete):** P17 shipped the generic plumbing, so P18 only ADDS rows to it. It adds the adapter module row to scripts/modules.list (columns: name packaging artifactId kotlinPackage dependsOnCore; every script reads it through scripts/lib/modules.sh) and its entry in gradle/invariants.gradle.kts allowedEdges (plus sampleRequiredEdges/sampleAllowedEdges if :sample wires it). jitpack.yml, verify-module-manifest.sh and verify-release-manifest.sh pick it up from the manifest, so P18 does not re-implement them. P18 owns ONLY the :stt-specific parts: the POM-absence gate (the stt artifact must not appear in the published POM) and the exclusiveContent repo. Release-cut gates 10/12 and selftest step 4 are P20 work (20-CONTEXT RT-02) and also need the new module branch.
+- **RT-01 [actionevent-tostring] (2026-10-06, orchestrator 3b IN-04 ruling, see 20-CONTEXT RT-03):** If it fits in P18, implement redact-by-default ActionEvent.toString() (ids, type, tier, status and counts only; never arg values, utterance text, model output or keys, which render as <redacted:N chars>; any debug accessor is opt-in) plus one sentinel-never-in-toString test. Otherwise P20 does it.
