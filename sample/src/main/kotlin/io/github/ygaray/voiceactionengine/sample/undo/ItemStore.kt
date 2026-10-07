@@ -5,7 +5,10 @@ package io.github.ygaray.voiceactionengine.sample.undo
  *
  * @property stamp the value of the store's write counter when this version was written.
  */
-data class Item(val id: String, val title: String, val parentId: String?, val stamp: Long)
+data class Item(val id: String, val title: String, val parentId: String?, val stamp: Long) {
+    // The generated toString would print the title, which is user data; an app copying this pattern must not log it.
+    override fun toString(): String = "Item(idLength=${id.length}, stamp=$stamp)"
+}
 
 /**
  * An in-memory stand-in for an app's database, used by the undo proof and the Phase 19 legs.
