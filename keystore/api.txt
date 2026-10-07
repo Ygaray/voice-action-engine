@@ -3,11 +3,20 @@ package io.github.ygaray.voiceactionengine.keystore {
 
   public final class ApiKeyStore {
     ctor public ApiKeyStore(androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> dataStore, java.util.List<io.github.ygaray.voiceactionengine.keystore.KeySlot> slots);
+    ctor @io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess public ApiKeyStore(androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> dataStore, java.util.List<io.github.ygaray.voiceactionengine.keystore.KeySlot> slots, io.github.ygaray.voiceactionengine.keystore.KeyAccess keyAccess);
     ctor public ApiKeyStore(androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> dataStore, java.util.List<io.github.ygaray.voiceactionengine.keystore.KeySlot> slots, kotlinx.coroutines.CoroutineDispatcher ioDispatcher);
     method @KotlinOnly public suspend Object? delete(io.github.ygaray.voiceactionengine.core.ProviderId provider, kotlin.coroutines.Continuation<? super java.lang.Void>);
     method @KotlinOnly public kotlinx.coroutines.flow.Flow<io.github.ygaray.voiceactionengine.keystore.KeyState> observe(io.github.ygaray.voiceactionengine.core.ProviderId provider);
     method @KotlinOnly public suspend Object? read(io.github.ygaray.voiceactionengine.core.ProviderId provider, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.keystore.KeyState>);
     method @KotlinOnly public suspend Object? save(io.github.ygaray.voiceactionengine.core.ProviderId provider, String apiKey, kotlin.coroutines.Continuation<? super java.lang.Void>);
+  }
+
+  @kotlin.RequiresOptIn(level=kotlin.RequiresOptIn.Level.ERROR, message="This replaces the device key store with caller-supplied key access and is meant for tests only.") @kotlin.annotation.Retention(kotlin.annotation.AnnotationRetention.BINARY) @kotlin.annotation.Target(allowedTargets={kotlin.annotation.AnnotationTarget.CLASS, kotlin.annotation.AnnotationTarget.CONSTRUCTOR}) public @interface DelicateKeyAccess {
+  }
+
+  @io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess public interface KeyAccess {
+    method public javax.crypto.SecretKey? existingKey(String alias);
+    method public javax.crypto.SecretKey getOrCreateKey(String alias);
   }
 
   public final class KeySlot {

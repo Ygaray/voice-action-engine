@@ -1,0 +1,5 @@
+API SURFACE OK module=core sealed=AssistantPart,CommandOutcome,GateDecision,Message,RunTermination,StrategyOutcome,ToolStep classes=207
+API SURFACE OK module=providers sealed=none classes=14
+API SURFACE OK module=keystore sealed=none classes=10
+API SURFACE OK module=undo sealed=UndoResult classes=19
+API SURFACE OK module=voice-adapter sealed=none classes=2

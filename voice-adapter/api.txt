@@ -1,1 +1,16 @@
 // Signature format: 4.0
+package io.github.ygaray.voiceactionengine.voiceadapter {
+
+  public final class FinalSegmentCommandInput {
+    method public static io.github.ygaray.voiceactionengine.core.CommandInput toCommandInput(io.github.ygaray.sttengine.FinalSegment);
+    method public static io.github.ygaray.voiceactionengine.core.CommandInput toCommandInput(io.github.ygaray.sttengine.FinalSegment, Object? context, String? parentRunId);
+  }
+
+  public final class SttLanguageLabels {
+    method public static io.github.ygaray.voiceactionengine.core.CommandInput commandInputOf(String transcript, String? languageLabel);
+    method public static io.github.ygaray.voiceactionengine.core.CommandInput commandInputOf(String transcript, String? languageLabel, Object? context, String? parentRunId);
+    method public static String? normalizeSttLanguageLabel(String? raw);
+  }
+
+}
+

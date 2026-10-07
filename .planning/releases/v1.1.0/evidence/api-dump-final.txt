@@ -1,0 +1,22 @@
+# plan 20-02 Task 2: isolated dump of the whole tree, reviewed before commit
+API DUMP ISOLATED OK out=/tmp/tmp.VLBlCjIvOn core=1956 providers=121 keystore=76 undo=191 voice-adapter=16
+# memory/swap before the dump (kB): MemAvailable=8862124 SwapTotal=2097148 SwapFree=820 (swap nearly full: warning outside a quiet window)
+# core: comm -23 <(git show v1.0.1:core/api.txt | sort -u) <(sort -u core/api.txt)  (removed released lines; empty expected)
+# -> 0 removed; added lines vs v1.0.1: 120
+# providers: comm -23 <(git show v1.0.1:providers/api.txt | sort -u) <(sort -u providers/api.txt)  (removed released lines; empty expected)
+# -> 0 removed; added lines vs v1.0.1: 0
+# keystore: comm -23 <(git show v1.0.1:keystore/api.txt | sort -u) <(sort -u keystore/api.txt)  (removed released lines; empty expected)
+# -> 0 removed; added lines vs v1.0.1: 5
+# providers byte-equal to v1.0.1: yes
+# keystore added lines:
+    ctor @io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess public ApiKeyStore(androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> dataStore, java.util.List<io.github.ygaray.voiceactionengine.keystore.KeySlot> slots, io.github.ygaray.voiceactionengine.keystore.KeyAccess keyAccess);
+  @io.github.ygaray.voiceactionengine.keystore.DelicateKeyAccess public interface KeyAccess {
+  @kotlin.RequiresOptIn(level=kotlin.RequiresOptIn.Level.ERROR, message="This replaces the device key store with caller-supplied key access and is meant for tests only.") @kotlin.annotation.Retention(kotlin.annotation.AnnotationRetention.BINARY) @kotlin.annotation.Target(allowedTargets={kotlin.annotation.AnnotationTarget.CLASS, kotlin.annotation.AnnotationTarget.CONSTRUCTOR}) public @interface DelicateKeyAccess {
+    method public javax.crypto.SecretKey? existingKey(String alias);
+    method public javax.crypto.SecretKey getOrCreateKey(String alias);
+# undo: lines=191 package io.github.ygaray.voiceactionengine.undo {
+# voice-adapter: lines=16 package io.github.ygaray.voiceactionengine.voiceadapter {
+# voice-adapter toCommandInput( count=2 commandInputOf( count=2
+# Suppress under undo/src:
+undo/src/main/kotlin/io/github/ygaray/voiceactionengine/undo/internal/Guard.kt:1:@file:Suppress("TooGenericExceptionCaught")
+# keystore line count: v1.0.1=67 now=76 (+9, additive)

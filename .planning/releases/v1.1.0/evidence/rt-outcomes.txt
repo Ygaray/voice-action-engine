@@ -21,3 +21,7 @@ P17-OI-1: pinned by a NEW test (no existing test pinned "no store, no disk write
   withhold with no JournalStore, asserts the file tree under user.dir (minus build and .gradle) and a fresh temp dir is unchanged (path, size, mtime),
   storeFaults is 0, and that no compiled :undo main class names java/io/File*, java/nio/file/ or RandomAccessFile in its constant pool.
   Ruling: JournalStore stays optional (relay-log.md, orchestrator P17 OI-1). No public API change (test-only). Proof: :undo:test and :undo:detekt exit 0.
+
+RT-04: keystore +9 additive lines confirmed (67 -> 76; DelicateKeyAccess and KeyAccess, comm -23 against v1.0.1 empty); :undo suppressions = 1 (Guard.kt:1);
+  the second suppression named in 19-API-REVIEW OI-5 and 17-09-SUMMARY was removed by commit e1b5653 (record only, the closed reviews stay as written).
+  RT-06 WR-04 proof: voice-adapter dump holds exactly 2 toCommandInput( and 2 commandInputOf( signatures.

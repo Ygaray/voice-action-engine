@@ -1,1 +1,191 @@
 // Signature format: 4.0
+package io.github.ygaray.voiceactionengine.undo {
+
+  public final class Blocker {
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.undo.EntityKey? getEntity();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.undo.EntryRef? getEntry();
+    method public String toString();
+    property public io.github.ygaray.voiceactionengine.undo.EntityKey? entity;
+    property public io.github.ygaray.voiceactionengine.undo.EntryRef? entry;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason reason;
+  }
+
+  public fun interface Compensator {
+    method public suspend Object? compensate(String payload, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+  }
+
+  public interface EntityAdapter {
+    method public suspend Object? fingerprint(String id, kotlin.coroutines.Continuation<? super java.lang.String?>);
+    method @InaccessibleFromKotlin public String getEntityType();
+    method public suspend Object? read(String id, kotlin.coroutines.Continuation<java.lang.Object?>);
+    method public suspend Object? restoreIf(String id, String? expectedFingerprint, Object? snapshot, kotlin.coroutines.Continuation<? super java.lang.Boolean>);
+    property public abstract String entityType;
+  }
+
+  public final class EntityKey {
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public String getId();
+    method @InaccessibleFromKotlin public String getType();
+    method public int hashCode();
+    method public String toString();
+    property public String id;
+    property public String type;
+  }
+
+  public final class EntryRef {
+    ctor public EntryRef(String runId, int position, String toolName);
+    method public boolean equals(Object? other);
+    method @InaccessibleFromKotlin public int getPosition();
+    method @InaccessibleFromKotlin public String getRunId();
+    method @InaccessibleFromKotlin public String getToolName();
+    method public int hashCode();
+    method public String toString();
+    property public int position;
+    property public String runId;
+    property public String toolName;
+  }
+
+  public interface JournalStore {
+    method public suspend Object? delete(String groupKey, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public suspend Object? save(io.github.ygaray.voiceactionengine.undo.UndoGroup group, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+  }
+
+  public final class NotRestored {
+    method @InaccessibleFromKotlin public String? getCompensator();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.undo.EntityKey? getEntity();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.undo.EntryRef getEntry();
+    method @InaccessibleFromKotlin public String? getErrorClass();
+    method public String toString();
+    property public String? compensator;
+    property public io.github.ygaray.voiceactionengine.undo.EntityKey? entity;
+    property public io.github.ygaray.voiceactionengine.undo.EntryRef entry;
+    property public String? errorClass;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason reason;
+  }
+
+  public final class UndoGroup {
+    method @InaccessibleFromKotlin public int getCount();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> getEntries();
+    method @InaccessibleFromKotlin public String getGroupKey();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> getIsolated();
+    method @InaccessibleFromKotlin public String? getParentGroupKey();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> getPending();
+    method @InaccessibleFromKotlin public long getRevision();
+    method @InaccessibleFromKotlin public boolean getWithheld();
+    method public String toString();
+    property public int count;
+    property public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> entries;
+    property public String groupKey;
+    property public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> isolated;
+    property public String? parentGroupKey;
+    property public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> pending;
+    property public long revision;
+    property public boolean withheld;
+  }
+
+  public final class UndoJournal {
+    method @InaccessibleFromKotlin public int getStoreFaults();
+    method public suspend Object? group(String groupKey, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.undo.UndoGroup?>);
+    method public io.github.ygaray.voiceactionengine.undo.UndoTicket newTicket();
+    method public suspend Object? record(String groupKey, String? parentGroupKey, io.github.ygaray.voiceactionengine.undo.EntryRef entry, boolean failed, io.github.ygaray.voiceactionengine.undo.UndoTicket? ticket, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public suspend Object? runClosed(String groupKey, String runId, java.util.Set<java.lang.Integer> appliedPositions, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public String toString();
+    method public suspend Object? undoAll(String groupKey, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.undo.UndoResult>);
+    method public suspend Object? undoEntry(String groupKey, io.github.ygaray.voiceactionengine.undo.EntryRef entry, kotlin.coroutines.Continuation<? super io.github.ygaray.voiceactionengine.undo.UndoResult>);
+    method public suspend Object? withhold(String groupKey, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    property public int storeFaults;
+    field public static final io.github.ygaray.voiceactionengine.undo.UndoJournal.Companion Companion;
+  }
+
+  public static final class UndoJournal.Builder {
+    method public void adapter(io.github.ygaray.voiceactionengine.undo.EntityAdapter adapter);
+    method public void compensator(String kind, io.github.ygaray.voiceactionengine.undo.Compensator compensator);
+    method @InaccessibleFromKotlin public kotlin.jvm.functions.Function0<java.lang.Long> getClock();
+    method @InaccessibleFromKotlin public long getMaxAgeMillis();
+    method @InaccessibleFromKotlin public int getMaxGroups();
+    method @InaccessibleFromKotlin public io.github.ygaray.voiceactionengine.undo.JournalStore? getStore();
+    method @InaccessibleFromKotlin public void setClock(kotlin.jvm.functions.Function0<java.lang.Long>);
+    method @InaccessibleFromKotlin public void setMaxAgeMillis(long);
+    method @InaccessibleFromKotlin public void setMaxGroups(int);
+    method @InaccessibleFromKotlin public void setStore(io.github.ygaray.voiceactionengine.undo.JournalStore?);
+    property public kotlin.jvm.functions.Function0<java.lang.Long> clock;
+    property public long maxAgeMillis;
+    property public int maxGroups;
+    property public io.github.ygaray.voiceactionengine.undo.JournalStore? store;
+  }
+
+  public static final class UndoJournal.Companion {
+    method public operator io.github.ygaray.voiceactionengine.undo.UndoJournal invoke(kotlin.jvm.functions.Function1<? super io.github.ygaray.voiceactionengine.undo.UndoJournal.Builder,kotlin.Unit> block);
+  }
+
+  @kotlin.jvm.JvmInline public final value class UndoReason {
+    method @InaccessibleFromKotlin public String getValue();
+    method public String toString();
+    property public String value;
+    field public static final io.github.ygaray.voiceactionengine.undo.UndoReason.Companion Companion;
+  }
+
+  public static final class UndoReason.Companion {
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason CHAIN_BROKEN;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason CHANGED_SINCE;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason COMPENSATOR_FAILED;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason ENTANGLED;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason IN_PROGRESS;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason JOURNAL_WITHHELD;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason NO_ADAPTER;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason RESTORE_FAILED;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason SKIPPED_AFTER_FAILURE;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason UNKNOWN_ENTRY;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason UNKNOWN_GROUP;
+    property public io.github.ygaray.voiceactionengine.undo.UndoReason UNVERIFIABLE;
+  }
+
+  public abstract sealed exhaustive class UndoResult {
+    method @InaccessibleFromKotlin public abstract String getCode();
+    property public abstract String code;
+  }
+
+  public static final class UndoResult.AlreadyUndone extends io.github.ygaray.voiceactionengine.undo.UndoResult {
+    method @InaccessibleFromKotlin public String getCode();
+    method public String toString();
+    property public String code;
+  }
+
+  public static final class UndoResult.Complete extends io.github.ygaray.voiceactionengine.undo.UndoResult {
+    method @InaccessibleFromKotlin public String getCode();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> getRestored();
+    method public String toString();
+    property public String code;
+    property public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> restored;
+  }
+
+  public static final class UndoResult.Partial extends io.github.ygaray.voiceactionengine.undo.UndoResult {
+    method @InaccessibleFromKotlin public String getCode();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.undo.NotRestored> getNotRestored();
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> getRestored();
+    method public String toString();
+    property public String code;
+    property public java.util.List<io.github.ygaray.voiceactionengine.undo.NotRestored> notRestored;
+    property public java.util.List<io.github.ygaray.voiceactionengine.undo.EntryRef> restored;
+  }
+
+  public static final class UndoResult.Refused extends io.github.ygaray.voiceactionengine.undo.UndoResult {
+    method @InaccessibleFromKotlin public java.util.List<io.github.ygaray.voiceactionengine.undo.Blocker> getBlockers();
+    method @InaccessibleFromKotlin public String getCode();
+    method public String toString();
+    property public java.util.List<io.github.ygaray.voiceactionengine.undo.Blocker> blockers;
+    property public String code;
+  }
+
+  public final class UndoTicket {
+    method public suspend Object? capture(String type, String id, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public void compensate(String kind, String payload);
+    method public suspend Object? created(String type, String id, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public void nothingWritten();
+    method public suspend Object? settle(String type, String id, kotlin.coroutines.Continuation<? super kotlin.Unit>);
+    method public String toString();
+    method public void touches(String type, String id);
+  }
+
+}
+
