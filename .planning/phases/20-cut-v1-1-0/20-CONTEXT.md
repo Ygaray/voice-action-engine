@@ -97,3 +97,5 @@ None — discussion stayed within phase scope
 
 - **RT-03 [actionevent-tostring] (2026-10-06, master; P17 deferred obligation IN-04):** Before the tag, settle the ActionEvent.toString() redaction policy (whether parentRunId and heldRunId are printed or redacted) and record why in the KDoc. HeldRunIdTest pins the current behavior, so a policy change must update that test.
 - **RT-04 [p17-api-reconcile] (2026-10-06, orchestrator 3b FYIs):** P20 reconciles the keystore api.txt re-dump (+9 KeyAccess lines from P12) and the 2 :undo suppressions (expected 1, P17 OI-5).
+
+- **RT-03 RULED (2026-10-06, orchestrator 3b; IN-04):** REDACT by default. ActionEvent.toString() shows type, ids (runId, parentRunId and heldRunId are ids and may be shown), tier, status and counts. It NEVER shows arg values, utterance text, model output or key material; those render as `<redacted:N chars>` or similar. Any debug accessor must be explicit and opt-in, never toString. Add one test that a sentinel arg value never appears in toString(), and update HeldRunIdTest if the shape changes. This lands in P20, or in P18 if it fits there, before the wiring SHA.
