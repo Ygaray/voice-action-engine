@@ -211,8 +211,8 @@ Its coordinate is `voice-action-engine-undo:<version>`; see INTEGRATION.md secti
 
 | Function | Purpose |
 |---|---|
-| `toCommandInput` | On a `:stt` `FinalSegment`: the text and a normalized language as a `CommandInput`. Three overloads: no argument, with a context, and with a context and a `parentRunId`. |
-| `commandInputOf` | The same mapping from a plain text and label, for a caller with no `:stt` type. Three overloads, matching `toCommandInput`. |
+| `toCommandInput` | On a `:stt` `FinalSegment`: the text and a normalized language as a `CommandInput`. Two forms: no argument, and with a context and a `parentRunId` (either may be null). |
+| `commandInputOf` | The same mapping from a plain text and label, for a caller with no `:stt` type. Two forms, matching `toCommandInput`. |
 | `normalizeSttLanguageLabel` | A label becomes `en` or `es` (case and surrounding whitespace ignored), anything else becomes null (unknown). |
 
 There is no joiner: one final segment maps to one `CommandInput`, verbatim, and the app keeps its own multi-segment

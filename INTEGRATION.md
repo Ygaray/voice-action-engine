@@ -882,10 +882,11 @@ way: `commandInputOf` below lets you build the same input without the `:stt` typ
 
 **What it gives you.** One call maps one final segment. Nothing else is in the module: no types, only top-level functions.
 
-- `toCommandInput()` on a `FinalSegment`, with two more overloads, `toCommandInput(context)` and
-  `toCommandInput(context, parentRunId)`, for the run context and the id of the run a reply continues.
-- `commandInputOf(text, label)`, also with a context, and with a context and a `parentRunId`, for a caller that has no
-  `:stt` type on its classpath (a different capture path, or a test).
+- `toCommandInput()` on a `FinalSegment`, and `toCommandInput(context, parentRunId)`, for the run context and the id of
+  the run a reply continues. Pass null for whichever of the two you do not have.
+- `commandInputOf(text, label)` and `commandInputOf(text, label, context, parentRunId)`, for a caller that has no
+  `:stt` type on its classpath (a different capture path, or a test). There is deliberately no form that takes only a
+  context, so a run id can never be mistaken for a context.
 - `normalizeSttLanguageLabel(raw)`, the label rule on its own.
 
 The transcript is passed verbatim: it is not trimmed and not validated, so guard a blank transcript yourself before you
