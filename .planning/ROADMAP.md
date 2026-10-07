@@ -458,7 +458,7 @@ Plans:
   2. README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every Phase 12–18 tier, seam and module (plus the on-device module if Phase 13 shipped one), with the new per-module coordinates, and the doc-coverage check passes.
   3. A fresh agent wires grammar, plan, the router and undo-all into a new app from the docs alone, and the isolated wiring test passes (re-run on the final SHA in Phase 20).
 
-**Plans**: 12/14 plans executed (12 waves, serial: one Gradle-running plan per wave, the extra wave-1 plans are bash only; 19-07 is non-autonomous, gated on the relayed live-spend GO and TESTER window; 19-13 is non-autonomous, gated on the RT-02 pre-granted quiet window; 19-14 is non-autonomous, in the same window with no second request, gated on the master-dispatched isolated agent)
+**Plans**: 13/14 plans executed (12 waves, serial: one Gradle-running plan per wave, the extra wave-1 plans are bash only; 19-07 is non-autonomous, gated on the relayed live-spend GO and TESTER window; 19-13 is non-autonomous, gated on the RT-02 pre-granted quiet window; 19-14 is non-autonomous, in the same window with no second request, gated on the master-dispatched isolated agent)
 
 Plans:
 **Wave 1**
@@ -505,7 +505,7 @@ Plans:
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
-- [ ] 19-13-PLAN.md — non-autonomous quiet window (heavy gates): dry run with `:adapteralone`, clean-clone wiring selftest, negative controls, API dump proof, `:voice-adapter:check`, live-probe exercise (RT-02, RT-03); hands the open window to 19-14 on green, closes it on red
+- [x] 19-13-PLAN.md — non-autonomous quiet window (heavy gates): dry run with `:adapteralone`, clean-clone wiring selftest, negative controls, API dump proof, `:voice-adapter:check`, live-probe exercise (RT-02, RT-03); hands the open window to 19-14 on green, closes it on red
 
 **Wave 12** *(blocked on Wave 11 completion)*
 
@@ -544,5 +544,5 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
-| 19. Sample Gate-1 & Docs | v1.1 | 12/14 | In Progress|  |
+| 19. Sample Gate-1 & Docs | v1.1 | 13/14 | In Progress|  |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
