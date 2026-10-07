@@ -133,4 +133,61 @@ class UndoLegTest {
             for (line in rig.sink.rendered) assertTrue(line, allow.matches(line))
         }
     }
+
+    @Test
+    fun aLaterEditRefusesTheUndoWithChangedSinceAndTheStoreIsUntouched() = runTest {
+        NoNetworkGuard.during {
+            val rig = rig()
+            rig.runner.run(LegId.UNDO_ALL)
+
+            rig.runner.undoAll()
+
+            val refused = rig.sink.starting("VAE_UNDO ").single { it.contains(" case=2 ") }
+            assertEquals(
+                "VAE_UNDO leg=undo_all case=2 phase=refused n=1 committed=1 pending=0 withheld=false partial=false " +
+                    "remaining=0 result=refused restored=none blockers=1 reason=changed_since store_ok=true",
+                refused,
+            )
+        }
+    }
+
+    @Test
+    fun aPartialPlanCountsTwoAppliedAndOneHeldApartAndItsCommitsAreUndone() = runTest {
+        NoNetworkGuard.during {
+            val rig = rig()
+            rig.runner.run(LegId.UNDO_ALL)
+
+            rig.runner.undoAll()
+
+            val partial = rig.sink.starting("VAE_UNDO ").filter { it.contains(" case=3 ") }
+            assertEquals(partial.toString(), 2, partial.size)
+            assertEquals(
+                "VAE_UNDO leg=undo_all case=3 phase=partial n=2 committed=2 pending=1 withheld=false partial=true " +
+                    "remaining=1 result=none restored=none blockers=none reason=none store_ok=none",
+                partial[0],
+            )
+            assertEquals(
+                "VAE_UNDO leg=undo_all case=3 phase=undone n=2 committed=2 pending=1 withheld=false partial=true " +
+                    "remaining=1 result=complete restored=2 blockers=none reason=none store_ok=true",
+                partial[1],
+            )
+        }
+    }
+
+    @Test
+    fun theWholePressWritesExactlyOneVerdictAfterAllThreeCases() = runTest {
+        NoNetworkGuard.during {
+            val rig = rig()
+            rig.runner.run(LegId.UNDO_ALL)
+            assertTrue(rig.sink.starting("VAE_VERDICT ").isEmpty())
+
+            val result = rig.runner.undoAll()
+
+            assertEquals(result.toString(), VerdictKind.PASS, result.verdict.kind)
+            assertEquals(1, rig.sink.starting("VAE_VERDICT ").size)
+            assertEquals(5, rig.sink.starting("VAE_UNDO ").size)
+            // The verdict line is the last one: it is written only once every case has been judged.
+            assertTrue(rig.sink.rendered.last().startsWith("VAE_VERDICT leg=undo_all verdict=PASS "))
+        }
+    }
 }
