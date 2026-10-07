@@ -9,6 +9,8 @@ serialization = "1.11.0"
 okhttp = "4.12.0"
 junit = "4.13.2"
 datastore = "1.2.1"
+# The speech engine's documented MINIMUM: an immutable tag, never raised silently.
+stt-engine = "v0.7.0"
 androidx-test-runner = "1.7.0"
 androidx-test-ext-junit = "1.3.0"
 composeBom = "2026.04.01"
@@ -23,6 +25,8 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 datastore-prefs = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+# Per-module coordinate, never the aggregator. Compile-only in :voice-adapter.
+stt-engine = { group = "com.github.Ygaray.voice-engine-android", name = "voice-engine-android", version.ref = "stt-engine" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidx-test-runner" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
 # :sample only (never published): the Compose BOM manages the versions of the three compose-* entries below.
