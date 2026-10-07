@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 19
 current_phase_name: Sample Gate-1 & Docs
-current_plan: 6
+current_plan: 7
 status: executing
-stopped_at: Completed 19-05-PLAN.md
-last_updated: "2026-10-07T15:47:46.515Z"
+stopped_at: Completed 19-06-PLAN.md
+last_updated: "2026-10-07T16:01:17.958Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 19 execution started
-state_head: 9391797ba3c82f72cbbf03436e1061f7b7c119c8
+state_head: 267a91a296e4408b66d6ac935720b19fc61084ac
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 75
-  completed_plans: 66
+  completed_plans: 67
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 19 (Sample Gate-1 & Docs) — EXECUTING
-Current Plan: 6
+Current Plan: 7
 Total Plans in Phase: 14
 Status: Ready to execute
 Last activity: 2026-10-07 — Phase 19 execution started
@@ -162,6 +162,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19 P03 | 10min | 3 tasks | 7 files |
 | Phase 19 P04 | 35min | 3 tasks | 12 files |
 | Phase 19 P05 | 55min | 3 tasks | 13 files |
+| Phase 19 P06 | 70min | 3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -215,6 +216,7 @@ Recent decisions affecting current work:
 - [Phase 17]: 17-10: UNDO-01 heavy gates ran green in the relayed quiet window (negative controls 0 failures, API DUMP PROOF OK, DRY RUN OK + PROBE OK with :undoalone free of :core)
 - [Phase 18]: PD-04: voice-adapter public names frozen: toCommandInput (3 overloads), commandInputOf (3), normalizeSttLanguageLabel; facades FinalSegmentCommandInput and SttLanguageLabels; explicit overloads only — Names freeze at v1.1.0; explicit overloads keep API additive-only; stt-free facade kept in its own file
 - [Phase 19]: 19-01: Gate-1 runner decision file/evidence dir are env overrides (VAE_GATE1_DECISION_FILE, VAE_GATE1_EVIDENCE_DIR) with derived <NN>-LIVE-LEG-DECISION.md default; Phase 19 decision file created pending
+- [Phase 19]: 19-06: undo_all is two presses (run_undo_all counts N, undo_all runs the whole undo, the changed_since refusal and the partial case); verdict FAIL codes undo_incomplete, refusal_missing, wrong_refusal_reason, not_partial, wrong_count
 
 ### Pending Todos
 
@@ -242,8 +244,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T15:47:43.730Z
-Stopped at: Completed 19-05-PLAN.md
+Last session: 2026-10-07T16:01:17.815Z
+Stopped at: Completed 19-06-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
