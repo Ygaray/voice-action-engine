@@ -1,6 +1,7 @@
 # 19-13 host quiet-window request (written by plan 19-12)
 
-grant: open
+grant: consumed
+closed: 2026-10-07T18:21:30Z
 relayed_by: orchestrator yahir-gsd-control-plane-3b via the milestone master
 date: 2026-10-07
 opened: 2026-10-07T16:58:00Z
@@ -265,3 +266,33 @@ Dispatch (DISPATCH.md recipe, run by the orchestrator because the executor has n
 
 Agent final message (excerpt): "The build is green: ./gradlew :jvmconsumer:test :app:compileDebugKotlin succeeds, and all six WireTest tests pass. I recorded 5 stumbles in STUMBLES.md, and CONSULTED.md lists every file I read." STUMBLES.md and CONSULTED.md are present in the workspace.
 
+### Plan 14 Task 2 - judge, verify, wiring record
+
+Pre-check 2026-10-07T18:19Z: MemAvailable 8237708 kB (7.9 GiB), no Gradle daemon, no VAE wrapper process; mempalace mine still running beside (never touched).
+
+Isolation audit (DISPATCH.md): `find` upward from the workspace found no `CLAUDE.md` and no `.claude` in any ancestor (ancestors_clean=yes); `find <ws> -name .credentials.json` empty; `CONSULTED.md` lists only workspace-relative paths (consulted_only_workspace=true); no URL, home path or key-shaped string in STUMBLES.md, CONSULTED.md or the agent's final message; the throwaway config directory was already removed (cfg_removed=yes). Audit: clean.
+
+Verify: `scripts/agent-wiring-test.sh verify /tmp/vae-wiring-19/ws dryrun-ec24a19786` (low-memory recipe, empty Gradle cache), 2026-10-07T18:19:15Z to 18:20:44Z, exit status 0. Verbatim last line:
+
+```
+WIRING TEST: PASS checks=13
+```
+
+Record: `.planning/releases/v1.1.0/WIRING-RERUN.md` status pass, tested_sha 090fd8ec761178d5922523faaf24dc3ffb7b686b, consulted_only_workspace true. Evidence copied verbatim to `.planning/releases/v1.1.0/evidence/wiring-stumbles.txt` and `wiring-consulted.txt`. Stumbles (five, doc gaps) are Phase 20 input in `evidence/gate2-carry-register.txt` C9; no doc was edited.
+
+Cleanup (2026-10-07T18:21:18Z): removed `/tmp/tmp.iRiTqYvCWA` (kept maven-local), `/tmp/tmp.FnrVBq4MHu` (kept probe workdir) and `/tmp/vae-wiring-19` (workspace, agent logs, config-dir pointer); all three confirmed absent.
+
+## Window close
+
+closed: 2026-10-07T18:21:30Z
+gates_started: 2026-10-07T17:17:43Z (clock 9000 s would have ended 19:47:43Z; elapsed about 3830 s, about 64 min)
+opened: 2026-10-07T16:58:00Z
+
+Window observations, plans 13 and 14 together:
+
+- MemAvailable stayed between 7.2 GiB and 12.2 GiB at every guard reading (never below the 5 GiB stop line, so no pause was needed after the ruling); swap was full for the whole window; no earlyoom kill, no retry used, nothing killed, no `./gradlew --stop`. One Gradle process at a time throughout.
+- The mempalace mine (pid 3106604, about 4.4-4.6 GiB RSS) ran beside the heavy gates under the orchestrator ruling and was never touched. Before the ruling plan 13 waited about 28 min on it with no heavy step started.
+- Longest step: the negative-control suite, about 40 min (17:30:48Z to 18:10:52Z). Plan 14 added about 8 min (agent 4 min, verify 1.5 min).
+- Plan 14 needed no second relay and no lock re-confirmation: the dispatch (18:14Z) was inside the timebox.
+
+Gate verdict: GREEN. Plan 13 steps 1-6 passed; plan 14 isolated wiring test PASS checks=13 with a clean isolation audit. DOC-02 / ROADMAP SC3 satisfied on the Phase 19 wiring SHA 090fd8ec76; Phase 20 re-runs on its final SHA (C4). The master sends `quiet done` after this plan's commit.

@@ -57,3 +57,11 @@ C8 Router leg outcome and P16 OI-6 (router wording never run live)
   disposition: CLOSED for the leg: VAE_VERDICT leg=router_live verdict=PASS eligible=2 picked_index=1 sel_turns=1 router_tokens=901 (claude-haiku-4-5). Router wording quality for real utterances beyond the one fixture stays an optional human review in the Phase 19 Gate-2 fragment
   owner: closed (optional human review at Gate-2)
   evidence pointer: evidence/gate1-router_live.txt; 19-07-SUMMARY.md
+
+C9 Isolated wiring record and the agent's doc stumbles (DOC-02)
+  source: 19-14 (Task 2); .planning/releases/v1.1.0/WIRING-RERUN.md
+  phase 19 does: ran the isolated fresh-agent wiring test on the wiring SHA candidate 090fd8ec76: WIRING TEST: PASS checks=13, consulted_only_workspace true, record committed so release-cut gate wiring reads it. No doc was edited afterwards (an edit would void the pass)
+  disposition: CARRIED (stumbles) to Phase 20 as doc-fix input, to be fixed before its final wiring SHA and re-tested there (C4). Five stumbles: (1) router answer tool name and argument shape undocumented (pick_start_tier / {"tier":...} had to be guessed); (2) submit_plan argument schema undocumented (steps, id, tool, arguments, needs_lookup); (3) INTEGRATION.md section 11 undo-bridge block lists no imports (EntryRef, ActionEvent, ActionKind, CommitSink, RunTermination, ConcurrentHashMap); (4) SingleShot with a read tool in the snapshot: docs say reads are not served, intent for a resolver unclear; (5) a variable named store inside the UndoJournal { } builder is shadowed by the builder's store property (confusing compile error), worth a doc warning
+  owner: Phase 20 (docs), then its wiring rerun
+  evidence pointer: .planning/releases/v1.1.0/WIRING-RERUN.md; .planning/releases/v1.1.0/evidence/wiring-stumbles.txt; .planning/releases/v1.1.0/evidence/wiring-consulted.txt; 19-QUIET-WINDOW.md "Plan 14 Task 2"
+
