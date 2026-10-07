@@ -20,6 +20,9 @@ public fun FinalSegment.toCommandInput(): CommandInput = toCommandInput(null, nu
  *
  * The text is passed verbatim, the segment id is dropped, the label is normalised to `"en"`, `"es"` or null, and
  * [context] is passed through unchanged. Never throws.
+ *
+ * A [String] passed here is a context object, not a run id: the parent run stays null. To answer an earlier run, use
+ * the two-argument form `toCommandInput(context, parentRunId)`.
  */
 public fun FinalSegment.toCommandInput(context: Any?): CommandInput = toCommandInput(context, null)
 

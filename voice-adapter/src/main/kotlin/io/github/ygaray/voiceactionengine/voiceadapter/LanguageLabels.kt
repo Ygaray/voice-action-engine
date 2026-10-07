@@ -37,6 +37,9 @@ public fun commandInputOf(transcript: String, languageLabel: String?): CommandIn
  *
  * The text is passed verbatim, the label is normalised to `"en"`, `"es"` or null, and [context] is passed through
  * unchanged. Never throws.
+ *
+ * A [String] passed as [context] is a context object, not a run id: the parent run stays null. To answer an earlier
+ * run, use the four-argument form `commandInputOf(transcript, languageLabel, context, parentRunId)`.
  */
 public fun commandInputOf(transcript: String, languageLabel: String?, context: Any?): CommandInput =
     commandInputOf(transcript, languageLabel, context, null)
