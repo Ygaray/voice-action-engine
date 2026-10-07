@@ -527,7 +527,7 @@ Plans:
   2. JitPack's build log for `v1.1.0` succeeds, and every published coordinate resolves from an empty Gradle cache: `voice-action-engine-{core,providers,keystore,undo,voice-adapter}`, plus the on-device module if green.
   3. The full §11 row is messaged to the orchestrator (A14) and never committed here. `git.create_tag` stays false, so GSD's milestone close creates no stray `v1.1` marker tag.
 
-**Plans**: 4/12 plans executed (11 waves, serial: one Gradle-running plan per wave, 20-04 is bash only beside 20-03; 20-01, 20-05 and 20-07 to 20-12 are non-autonomous relay or handshake plans; every code, doc, sample and script change lands before the wiring SHA W, which plan 20-07 fixes; 20-12 is a conditional rollback that is a recorded no-op on the success path)
+**Plans**: 5/12 plans executed (11 waves, serial: one Gradle-running plan per wave, 20-04 is bash only beside 20-03; 20-01, 20-05 and 20-07 to 20-12 are non-autonomous relay or handshake plans; every code, doc, sample and script change lands before the wiring SHA W, which plan 20-07 fixes; 20-12 is a conditional rollback that is a recorded no-op on the success path)
 
 Plans:
 **Wave 1**
@@ -545,7 +545,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 20-05-PLAN.md — non-autonomous: waiver packet draft proven against gate 8, C7 defaults marked FINAL with rulings cited, PD-04 counts, ask Yahir before any window (D-05, RT-08)
+- [x] 20-05-PLAN.md — non-autonomous: waiver packet draft proven against gate 8, C7 defaults marked FINAL with rulings cited, PD-04 counts, ask Yahir before any window (D-05, RT-08)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -592,4 +592,4 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
 | 19. Sample Gate-1 & Docs | v1.1 | 14/14 | Complete    | 2026-10-07 |
-| 20. Cut v1.1.0 | v1.1 | 4/12 | In Progress|  |
+| 20. Cut v1.1.0 | v1.1 | 5/12 | In Progress|  |
