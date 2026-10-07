@@ -2,9 +2,9 @@
 phase: "19"
 slug: "sample-gate-1-docs"
 # status lifecycle: draft (seeded by plan-phase) -> validated (set by validate-phase)
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: "2026-10-07"
 ---
 
@@ -41,18 +41,18 @@ Populated from the PLAN.md files by the planner / finalizer. Requirement-level m
 
 | Requirement | Behavior | Test Type | Automated Command | File Exists | Status |
 |-------------|----------|-----------|-------------------|-------------|--------|
-| VER-06 | grammar leg: EN/ES complete, near-miss `Unhandled(cappedByPolicy=true)`, zero turns/attempts/tripwire calls | unit (JVM, fakes) | `:sample:testDebugUnitTest --tests '*GrammarLeg*'` | W0 | pending |
-| VER-06 | plan leg binding and store state; verdict classifier | unit | `--tests '*PlanLeg*'` | W0 | pending |
-| VER-06 | router leg: at least 2 tiers, picked selection, tokens in `trace.usage`; one-tier ladder FAILs | unit | `--tests '*RouterLeg*'` | W0 | pending |
-| VER-06 | undo-all: complete, refused, plan partial; N counts applied actions | unit | `--tests '*UndoLeg*' --tests '*UndoEndToEnd*'` | partial | pending |
-| VER-06 | new evidence types fit `ALLOW_PATTERN`, golden lockstep, no free text | unit + bash | `--tests '*EvidenceLine*'`; `scripts/verify-sample-device-guard.sh` | extend | pending |
-| VER-06 | decision-file env/derivation, `consumed` refuses key push, LEGS parity | bash (fake adb) | `scripts/verify-sample-device-guard.sh` | extend | pending |
-| VER-06 | live TESTER evidence per leg plus D-13 line | device (non-autonomous) | runner `capture-save` then `scripts/sample-evidence-filter.sh < file` | checkpoint | pending |
-| DOC-02 | every doc Kotlin block equals a compiled region | unit + bash | `:sample:testDebugUnitTest --tests '*DocSnippets*'`; `scripts/verify-docs-coverage.sh` | extend | pending |
-| DOC-02 | five-module coordinate/type coverage, new-tier content, RT-01/RT-04 wording | bash | `scripts/verify-docs-coverage.sh` (+ `--selftest`) | extend | pending |
-| DOC-02 | RT-04 overloads gone | unit (reflection) | `:voice-adapter:testDebugUnitTest --tests '*AdapterApiShape*'` | extend | pending |
-| DOC-02 | fresh-agent wiring PASS | isolated agent + judge | `scripts/agent-wiring-test.sh selftest`, then `prepare-local` and `verify` | W0 | pending |
-| RT-02/RT-03 | dry run (five artifacts, `:undoalone`, `:adapteralone`), negative controls, `:voice-adapter:check` | heavy bash (quiet window) | `scripts/jitpack-dry-run.sh`, `scripts/verify-negative-controls.sh` | checkpoint | pending |
+| VER-06 | grammar leg: EN/ES complete, near-miss `Unhandled(cappedByPolicy=true)`, zero turns/attempts/tripwire calls | unit (JVM, fakes) | `:sample:testDebugUnitTest --tests '*GrammarLeg*'` | yes | green |
+| VER-06 | plan leg binding and store state; verdict classifier | unit | `--tests '*PlanLeg*'` | yes | green |
+| VER-06 | router leg: at least 2 tiers, picked selection, tokens in `trace.usage`; one-tier ladder FAILs | unit | `--tests '*RouterLeg*'` | yes | green |
+| VER-06 | undo-all: complete, refused, plan partial; N counts applied actions | unit | `--tests '*UndoLeg*' --tests '*UndoEndToEnd*'` | yes | green |
+| VER-06 | new evidence types fit `ALLOW_PATTERN`, golden lockstep, no free text | unit + bash | `--tests '*EvidenceLine*'`; `scripts/verify-sample-device-guard.sh` | yes | green |
+| VER-06 | decision-file env/derivation, `consumed` refuses key push, LEGS parity | bash (fake adb) | `scripts/verify-sample-device-guard.sh` | yes | green |
+| VER-06 | live TESTER evidence per leg plus D-13 line | device (non-autonomous) | runner `capture-save` then `scripts/sample-evidence-filter.sh < file` | yes | green |
+| DOC-02 | every doc Kotlin block equals a compiled region | unit + bash | `:sample:testDebugUnitTest --tests '*DocSnippets*'`; `scripts/verify-docs-coverage.sh` | yes | green |
+| DOC-02 | five-module coordinate/type coverage, new-tier content, RT-01/RT-04 wording | bash | `scripts/verify-docs-coverage.sh` (+ `--selftest`) | yes | green |
+| DOC-02 | RT-04 overloads gone | unit (reflection) | `:voice-adapter:testDebugUnitTest --tests '*AdapterApiShape*'` | yes | green |
+| DOC-02 | fresh-agent wiring PASS | isolated agent + judge | `scripts/agent-wiring-test.sh selftest`, then `prepare-local` and `verify` | yes | green |
+| RT-02/RT-03 | dry run (five artifacts, `:undoalone`, `:adapteralone`), negative controls, `:voice-adapter:check` | heavy bash (quiet window) | `scripts/jitpack-dry-run.sh`, `scripts/verify-negative-controls.sh` | yes | green |
 
 *Status: pending / green / red / flaky*
 
@@ -79,12 +79,12 @@ Per-plan map (planner, 2026-10-07; every task's `<verify>` carries an `<automate
 
 ## Wave 0 Requirements
 
-- [ ] `GrammarLegTest`, `PlanLegTest`, `RouterLegTest`, `UndoLegTest` under `sample/src/test/kotlin/.../sample/` - VER-06
-- [ ] `EvidenceLineTest` plus golden-file extensions and guard counts - VER-06
-- [ ] guard scenarios for the decision-file override / derived name / `consumed` - VER-06
-- [ ] docs-coverage selftest and new checks - DOC-02
-- [ ] wiring assets relocation, new prompt/reference/judge checks, `prepare-local` - DOC-02
-- [ ] `AdapterApiShapeTest` update and reflection proof for RT-04
+- [x] `GrammarLegTest`, `PlanLegTest`, `RouterLegTest`, `UndoLegTest` under `sample/src/test/kotlin/.../sample/` - VER-06
+- [x] `EvidenceLineTest` plus golden-file extensions and guard counts - VER-06
+- [x] guard scenarios for the decision-file override / derived name / `consumed` - VER-06
+- [x] docs-coverage selftest and new checks - DOC-02
+- [x] wiring assets relocation, new prompt/reference/judge checks, `prepare-local` - DOC-02
+- [x] `AdapterApiShapeTest` update and reflection proof for RT-04
 
 ---
 
@@ -99,13 +99,28 @@ Per-plan map (planner, 2026-10-07; every task's `<verify>` carries an `<automate
 
 ## Validation Sign-Off
 
-> **Plan-time state is a DRAFT.** Frontmatter stays `status: draft` and `nyquist_compliant: false`; the Nyquist finalizer sets them post-execution.
+> Finalized post-execution by the Nyquist finalizer (2026-10-07): `status: validated`, `nyquist_compliant: true`.
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 180s for the quick command
-- [ ] _(finalizer-only, post-execution)_ `nyquist_compliant` left `false` at plan time
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 180s for the quick command
+- [x] _(finalizer-only, post-execution)_ `nyquist_compliant` set `true`: zero automatable gaps
 
-**Approval:** pending (finalizer-owned, not set at plan time)
+**Approval:** approved by the Nyquist finalizer 2026-10-07 (zero automatable gaps)
+
+---
+
+## Validation Audit 2026-10-07
+
+Auto-mode audit (no auditor spawned, no tests generated). Every requirement row maps to an automated command or committed device evidence that ran green in this phase: `:sample:check`, `:voice-adapter:check`, `:core/:undo/:providers/:keystore :check` (exit 0 on HEAD ac62054), `verify-sample-device-guard.sh` (scenarios=43), `verify-docs-coverage.sh` (checks=32, selftest plants=13), `agent-wiring-test.sh selftest` and `selftest-source` OK, `scripts/jitpack-dry-run.sh` (DRY RUN OK, PROBE OK incl. :adapteralone), `verify-api-dump.sh` (API DUMP PROOF OK), `verify-negative-controls.sh` (failures: 0), isolated wiring PASS checks=13 on 090fd8ec76, and five TESTER Gate-1 evidence files (all PASS). The live TESTER legs and the heavy host gates remain Manual-Only by design (device and quiet window) and are evidenced, not automatable in CI. Review fixes WR-01..WR-04 have targeted coverage (guard scenarios 43, docs selftest 13 plants, `selftest-source`, `PlanLegTest.anExplicitNullParentIsTheSameAsNoParent`).
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Caveat carried to Phase 20: the negative-control suite and API dump proof were last run on the wiring SHA candidate 090fd8ec76; the later review fixes touched only scripts and one sample file (re-checked by the targeted gates above).
+
