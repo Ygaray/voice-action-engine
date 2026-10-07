@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Mechanical VER-04 gate over the doc set an integrating agent receives: README.md, INTEGRATION.md, API.md (plus the
 # ECOSYSTEM.md hygiene rules). Every checklist item is a grep, every Kotlin snippet is compared byte for byte with a
-# region of the compiled, executed DocSnippetsTest, and API.md must name every public top-level type, found at run time.
+# region of a compiled, executed snippet test (the sample's DocSnippetsTest, and the voice adapter's own
+# DocSnippetAdapterTest for the adapter snippet), and API.md must name every public top-level type, found at run time.
 #   C01 per-module coordinates in README and INTEGRATION     C13 keystore cause codes, re-enter vs transient retry
 #   C02 no aggregator coordinate in any doc                   C14 uncached and unsupported combos
 #   C03 coordinate lines end in :<version>, version explained C15 ExecutedAction kinds, applied, mutating, held bytes
@@ -38,6 +39,12 @@ INTEGRATION=INTEGRATION.md
 API=API.md
 ECOSYSTEM=ECOSYSTEM.md
 SNIPPETS=sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/docs/DocSnippetsTest.kt
+# Every file that holds doc-snippet regions, derived once: the sample's test, then the voice adapter's own snippet test
+# (the adapter snippet is compiled where the adapter lives, so :sample needs no edge to :voice-adapter or :stt).
+SNIPPET_FILES=("$SNIPPETS")
+while IFS= read -r extra_snippets; do
+  [ -n "$extra_snippets" ] && SNIPPET_FILES+=("$extra_snippets")
+done < <(find voice-adapter/src/test -name DocSnippetAdapterTest.kt 2>/dev/null | sort)
 REQUIRED_REGIONS="minimal-pipeline scripted-provider register-providers agentic-tier gate-suspend gate-defer render-outcome clarification-follow-up keystore-wiring keystore-fake telemetry"
 COORD_PREFIX='com.github.Ygaray.voice-action-engine:voice-action-engine-'
 
@@ -63,7 +70,7 @@ need() { local f="$1"; shift; exists "$f" || return 0; local n; for n in "$@"; d
 # needi: as need, ignoring case.
 needi() { local f="$1"; shift; exists "$f" || return 0; local n; for n in "$@"; do grep -qiF -- "$n" "$f" || fail "$CUR" "$f lacks '$n' (any case)"; done; }
 
-# region <name>: the lines of the named region in the snippet test, with the common leading whitespace removed.
+# region <name>: the lines of the named region in the snippet tests, with the common leading whitespace removed.
 region() {
   awk -v n="$1" '
     $0 ~ "^[ \t]*// doc-snippet:start " n "[ \t]*$" { on = 1; found = 1; next }
@@ -79,7 +86,7 @@ region() {
       }
       if (min < 0) min = 0
       for (i = 1; i <= c; i++) print (lines[i] ~ /^[ \t]*$/ ? "" : substr(lines[i], min + 1))
-    }' "$SNIPPETS"
+    }' "${SNIPPET_FILES[@]}"
 }
 
 # blocks <doc>: split a doc into WORK/<doc>.<n>.name and .body for each marked kotlin fence; WORK/<doc>.bad lists faults.
@@ -193,7 +200,7 @@ check_C07() {
   for r in $REQUIRED_REGIONS; do
     region "$r" >/dev/null 2>&1 || fail C07 "required region '$r' is missing from the snippet test"
   done
-  all="$(grep -oE 'doc-snippet:start [A-Za-z0-9-]+' "$SNIPPETS" | sed 's/doc-snippet:start //')"
+  all="$(grep -ohE 'doc-snippet:start [A-Za-z0-9-]+' "${SNIPPET_FILES[@]}" | sed 's/doc-snippet:start //')"
   for r in $all; do
     used=0
     for doc in "$README" "$INTEGRATION" "$API"; do

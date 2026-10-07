@@ -1274,6 +1274,32 @@ way: `commandInputOf` below lets you build the same input without the `:stt` typ
 The transcript is passed verbatim: it is not trimmed and not validated, so guard a blank transcript yourself before you
 call `execute`. The segment id is dropped.
 
+**The whole use.** This block is compiled and run in the `voice-adapter` module's own tests, over the real adapter. It
+needs these imports:
+
+```text
+import io.github.ygaray.sttengine.FinalSegment
+import io.github.ygaray.voiceactionengine.core.CommandInput
+import io.github.ygaray.voiceactionengine.voiceadapter.commandInputOf
+import io.github.ygaray.voiceactionengine.voiceadapter.normalizeSttLanguageLabel
+import io.github.ygaray.voiceactionengine.voiceadapter.toCommandInput
+```
+
+<!-- doc-snippet: adapter-wiring -->
+```kotlin
+// One final segment from :stt becomes one command. The language is "en", "es" or null (unknown): the adapter never
+// guesses. The transcript is passed verbatim, so guard a blank one yourself before you call execute.
+fun commandFor(segment: FinalSegment, replyingTo: String? = null): CommandInput? =
+    if (segment.text.isBlank()) null else segment.toCommandInput(context = null, parentRunId = replyingTo)
+
+// Without the :stt types on your classpath (another capture path, or a test), build the same input from plain text and
+// the label you were given.
+fun commandForText(text: String, label: String?): CommandInput = commandInputOf(text, label)
+
+// The label rule on its own, for example to ask the user for a language when the speech engine reported none.
+fun languageIsKnown(segment: FinalSegment): Boolean = normalizeSttLanguageLabel(segment.language) != null
+```
+
 **One segment per call.** The adapter has no joiner. If your session produces several final segments, keep your own
 aggregation (the longest, the last, or all of them joined) and pass the one result; the engine does not choose for you.
 
