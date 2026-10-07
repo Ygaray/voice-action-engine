@@ -50,8 +50,9 @@ Which modules you need: `core` alone is enough for a pipeline, every seam and yo
 JVM-only consumer (tests included) needs nothing else. Add `providers` only to call Anthropic, OpenAI or OpenRouter over
 HTTP; it compiles against OkHttp 4.12 and is tested on 4.12 and 5.x, so your app keeps its own OkHttp version. Add
 `keystore` only in an Android app (an AAR, minSdk 35) for bring-your-own-key storage; `core` is pure Kotlin.
-Add `voice-adapter` (`com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>`) only in an Android
-app that captures speech with `:stt`; the app adds `:stt` itself (v0.7.0 or newer), see INTEGRATION.md step 12.
+Add `voice-adapter` (`com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>`, first published in
+v1.1.0, so pin v1.1.0 or newer for it) only in an Android app that captures speech with `:stt`; the app adds `:stt`
+itself (v0.7.0 or newer), see INTEGRATION.md step 12.
 
 ## Minimal usage
 
