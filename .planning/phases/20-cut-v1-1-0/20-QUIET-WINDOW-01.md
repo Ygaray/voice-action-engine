@@ -1,9 +1,9 @@
 # 20-07 host quiet-window request (written by plan 20-07 Task 2 preparation)
 
-grant: pending
-relayed_by:
-date:
-opened:
+grant: open
+relayed_by: yahir-gsd-control-plane-3b
+date: 2026-10-07T23:34:36Z
+opened: 2026-10-07T23:34:36Z
 requested: 2026-10-07T23:28Z
 timebox_s: 14400
 gates_started:
@@ -50,6 +50,24 @@ other processes; it is re-read before every heavy step.
 
 ## Relay log (verbatim)
 
+Resume signal: `quiet window 20-01 open 2026-10-07 (UTC now) relayed_by=yahir-gsd-control-plane-3b`
+
+Orchestrator verbatim (open): "open 20-07. I hold the build lock (a1b5723). MemAvailable is 8.3 GiB and swap has 221 MB free; the mempalace mine has finished, so my standing swap-full ruling applies. In-window: pause a gate below 5 GiB, single daemon, one retry per earlyoom kill, ≤4 h. Send "quiet done" with the gate lines and the wiring SHA W."
+
+Orchestrator verbatim (R2 ruling): "Orchestrator 3b, 2026-10-07: swap-full is accepted for the P20 quiet windows provided MemAvailable ≥ 8 GiB at window open. In-window rule: pause a gate below 5 GiB, single daemon, one retry per earlyoom kill."
+
+This is the relayed ruling to proceed without a swap reset (rule R2). Executor terms: MemAvailable at least 8 GiB at open (read below), at least 5 GiB before each gate, single Gradle process, one retry per earlyoom kill, at most 4 h.
+
 ## Pre-checks
+
+At open (2026-10-07T23:34:36Z), HEAD 86a3304cf7b302529b75fe2b4566698490aa063b:
+
+```
+MemAvailable:    9528908 kB   (9.09 GiB, at least 8 GiB: R2 ruling condition MET)
+SwapTotal:       2097148 kB
+SwapFree:         226956 kB   (10.8%, under the 25% rule; accepted by the relayed R2 ruling)
+pgrep -af '[G]radleDaemon': empty (no Gradle daemon)
+git status --porcelain -- . ':!.planning' ':!graphify-out' ':!.gsd': empty
+```
 
 ## Results
