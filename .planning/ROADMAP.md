@@ -414,7 +414,7 @@ Plans:
   1. `:voice-adapter` publishes as `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter` and maps one `:stt` v0.7.0 final segment to `CommandInput` per call (apps keep their own session aggregation), carrying the transcript and the language label (`en` / `es`, and `null` when `:stt` gave none or a label outside that set; never a guess), with `:stt` v0.7.0 or newer as the documented minimum.
   2. `:core` still depends on no other hub: the module-graph and `:core` classpath-allowlist gates pass, only `:voice-adapter` depends on `:stt`, and an app that doesn't add `:voice-adapter` never pulls `:stt` in.
 
-**Plans**: 2/8 plans executed (6 waves, serial: one Gradle-running plan per wave, the extra wave-2 and wave-3 plans are bash only; 18-08 is non-autonomous, quiet-window gated; no device or live spend)
+**Plans**: 3/8 plans executed (6 waves, serial: one Gradle-running plan per wave, the extra wave-2 and wave-3 plans are bash only; 18-08 is non-autonomous, quiet-window gated; no device or live spend)
 
 Plans:
 **Wave 1**
@@ -424,7 +424,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 18-02-PLAN.md — bash only: ECOSYSTEM row, INTEGRATION section 12, README and API.md entries, roadmap single-segment wording, documented minimum and the server-path fallback caveat (D-05, D-07)
-- [ ] 18-03-PLAN.md — complete mapper: three `toCommandInput` overloads, `:stt`-free `commandInputOf` + closed-set `normalizeSttLanguageLabel`, redaction sentinels, reflection pin of the frozen surface (D-04, D-05, D-06, D-07)
+- [x] 18-03-PLAN.md — complete mapper: three `toCommandInput` overloads, `:stt`-free `commandInputOf` + closed-set `normalizeSttLanguageLabel`, redaction sentinels, reflection pin of the frozen surface (D-04, D-05, D-06, D-07)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -491,6 +491,6 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 15. PlanThenExecute Strategy | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
-| 18. Voice Adapter | v1.1 | 2/8 | In Progress|  |
+| 18. Voice Adapter | v1.1 | 3/8 | In Progress|  |
 | 19. Sample Gate-1 & Docs | v1.1 | 0/TBD | Not started | - |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |

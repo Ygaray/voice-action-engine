@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 18
 current_phase_name: Voice Adapter
-current_plan: 3
+current_plan: 4
 status: executing
-stopped_at: Completed 18-02-PLAN.md
-last_updated: "2026-10-07T01:51:43.372Z"
+stopped_at: Completed 18-03-PLAN.md
+last_updated: "2026-10-07T01:56:17.900Z"
 last_activity: 2026-10-06
 last_activity_desc: Phase 18 execution started
-state_head: f137ba8124bf52e54d9ef23cd6d8e522944c5859
+state_head: 1b3e723bcdde8c275ece96b46dd5e045713f2038
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 61
-  completed_plans: 55
+  completed_plans: 56
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 18 (Voice Adapter) — EXECUTING
-Current Plan: 3
+Current Plan: 4
 Total Plans in Phase: 8
 Status: Ready to execute
 Last activity: 2026-10-06 — Phase 18 execution started
@@ -150,6 +150,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 17 P10 | 30min | 3 tasks | 1 files |
 | Phase 18 P01 | resume | 2 tasks | 10 files |
 | Phase 18 P02 | 10 min | 3 tasks | 5 files |
+| Phase 18 P03 | 3 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -201,6 +202,7 @@ Recent decisions affecting current work:
 - [Phase 17]: 17-08: bridge is :sample glue only; a confirmed child's parent group is parents[heldRunId], never the held run itself
 - [Phase 17]: 17-09: :undo carries two suppressions (file-level TooGenericExceptionCaught in Guard.kt, one-line MaxLineLength on record); recorded as OI-5, not changed
 - [Phase 17]: 17-10: UNDO-01 heavy gates ran green in the relayed quiet window (negative controls 0 failures, API DUMP PROOF OK, DRY RUN OK + PROBE OK with :undoalone free of :core)
+- [Phase 18]: PD-04: voice-adapter public names frozen: toCommandInput (3 overloads), commandInputOf (3), normalizeSttLanguageLabel; facades FinalSegmentCommandInput and SttLanguageLabels; explicit overloads only — Names freeze at v1.1.0; explicit overloads keep API additive-only; stt-free facade kept in its own file
 
 ### Pending Todos
 
@@ -228,8 +230,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T01:51:43.158Z
-Stopped at: Completed 18-02-PLAN.md
+Last session: 2026-10-07T01:56:17.656Z
+Stopped at: Completed 18-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
