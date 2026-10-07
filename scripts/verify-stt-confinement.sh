@@ -158,9 +158,105 @@ gate() {
   printf 'STT CONFINEMENT OK checks=6\n'
 }
 
+selftest() {
+  local real_before real_after work pristine cases=0 out rc f
+  real_before="$(git -C "$REPO_ROOT" status --porcelain)"
+  work="$(mktemp -d)"
+  trap "rm -rf '$work'" EXIT
+  pristine="$work/pristine"
+  mkdir -p "$pristine"
+  # Files the gate reads, from tracked + untracked-but-not-ignored, so staged and new files are included.
+  (
+    cd "$REPO_ROOT"
+    git ls-files -co --exclude-standard \
+      | grep -E '^(settings\.gradle\.kts|gradle/libs\.versions\.toml|INTEGRATION\.md|(.*/)?build\.gradle\.kts|.*\.kt)$' \
+      | grep -vE '^(\.planning|graphify-out)/' \
+      | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done \
+      | tar -cf - -T -
+  ) | tar -C "$pristine" -xf -
+
+  fail() { echo "STT CONFINEMENT SELFTEST FAIL: $1"; exit 1; }
+  expect_green() {
+    out="$(gate "$1" 2>&1)" || fail "clean copy is not green: $out"
+    cases=$((cases + 1))
+  }
+  run_plant() {
+    local name="$1" needle="$2" dir="$work/copy"
+    rm -rf "$dir"
+    cp -a "$pristine" "$dir"
+    "plant_$name" "$dir"
+    set +e
+    out="$(gate "$dir" 2>&1)"
+    rc=$?
+    set -e
+    [ "$rc" -eq 1 ] || fail "$name: expected exit 1, got $rc: $out"
+    printf '%s\n' "$out" | grep -E '^STT CONFINEMENT FAIL:' | grep -qF "$needle" \
+      || fail "$name: no FAIL line naming '$needle': $out"
+    cases=$((cases + 1))
+  }
+
+  local mapdir="io/github/ygaray/voiceactionengine"
+  plant_plainrepo() {
+    sed -i 's|^\([[:space:]]*\)google()$|\1maven { url = uri("https://jitpack.io") }\n\1google()|' "$1/settings.gradle.kts"
+    grep -c 'jitpack\.io' "$1/settings.gradle.kts" | grep -qx 2 || fail "plant_plainrepo: plant did not apply"
+  }
+  plant_aggregator() {
+    sed -i "s|includeGroup(\"$STT_GROUP\")|includeGroup(\"$AGGREGATOR_GROUP\")|" "$1/settings.gradle.kts"
+    grep -qF "includeGroup(\"$AGGREGATOR_GROUP\")" "$1/settings.gradle.kts" || fail "plant_aggregator: plant did not apply"
+  }
+  plant_branchpin() {
+    sed -i 's|^stt-engine = "[^"]*"|stt-engine = "main"|' "$1/gradle/libs.versions.toml"
+    grep -qF 'stt-engine = "main"' "$1/gradle/libs.versions.toml" || fail "plant_branchpin: plant did not apply"
+  }
+  plant_secondentry() {
+    printf 'stt-recorder = { group = "%s", name = "voice-engine-android-recorder", version.ref = "stt-engine" }\n' "$STT_GROUP" \
+      >> "$1/gradle/libs.versions.toml"
+  }
+  plant_providers() { printf '\ndependencies { implementation(libs.stt.engine) }\n' >> "$1/providers/build.gradle.kts"; }
+  plant_sample() { printf '\ndependencies { implementation(project(":voice-adapter")) }\n' >> "$1/sample/build.gradle.kts"; }
+  plant_apiraise() {
+    sed -i 's|compileOnly(libs.stt.engine)|implementation(libs.stt.engine)|' "$1/$ADAPTER/build.gradle.kts"
+    grep -qF 'implementation(libs.stt.engine)' "$1/$ADAPTER/build.gradle.kts" || fail "plant_apiraise: plant did not apply"
+  }
+  plant_minsdk() {
+    sed -i 's|minSdk = 35|minSdk = 33|' "$1/$ADAPTER/build.gradle.kts"
+    grep -qF 'minSdk = 33' "$1/$ADAPTER/build.gradle.kts" || fail "plant_minsdk: plant did not apply"
+  }
+  plant_coreimport() {
+    f="$(find "$1/core/src/main" -name '*.kt' -type f | LC_ALL=C sort | head -n 1)"
+    [ -n "$f" ] || fail "plant_coreimport: no core source file"
+    printf 'import %s.FinalSegment\n' "$STT_PACKAGE" >> "$f"
+  }
+  plant_labelsimport() {
+    f="$1/$ADAPTER/src/main/kotlin/$mapdir/voiceadapter/LanguageLabels.kt"
+    [ -f "$f" ] || fail "plant_labelsimport: LanguageLabels.kt missing"
+    printf 'import %s.FinalSegment\n' "$STT_PACKAGE" >> "$f"
+  }
+  plant_docsmin() {
+    sed -i 's/v0\.7\.0 or newer/v0.6.9 or newer/g' "$1/INTEGRATION.md"
+    ! grep -qF 'v0.7.0 or newer' "$1/INTEGRATION.md" || fail "plant_docsmin: plant did not apply"
+  }
+
+  expect_green "$pristine"
+  run_plant plainrepo "repo: settings.gradle.kts"
+  run_plant aggregator "repo: settings.gradle.kts"
+  run_plant branchpin "catalog: gradle/libs.versions.toml"
+  run_plant secondentry "catalog: gradle/libs.versions.toml"
+  run_plant providers "wiring: providers/build.gradle.kts"
+  run_plant sample "wiring: sample/build.gradle.kts"
+  run_plant apiraise "adapter-build: $ADAPTER/build.gradle.kts"
+  run_plant minsdk "adapter-build: $ADAPTER/build.gradle.kts"
+  run_plant coreimport "sources: core/"
+  run_plant labelsimport "LanguageLabels.kt"
+  run_plant docsmin "docs-minimum: INTEGRATION.md"
+
+  real_after="$(git -C "$REPO_ROOT" status --porcelain)"
+  [ "$real_before" = "$real_after" ] || fail "the real tree changed during the selftest"
+  printf 'STT CONFINEMENT SELFTEST OK cases=%s\n' "$cases"
+}
 
 if [ "$SELFTEST" -eq 1 ]; then
-  echo "STT CONFINEMENT SELFTEST FAIL: not implemented" >&2; exit 1
+  selftest
 else
   gate "$ROOT"
 fi
