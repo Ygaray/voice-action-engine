@@ -42,9 +42,10 @@ public sealed class UndoResult {
     }
 
     /**
-     * Some of the group was restored and some was not.
+     * The undo went ahead (every check passed) and at least one item was not restored. It is not "some was restored":
+     * when the very first step fails, nothing was written and [restored] is empty.
      *
-     * @property restored the actions that were fully restored.
+     * @property restored the actions that were fully restored; may be empty.
      * @property notRestored exactly what was not, with the reason. Never empty.
      */
     public class Partial internal constructor(

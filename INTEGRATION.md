@@ -838,7 +838,7 @@ the way. A retry after a `Partial` result touches only what is left.
 |---|---|---|
 | `UndoResult.Complete` | Every action in scope was restored. | `restored`, newest first |
 | `UndoResult.Refused` | Nothing was written. | `blockers`, newest action first, never empty |
-| `UndoResult.Partial` | Some was restored and some was not. | `restored` and `notRestored`, exact lists with the reason |
+| `UndoResult.Partial` | The undo went ahead and at least one item was not restored. | `restored` (may be empty: the first step can fail) and `notRestored`, exact lists with the reason |
 | `UndoResult.AlreadyUndone` | There was nothing left to undo. | nothing |
 
 `UndoReason` is an open set (`CHANGED_SINCE`, `CHAIN_BROKEN`, `UNVERIFIABLE`, `ENTANGLED`, `JOURNAL_WITHHELD`,
