@@ -1,0 +1,57 @@
+Phase 19 Gate-2 carry register (written by plan 19-12; every deferral and handoff of the phase, explicit and owned. The Gate-1 tester and the milestone verifier record the observed disposition of each carry in the Gate-2 fragment)
+
+C1 submit_plan cache-prefix measurement (D-03 [plan-cache], deferred explicitly, never dropped)
+  source: 19-CONTEXT.md D-03 and the refreshed [plan-cache] line; 19-RESEARCH.md "Plan-cache decision"; SB 177 wants the number
+  phase 19 does: nothing live for it. P15's live probe (15-07) measured binding only, and 19-07's plan_live leg proved plan binding (committed=2 bound=1), not the cache prefix
+  disposition: DEFERRED. Reasons: (1) the synthetic tool set cannot reach the Anthropic minimum cacheable prefix (claude-haiku-4-5 needs 4,096 tokens per INTEGRATION.md Notes), so a synthetic leg can only ever show "not cached"; the number SB 177 needs SB-sized (about 7k token) tools, i.e. the private A10 fixture; (2) a fixture-backed leg must extend the LE-7 redaction beyond leg ver02 (sample-evidence-filter.sh fixture_leak is hard-wired to leg=ver02), submit_plan sits first in the tools block so it does not share the agentic prefix cache, and a cold two-call Anthropic run needs the 360 s warm-window discipline; (3) not cheap, and it needs its own live-spend GO.
+  owner: a separate gap plan with its own GO, or a later milestone; feeds Phase 20's waiver packet as a category C candidate
+  evidence pointer: 19-RESEARCH.md "Plan-cache decision"; 19-CONTEXT.md D-03
+
+C2 Live JitPack probe of the pushed SHA (the :undoalone and :adapteralone path)
+  source: 19-CONTEXT.md RT-02 (planner decision PD-02), RT-03(a); 19-API-REVIEW.md Phase 17 OI-7
+  phase 19 does: scripts/jitpack-live-probe.sh is exercised in plan 19-13 against the already-built tag v1.0.1 (three v1.0 modules, consumer skipped) to prove the script itself; the clean-cache dry run in plan 19-13 covers :undoalone and :adapteralone from a local publication
+  disposition: CARRIED to Phase 20, after the push, when JitPack can build the pushed SHA with all five modules
+  owner: Phase 20 (agent-owned release cut)
+  evidence pointer: 19-QUIET-WINDOW.md Results (plan 19-13); scripts/jitpack-live-probe.sh
+
+C3 Phase 18 Gate-2 fragment (uat-pending/18-voice-adapter.md)
+  source: 19-CONTEXT.md RT-03 ("also drain the P18 Gate-2 fragment at milestone Gate-2"); .planning/uat-pending/18-voice-adapter.md
+  phase 19 does: discharges item 4 of that fragment (the clean-cache :adapteralone consumer probe) in plan 19-13 via the dry run; the P18 file itself is NOT edited here
+  disposition: CARRIED. The fragment is drained at milestone Gate-2 by the milestone verifier; its only agent-owned obligation (item 4) is discharged by plan 19-13
+  owner: milestone verifier (Gate-2)
+  evidence pointer: .planning/uat-pending/18-voice-adapter.md; 19-QUIET-WINDOW.md Results (plan 19-13)
+
+C4 Phase 20 mandatory wiring rerun on its final SHA
+  source: 19-CONTEXT.md D-09 and gate 7 (docs and scripts are final at the wiring SHA; only .planning and api.txt may change after it)
+  phase 19 does: runs the isolated-agent wiring test once, on the wiring SHA candidate recorded in 19-QUIET-WINDOW.md
+  disposition: CARRIED. Phase 20 edits code and scripts after this SHA (version bump, api.txt dumps, release-cut preflight), so the wiring test must be re-run on Phase 20's final SHA
+  owner: Phase 20
+  evidence pointer: 19-QUIET-WINDOW.md wiring_sha_candidate; scripts/release-cut.sh gate_wiring
+
+C5 scripts/release-cut.sh touched in Phase 19 (plan 02), a Phase 20-owned file
+  source: 19-02-SUMMARY.md
+  phase 19 does: points release-cut.sh at the stable .planning/releases/v1.1.0/ directory (one RELEASE_DIR constant; commit 99c890f), so gate 7 reads WIRING-RERUN.md and the waiver packet from there
+  disposition: CARRIED. Phase 20 owns the cut and must treat the Phase 19 edit as input, not as proven by a real cut (release-cut.sh selftest was not run in Phase 19 plan 02). The verify-stt-confinement.sh preflight wiring (Phase 18 carry (g)) also lands with the cut
+  owner: Phase 20
+  evidence pointer: scripts/release-cut.sh; 19-02-SUMMARY.md; 18-SURFACE-REVIEW.md carry (g)
+
+C6 Superseded voice-adapter overload counts (RT-04)
+  source: 19-CONTEXT.md RT-04; 19-API-REVIEW.md "Frozen names"
+  phase 19 does: dropped the context-only overloads; the dump now holds two toCommandInput and two commandInputOf (not three each)
+  disposition: CARRIED to the orchestrator: STATE.md decision PD-04 for Phase 18 still reads "toCommandInput (3 overloads), commandInputOf (3)" and 18-SURFACE-REVIEW.md carries the same counts; both are superseded by 19-API-REVIEW.md. This plan does not edit STATE.md decisions or the Phase 18 review
+  owner: orchestrator (update STATE.md); 18-SURFACE-REVIEW.md is a closed phase artifact and stays as written, superseded by pointer
+  evidence pointer: 19-API-REVIEW.md "Frozen names"
+
+C7 Open surface-review items relayed before the cut (19-API-REVIEW.md "Carried open items")
+  source: 19-API-REVIEW.md, rows marked "orchestrator" and "carried to Phase 20"
+  phase 19 does: lists them with dispositions; no shape fix was needed ("No shape fix needed")
+  disposition: CARRIED. Phase 14 OI-1, OI-2, OI-3, OI-4, OI-6, OI-7; Phase 15 OI-4, OI-5, OI-6, OI-7; Phase 16 OI-2, OI-3, OI-4, OI-5, OI-7, OI-9; Phase 17 OI-1 (confirm with SB 178 and CT), OI-3, OI-5; Phase 18 carry (a) and (g). Each is relayed with the cut, and the shipped default is what freezes at v1.1.0 if no answer arrives
+  owner: orchestrator relay, then Phase 20
+  evidence pointer: 19-API-REVIEW.md "Carried open items"
+
+C8 Router leg outcome and P16 OI-6 (router wording never run live)
+  source: 19-CONTEXT.md [router-leg]; 16-SURFACE-REVIEW.md OI-6
+  phase 19 does: the router_live leg ran on the TESTER in plan 19-07 with a two-tier ladder (eligible=2)
+  disposition: CLOSED for the leg: VAE_VERDICT leg=router_live verdict=PASS eligible=2 picked_index=1 sel_turns=1 router_tokens=901 (claude-haiku-4-5). Router wording quality for real utterances beyond the one fixture stays an optional human review in the Phase 19 Gate-2 fragment
+  owner: closed (optional human review at Gate-2)
+  evidence pointer: evidence/gate1-router_live.txt; 19-07-SUMMARY.md
