@@ -2,6 +2,8 @@
 
 package io.github.ygaray.voiceactionengine.voiceadapter
 
+import io.github.ygaray.voiceactionengine.core.CommandInput
+
 private const val LABEL_EN = "en"
 private const val LABEL_ES = "es"
 
@@ -20,3 +22,41 @@ public fun normalizeSttLanguageLabel(raw: String?): String? {
         else -> null
     }
 }
+
+/**
+ * Builds a command from plain text and a language label, for callers with no speech-engine class on their classpath.
+ *
+ * The text is passed verbatim (no trimming, no validation) and the label goes through [normalizeSttLanguageLabel], so
+ * the language is `"en"`, `"es"` or null. Never throws.
+ */
+public fun commandInputOf(transcript: String, languageLabel: String?): CommandInput =
+    commandInputOf(transcript, languageLabel, null, null)
+
+/**
+ * Builds a command from plain text and a language label, carrying an app [context] object.
+ *
+ * The text is passed verbatim, the label is normalised to `"en"`, `"es"` or null, and [context] is passed through
+ * unchanged. Never throws.
+ */
+public fun commandInputOf(transcript: String, languageLabel: String?, context: Any?): CommandInput =
+    commandInputOf(transcript, languageLabel, context, null)
+
+/**
+ * Builds a command from plain text and a language label, carrying an app [context] object and the id of the earlier
+ * run this command answers.
+ *
+ * The text is passed verbatim, the label is normalised to `"en"`, `"es"` or null, and [context] and [parentRunId] are
+ * passed through unchanged. Never throws.
+ */
+public fun commandInputOf(
+    transcript: String,
+    languageLabel: String?,
+    context: Any?,
+    parentRunId: String?,
+): CommandInput =
+    CommandInput(
+        transcript = transcript,
+        language = normalizeSttLanguageLabel(languageLabel),
+        context = context,
+        parentRunId = parentRunId,
+    )
