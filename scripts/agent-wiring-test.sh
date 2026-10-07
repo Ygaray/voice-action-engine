@@ -8,6 +8,8 @@
 #   selftest                 prove the judge is not vacuous: an isolated local publication (the JitPack dry run, clean
 #                            clone of HEAD), the committed reference solution must PASS and a planted bad copy must
 #                            FAIL on W4, W5 and W12 -> WIRING SELFTEST OK | WIRING SELFTEST FAIL: <why>
+#   selftest-source          the cheap part of the proof, no Gradle: the source checks (W5, W6, W10-W13) need real use, a name in
+#                            a comment or a string does not count
 #   selftest --local         the same proof, cheaper: publishes the WORKING TREE with the jitpack.yml install list into an
 #                            isolated maven-local (--offline, host Gradle cache), no dry run and no clean clone
 #   prepare-local <m2dir> <version>
@@ -146,29 +148,12 @@ verify() {
     fails+=("W4: aggregator coordinate com.github.Ygaray:voice-action-engine: used (per-module coordinates only)")
   fi
 
-  # W5 / W6 in the jvmconsumer main source
-  local main_src="$dir/jvmconsumer/src/main"
-  if ! { [ -d "$main_src" ] && grep -rqE --include='*.kt' 'else[[:space:]]*->' "$main_src" && grep -rqwE --include='*.kt' 'when' "$main_src"; }; then
-    fails+=("W5: no 'when' with an 'else ->' branch in jvmconsumer main source")
-  fi
-  if ! { [ -d "$main_src" ] && grep -rqw --include='*.kt' 'partial' "$main_src"; }; then
-    fails+=("W6: 'partial' is not referenced in jvmconsumer main source")
-  fi
-
-  # W10 grammar tier, W11 plan tier, W12 router selector, W13 undo journal + undoAll (+ the undo dependency)
-  if ! { [ -d "$main_src" ] && grep -rqw --include='*.kt' 'GrammarPack' "$main_src" && grep -rqw --include='*.kt' 'LocalGrammarStrategy' "$main_src"; }; then
-    fails+=("W10: GrammarPack and LocalGrammarStrategy are not both referenced in jvmconsumer main source")
-  fi
-  if ! { [ -d "$main_src" ] && grep -rqw --include='*.kt' 'PlanThenExecuteStrategy' "$main_src"; }; then
-    fails+=("W11: PlanThenExecuteStrategy is not referenced in jvmconsumer main source")
-  fi
-  if ! { [ -d "$main_src" ] && grep -rqF --include='*.kt' 'TierSelector.Router' "$main_src"; }; then
-    fails+=("W12: TierSelector.Router is not referenced in jvmconsumer main source")
-  fi
-  if ! { [ -d "$main_src" ] && grep -rqw --include='*.kt' 'UndoJournal' "$main_src" && grep -rqw --include='*.kt' 'undoAll' "$main_src" \
-      && grep -qF "voice-action-engine-undo:$version\"" "$dir/jvmconsumer/build.gradle.kts" 2>/dev/null; }; then
-    fails+=("W13: UndoJournal and undoAll in jvmconsumer main source plus a voice-action-engine-undo:$version dependency are required")
-  fi
+  # W5 / W6 / W10-W13 in the jvmconsumer main source: judged on the code only (comments, strings and imports removed) and
+  # on call or construct shapes, so a mention of a name does not count as using it.
+  local main_src="$dir/jvmconsumer/src/main" src_fail
+  while IFS= read -r src_fail; do
+    [ -n "$src_fail" ] && fails+=("$src_fail")
+  done < <(source_checks "$main_src" "$dir/jvmconsumer/build.gradle.kts" "$version")
 
   # W7 no engine internals, no :core test fixtures; W8 no FakeAiProvider
   if grep -rqE --include='*.kt' 'import[[:space:]]+io\.github\.ygaray\.voiceactionengine\.([A-Za-z0-9_.]*\.)?internal([.;[:space:]]|$)|import[[:space:]]+io\.github\.ygaray\.voiceactionengine\.core\.testing' \
@@ -192,6 +177,67 @@ verify() {
   local f
   for f in "${fails[@]}"; do echo "WIRING TEST: FAIL $f"; done
   return 1
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# source_checks <main_src> <jvmconsumer build file> <version>: the W5 / W6 / W10-W13 verdicts, one "Wn: why" line per failure
+# ---------------------------------------------------------------------------------------------------------------------
+# code_only <dir>: every .kt file under <dir> with block comments, line comments, string literals and import lines removed.
+# A name that only appears in a comment, a string or an import is not use.
+code_only() {
+  [ -d "$1" ] || return 0
+  find "$1" -name '*.kt' -print0 | sort -z | xargs -0 -r cat \
+    | perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g; s{"""(?:.*?)"""}{""}gs; s{"(?:[^"\\\n]|\\.)*"}{""}g; s{^[ \t]*import[^\n]*}{}gm'
+}
+
+source_checks() {
+  local main_src="$1" gradle_file="$2" version="$3" code
+  code="$(code_only "$main_src")"
+  has() { grep -qE -- "$1" <<<"$code"; }
+  if ! { has '(^|[^A-Za-z0-9_])when[[:space:]]*[({]' && has '(^|[^A-Za-z0-9_])else[[:space:]]*->'; }; then
+    echo "W5: no 'when' with an 'else ->' branch in jvmconsumer main source"
+  fi
+  if ! has '\.partial([^A-Za-z0-9_]|$)'; then
+    echo "W6: 'partial' is not read from an outcome (.partial) in jvmconsumer main source"
+  fi
+  if ! { has '(^|[^A-Za-z0-9_])GrammarPack[[:space:]]*[({]' && has '(^|[^A-Za-z0-9_])LocalGrammarStrategy[[:space:]]*[({]'; }; then
+    echo "W10: GrammarPack and LocalGrammarStrategy are not both constructed in jvmconsumer main source"
+  fi
+  if ! has '(^|[^A-Za-z0-9_])PlanThenExecuteStrategy[[:space:]]*[({]'; then
+    echo "W11: PlanThenExecuteStrategy is not constructed in jvmconsumer main source"
+  fi
+  if ! has '(^|[^A-Za-z0-9_])TierSelector\.Router[[:space:]]*[({]'; then
+    echo "W12: TierSelector.Router is not constructed in jvmconsumer main source"
+  fi
+  if ! { has '(^|[^A-Za-z0-9_])UndoJournal[[:space:]]*[({]' && has '\.undoAll[[:space:]]*\(' \
+      && grep -qF "voice-action-engine-undo:$version\"" "$gradle_file" 2>/dev/null; }; then
+    echo "W13: UndoJournal constructed and undoAll called in jvmconsumer main source plus a voice-action-engine-undo:$version dependency are required"
+  fi
+}
+
+# source_selftest: cheap (no Gradle) proof that the source checks need real use. The committed reference solution must pass
+# them all; the same file with every judged name moved into a comment and a string must fail W5, W6 and W10-W13.
+source_selftest() {
+  local t out d want
+  t="$(mktemp -d)"
+  mkdir -p "$t/good" "$t/bad"
+  cp "$REFERENCE/Wire.kt" "$t/good/Wire.kt"
+  printf 'dependencies { implementation("x:voice-action-engine-undo:v") }\n' > "$t/build.gradle.kts"
+  out="$(source_checks "$t/good" "$t/build.gradle.kts" v)"
+  [ -z "$out" ] || { rm -rf "$t"; echo "WIRING SELFTEST FAIL: the reference solution fails the source checks: $out"; return 1; }
+  cat > "$t/bad/Wire.kt" <<'KT'
+package wire
+// TODO: GrammarPack { } LocalGrammarStrategy( ) PlanThenExecuteStrategy( ) TierSelector.Router { } UndoJournal { } x.undoAll( )
+/* when (x) { else -> 1 } outcome.partial */
+val note = "GrammarPack { LocalGrammarStrategy( PlanThenExecuteStrategy( TierSelector.Router { UndoJournal { .undoAll( when (x) { else -> .partial"
+KT
+  out="$(source_checks "$t/bad" "$t/build.gradle.kts" v)"
+  for d in W5 W6 W10 W11 W12 W13; do
+    want="$d:"
+    grep -q "^$want" <<<"$out" || { rm -rf "$t"; echo "WIRING SELFTEST FAIL: names only in comments and strings still pass $d"; return 1; }
+  done
+  rm -rf "$t"
+  echo "WIRING SOURCE SELFTEST OK"
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -245,6 +291,7 @@ selftest() {
   }
   trap cleanup_selftest EXIT
   sf() { echo "WIRING SELFTEST FAIL: $*"; exit 1; }
+  source_selftest || exit 1
 
   if [ "$local_mode" = 1 ]; then
     # The working tree, the jitpack.yml install list (same awk as scripts/jitpack-dry-run.sh), an isolated maven-local,
@@ -319,5 +366,6 @@ case "$cmd" in
   prepare-local) shift; prepare_local "$@" ;;
   verify)   shift; verify "$@" ;;
   selftest) shift; selftest "$@" ;;
-  *) echo "usage: $0 prepare <sha> | prepare-local <m2dir> <version> | verify <dir> <version> | selftest [--local]" >&2; exit 2 ;;
+  selftest-source) source_selftest ;;
+  *) echo "usage: $0 prepare <sha> | prepare-local <m2dir> <version> | verify <dir> <version> | selftest [--local] | selftest-source" >&2; exit 2 ;;
 esac
