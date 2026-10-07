@@ -97,7 +97,7 @@ Gate:           19 needs 12, 14-18 and 13's verdict;  20 needs 19's green Gate-1
 | 15 | SB 177 | PlanThenExecute with write-output binding |
 | 16 | SB 177, CT 75 (settings) | `StartTierPicker` seam for SB's own Router; opt-in engine Router |
 | 17 | SB 178, CT "Undo all (N)" | `:undo` entity adapters and compensators (SB `ReminderArmer` → compensator) |
-| 18 | SB / CT optional glue | Segment → `CommandInput` in one call |
+| 18 | SB / CT optional glue | One final segment becomes a `CommandInput` in one call; the app keeps its own multi-segment session aggregation |
 | 19 | (gate) | Gate-1 evidence + docs before the cut |
 | 20 | SB 176 repin, CT 75 repin | The `v1.1.0` coordinates (§11 row via the orchestrator) |
 
@@ -411,7 +411,7 @@ Plans:
 **Unblocks**: SB / CT optional glue (replaces each app's hand-written segment → `CommandInput` mapping)
 **Success Criteria** (what must be TRUE):
 
-  1. `:voice-adapter` publishes as `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter` and maps an `:stt` v0.7.0 final segment to `CommandInput`, carrying the transcript and the detected language (`en` / `es`, and `null` when stt detected neither; never a guess).
+  1. `:voice-adapter` publishes as `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter` and maps one `:stt` v0.7.0 final segment to `CommandInput` per call (apps keep their own session aggregation), carrying the transcript and the language label (`en` / `es`, and `null` when `:stt` gave none or a label outside that set; never a guess), with `:stt` v0.7.0 or newer as the documented minimum.
   2. `:core` still depends on no other hub: the module-graph and `:core` classpath-allowlist gates pass, only `:voice-adapter` depends on `:stt`, and an app that doesn't add `:voice-adapter` never pulls `:stt` in.
 
 **Plans**: 1/8 plans executed (6 waves, serial: one Gradle-running plan per wave, the extra wave-2 and wave-3 plans are bash only; 18-08 is non-autonomous, quiet-window gated; no device or live spend)
