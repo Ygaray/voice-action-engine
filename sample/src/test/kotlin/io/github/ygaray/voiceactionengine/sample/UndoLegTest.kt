@@ -3,10 +3,17 @@ package io.github.ygaray.voiceactionengine.sample
 import io.github.ygaray.voiceactionengine.core.testing.NoNetworkGuard
 import io.github.ygaray.voiceactionengine.sample.evidence.ALLOW_PATTERN
 import io.github.ygaray.voiceactionengine.sample.evidence.LegId
+import io.github.ygaray.voiceactionengine.core.commit.CommitProposal
+import io.github.ygaray.voiceactionengine.core.commit.GateDecision
+import io.github.ygaray.voiceactionengine.core.commit.PreApplyGate
+import io.github.ygaray.voiceactionengine.sample.legs.AdmitAllGate
 import io.github.ygaray.voiceactionengine.sample.legs.CaseCounts
+import io.github.ygaray.voiceactionengine.sample.legs.HoldNthGate
 import io.github.ygaray.voiceactionengine.sample.legs.UndoLeg
+import io.github.ygaray.voiceactionengine.sample.legs.UndoPlans
 import io.github.ygaray.voiceactionengine.sample.legs.UndoStep
 import io.github.ygaray.voiceactionengine.sample.legs.UndoVerdicts
+import io.github.ygaray.voiceactionengine.sample.legs.UndoWorld
 import io.github.ygaray.voiceactionengine.sample.verdict.Verdict
 import io.github.ygaray.voiceactionengine.sample.verdict.VerdictKind
 import kotlinx.coroutines.test.runTest
@@ -264,5 +271,61 @@ class UndoLegTest {
         )
         assertFails("undo_incomplete", verdict)
         assertFails("refusal_missing", judge(refusal = UndoStep("complete", 1, null, null, true), partial = CaseCounts(1, 0, 1, 0, false, 0)))
+    }
+
+    // A gate that refuses the nth proposal before anything is applied, the way a gate fault does (the engine records gate_error).
+    private class ThrowingNthGate(private val nth: Int) : PreApplyGate {
+        private var asked = 0
+
+        override suspend fun admit(proposal: CommitProposal): GateDecision {
+            asked++
+            check(asked != nth) { "gate refused" }
+            return GateDecision.Admit()
+        }
+
+        override fun toString(): String = "ThrowingNthGate"
+    }
+
+    @Test
+    fun nCountsAnAppliedErrorBecauseItWasAppliedAndWroteNothing() = runTest {
+        NoNetworkGuard.during {
+            val world = UndoWorld()
+
+            val run = world.run(UndoPlans.appliedError(), "Make one, then one under a missing parent.", AdmitAllGate)
+
+            // One committed create and one create under a parent that does not exist: both were applied, so N is 2.
+            assertEquals(1, run.committed)
+            assertEquals(2, run.n)
+            assertEquals(0, run.pending)
+            assertEquals(1, world.world.store.snapshot().size - world.seeded.size)
+        }
+    }
+
+    @Test
+    fun nDoesNotCountAProposalTheGateRefusedBeforeItWasApplied() = runTest {
+        NoNetworkGuard.during {
+            val world = UndoWorld()
+
+            val run = world.run(UndoPlans.whole(), "Make a list, make one under it, rename.", ThrowingNthGate(2))
+
+            // The first create was applied; the second proposal never was, so it is not in N and not pending.
+            assertEquals(1, run.committed)
+            assertEquals(1, run.n)
+            assertEquals(0, run.pending)
+        }
+    }
+
+    @Test
+    fun aHeldProposalIsPendingAndNeverPartOfN() = runTest {
+        NoNetworkGuard.during {
+            val world = UndoWorld()
+
+            val run = world.run(UndoPlans.whole(), "Make a list, make one under it, rename.", HoldNthGate(2))
+
+            assertEquals(1, run.n)
+            assertEquals(1, run.pending)
+            assertEquals(1, run.held)
+            assertFalse(run.withheld)
+        }
     }
 }

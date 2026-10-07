@@ -182,6 +182,72 @@ class SampleViewModelTest {
     }
 
     @Test
+    fun theUndoLegWaitsWithItsLabelThenTheUndoPressPassesAndClearsIt() = runTest {
+        NoNetworkGuard.during {
+            val rig = legRig(folder.newFolder()) { emptyList() }
+            val viewModel = sampleViewModel(rig)
+            settle()
+            assertNull(viewModel.state.value.undoLabel)
+
+            viewModel.runLeg(LegId.UNDO_ALL)
+            settle()
+
+            assertEquals("awaiting_undo", viewModel.row(LegId.UNDO_ALL).text)
+            assertEquals(Tone.WARN, viewModel.row(LegId.UNDO_ALL).tone)
+            assertEquals("Undo all (3)", viewModel.state.value.undoLabel)
+            assertNull(viewModel.state.value.undoNote)
+            assertTrue(viewModel.state.value.runEnabled)
+            assertTrue(rig.sink.starting("VAE_VERDICT ").isEmpty())
+
+            viewModel.undoAll()
+
+            assertEquals("RUNNING", viewModel.row(LegId.UNDO_ALL).text)
+            settle()
+
+            assertEquals("PASS", viewModel.row(LegId.UNDO_ALL).text)
+            assertEquals(Tone.GOOD, viewModel.row(LegId.UNDO_ALL).tone)
+            assertNull(viewModel.state.value.undoLabel)
+            assertEquals(1, rig.sink.starting("VAE_VERDICT leg=undo_all verdict=PASS").size)
+        }
+    }
+
+    @Test
+    fun theUndoPressWhileNothingWaitsChangesNothing() = runTest {
+        NoNetworkGuard.during {
+            val rig = legRig(folder.newFolder()) { emptyList() }
+            val viewModel = sampleViewModel(rig)
+            settle()
+            val before = viewModel.state.value
+            val linesBefore = rig.sink.rendered.size
+
+            viewModel.undoAll()
+            settle()
+
+            assertEquals(before, viewModel.state.value)
+            assertEquals(linesBefore, rig.sink.rendered.size)
+            assertEquals("IDLE", viewModel.row(LegId.UNDO_ALL).text)
+        }
+    }
+
+    @Test
+    fun anotherLegsResultLeavesAWaitingUndoLabelInPlace() = runTest {
+        NoNetworkGuard.during {
+            val rig = legRig(folder.newFolder()) { tap -> listOf(AttemptingFake(ProviderId.OPENAI, tap, listOf(editCall()))) }
+            val viewModel = sampleViewModel(rig)
+            settle()
+            viewModel.runLeg(LegId.UNDO_ALL)
+            settle()
+
+            viewModel.runLeg(LegId.SMOKE_OPENAI)
+            settle()
+
+            assertEquals("PASS", viewModel.row(LegId.SMOKE_OPENAI).text)
+            assertEquals("Undo all (3)", viewModel.state.value.undoLabel)
+            assertEquals("awaiting_undo", viewModel.row(LegId.UNDO_ALL).text)
+        }
+    }
+
+    @Test
     fun aRefusedLegIsRedWithItsReason() = runTest {
         NoNetworkGuard.during {
             val rig = openAiRig()
