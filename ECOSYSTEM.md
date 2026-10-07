@@ -30,7 +30,7 @@ Consumers depend on the per-module coordinates only. The old two-segment aggrega
 | `:undo` | jar, pure Kotlin/JVM | `com.github.Ygaray.voice-action-engine:voice-action-engine-undo:<version>` | nothing, not even `:core` (only the Kotlin standard library) |
 | `:voice-adapter` | aar, minSdk 35 | `com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:<version>` | `api` on `:core`, and `compileOnly` on `:stt` (`com.github.Ygaray.voice-engine-android:voice-engine-android`, v0.7.0 or newer), so the app adds `:stt` itself |
 
-The undo module and the adapter (both rows are in the table above) are new in v1.1 and **not yet published**; the first tag that carries them is v1.1.0.
+The undo module and the adapter (both rows are in the table above) are first published in **v1.1.0**; an earlier tag does not carry them. No on-device module exists: the on-device spike shipped none.
 The `:sample` app module is never published.
 
 The adapter (artifact `voice-action-engine-voice-adapter`) is optional. It turns one final `:stt` segment into a `CommandInput`; the engine core never depends on it or
@@ -55,12 +55,13 @@ on `:stt`, so an app that does not add it never pulls `:stt`. The app keeps its 
 
 **Repo:** public at `github.com/Ygaray/voice-action-engine` (created 2026-09-29).
 
-**Status:** the v1.0 core engine is released; v1.1 is planned.
+**Status:** v1.1.0 is released: the v1.0 core engine plus the grammar tier, the plan tier, the engine router, run-level undo (the `undo` module) and the voice adapter (the `voice-adapter` module). The on-device spike shipped no module.
 
 **Published tags:** `v1.0.0` (contract + pipeline + providers + keystore + 2 ported strategies, 2026-10-02) and the
-`v1.0.x` patch releases after it; the version to pin is named once, in the README ("Version to pin"). The repository's git
+`v1.0.x` patch releases after it, then `v1.1.0`; the version to pin is named once, in the README ("Version to pin"). The repository's git
 tags are the list of releases, and the §11 ledger in `CROSS-REPO-SCOPE-CONTRACT.md` records each one. Staged plan (two
-milestones, A4): `v1.0.0`, then `v1.1.0` (grammar / plan / router / on-device spike). See the contract, L8.
+milestones, A4): `v1.0.0`, then `v1.1.0` (grammar, plan, router, undo and the voice adapter; the on-device spike
+shipped no module). See the contract, L8.
 
 ## The doc set an integrating agent receives
 
@@ -72,7 +73,8 @@ milestones, A4): `v1.0.0`, then `v1.1.0` (grammar / plan / router / on-device sp
 
 Every Kotlin block in these docs is a byte-equal copy of a region of
 `sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/docs/DocSnippetsTest.kt`, which compiles and runs
-them over the public API; `scripts/verify-docs-coverage.sh` checks that and the rest of the checklist. The working
+them over the public API (the one voice-adapter block lives in that module's own `DocSnippetAdapterTest.kt`, so the
+sample needs no edge to the adapter); `scripts/verify-docs-coverage.sh` checks that and the rest of the checklist. The working
 example is the never-published `:sample` app in `sample/` (composition root:
 `sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/SampleEngine.kt`).
 

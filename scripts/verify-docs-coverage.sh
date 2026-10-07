@@ -9,18 +9,25 @@
 #   C04 JitPack repository block                              C16 "never log"
 #   C05 INTERNET permission                                   C17 OkHttp 4.12 floor, the app keeps its own OkHttp
 #   C06 every marked block equals its test region; no unmarked kotlin fence
-#   C07 regions are all used; the eleven required regions exist; README uses minimal-pipeline
+#   C07 regions are all used; the required regions exist; README uses minimal-pipeline
 #   C08 every seam in INTEGRATION and API                     C18 own scripted AiProvider; fakes not published
 #   C09 both gate modes                                       C19 the :sample pointer; every sample/ path exists
-#   C10 open and closed taxonomies, an else branch            C20 API.md names every public top-level type
+#   C10 open and closed taxonomies, an else branch            C20 API.md names every public type and function
 #   C11 partial rendering                                     C21 domain-free wording
 #   C12 clarification and follow-up                           C22 README links INTEGRATION.md and API.md
 #   C23 no concrete v1 coordinate while the tag does not exist
 #   C24 README names the version to pin once, between the pin-version markers, as vX.Y.Z
 #   C25 no private local path (~/..., /home/...) in the public docs
+#   C26 grammar tier   C27 plan tier   C28 router and start-tier picker   C29 undo   C30 voice adapter
+#   C31 RT-01 (API.md says the plan reference pattern is ASCII-only) and RT-04 (no old overload count, no one-argument
+#       context form)   C32 the Phase 12 seams
+# C20 reads the main sources of EVERY module in scripts/modules.list: each public top-level type and each public
+# top-level function must be named in backticks in API.md, and a module that yields neither fails as vacuous.
 # C03 module names come from scripts/modules.list (the one manifest of published modules).
-# Usage: scripts/verify-docs-coverage.sh [--only C01,C02,...]
+# Usage: scripts/verify-docs-coverage.sh [--only C01,C02,...] [--selftest]
 # Prints every failure as "DOC COVERAGE FAIL: <id>: <detail>" (exit 1) or "DOC COVERAGE OK checks=<n> types=<n>".
+# --selftest plants violations in isolated copies of the doc set and requires each to go red naming its check; it prints
+# "DOC COVERAGE SELFTEST OK plants=<n>" and never touches the real tree.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -45,7 +52,7 @@ SNIPPET_FILES=("$SNIPPETS")
 while IFS= read -r extra_snippets; do
   [ -n "$extra_snippets" ] && SNIPPET_FILES+=("$extra_snippets")
 done < <(find voice-adapter/src/test -name DocSnippetAdapterTest.kt 2>/dev/null | sort)
-REQUIRED_REGIONS="minimal-pipeline scripted-provider register-providers agentic-tier gate-suspend gate-defer render-outcome clarification-follow-up keystore-wiring keystore-fake telemetry"
+REQUIRED_REGIONS="minimal-pipeline scripted-provider register-providers agentic-tier gate-suspend gate-defer render-outcome clarification-follow-up keystore-wiring keystore-fake telemetry grammar-tier plan-tier router-selector undo-wiring undo-bridge"
 COORD_PREFIX='com.github.Ygaray.voice-action-engine:voice-action-engine-'
 COORD_GROUP='com.github.Ygaray.voice-action-engine'
 
@@ -114,11 +121,32 @@ blocks() {
   ' "$doc"
 }
 
-public_types() {
-  grep -rhE '^public ' core/src/main/kotlin providers/src/main/kotlin keystore/src/main/kotlin 2>/dev/null \
+# MAIN_SOURCES <module>: the main Kotlin sources of a manifest module (the directory may not exist).
+main_sources() { printf '%s/src/main/kotlin\n' "$1"; }
+
+# public_types_of <module>: names of public top-level types (a public fun interface is a type).
+public_types_of() {
+  grep -rhE '^public ' "$(main_sources "$1")" 2>/dev/null \
     | grep -E '^public +((sealed|abstract|open|data|enum|fun|value|inline|annotation|final) +)*(class|interface|object)\b' \
     | sed -E 's/^public +((sealed|abstract|open|data|enum|fun|value|inline|annotation|final) +)*(class|interface|object) +([A-Za-z0-9_]+).*/\4/' \
     | sort -u
+}
+
+# public_funs_of <module>: names of public top-level functions at column 0, extension receivers allowed.
+# A public fun interface is a type, not a function.
+public_funs_of() {
+  grep -rhE '^public +((inline|suspend|tailrec|operator|infix|external) +)*fun +' "$(main_sources "$1")" 2>/dev/null \
+    | grep -vE '^public +fun +interface\b' \
+    | sed -E 's/^public +((inline|suspend|tailrec|operator|infix|external) +)*fun +(<[^>]*> *)?//' \
+    | sed -E 's/\(.*$//' \
+    | sed -E 's/^.*\.//' \
+    | grep -E '^[A-Za-z0-9_]+$' \
+    | sort -u
+}
+
+public_types() {
+  local m
+  for m in $(vae_modules); do public_types_of "$m"; done | sort -u
 }
 
 run() {
@@ -287,15 +315,26 @@ check_C19() {
 }
 
 check_C20() {
-  local name list
+  local name list m tlist flist
   exists "$API" || return 0
   list="$(public_types)"
   types="$(printf '%s\n' "$list" | grep -c .)"
-  [ "$types" -gt 0 ] || fail C20 "no public top-level type found in the main sources (vacuous)"
-  while IFS= read -r name; do
-    [ -n "$name" ] || continue
-    grep -qF -- "\`$name\`" "$API" || fail C20 "$API does not name the public type \`$name\`"
-  done <<< "$list"
+  for m in $(vae_modules); do
+    tlist="$(public_types_of "$m")"
+    flist="$(public_funs_of "$m")"
+    if [ -z "$tlist" ] && [ -z "$flist" ]; then
+      fail C20 "module $m has no public top-level type or function in its main sources (vacuous)"
+      continue
+    fi
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      grep -qF -- "\`$name\`" "$API" || fail C20 "$API does not name the public type \`$name\` ($m)"
+    done <<< "$tlist"
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      grep -qF -- "\`$name\`" "$API" || fail C20 "$API does not name the public function \`$name\` ($m)"
+    done <<< "$flist"
+  done
 }
 
 check_C21() {
@@ -339,7 +378,49 @@ check_C25() {
   done
 }
 
-for id in C01 C02 C03 C04 C05 C06 C07 C08 C09 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C24 C25; do
+check_C26() {
+  need "$INTEGRATION" GrammarPack LocalGrammarStrategy matchedLanguage cappedByPolicy
+  need "$API" GrammarPack LocalGrammarStrategy matchedLanguage cappedByPolicy grammar_ambiguous
+}
+
+check_C27() {
+  need "$INTEGRATION" PlanThenExecuteStrategy submit_plan needs_lookup remainingStepIds
+  need "$API" PlanThenExecuteStrategy submit_plan needs_lookup remainingStepIds plan_binding_unresolved targetIds
+}
+
+check_C28() {
+  need "$INTEGRATION" TierSelector.Router tierDescriptions start_tier_router router_fallback
+  need "$API" TierSelector.Router tierDescriptions start_tier_router router_fallback PickContext StartTierPicker
+}
+
+check_C29() {
+  need "$INTEGRATION" UndoJournal undoAll EntityAdapter UndoResult compositeSink "Undo all (N)"
+  need "$API" UndoJournal undoAll EntityAdapter UndoResult compositeSink "Undo all (N)" UndoReason "UndoResult.code"
+}
+
+check_C30() {
+  need "$INTEGRATION" toCommandInput commandInputOf normalizeSttLanguageLabel "or newer" "compile-only"
+  need "$API" toCommandInput commandInputOf normalizeSttLanguageLabel
+}
+
+# RT-01: the plan reference pattern's whitespace is ASCII-only, and the docs must say so.
+# RT-04: the context-only overloads were dropped, so the docs may not count three overloads or show a lone context argument.
+check_C31() {
+  local f
+  need "$API" ASCII
+  [ -f "$API" ] && grep -qi 'Three overloads' "$API" && fail C31 "$API still carries the old overload count (Three overloads)"
+  for f in "$INTEGRATION" "$API"; do
+    [ -f "$f" ] || continue
+    if grep -Eq 'toCommandInput\([^,()]+\)' "$f"; then
+      fail C31 "$f shows toCommandInput with a lone argument (the one-argument context form was dropped)"
+    fi
+  done
+  return 0
+}
+
+check_C32() { need "$API" onFailed ReasoningMode providerCallId carryIn; }
+
+for id in C01 C02 C03 C04 C05 C06 C07 C08 C09 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C24 C25 C26 C27 C28 C29 C30 C31 C32; do
   run "$id"
 done
 

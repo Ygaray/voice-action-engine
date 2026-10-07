@@ -185,7 +185,7 @@ leaves), annotation class.
 | `KeystoreCauseCodes` | object | open | The stable cause codes of an unreadable key, each documented with the UX it calls for: re-enter the key, or transient, retry. |
 | `KeystoreCredentialSource` | class | | Adapts an `ApiKeyStore` to the engine's `CredentialSource`. |
 
-The public functions are `commandPipeline { }`, which composes a `CommandPipeline`, and `compositeSink(a, b)`, which puts several sinks in the one `commitSink` slot.
+The public functions are `commandPipeline` (written `commandPipeline { }`), which composes a `CommandPipeline`, and `compositeSink` (written `compositeSink(a, b)`), which puts several sinks in the one `commitSink` slot.
 
 ### `undo` (pure Kotlin, no dependency)
 
@@ -197,7 +197,7 @@ The public functions are `commandPipeline { }`, which composes a `CommandPipelin
 | `Compensator` | fun interface | | Reverses one effect outside the database; idempotent. |
 | `EntryRef` | class | | One recorded action: run id, position and tool name. |
 | `EntityKey` | class | | One entity an action touched: type and id. |
-| `UndoResult` | sealed class | closed | The outcome of an undo: `Complete`, `Refused`, `Partial`, `AlreadyUndone`. |
+| `UndoResult` | sealed class | closed | The outcome of an undo: `Complete`, `Refused`, `Partial`, `AlreadyUndone`. Each carries a stable `UndoResult.code`: `complete`, `refused`, `partial` and `already_undone`. |
 | `Blocker` | class | | One reason an undo was refused: the action, the entity and an `UndoReason`. |
 | `NotRestored` | class | | One thing an undo could not restore, with its reason and the class name of the fault. |
 | `UndoReason` | value class | open | Why an undo could not restore something (`CHANGED_SINCE`, `ENTANGLED`, `JOURNAL_WITHHELD` and more). |
@@ -257,7 +257,7 @@ has a stable `code`.
   in each write tool's description which keys it returns). Step ids start with a letter, use letters, digits, `_`
   and `-`, and have at most 64 characters: a plan with a longer id is rejected as a bad id (a tightening since v1.0.0),
   and a `$<longer id>.key` reference can only fail as unresolved. A reference inside a longer string, or `$` followed by a digit such as `$5.00`, stays literal; object keys
-  and values that are not strings are never changed. A reference to a step not listed earlier rejects the plan before
+  and values that are not strings are never changed. The reference pattern's whitespace is ASCII-only (space, tab, line feed, vertical tab, form feed and carriage return), as in Java's default regex, and the whole string must match. So a Unicode space such as a no-break space is not whitespace to it: it becomes part of the key, and the plan stops with `plan_binding_unresolved` before that step runs, because no step returns such a key (a loud failure, never a wrong write). A near-reference that the pattern does not match, for example one with a trailing line feed or a space inside, is not a reference at all and is delivered to your executor as a literal string, which is the safe direction: the engine never substitutes a value you did not mean. A reference to a step not listed earlier rejects the plan before
   any step runs; a key the earlier step did not return stops the plan before that step. A plan that sets
   `needs_lookup`, or lists a read tool as a step, hands the command to the next tier with nothing run, carrying the
   incoming carry unchanged (`plan_needs_lookup`).
@@ -383,7 +383,8 @@ The plan tier records `plan_rejected`, `plan_replanned` and `plan_binding_unreso
 `trace.usage`), and null otherwise. The `router_fallback` code means the picker gave no usable answer, or no model tier
 was left after the zero-call head, and the walk started at the first eligible tier. It is never a failure.
 The opt-in `TierSelector.Router` selection carries its single `pick_start_tier` turn, and `tiersBypassed` reports what
-the pick skipped compared with `Linear`.
+the pick skipped compared with `Linear`. The router asks its provider under the id `start_tier_router` (unless you set
+another `id` on the builder), so your `ProviderSelectionSource` maps that id to a small model like any tier id.
 
 <!-- doc-snippet: telemetry -->
 ```kotlin
