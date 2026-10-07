@@ -2,7 +2,7 @@
 
 - **Status:** `pending`
 - **Milestone:** v1.1 (Grammar, Plan, Router, Undo, Spike, Adapter)
-- **Gate 1 self-UAT log:** [`.planning/phases/19-sample-gate-1-docs/19-SELF-UAT.md`](phases/19-sample-gate-1-docs/19-SELF-UAT.md) — written at the phase-end Gate-1 run (not yet present when this fragment was created by plan 19-12).
+- **Gate 1 self-UAT log:** [`.planning/phases/19-sample-gate-1-docs/19-SELF-UAT.md`](phases/19-sample-gate-1-docs/19-SELF-UAT.md) — Verdict: **ALL 3 criteria PASS** (device SM-S908U TESTER R5CT10XNKQN, APK md5 `662317322d5b804ab0016958770a8927` @ `1869950dca`, 2026-10-07). Observed from the committed plan 19-07 TESTER evidence plus the light static gates and the committed isolated wiring record; not re-driven in the audit run. Caveats C10 (WR-04 source delta) and C11 (wiring judge tightened) are carried to Phase 20.
 - **Items covered (3 ROADMAP success criteria):**
   - **SC1 — `:sample` Gate-1 on the TESTER exercises grammar (offline, zero calls), plan, router and undo-all end to end (VER-06).** Five legs, all PASS in one window on the TESTER: `grammar_offline`, `undo_all`, `plan_live`, `router_live`, `responses_probe` (D-13 smoke).
   - **SC2 — README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every new tier, seam and module (DOC-02).** Manifest-driven doc-coverage gate over all five modules; every snippet compiles and runs in `:sample` and `:voice-adapter` tests.
