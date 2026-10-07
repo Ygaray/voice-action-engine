@@ -126,6 +126,12 @@ exactly at its tier.
   the tier the answer names. Map `start_tier_router` (or the `id` you give the Router) to a small, fast model; the engine
   names none. `tierDescriptions` is one line per tier id, in your own words, saying when that tier is the right start.
   They are sent to the router's provider, so they must never contain secrets.
+- **Scripting the router in a test.** The router's forced call is a tool named `pick_start_tier` with one argument,
+  `tier`, whose value is the id of one of the offered tiers (the tool's schema lists exactly the eligible model tier
+  ids, in ladder order). A scripted `AiProvider` answers the router's turn with one tool call named `pick_start_tier`
+  and the arguments `{"tier": "<tier id>"}`, for example `{"tier": "agentic"}`. Any other answer (another tool name, a
+  missing or non-string `tier`, an id that is not eligible, a refusal or an answer cut off at the token limit) is no
+  pick: the walk starts at the first eligible model tier and the trace records `router_fallback`.
 
 The router and the mapping of its id, on a ladder with a grammar head and two model tiers (the router makes no call when
 only one model tier is eligible). The block needs these imports on top of the ones the earlier blocks use:
@@ -188,7 +194,12 @@ fun pickSummary(outcome: CommandOutcome): String {
   `Resolution.Escalate` or `Resolution.Failed`. Only the first tool call of an answer is acted on; extra calls are
   dropped and a completed outcome is marked partial. A SingleShot tier cannot serve reads: its resolver gets only the
   first tool call and returns finished steps and mutations, so a read tool such as `find_items` is usable only in the
-  AgenticLoop tier.
+  AgenticLoop tier. If the model's first call names a read tool anyway, the engine still hands that read call to your
+  resolver as an `Extraction` carrying the tool's name (it runs nothing itself, and it does not ask the model again), so
+  have the resolver recognise the name and return `Resolution.Escalate(EscalationReason.Other("read_call"), null)`,
+  which hands the command to the next tier; put an `AgenticLoopStrategy` after the SingleShot tier to serve it.
+  `Resolution.NoMatch()` also moves on, but the next tier then starts fresh, and `Resolution.Steps` can only hold
+  finished steps and mutations, never a model-visible read result.
 - **AgenticLoop** runs a bounded conversation over your tools. Your `ToolExecutor` prepares each call: a read returns
   `ToolStep.Finished` with `FinishedKind.READ`, a rejected call `FinishedKind.ERROR`, a change `ToolStep.Mutation`. It
   never writes either. Limits come from the `TierPolicy` (step 8). A tool that errors twice ends the run as a tool
@@ -416,6 +427,23 @@ fun grammarLadder(
 the transcript alone. It makes one forced call to the engine's own `submit_plan` tool; the model answers with ordered
 steps, each naming one of your non-terminal tools and its arguments. Your `ToolExecutor` prepares every step, and every
 step is its own proposal to the gate, in plan order, so the gate sees each write (a SingleShot tier combines them).
+
+**The shape of the plan.** A test that scripts the planning turn answers with one tool call named `submit_plan`. Its
+arguments are an object with `steps`, a list of at most `maxSteps` objects, and the boolean `needs_lookup`; only `steps`
+is required. Each step is an object with three keys: `id` (a short string that starts with a letter and uses letters,
+digits, `_` or `-`), `tool` (the name of one of your non-terminal tools) and `arguments` (an object with that tool's
+arguments). This answer has two steps, and the second passes on what the first returned (the `$<stepId>.<key>` form is
+the first item below):
+
+```json
+{
+  "steps": [
+    {"id": "s1", "tool": "create_item", "arguments": {"title": "Parent"}},
+    {"id": "s2", "tool": "create_item", "arguments": {"title": "Child", "parent_id": "$s1.id"}}
+  ],
+  "needs_lookup": false
+}
+```
 
 - **Passing a result on.** An argument whose entire value is the string `$<stepId>.<key>` is replaced, before your
   executor sees the step, with the `targetIds[key]` that the earlier step committed. Return the key in the

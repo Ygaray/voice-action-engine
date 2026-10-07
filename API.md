@@ -252,6 +252,11 @@ has a stable `code`.
   carries the planning call's id. `maxSteps` defaults to 8 and must be at least 1. `onFailed` fires and defaults
   exactly like `SingleShotStrategy`'s. A snapshot that already offers a tool named `submit_plan`, or offers no
   non-terminal tool, fails before any call.
+  The `submit_plan` arguments (what a scripted `AiProvider` must answer with) are an object with `steps`, a list of at
+  most `maxSteps` objects, and the boolean `needs_lookup`; only `steps` is required. Each step is an object with `"id"`
+  (a step id, as below), `"tool"` (the name of one of your non-terminal tools) and `"arguments"` (an object), for example
+  `{"steps": [{"id": "s1", "tool": "create_item", "arguments": {"title": "Parent"}}, {"id": "s2", "tool":
+  "create_item", "arguments": {"title": "Child", "parent_id": "$s1.id"}}], "needs_lookup": false}`.
   A step can use an earlier step's result: an argument whose whole value is the string `$<stepId>.<key>` is replaced,
   before your executor sees the step, with that earlier step's committed `targetIds[key]` (the key names are yours: say
   in each write tool's description which keys it returns). Step ids start with a letter, use letters, digits, `_`
@@ -385,6 +390,9 @@ was left after the zero-call head, and the walk started at the first eligible ti
 The opt-in `TierSelector.Router` selection carries its single `pick_start_tier` turn, and `tiersBypassed` reports what
 the pick skipped compared with `Linear`. The router asks its provider under the id `start_tier_router` (unless you set
 another `id` on the builder), so your `ProviderSelectionSource` maps that id to a small model like any tier id.
+A test that scripts the router answers its turn with one tool call named `pick_start_tier` and the arguments
+`{"tier": "<tier id>"}`, where the value is one of the offered model tier ids (the tool's schema lists exactly the
+eligible ones, in ladder order), for example `{"tier": "agentic"}`. Any other answer is no pick and records `router_fallback`.
 
 <!-- doc-snippet: telemetry -->
 ```kotlin
