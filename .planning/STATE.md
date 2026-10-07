@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 19
-current_phase_name: sample-gate-1-docs
-current_plan: Not started
+current_phase_name: Sample Gate-1 & Docs
+current_plan: 2
 status: executing
-stopped_at: Phase 18 complete, ready to plan Phase 19
-last_updated: "2026-10-07T15:16:51.836Z"
-last_activity: 2026-10-06
-last_activity_desc: Phase 18 complete, transitioned to Phase 19
-state_head: 021cbeeed16ea72e34975586c301fc2b41f4f12d
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-10-07T15:22:39.486Z"
+last_activity: 2026-10-07
+last_activity_desc: Phase 19 execution started
+state_head: fa24fcff72049d9851909a3718e1fdef06e07e1c
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 75
-  completed_plans: 61
+  completed_plans: 62
   percent: 11
 ---
 
@@ -26,15 +26,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 18 — Voice Adapter
+**Current focus:** Phase 19 — Sample Gate-1 & Docs
 
 ## Current Position
 
-Phase: 19 (sample-gate-1-docs) — READY TO EXECUTE
-Current Plan: Not started
+Phase: 19 (Sample Gate-1 & Docs) — EXECUTING
+Current Plan: 2
 Total Plans in Phase: 14
 Status: Ready to execute
-Last activity: 2026-10-06 — Phase 18 complete, transitioned to Phase 19
+Last activity: 2026-10-07 — Phase 19 execution started
 
 Progress: [█░░░░░░░░░] 11%
 
@@ -157,6 +157,7 @@ Progress: [█░░░░░░░░░] 11%
 | Phase 18 P06 | 12 min | 3 tasks | 4 files |
 | Phase 18 P07 | 20 min | 3 tasks | 3 files |
 | Phase 18 P08 | 68 min | 3 tasks | 1 files |
+| Phase 19 P01 | 20min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -209,6 +210,7 @@ Recent decisions affecting current work:
 - [Phase 17]: 17-09: :undo carries two suppressions (file-level TooGenericExceptionCaught in Guard.kt, one-line MaxLineLength on record); recorded as OI-5, not changed
 - [Phase 17]: 17-10: UNDO-01 heavy gates ran green in the relayed quiet window (negative controls 0 failures, API DUMP PROOF OK, DRY RUN OK + PROBE OK with :undoalone free of :core)
 - [Phase 18]: PD-04: voice-adapter public names frozen: toCommandInput (3 overloads), commandInputOf (3), normalizeSttLanguageLabel; facades FinalSegmentCommandInput and SttLanguageLabels; explicit overloads only — Names freeze at v1.1.0; explicit overloads keep API additive-only; stt-free facade kept in its own file
+- [Phase 19]: 19-01: Gate-1 runner decision file/evidence dir are env overrides (VAE_GATE1_DECISION_FILE, VAE_GATE1_EVIDENCE_DIR) with derived <NN>-LIVE-LEG-DECISION.md default; Phase 19 decision file created pending
 
 ### Pending Todos
 
@@ -236,8 +238,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T04:11:02.272Z
-Stopped at: Phase 18 complete, ready to plan Phase 19
+Last session: 2026-10-07T15:22:39.353Z
+Stopped at: Completed 19-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

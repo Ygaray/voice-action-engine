@@ -458,12 +458,12 @@ Plans:
   2. README, API.md, INTEGRATION.md and ECOSYSTEM.md cover every Phase 12–18 tier, seam and module (plus the on-device module if Phase 13 shipped one), with the new per-module coordinates, and the doc-coverage check passes.
   3. A fresh agent wires grammar, plan, the router and undo-all into a new app from the docs alone, and the isolated wiring test passes (re-run on the final SHA in Phase 20).
 
-**Plans**: 14 plans (12 waves, serial: one Gradle-running plan per wave, the extra wave-1 plans are bash only; 19-07 is non-autonomous, gated on the relayed live-spend GO and TESTER window; 19-13 is non-autonomous, gated on the RT-02 pre-granted quiet window; 19-14 is non-autonomous, in the same window with no second request, gated on the master-dispatched isolated agent)
+**Plans**: 1/14 plans executed (12 waves, serial: one Gradle-running plan per wave, the extra wave-1 plans are bash only; 19-07 is non-autonomous, gated on the relayed live-spend GO and TESTER window; 19-13 is non-autonomous, gated on the RT-02 pre-granted quiet window; 19-14 is non-autonomous, in the same window with no second request, gated on the master-dispatched isolated agent)
 
 Plans:
 **Wave 1**
 
-- [ ] 19-01-PLAN.md — bash only: Gate-1 runner decision-file/evidence-dir env overrides with the Phase 19 default, manifest-driven dirty list, guard scenarios, pending 19-LIVE-LEG-DECISION.md (D-07, D-01)
+- [x] 19-01-PLAN.md — bash only: Gate-1 runner decision-file/evidence-dir env overrides with the Phase 19 default, manifest-driven dirty list, guard scenarios, pending 19-LIVE-LEG-DECISION.md (D-07, D-01)
 - [ ] 19-02-PLAN.md — bash only: clean-cache `:adapteralone` consumer probe (RT-03a); `release-cut.sh` paths retargeted to `.planning/releases/v1.1.0/` (P20-owned file)
 - [ ] 19-03-PLAN.md — RT-04: drop the context-only `commandInputOf`/`toCommandInput` overloads, reflection proof, API.md + INTEGRATION section 12; ActionEvent KDoc confirmed
 
@@ -544,5 +544,5 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 16. Start-Tier Selection | v1.1 | 7/7 | Complete    | 2026-10-06 |
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
-| 19. Sample Gate-1 & Docs | v1.1 | 0/13 | Planned | - |
+| 19. Sample Gate-1 & Docs | v1.1 | 1/14 | In Progress|  |
 | 20. Cut v1.1.0 | v1.1 | 0/TBD | Not started | - |
