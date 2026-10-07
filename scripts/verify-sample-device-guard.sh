@@ -110,6 +110,10 @@ run_scenario() {
   chmod +x "$dir/repo/scripts/run-sample-gate1.sh"
   cp "$HERE/sample-evidence-filter.sh" "$dir/repo/scripts/sample-evidence-filter.sh"
   chmod +x "$dir/repo/scripts/sample-evidence-filter.sh"
+  # The runner reads the module manifest through scripts/lib/modules.sh (NO_MANIFEST=1 leaves the manifest out).
+  mkdir -p "$dir/repo/scripts/lib"
+  cp "$HERE/lib/modules.sh" "$dir/repo/scripts/lib/modules.sh"
+  [ "${NO_MANIFEST:-0}" = 1 ] || cp "$HERE/modules.list" "$dir/repo/scripts/modules.list"
   # A gradlew that proves the build was reached (or not). With FAKE_GRADLE_APK=1 it also leaves one fake APK, like a build.
   printf '#!/usr/bin/env bash\necho reached >"%s/gradle-reached"\nif [ "${FAKE_GRADLE_APK:-0}" = 1 ]; then\n  mkdir -p sample/build/outputs/apk/debug\n  echo fake-apk >sample/build/outputs/apk/debug/sample-debug.apk\n  exit 0\nfi\nexit 1\n' "$dir" >"$dir/repo/gradlew"
   chmod +x "$dir/repo/gradlew"
@@ -149,6 +153,18 @@ run_scenario() {
       fi
       ;;
   esac
+  # GIT_SANDBOX=clean|dirty_undo: make the sandbox a git repo with everything committed (build output ignored); dirty_undo then
+  # modifies one tracked file under undo/, a module the old hard-coded dirty list did not cover.
+  if [ -n "${GIT_SANDBOX:-}" ]; then
+    mkdir -p "$dir/repo/undo/src"
+    echo 'class Undo' >"$dir/repo/undo/src/Undo.kt"
+    printf 'sample/build/\n' >"$dir/repo/.gitignore"
+    git -C "$dir/repo" init -q >/dev/null 2>&1 || die "$name: git init failed"
+    git -C "$dir/repo" add -A >/dev/null 2>&1
+    git -C "$dir/repo" -c user.name=guard -c user.email=guard@example.invalid -c commit.gpgsign=false commit -q -m sandbox >/dev/null 2>&1 \
+      || die "$name: sandbox commit failed"
+    [ "$GIT_SANDBOX" = dirty_undo ] && echo 'class Undo2' >>"$dir/repo/undo/src/Undo.kt"
+  fi
   if [ -n "${STAMP_AGE:-}" ]; then
     mkdir -p "$dir/cache/vae-gate1"
     echo $(($(date +%s) - STAMP_AGE)) >"$dir/cache/vae-gate1/anthropic-agentic.ts"
@@ -233,6 +249,12 @@ assert_calls build_install_happy "-s R5CT10XNKQN install -r "
 assert_calls build_install_happy "-s R5CT10XNKQN shell cmd deviceidle whitelist +$PKG"
 assert_calls build_install_happy "-s R5CT10XNKQN shell pm list packages"
 [ -e "$LAST_DIR/gradle-reached" ] || die "build_install_happy: the Gradle build was not run"
+
+# The dirty list is read from scripts/modules.list: a clean repo reports dirty=0, a change under undo/ (not in the old
+# hard-coded list) reports dirty=1, and an unreadable manifest degrades to dirty=unknown without failing the install.
+GIT_SANDBOX=clean FAKE_GRADLE_APK=1 MUTATES=1 run_scenario build_install_clean_git 0 "dirty=0" " dirty=0 " build-install
+GIT_SANDBOX=dirty_undo FAKE_GRADLE_APK=1 MUTATES=1 run_scenario build_install_dirty_undo 0 "dirty=1" " dirty=1 " build-install
+NO_MANIFEST=1 GIT_SANDBOX=dirty_undo FAKE_GRADLE_APK=1 MUTATES=1 run_scenario build_install_manifest_missing 0 "dirty=unknown" " dirty=unknown " build-install
 
 CALLS_EMPTY=1 run_scenario push_fixture_missing 2 "copy the LE-1 fixture by hand per GATE1-RUNBOOK step A2" \
   "ERROR sub=push-fixture reason=fixture_missing_on_host" push-fixture

@@ -62,6 +62,14 @@ LEGS="ver02 smoke_anthropic smoke_openai smoke_openrouter multi_openai multi_ope
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# The published-module list for the build-install dirty check comes from the manifest, never a hand-copied list. If the
+# reader or the manifest is unreadable the check reports dirty=unknown; it never fails the install.
+export VAE_MODULES_FILE="${VAE_MODULES_FILE:-$ROOT/scripts/modules.list}"
+if [ -r "$ROOT/scripts/lib/modules.sh" ]; then
+  # shellcheck source=lib/modules.sh
+  . "$ROOT/scripts/lib/modules.sh"
+fi
+
 SUB="none"
 ARG=""
 TARGET=""
@@ -272,16 +280,20 @@ do_build_install() {
     tail -n 40 "$LOG_DIR/gradle.log"
     finish 2 ERROR "reason=build_failed target=$TARGET"
   fi
-  local apk_count apk md5 head dirty asset listing
+  local apk_count apk md5 head dirty asset listing mods
+  local -a dirty_paths
   apk_count="$(find "$APK_DIR" -maxdepth 1 -name '*.apk' 2>/dev/null | wc -l | tr -d ' ')"
   [ "$apk_count" = 1 ] || finish 2 ERROR "reason=apk_missing target=$TARGET"
   apk="$(find "$APK_DIR" -maxdepth 1 -name '*.apk')"
   md5="$(md5sum "$apk" | cut -d' ' -f1)"
   head="$(git -C "$ROOT" rev-parse --short=10 HEAD 2>/dev/null || echo unknown)"
-  if listing="$(git -C "$ROOT" status --porcelain -- sample core providers keystore scripts gradle build.gradle.kts settings.gradle.kts 2>/dev/null)"; then
-    if [ -n "$listing" ]; then dirty=1; else dirty=0; fi
-  else
-    dirty=unknown
+  dirty=unknown
+  if declare -F vae_modules >/dev/null && mods="$(vae_modules 2>/dev/null)" && [ -n "$mods" ]; then
+    read -r -a dirty_paths <<<"$mods"
+    dirty_paths+=(sample scripts gradle build.gradle.kts settings.gradle.kts)
+    if listing="$(git -C "$ROOT" status --porcelain -- "${dirty_paths[@]}" 2>/dev/null)"; then
+      if [ -n "$listing" ]; then dirty=1; else dirty=0; fi
+    fi
   fi
   if listing="$(unzip -l "$apk" 2>/dev/null)"; then
     if printf '%s\n' "$listing" | grep -q 'assets/sb-a10-fixture'; then asset=present; else asset=absent; fi
