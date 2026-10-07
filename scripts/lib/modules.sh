@@ -16,7 +16,7 @@ _vae_file() {
 
 # Prints validated rows (5 whitespace-separated fields) to stdout; a bad row reports on stderr and returns 1.
 _vae_rows() {
-  local file line n=0 raw name packaging artifact pkg core
+  local file line n=0 raw name packaging artifact pkg core seen_names=' ' seen_artifacts=' ' noglob=0
   file="$(_vae_file)"
   if [ ! -f "$file" ]; then
     echo "MODULES FAIL: $file: manifest not found" >&2
@@ -25,8 +25,12 @@ _vae_rows() {
   while IFS= read -r raw || [ -n "$raw" ]; do
     n=$((n + 1))
     line="${raw%%#*}"
+    # Split on whitespace with pathname expansion off, so a '*' in a field stays a literal.
+    case "$-" in *f*) noglob=1 ;; esac
+    set -f
     # shellcheck disable=SC2086
     set -- $line
+    [ "$noglob" -eq 1 ] || set +f
     [ "$#" -eq 0 ] && continue
     if [ "$#" -ne 5 ]; then
       echo "MODULES FAIL: $file:$n: expected 5 fields, got $#" >&2
@@ -44,6 +48,14 @@ _vae_rows() {
       yes | no) ;;
       *) echo "MODULES FAIL: $file:$n: dependsOnCore must be yes or no, got '$core'" >&2; return 1 ;;
     esac
+    case "$seen_names" in
+      *" $name "*) echo "MODULES FAIL: $file:$n: duplicate module name '$name'" >&2; return 1 ;;
+    esac
+    case "$seen_artifacts" in
+      *" $artifact "*) echo "MODULES FAIL: $file:$n: duplicate artifactId '$artifact'" >&2; return 1 ;;
+    esac
+    seen_names="$seen_names$name "
+    seen_artifacts="$seen_artifacts$artifact "
     printf "%s %s %s %s %s\n" "$name" "$packaging" "$artifact" "$pkg" "$core"
   done < "$file"
 }

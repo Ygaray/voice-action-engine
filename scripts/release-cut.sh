@@ -761,7 +761,7 @@ run_preflight() {
 cut_fail() { printf 'RELEASE CUT FAIL: %s\n' "$1" >&2; exit 1; }
 
 run_cut() {
-  local tag="$1" wiring="$2" approved="$3" full head group msg tagobj peeled remote expect before_remote
+  local tag="$1" wiring="$2" approved="$3" full head group msg tagobj peeled remote expect before_remote coords m
   [[ "$approved" =~ ^[0-9a-f]{10,40}$ ]] || cut_fail "approvedCommit must be a full SHA or a unique prefix of at least 10 hex digits"
   full="$(full_sha "$approved")" || cut_fail "approvedCommit '$approved' does not resolve to a single commit"
   head="$(git rev-parse HEAD)"
