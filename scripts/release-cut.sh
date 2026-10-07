@@ -39,7 +39,8 @@
 #   9  check        ./gradlew check green in a clean archive of HEAD
 #   10 api-dump     a fresh apiDump of HEAD (made in an isolated copy, so no tracked file is ever rewritten) equals the
 #                   module api.txt files committed in HEAD, byte for byte
-#   11 hygiene      PRE_RELEASE=0 repository hygiene (api.txt tracked, no fixture, no baseline)
+#   11 hygiene      PRE_RELEASE=0 repository hygiene (api.txt tracked, no fixture, no baseline), the module manifest, and the
+#                   :stt confinement (scripts/verify-stt-confinement.sh: only :voice-adapter may pull the speech engine)
 #   12 api-check    the committed api.txt is checked against the one released in the previous release tag (a patch release
 #                   must be byte-identical to it, a minor or major release may only add lines; a module whose directory is
 #                   absent from the previous tag is new in this release and needs a real committed dump instead), then
@@ -495,6 +496,11 @@ gate_hygiene() {
   if ! out="$("$REPO/scripts/verify-module-manifest.sh" 2>&1)" || ! grep -q 'MODULE MANIFEST OK' <<<"$out"; then
     echo "$out" >&2
     gate_fail hygiene "scripts/verify-module-manifest.sh failed"
+  fi
+  # RT-05: only :voice-adapter may pull the speech engine (:stt); the confinement check is part of this gate, not a gate of its own.
+  if ! out="$("$REPO/scripts/verify-stt-confinement.sh" 2>&1)" || ! grep -q '^STT CONFINEMENT OK' <<<"$out"; then
+    echo "$out" >&2
+    gate_fail hygiene "scripts/verify-stt-confinement.sh failed"
   fi
   gate_ok hygiene
 }
@@ -1497,6 +1503,18 @@ ctl_hygiene-api-txt-removed() {
   ctl_done red hygiene
 }
 
+# RT-05: a build file other than :voice-adapter's that names the :stt catalog alias must turn gate 11 red, and the marker must
+# be the confinement script's own line (so the plant is not caught earlier by the other two hygiene checks).
+ctl_hygiene-stt-confinement() {
+  ctl_clone "$CTL_LABEL"
+  plant_path core/build.gradle.kts
+  printf '\ndependencies {\n    compileOnly(libs.stt.engine)\n}\n' >>"$PP"
+  assert_planted core/build.gradle.kts
+  ccommit "sandbox: core names the :stt catalog alias" core/build.gradle.kts
+  run_case red hygiene "STT CONFINEMENT FAIL: wiring: core/build.gradle.kts" -- "$SELF" gate hygiene
+  ctl_done red hygiene
+}
+
 # The committed api.txt is the released baseline: a patch release must carry the previous release's api.txt unchanged.
 ctl_api-check-patch-changed() {
   ctl_clone "$CTL_LABEL"
@@ -1517,6 +1535,58 @@ ctl_api-check-minor-removed() {
   assert_planted core/api.txt
   ccommit "sandbox: a released signature line deleted" core/api.txt
   run_case red api-check "removes or changes a line the released baseline in $SELFTEST_PRIOR_TAG has" -- "$SELF" gate api-check v1.1.0
+  ctl_done red api-check
+}
+
+# Re-tags the previous release of the control clone (and of its OWN bare remote) on a commit that lacks the given paths, so
+# a module looks new in the release (its directories removed) or looks like a released module whose baseline was deleted
+# (only its api.txt removed). The clone ends on main again, with the tag moved and the side branch gone.
+retag_prior_without() { # <relative paths...>
+  assert_local_remote "$C" "$CB"
+  git -C "$C" checkout --quiet -b sandbox-prior "refs/tags/$SELFTEST_PRIOR_TAG^{commit}"
+  git -C "$C" rm -r --quiet -- "$@"
+  git -C "$C" commit --quiet -m "sandbox: the previous release without $*"
+  git -C "$C" tag -f -a "$SELFTEST_PRIOR_TAG" -m "selftest: the previous release, without $*" HEAD >/dev/null 2>&1
+  assert_local_remote "$C" "$CB"
+  git -C "$C" push --quiet --force origin "refs/tags/$SELFTEST_PRIOR_TAG"
+  git -C "$C" checkout --quiet main
+  git -C "$C" branch --quiet -D sandbox-prior
+  if git -C "$C" cat-file -e "$SELFTEST_PRIOR_TAG:$1" 2>/dev/null; then sf "[$CTL_LABEL] the re-tagged previous release still holds $1"; fi
+}
+
+# D-01 / RT-02: a module absent from the previous release whose committed api.txt is only the one header line is not a baseline.
+ctl_api-check-new-module-seed() {
+  ctl_clone "$CTL_LABEL"
+  retag_prior_without undo voice-adapter
+  plant_path undo/api.txt
+  printf '// Signature format: 4.0\n' >"$PP"
+  assert_planted undo/api.txt
+  ccommit "sandbox: undo/api.txt is the header-only seed" undo/api.txt
+  run_case red api-check "header-only seed" -- "$SELF" gate api-baseline v1.1.0
+  ctl_done red api-check
+}
+
+# D-01 / RT-02: both new modules with real committed dumps are named as new and the gate is green (positive control).
+ctl_api-check-new-module-populated() {
+  ctl_clone "$CTL_LABEL"
+  retag_prior_without undo voice-adapter
+  run_case green api-baseline "new in this release (no baseline): undo voice-adapter" -- "$SELF" gate api-baseline v1.1.0
+  ctl_done green api-baseline
+}
+
+# Newness is keyed on the module DIRECTORY: a module that was released, whose api.txt then vanished from the release, still has no baseline.
+ctl_api-check-baseline-deleted() {
+  ctl_clone "$CTL_LABEL"
+  retag_prior_without undo/api.txt
+  run_case red api-check "undo/api.txt is not in the previous release $SELFTEST_PRIOR_TAG, so there is no baseline" -- "$SELF" gate api-baseline v1.1.0
+  ctl_done red api-check
+}
+
+# A patch release (same MAJOR.MINOR as the previous tag) can never introduce a module.
+ctl_api-check-new-module-patch() {
+  ctl_clone "$CTL_LABEL"
+  retag_prior_without undo voice-adapter
+  run_case red api-check "is a patch release" -- "$SELF" gate api-baseline "$SELFTEST_TAG"
   ctl_done red api-check
 }
 
@@ -1608,7 +1678,9 @@ CONTROL_ORDER=(
   waiver-statement-invalid waiver-statement-other-tag
   prefreeze-c-row-open prefreeze-c-rows-answered
   cut-dirty-tree cut-approved-not-head
-  hygiene-api-txt-removed api-check-patch-changed api-check-minor-removed api-dump-core-line-deleted
+  hygiene-api-txt-removed hygiene-stt-confinement api-check-patch-changed api-check-minor-removed
+  api-check-new-module-seed api-check-new-module-populated api-check-baseline-deleted api-check-new-module-patch
+  api-dump-core-line-deleted
   leak-key-shape leak-fixture-filename leak-fixture-mention
   dry-run-sample-install version-not-read check-print-call
 )

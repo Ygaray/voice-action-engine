@@ -9,3 +9,43 @@ exit=0
 $ scripts/release-cut.sh gate api-baseline v1.0.2   (patch contrast, must fail)
 RELEASE GATE FAIL api-check: core/api.txt differs from the baseline released in v1.0.1: a patch release (v1.0.2) changes no public API
 exit=1
+
+## Task 2: RT-05 stt confinement in gate 11, new-module controls, D-03/D-04 proofs
+host readings before the partial selftest (R2, outside a quiet window so a failing swap check is a warning): MemAvailable_kB=11706768 SwapTotal_kB=2097148 SwapFree_kB=2184 (swap check FAILED = WARNING, memory floor 5 GiB met, no Gradle process running)
+$ scripts/release-cut.sh gate hygiene
+GATE OK hygiene
+$ bash scripts/verify-release-manifest.sh (last line)
+RELEASE MANIFEST PROOF OK cases=8
+$ bash scripts/verify-module-manifest.sh (last line)
+MODULE MANIFEST OK modules=core,providers,keystore,undo,voice-adapter
+$ bash scripts/verify-module-manifest.sh --selftest (last line)
+MANIFEST SELFTEST OK cases=11
+$ bash scripts/verify-stt-confinement.sh (last line)
+STT CONFINEMENT OK checks=6
+$ bash scripts/verify-stt-confinement.sh --selftest (last line)
+STT CONFINEMENT SELFTEST OK cases=12
+RELEASE_DIR: RELEASE_DIR=".planning/releases/v1.1.0"
+archived phase 11 path named in scripts/: 0 occurrence(s)
+
+$ SELFTEST_ONLY="<5 new labels + waiver/prefreeze/api-check/hygiene controls>" scripts/release-cut.sh selftest negative   (detached job, output not piped, exit status 0)
+partial selftest exit status: 0
+--- negative controls (one throwaway clone per control; sandbox remotes are local paths)
+ok    [waiver-not-accepted] went red (waiver: matched 'must be accepted')
+ok    [waiver-needs-fix] went red (waiver: matched 'needs-fix'; 'carry-to-gate-2')
+ok    [waiver-id-missing] went red (waiver: matched 'differ from the table ids')
+ok    [waiver-c-rows-vanished] went red (waiver: matched 'no category C (pre-freeze) rows found')
+ok    [waiver-no-waiver-statement] stayed green (waiver: matched 'must be accepted'; 'WAIVER NOTE: no-waiver statement')
+ok    [waiver-statement-invalid] went red (waiver: matched 'does not carry the line 'tag: v1.0.1''; 'does not carry the line 'no waivers: patch release''; 'major or minor release')
+ok    [waiver-statement-other-tag] went red (waiver: matched 'must be accepted')
+ok    [prefreeze-c-row-open] went red (prefreeze: matched 'pending'; 'W is void'; 'carry-to-gate-2')
+ok    [prefreeze-c-rows-answered] stayed green (prefreeze: matched 'GATE OK prefreeze')
+ok    [hygiene-api-txt-removed] went red (hygiene: matched 'keystore/api.txt')
+ok    [hygiene-stt-confinement] went red (hygiene: matched 'STT CONFINEMENT FAIL: wiring: core/build.gradle.kts')
+ok    [api-check-patch-changed] went red (api-check: matched 'core/api.txt differs from the baseline released in v1.0.0')
+ok    [api-check-minor-removed] went red (api-check: matched 'removes or changes a line the released baseline in v1.0.0 has')
+ok    [api-check-new-module-seed] went red (api-check: matched 'header-only seed')
+ok    [api-check-new-module-populated] stayed green (api-baseline: matched 'new in this release (no baseline): undo voice-adapter')
+ok    [api-check-baseline-deleted] went red (api-check: matched 'undo/api.txt is not in the previous release v1.0.0, so there is no baseline')
+ok    [api-check-new-module-patch] went red (api-check: matched 'is a patch release')
+real-repo guard: unchanged (tags, remote tags, status, config.json, contract)
+RELEASE SELFTEST PARTIAL (SELFTEST_ONLY set) happy=0 negatives=14 positives=3
