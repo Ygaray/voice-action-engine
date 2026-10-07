@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 19
 current_phase_name: Sample Gate-1 & Docs
-current_plan: 12
+current_plan: 13
 status: executing
-stopped_at: "19-12 partial: gates run, detekt red (1 finding), carry register + Gate-2 fragment written; awaiting gap plan"
-last_updated: "2026-10-07T16:50:05.062Z"
+stopped_at: Completed 19-12-PLAN.md (wiring SHA candidate 090fd8e green)
+last_updated: "2026-10-07T16:54:55.798Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 19 execution started
-state_head: 9bda4e01b13717f2d69c32b26757b6afb8e53827
+state_head: 9591ee885ea875a9c59ea30b741ace16e34826a0
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 75
-  completed_plans: 72
+  completed_plans: 73
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 19 (Sample Gate-1 & Docs) — EXECUTING
-Current Plan: 12
+Current Plan: 13
 Total Plans in Phase: 14
 Status: Ready to execute
 Last activity: 2026-10-07 — Phase 19 execution started
@@ -168,6 +168,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19 P09 | 20 min | 4 tasks | 4 files |
 | Phase 19 P10 | 25min | 3 tasks | 4 files |
 | Phase 19 P11 | 40min | 3 tasks | 6 files |
+| Phase 19 P12 | 17min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -240,7 +241,7 @@ None yet.
 - **Devices:** Phases 12 (PROV-16 smoke), 13 (spike) and 19 (Gate-1) use the wired TESTER `…-s22-ultra-2` only, never the personal phone, and never overlap on the device.
 - **Release-cut host OOM:** the `v1.1.0` cut (Phase 20) needs a quiet window, swap headroom and a single-use Gradle daemon (five v1.0.1 attempts were earlyoom-killed).
 - **§11:** always `git pull --rebase` before committing; peers commit contract changes to this repo.
-- 19-12: :voice-adapter:detekt MaxLineLength at DocSnippetAdapterTest.kt:14 (from 19-09 4646b16); wiring SHA candidate not usable until a gap plan fixes it and plan 19-12 gates re-run green
+- 19-12 (resolved): detekt MaxLineLength at DocSnippetAdapterTest.kt:14 fixed in 090fd8e; all autonomous gates green; wiring SHA candidate is 090fd8ec761178d5922523faaf24dc3ffb7b686b (only .planning changes after it)
 
 ## Deferred Items
 
@@ -253,9 +254,9 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T16:50:04.889Z
-Stopped at: 19-12 partial: gates run, detekt red (1 finding), carry register + Gate-2 fragment written; awaiting gap plan
-Resume file: .planning/phases/19-sample-gate-1-docs/19-12-SUMMARY.md
+Last session: 2026-10-07T16:54:55.607Z
+Stopped at: Completed 19-12-PLAN.md (wiring SHA candidate 090fd8e green)
+Resume file: None
 
 ## Operator Next Steps
 
