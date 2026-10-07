@@ -73,7 +73,7 @@ RELEASE MANIFEST PROOF OK cases=8
 ## Gate-1 build delta
 
 gate1_build_head: 1869950dca
-gate1_build_delta: none
+gate1_build_delta: none at the wiring SHA candidate 090fd8ec76; AMENDED after the review fix pass: one source-only file under sample/src/main (ItemToolExecutor.kt, commit d6647a1, WR-04: an explicit parent_id null is treated as absent). See the orchestrator resolution in 19-VERIFICATION.md.
 
 Basis: B is the `head=` value of the header of `evidence/gate1-grammar_offline.txt` (`# gate1 leg=grammar_offline captured_utc=2026-10-07T16:07:32Z target=R5CT10XNKQN head=1869950dca`); it matches the build-install `head=1869950dca` in `19-07-SUMMARY.md` (no mismatch). `git diff --stat 1869950dca 090fd8ec761178d5922523faaf24dc3ffb7b686b -- sample/src/main sample/build.gradle.kts core providers keystore undo voice-adapter/src/main voice-adapter/build.gradle.kts gradle settings.gradle.kts build.gradle.kts` is empty (recomputed on the fix HEAD). Between B and the candidate, non-`.planning` changes are docs (API.md, ECOSYSTEM.md, INTEGRATION.md, README.md), `sample/src/test` `DocSnippetsTest.kt`, `voice-adapter/src/test` `DocSnippetAdapterTest.kt` (including the fix: two comment lines) and scripts (`agent-wiring-test.sh`, `review-api-surface.sh`, `verify-docs-coverage.sh`); none is in the installed APK.
 

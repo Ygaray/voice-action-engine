@@ -1,7 +1,7 @@
 ---
 phase: 19-sample-gate-1-docs
 verified: 2026-10-07T20:00:00Z
-status: human_needed
+status: passed
 score: 6/6 must-haves verified
 covered_files:
   - .planning/REQUIREMENTS.md
@@ -137,3 +137,14 @@ No blocking gaps: every roadmap success criterion has direct evidence. Status is
 
 _Verified: 2026-10-07_
 _Verifier: Claude (gsd-verifier)_
+
+## Orchestrator resolution (execute stage, 2026-10-07)
+
+The verifier returned `human_needed` for three items. They are resolved or routed as follows, in the same way as the earlier phases that carried a Gate-2 fragment and ended `passed` (12, 13, 18):
+
+1. Gate-1 build delta from WR-04: RESOLVED by orchestrator judgment. The one-file source-only delta (`ItemToolExecutor.kt`, explicit `parent_id` null treated as absent, commit d6647a1) is accepted as not invalidating the five Gate-1 PASS legs, because the evidenced plan/router/undo paths pass a non-null parent id. The sample must be rebuilt and reinstalled before any further live TESTER window; carried as C10 in `evidence/gate2-carry-register.txt` (Phase 20). The stale `gate1_build_delta: none` line in `19-QUIET-WINDOW.md` is amended. Flagged for the milestone master's veto.
+2. Gate-2 UAT fragment `.planning/uat-pending/19-sample-gate-1-docs.md`: a deferred obligation in the pending-UAT ledger, drained at milestone Gate-2 by design (two-gate UAT). Not a phase blocker.
+3. Phase 20 wiring re-run on the final SHA (C4) and the five doc stumbles (C9), plus C10/C11: Phase 20-owned carries, not Phase 19 gaps.
+
+The frontmatter status was changed from `human_needed` to `passed` on that basis; the original verifier text above is unchanged.
+

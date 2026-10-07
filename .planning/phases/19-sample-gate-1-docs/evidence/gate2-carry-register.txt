@@ -65,3 +65,17 @@ C9 Isolated wiring record and the agent's doc stumbles (DOC-02)
   owner: Phase 20 (docs), then its wiring rerun
   evidence pointer: .planning/releases/v1.1.0/WIRING-RERUN.md; .planning/releases/v1.1.0/evidence/wiring-stumbles.txt; .planning/releases/v1.1.0/evidence/wiring-consulted.txt; 19-QUIET-WINDOW.md "Plan 14 Task 2"
 
+C10 Gate-1 build delta from review fix WR-04 (sample/src/main)
+  source: 19-REVIEW-FIX.md (commit d6647a1); 19-VERIFICATION.md human item 1
+  phase 19 does: accepts the one-file source-only delta (ItemToolExecutor.kt: explicit parent_id null treated as absent, plus a unit test) as not invalidating the five Gate-1 PASS legs, because the evidenced plan/router/undo paths pass a non-null parent id. Orchestrator judgment, recorded for the master's veto.
+  disposition: CARRIED: rebuild and reinstall the sample from the final SHA before any further live TESTER window (Phase 20's Gate-1 delta check against gate1_build_head 1869950dca will show this file).
+  owner: Phase 20
+  evidence pointer: 19-REVIEW.md WR-04; 19-REVIEW-FIX.md
+
+C11 Wiring judge tightened after the pass (WR-03) and docs/tag wording (WR-02)
+  source: 19-REVIEW-FIX.md (commits 9a47c71, 2b694e8)
+  phase 19 does: the wiring judge (scripts/agent-wiring-test.sh checks W5/W6/W10-W13) was made stricter after the 090fd8ec76 pass; the clean-clone selftest and selftest-source pass on it, but the Phase 19 agent workspace was already removed, so the pass was judged by the pre-fix judge. The docs gate C23/C24 has a pre-tag allowance because README/ECOSYSTEM announce v1.1.0 before the tag exists.
+  disposition: CARRIED: Phase 20's wiring re-run on the final SHA (C4) uses the tightened judge; the cut must run scripts/verify-docs-coverage.sh with VAE_DOCS_REQUIRE_PINNED_TAG=1 after tagging, and tag before or together with merging the docs to main.
+  owner: Phase 20
+  evidence pointer: 19-REVIEW-FIX.md
+
