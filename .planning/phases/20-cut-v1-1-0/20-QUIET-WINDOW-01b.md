@@ -133,7 +133,7 @@ are green in the full suite); no tracked api.txt changed (tree clean outside .pl
 W = the last commit that changes anything outside .planning/ (`git log -1 --format=%H -- . ':!.planning'`), equal to the plan 20-13 fix
 commit and to the expected value:
 
-wiring_sha: 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
+W (the `wiring_sha` in the header) = 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
 
 From this moment no script, doc, sample or module source changes (rule R3, gate 7).
 

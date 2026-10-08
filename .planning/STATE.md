@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 20
 current_phase_name: Cut v1.1.0
-current_plan: 7
+current_plan: 8
 status: executing
-stopped_at: Completed 20-13-PLAN.md (RT-11 gap fix); awaiting quiet window 20-07b to re-run 20-07 Task 3
-last_updated: "2026-10-08T00:13:49.957Z"
+stopped_at: Completed 20-07-PLAN.md (window 20-07b green, W fixed); next plan 20-08 not started
+last_updated: "2026-10-08T00:43:37.551Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 20 execution started
-state_head: 8f51a69c82765b598184caa90a523c852936138c
+state_head: 929e48fcde7923dface3792fb3b4bf8623c862ed
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 88
-  completed_plans: 81
+  completed_plans: 83
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 20 (Cut v1.1.0) — EXECUTING
-Current Plan: 7
+Current Plan: 8
 Total Plans in Phase: 12
 Status: Ready to execute
 Last activity: 2026-10-07 — Phase 20 execution started
@@ -178,6 +178,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20 P05 | n/a | 3 tasks | 4 files |
 | Phase 20 P06 | ~25 min | 3 tasks | 3 files |
 | Phase 20 P13 | 14min | 1 tasks | 3 files |
+| Phase 20 P07 | 57min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -239,6 +240,7 @@ Recent decisions affecting current work:
 - [Phase 20]: 20-06: gate 12 new-module rule keyed on the module directory in the previous tag; patch releases cannot add a module; real-dump test required
 - [Phase 20]: 20-06: :stt confinement runs inside gate 11 (hygiene); gate list and preflight gates= line unchanged
 - [Phase 20]: 20-13: contract_append_row inserts after the last ledger_range row; stale 20-12 hand-off superseded (RT-11); new W candidate is 4bdb663b
+- [Phase 20]: 20-07: W fixed at 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 after window 20-07b green (selftest all OK negatives=40 positives=7); window 20-01 red superseded
 
 ### Pending Todos
 
@@ -268,8 +270,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-08T00:13:49.824Z
-Stopped at: Completed 20-13-PLAN.md (RT-11 gap fix); awaiting quiet window 20-07b to re-run 20-07 Task 3
+Last session: 2026-10-08T00:43:37.396Z
+Stopped at: Completed 20-07-PLAN.md (window 20-07b green, W fixed); next plan 20-08 not started
 Resume file: None
 
 ## Operator Next Steps
