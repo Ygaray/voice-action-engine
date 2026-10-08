@@ -191,3 +191,48 @@ command, real exit status 0): `GATE OK wiring`, `GATE OK diff`, `GATE OK waiver`
 **Follow-up instruction recorded:** the master sends "tag ready v1.1.0 <W or tag-target sha>" later, in plan 20-10 Task 3, with the evidence index
 (gate lines from windows 20-07b, 20-02 and 20-09, plus the waiver file paths); the three clarity-only wiring stumbles S1-S3 (WIRING-RERUN.md
 triage, evidence/wiring-stumbles-p20.txt) are a known follow-up for a later docs patch and are listed in the ledger row notes (plan 20-11).
+
+## Relay 6: pushing main 2e677a6 and quiet window 20-10 (file 20-QUIET-WINDOW-03.md; plan 20-10 Task 1)
+
+relayed_by: yahir-gsd-control-plane-3b
+time_utc: 2026-10-08T01:32Z (push performed by the orchestrating layer; window opened 2026-10-08T01:32:51Z)
+
+**Messages sent by the master (verbatim):**
+
+`pushing main 2e677a604f472f10e11062509f933cd25e1be79c`
+
+`quiet window 20-10`
+
+**Answers received (resume signals, verbatim):**
+
+`push ok 2e677a604f472f10e11062509f933cd25e1be79c relayed_by=yahir-gsd-control-plane-3b`
+
+`quiet window 20-10 open 2026-10-08 (UTC now) relayed_by=yahir-gsd-control-plane-3b`
+
+**Orchestrator text (verbatim):**
+
+> (1) PUSH OK for main 2e677a604f, verified: local main == 2e677a6, ff +1 from origin, no non-.planning diff since W. Plain push. (2) open 20-10. I hold the lock (0bb3e7a), MemAvailable 13.1 GiB, standing swap ruling. I stopped the two stray daemons myself (SIGTERM on exactly 1039601 + 1040722, both gone). The tag still needs my separate OK: send "tag ready v1.1.0 <sha>" with the full evidence index and wait. The 20-11 post-tag probe and the real C11 run are in this grant. Send "quiet done" at the end.
+
+**Push performed** (by the orchestrating layer, 2026-10-08T01:32Z, plain, no force, no tag): `git push origin main` -> `ec0e2a7..2e677a6  main -> main`, then `GATE OK pushed`;
+`git ls-remote origin refs/heads/main` = `2e677a604f472f10e11062509f933cd25e1be79c`; origin tags: only v1.0.0 and v1.0.1.
+
+## Relay 7: tag ready v1.1.0 and the orchestrator's OK (plan 20-10 Task 3)
+
+relayed_by: yahir-gsd-control-plane-3b
+time_utc: 2026-10-08T01:48Z (relayed answer received before the cut; recorded 2026-10-08T01:50Z by the executor)
+
+**Message sent by the master (verbatim first line; body = evidence/tag-ready-v1.1.0.txt):**
+
+`tag ready v1.1.0 2e677a604f472f10e11062509f933cd25e1be79c`
+
+**Answer received (resume signal, verbatim):**
+
+`tag ok v1.1.0 2e677a604f472f10e11062509f933cd25e1be79c relayed_by=yahir-gsd-control-plane-3b`
+
+**Orchestrator text (verbatim):**
+
+> TAG OK: create and push annotated tag v1.1.0 at 2e677a604f472f10e11062509f933cd25e1be79c. I verified myself: HEAD == origin/main == 2e677a6; W 4bdb663b4c is an ancestor with 0 non-.planning files since; no v1.1* tag local or remote; the PREFLIGHT OK line (tag=v1.1.0 commit=2e677a6 wiring=4bdb663b4c) is in tag-ready-v1.1.0.txt; packet_status accepted; binary-diff-waiver.txt present. Task 2 verify: CONFIRMED, the RT-12 waiver satisfies it. 2 x BINARY DIFF OK plus core's FAIL waived per RT-12 counts as the 3rd. Record it that way; never edit it into an OK. Push ONLY refs/tags/v1.1.0, with no force. Then run 20-11 (post-tag JitPack probe + the REAL C11 strict docs vs the pushed tag), and send the section 11 ledger-row relay: tag, commit, the 5 coords, contents (including the one-clause RT-12 note), and the evidence path.
+
+**Task 2 verify record (never edited into an OK):** the plan's verify expects 3 `BINARY DIFF OK` lines; the file holds 2 `BINARY DIFF OK` (providers, keystore) and core's `BINARY DIFF FAIL: removed=12`, waived per RT-12. Recorded as "2 x BINARY DIFF OK + core FAIL waived per RT-12", which the orchestrator ruled satisfies the verify. The tag-ready file was not edited.
+
+**Master authorization to the executor (verbatim summary):** run `scripts/release-cut.sh cut v1.1.0 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 2e677a604f472f10e11062509f933cd25e1be79c` once; push only refs/tags/v1.1.0 (no force, no --tags, no branch push); then plan 20-11 up to but not including the push of main; no section 11 commit.

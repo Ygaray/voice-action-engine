@@ -109,15 +109,13 @@ Session names can change after a restart. If one doesn't resolve, ask the orches
 (hubs: what tag and roughly when; consumers: which tags you need, for which phases)
 ```
 
-## Current state (2026-10-05, PARKED — restart-ready)
+## Current state (2026-10-08, v1.1 IN FLIGHT: tag v1.1.0 pushed, Phase 20 mid-run, master reset)
 
-- **v1.1 discussed** (276d251): CONTEXT.md is written for Phases 12–20 (`.planning/phases/12-…` through `20-cut-v1-1-0`), and the binding consumer conditions from `R-v1.1-CONSUMER-ANSWERS.md` are carried into the affected decisions. Mixed mode: 4 areas were decided by the operator, all taking research's recommendation (P13 thresholds, P15 binding, P19 legs, P20 push).
-- **Waiting on orchestrator dispatch of `/gsd-execute-milestone` for v1.1** (Yahir's go is pending). Do not self-start.
-- **No v1.1 phase started.** Nothing has been planned or executed for 12–20.
-- **Ledgered:** `v1.0.0` (efc060f8fe, 2026-10-02) and `v1.0.1` (b32840e7eb, tag object 5d8dde4b01, 2026-10-04) are both in §11. v1.0.1 was ledgered at contract 651605b; its evidence path is `.planning/releases/v1.0.1/evidence/cut-v1.0.1.txt`. JitPack is ok for core/providers/keystore. v1.0.1 = XR-171-01 + XR-171-03 ruling (a) + the doc patch, with no public API change.
-- **Also pending, orchestrator-dispatched:** v1.0 milestone close (certify + verify-milestone/Gate-2). The R-v1.1 agenda (SingleShot failure hook, thinking knob, sonnet-5 id, TierAttempt carry flag, extraction tool-call id, `:keystore` fixtures, W04 wording, v1.0.1 wiring stumbles, on-device spike) is folded into the Phase 12–20 CONTEXT.
-- **INC-2026-09-08-02 note (stage-marker barrier):** in Phases 10 and 11, an execute-stage marker (`.gsd-stage-execute.done.json`) was written at a NON-final needs_human exit and persisted across the re-dispatch, so `stage-barrier` read `clear` while the stage was still mid-flight. The master advanced only on the final `advance` JSON plus final VERIFICATION/SELF-UAT. In v1.1, treat the barrier as advisory after any needs_human pause, and reset the marker on re-entry if the tooling doesn't.
-- **Release-cut host gotcha:** the clean-archive `check` OOMs under earlyoom when swap is full (5 killed attempts for v1.0.1). Quiet window + swap headroom + single-use daemon GRADLE_OPTS; never `./gradlew --stop` with another repo's daemon live.
-- **Wiring tests:** isolated only (headless `claude -p` + throwaway CLAUDE_CONFIG_DIR). The tag SHA must be API- and doc-identical to the wiring-pass SHA.
-- **Wave-1:** SB and CT are repinned at v1.0.1 (ECOSYSTEM matrix, 1591a8c).
-- **Pause files:** `.planning/.continue-here.md`, `.planning/HANDOFF.json`.
+- **Tag `v1.1.0` is pushed** (annotated) at `2e677a604f472f10e11062509f933cd25e1be79c`, verified on origin. JitPack serves `voice-action-engine-core:v1.1.0` (pom 200). origin/main = 2e677a6. Wiring SHA W = `4bdb663b4c7c1bf02d4588751705dfcc8b356ef1`; only `.planning` commits follow it.
+- **Phases 12–19 are complete and settled** (barrier clear). In Phase 20, plans 20-01 to 20-10 and gap plan 20-13 are done. The 20-10 cut ran after the orchestrator's TAG OK; the preflight's 15 gates were all GATE OK.
+- **Remaining: 20-11.** (a) The post-tag JitPack probe on all 5 coordinates (core, providers, keystore, undo, voice-adapter); it was in flight at the reset, so check evidence/ for its result and re-run it if absent. (b) The REAL C11 strict docs run (`VAE_DOCS_REQUIRE_PINNED_TAG=1`) against the pushed tag. (c) The §11 ledger-row RELAY to the orchestrator (tag, commit, the 5 coords, contents including "core binary diff vs v1.0.1: 12 non-API lines (internal ctors + synthetics) waived, RT-12", evidence path). Never commit §11. Then come any later P20 plans, the tail gates and phase.complete. 20-12 (rollback) must NOT run, since the last cut-handoff line is `none`.
+- **Build lock and quiet window 20-10 (`20-QUIET-WINDOW-03.md`) are still held** by the orchestrator for this grant, which covers the 20-11 probe and the real C11 run. Send "quiet done" at the end.
+- **Standing rulings** are verbatim in `.planning/releases/v1.1.0/evidence/relay-log.md` and `20-CONTEXT.md` Runtime Decisions RT-01..RT-12: the push/tag protocol, the swap-full ruling, RT-10 (owner approval of the tag waived; never prompt Yahir, route through the orchestrator), RT-12 (the D-02 core binary-diff false positive is waived).
+- **Known gsd-core hazard:** nested worker notifications often land on the master instead of the stage (INC-2026-10-05-04); forward them VERBATIM. Workers must use plain Bash (no `bash -c` with rm/trap/mktemp).
+- **Carried to Gate-2 / later patches:** the three P20 wiring doc stumbles S1–S3, the W02 Gate-2 fragments, and backlog 999.1 (the binary-diff helper should read Kotlin metadata visibility).
+- **Resume:** `/gsd-execute-milestone --from 20`, dispatched by the orchestrator.
