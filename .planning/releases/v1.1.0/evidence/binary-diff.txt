@@ -73,3 +73,45 @@ signatures) changes code. It is therefore a new commit and a new W, and plans 20
 undo and voice-adapter are new in v1.1.0, so there is no v1.0.1 artifact to diff against. Their baseline guarantee is the gate-12
 new-module branch plus the reviewed dumps. The D-02 reviewed seam artifact is .planning/releases/v1.1.0/evidence/api-surface-final.txt
 (plan 20-02); the sealed allowlist needed no edit for these modules.
+
+## D-02 WAIVER (RT-12, orchestrator 3b)
+
+recorded 2026-10-08T01:05:34Z. The result above stays as recorded (core RED, removed=12). The orchestrator ruled on it; the full mapping is
+in .planning/releases/v1.1.0/evidence/binary-diff-waiver.txt (the file plans 20-09 and 20-11 cite).
+
+Ruling (verbatim):
+"D-02 core removed=12 is a tool false positive, not a consumer break. I verified in source that ActionEvent, ExecutedAction, HeldProposal, CommandOutcome.Completed/Unhandled, TierPolicy, CommandTrace and TierAttempt all declare `internal constructor(`, and core/api.txt lists none of them. access$submitAll is a compiler synthetic accessor. Kotlin consumers can't call any of these, and both consumers (SB, CT) recompile on repin. Non-breaking; recorded as a waiver row; W 4bdb663 unchanged; no restart."
+
+Correction: the "Analysis of the 12 core REMOVED lines" section above called 11 of them "real public-constructor removals". They are not
+public Kotlin constructors: each class declares `internal constructor(` in source (at v1.0.1 as well as at W), and TierPolicy is built only
+through its Builder. Kotlin emits an internal constructor as a public JVM <init>, which is why the javap-based helper reported it.
+
+Executor re-verification in source (core tree at HEAD == W: `git diff --quiet 4bdb663b4c HEAD -- core` true). Paths under
+core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/; "v1.0.1 -> W" are line numbers of the declaration:
+
+| # | removed JVM member | declaration, v1.0.1 -> W | kind |
+|---|---|---|---|
+| 1 | ActionEvent(String,String,ExecutedAction) | commit/CommitSink.kt 29 -> 31 | internal constructor |
+| 2 | ExecutedAction(...,boolean,int,DCM) | commit/CommitSink.kt 51 -> 68 | $default synthetic of the same internal ctor (`mutating = true`) |
+| 3 | ExecutedAction(...,boolean,DCM) | commit/CommitSink.kt 51 -> 68 | DefaultConstructorMarker synthetic of the same internal ctor |
+| 4 | HeldProposal(String,String,List,Object,String) | commit/HeldProposal.kt 20 -> 22 | internal constructor |
+| 5 | CommandOutcome$Completed(RunEffects,String,TerminalCall,boolean) | pipeline/CommandOutcome.kt 103 -> 111 | internal constructor |
+| 6 | CommandOutcome$Unhandled(RunEffects,EscalationReason) | pipeline/CommandOutcome.kt 134 -> 148 | internal constructor |
+| 7 | TierPolicy(...,Long,DCM) | pipeline/TierPolicy.kt 36 -> 42 | DefaultConstructorMarker synthetic of the internal ctor (Builder-only) |
+| 8 | SingleShotStrategy.access$submitAll(...) | strategy/singleshot/SingleShotStrategy.kt 149 (v1.0.1 only; lambda caller at 142) | compiler synthetic accessor for `private suspend fun submitAll`; gone from W source |
+| 9 | CommandTrace(...,List,List,int,DCM) | telemetry/CommandTrace.kt 21 -> 23 | $default synthetic of the same internal ctor |
+| 10 | CommandTrace(...,List<TierAttempt>,List<TraceCode>) | telemetry/CommandTrace.kt 21 -> 23 | internal constructor |
+| 11 | TierAttempt(...,long,List,int,DCM) | telemetry/CommandTrace.kt 53 -> 60 | $default synthetic of the same internal ctor |
+| 12 | TierAttempt(...,long,List,DCM) | telemetry/CommandTrace.kt 53 -> 60 | DefaultConstructorMarker synthetic of the same internal ctor |
+
+Counts: 12 = 5 declared internal constructors (#1 #4 #5 #6 #10) + 6 synthetic members of internal constructors (#2 #3 #7 #9 #11 #12)
++ 1 synthetic accessor (#8). Anomalies: none; no public constructor is declared in source for any of the eight classes.
+
+core/api.txt confirmation: `^ *ctor` lines inside the class block of ActionEvent, ExecutedAction, HeldProposal, CommandOutcome.Completed,
+CommandOutcome.Unhandled, TierPolicy, CommandTrace and TierAttempt: 0 in each, in the committed core/api.txt at HEAD (== W) and in
+v1.0.1:core/api.txt. (core/api.txt has 129 ctor lines in total, none in these classes; its 3 `ctor ...Completed(` lines belong to
+StrategyOutcome.Completed, which is not in the removed list.)
+
+D-02: waived per RT-12; W unchanged
+date: 2026-10-08 (UTC 01:05:34Z). providers and keystore stay OK as recorded. Follow-up (no code change): v1.2 backlog item 999.1, the
+binary-diff helper should read Kotlin metadata visibility (skip internal ctors and synthetic access$ members).

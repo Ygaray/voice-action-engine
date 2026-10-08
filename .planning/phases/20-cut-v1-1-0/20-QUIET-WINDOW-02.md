@@ -131,9 +131,17 @@ keystore:  BINARY DIFF OK classes=9 removed=0 internal_removed=0 added=1    (exi
 
 core: 11 real public-constructor removals across 8 classes (a defaulted parameter was added in v1.1.0, so the v1.0.1 JVM constructors
 and their `$default` synthetics are gone), plus 1 ACC_SYNTHETIC accessor (`SingleShotStrategy.access$submitAll`). This is the
-must_have-5 red result: a binary break Metalava missed, which blocks the tag. The executor stops at recording. The window stays
+must_have-5 red result: a binary break Metalava missed, which blocks the tag. The executor stops at recording.
+ The window stays
 `grant: open` (no `closed:`, no `heavy_gates`, no "quiet done"), and no rule H1 block is appended. The milestone master decides on
 closing the window red, H1 / plan 20-12 and the gap plan.
+
+d02: waived (RT-12)
+
+Added 2026-10-08T01:05:34Z (plan 20-08 completion; nothing above or below it is changed). The orchestrator ruled the 12 core removals a
+tool false positive (RT-12): 11 are members of `internal constructor(` declarations and 1 is the compiler synthetic accessor
+`access$submitAll`; mapping in .planning/releases/v1.1.0/evidence/binary-diff-waiver.txt. W is unchanged and the window stays closed red as
+recorded; plan 20-09 runs in a new window request (20-QUIET-WINDOW-02b.md).
 
 ## Close
 

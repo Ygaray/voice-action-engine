@@ -1,0 +1,74 @@
+D-02 WAIVER (RT-12, orchestrator 3b) - core binary diff removed=12 is a tool false positive
+recorded: 2026-10-08T01:05:34Z by plan 20-08 (executor). W = 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1, unchanged. No restart.
+evidence this waives: .planning/releases/v1.1.0/evidence/binary-diff.txt (core: BINARY DIFF FAIL removed=12; providers OK; keystore OK)
+cited by: plan 20-09 (window record), plan 20-11 (LEDGER-ROW notes and evidence list)
+
+ruling (orchestrator 3b, verbatim):
+"D-02 core removed=12 is a tool false positive, not a consumer break. I verified in source that ActionEvent, ExecutedAction, HeldProposal, CommandOutcome.Completed/Unhandled, TierPolicy, CommandTrace and TierAttempt all declare `internal constructor(`, and core/api.txt lists none of them. access$submitAll is a compiler synthetic accessor. Kotlin consumers can't call any of these, and both consumers (SB, CT) recompile on repin. Non-breaking; recorded as a waiver row; W 4bdb663 unchanged; no restart."
+
+correction to the earlier executor analysis in binary-diff.txt ("11 real public-constructor removals"): these are NOT public Kotlin
+constructors. Each is declared `internal constructor(` in source (and was at v1.0.1), and TierPolicy is built only through its Builder.
+Kotlin compiles an internal constructor to a public JVM <init>, which is why the javap-based helper listed it as public; the Kotlin
+metadata marks it internal, so no Kotlin source outside the module can call it, and Metalava (which reads Kotlin visibility) rightly
+omits it from core/api.txt.
+
+executor verification (done in source, not taken on trust; 2026-10-08)
+  source tree: `git diff --quiet 4bdb663b4c HEAD -- core` is true, so HEAD source == W source for the whole core module
+  v1.0.1 lines: `git show v1.0.1:<path>`; W lines: the working tree at HEAD (== W)
+  paths below are relative to core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/
+
+ #  removed line (v1.0.1 JVM member)                                   source declaration (v1.0.1 line -> W line)                     kind
+--  -----------------------------------------------------------------  -------------------------------------------------------------  -----------------------------------------
+ 1  ActionEvent(String, String, ExecutedAction)                         commit/CommitSink.kt:29 -> :31  `public class ActionEvent internal constructor(`      internal constructor (the declared ctor)
+ 2  ExecutedAction(int,String,boolean,String,String,Map,Object,         commit/CommitSink.kt:51 -> :68  `public class ExecutedAction internal constructor(`    $default synthetic (mask int) of the SAME
+    boolean,int,DCM)                                                                                                                      internal ctor (param `mutating = true` default)
+ 3  ExecutedAction(int,String,boolean,String,String,Map,Object,         commit/CommitSink.kt:51 -> :68  (same declaration as #2)                              synthetic DefaultConstructorMarker ctor of the
+    boolean,DCM)                                                                                                                          SAME internal ctor
+ 4  HeldProposal(String,String,List,Object,String)                      commit/HeldProposal.kt:20 -> :22  `public class HeldProposal internal constructor(`   internal constructor (the declared ctor)
+ 5  CommandOutcome$Completed(RunEffects,String,TerminalCall,boolean)    pipeline/CommandOutcome.kt:103 -> :111  `public class Completed internal constructor(`  internal constructor (the declared ctor)
+ 6  CommandOutcome$Unhandled(RunEffects,EscalationReason)               pipeline/CommandOutcome.kt:134 -> :148  `public class Unhandled internal constructor(`  internal constructor (the declared ctor)
+ 7  TierPolicy(boolean,String,Set,int,long,int,Long,DCM)                pipeline/TierPolicy.kt:36 -> :42  `public class TierPolicy internal constructor(`  synthetic DefaultConstructorMarker ctor of the
+                                                                                                                                          internal ctor (no defaults; built via TierPolicy.Builder)
+ 8  SingleShotStrategy.access$submitAll(SingleShotStrategy,             strategy/singleshot/SingleShotStrategy.kt:149 (v1.0.1 only)     compiler synthetic accessor (ACC_SYNTHETIC) for
+    CommandSession,Resolution$Steps,Continuation)                       `private suspend fun submitAll(`, called from a lambda at :142  the private member; absent from W source
+ 9  CommandTrace(String,String,String,int,long,long,List,List,          telemetry/CommandTrace.kt:21 -> :23  `public class CommandTrace internal constructor(`  $default synthetic (mask int) of the SAME
+    int,DCM)                                                                                                                              internal ctor (defaults `attempts`, `codes`)
+10  CommandTrace(String,String,String,int,long,long,                    telemetry/CommandTrace.kt:21 -> :23  (same declaration as #9)                    internal constructor (the declared ctor)
+    List<TierAttempt>,List<TraceCode>)
+11  TierAttempt(String,String,EscalationReason,EscalationReason,        telemetry/CommandTrace.kt:53 -> :60  `public class TierAttempt internal constructor(`  $default synthetic (mask int) of the SAME
+    FailureReason,long,List,int,DCM)                                                                                                      internal ctor (default `turns`)
+12  TierAttempt(String,String,EscalationReason,EscalationReason,        telemetry/CommandTrace.kt:53 -> :60  (same declaration as #11)                    synthetic DefaultConstructorMarker ctor of the
+    FailureReason,long,List,DCM)                                                                                                          SAME internal ctor
+
+count: 12 removal lines = 11 internal-constructor-derived members + 1 synthetic accessor (#8).
+  declared internal constructors: #1, #4, #5, #6, #10 (5)
+  synthetic members of internal constructors: #2, #3, #7, #9, #11, #12 (6)   -> 11 constructor-derived lines
+  synthetic accessor of a private member: #8 (1)
+Anomalies: none. Every one of the 12 lines maps to an `internal constructor(` declaration or to a private-member synthetic accessor.
+No public constructor is declared in source for any of the 8 classes. Two notes that do not change the ruling: (a) lines #2/#3, #9/#10 and
+#11/#12 each pair two JVM members that come from ONE declaration; (b) the v1.0.1 source declares the same classes with `internal
+constructor(` too, so v1.0.1 consumers never had a Kotlin-callable constructor to lose.
+
+core/api.txt confirmation (Metalava signature file; the class block was cut from the `class` header line to the closing `  }`, then
+`^ *ctor` lines counted; counts only):
+  class                      committed core/api.txt at HEAD (== W)   v1.0.1:core/api.txt
+  ActionEvent                0                                        0
+  ExecutedAction             0                                        0
+  HeldProposal               0                                        0
+  CommandOutcome.Completed   0                                        0
+  CommandOutcome.Unhandled   0                                        0
+  TierPolicy                 0                                        0
+  CommandTrace               0                                        0
+  TierAttempt                0                                        0
+  (core/api.txt as a whole has 129 ctor lines, none in these eight classes; the only `ctor ...Completed(` lines in it, 3, belong to
+  StrategyOutcome.Completed, a different public-constructor class that is NOT in the removed list.)
+  `git diff --quiet HEAD -- core/api.txt` is clean, `git diff --quiet 4bdb663b4c HEAD -- . ':!.planning' ':!graphify-out'` is true.
+
+consequence for consumers: SB (176) and CT (75) are Kotlin and recompile on repin; a Kotlin caller cannot name any of the 11 internal
+constructors, and no caller can name the synthetic accessor. The classes' public surfaces are unchanged (getters, methods, builders).
+A Java caller could technically reach a public JVM <init> of an internal constructor; no consumer is Java and the constructors were never
+part of the documented or Metalava-tracked API.
+
+D-02: waived per RT-12; W unchanged
+follow-up (NOT a code change here): the helper should read Kotlin metadata visibility; see the v1.2 backlog item filed by plan 20-08
+(binary-diff helper should read Kotlin metadata visibility: skip internal ctors and synthetic access$ members).

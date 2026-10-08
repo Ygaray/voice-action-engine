@@ -15,3 +15,9 @@ from: 20-08
 outcome: red
 reason: BINARY DIFF FAIL: removed=12 (core; default-valued constructors dropped v1.0.1 signatures); gap fix pending orchestrator ruling; the cut is neither failed nor abandoned
 at: 2026-10-08T00:57:48Z
+
+handoff: none
+from: 20-08
+outcome: superseded
+reason: RT-12 orchestrator ruling A: D-02 core removed=12 is a tool false positive (internal constructors + synthetic accessor); waiver recorded; W unchanged; no restart
+at: 2026-10-08T01:06:30Z
