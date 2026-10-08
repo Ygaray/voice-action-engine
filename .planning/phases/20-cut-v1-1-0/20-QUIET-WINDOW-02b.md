@@ -1,9 +1,9 @@
 # 20-09 host quiet-window request 20-09 (file 02b; written at the completion of plan 20-08)
 
-grant: pending
-relayed_by:
-date:
-opened:
+grant: open
+relayed_by: yahir-gsd-control-plane-3b
+date: 2026-10-08
+opened: 2026-10-08T01:12:35Z
 gates_started:
 closed:
 heavy_gates:
@@ -56,7 +56,26 @@ $ pgrep -af '[G]radle'
 
 ## Relay log (verbatim)
 
-(pending: the orchestrator's answer to "quiet window 20-09" and the master's resume signal are quoted here when relayed)
+Resume signal (master, verbatim):
+
+```
+quiet window 20-09 open 2026-10-08 (UTC now) relayed_by=yahir-gsd-control-plane-3b
+```
+
+Orchestrator (verbatim):
+
+> open 20-09. I hold the lock (069bfb1) and MemAvailable is 13.7 GiB; the standing swap ruling applies. The throwaway CLAUDE_CONFIG_DIR must never be your real ~/.claude, and delete it afterwards with a plain rm. Send "quiet done" with the WIRING TEST line and the empty-cache verify line, then the push handshake.
+> Ledger: put ONE short clause in contents, e.g. "core binary diff vs v1.0.1: 12 non-API lines (internal ctors + synthetics) waived, RT-12", and keep the full mapping in evidence. Consumers read contents; the detail lives in evidence.
+
+Standing swap ruling (as relayed): swap-full/low accepted provided MemAvailable >= 8 GiB at open (read and record it); pause below 5 GiB; single daemon; one retry per earlyoom kill; <= 2 h.
+
+Readings taken by the executor at open (2026-10-08T01:12:35Z, `awk '/^(MemAvailable|SwapTotal|SwapFree)/' /proc/meminfo`; no Gradle process running, `pgrep -af '[G]radle'` empty):
+
+```
+MemAvailable:   14445976 kB   (13.78 GiB, at least 8 GiB: the open condition is MET)
+SwapTotal:       2097148 kB
+SwapFree:         231336 kB   (about 11%; accepted under the standing swap ruling)
+```
 
 ## Results
 
