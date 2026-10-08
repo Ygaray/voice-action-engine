@@ -141,6 +141,25 @@ WIRING TEST: PASS checks=13
 - Sync before close: `git fetch origin main` rc 0, origin/main = `26dcd10bb53a55693819e10649da2e165d85ab9c`, an ancestor of HEAD (no new
   commits, no merge)
 
+### Cheap release gates on HEAD (plan 20-09 Task 3 step 4, pre-push)
+
+Run 2026-10-08T01:24Z on HEAD `6db9092dfc5199a439e9dcd97e3863b5089c9a94` (the window-close commit), each as its own plain command, real exit
+status. These were re-run on the commit that adds this section, with the same lines (see the 20-09 return):
+
+```
+$ scripts/release-cut.sh gate wiring 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1   -> GATE OK wiring        (rc 0)
+$ scripts/release-cut.sh gate diff 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1     -> GATE OK diff          (rc 0)
+$ scripts/release-cut.sh gate waiver v1.1.0                                       -> GATE OK waiver        (rc 0)
+$ scripts/release-cut.sh gate tags-absent v1.1.0                                  -> GATE OK tags-absent   (rc 0)
+$ scripts/release-cut.sh gate create-tag                                          -> GATE OK create-tag    (rc 0)
+$ scripts/release-cut.sh gate clean                                               -> GATE OK clean         (rc 0)
+$ scripts/release-cut.sh gate leak                                                -> content_check=skipped(no local fixture)
+                                                                                     GATE OK leak          (rc 0)
+$ scripts/release-cut.sh gate hygiene                                             -> GATE OK hygiene       (rc 0)
+```
+
+`gate pushed` runs right after the push (plan 20-09 Task 3 step 3, the continuation).
+
 ## Close
 
 closed: 2026-10-08T01:23:20Z, heavy_gates green (C4 PASS on W10 `4bdb663b4c`); MemAvailable at close 12204624 kB. The cheap gates and the
