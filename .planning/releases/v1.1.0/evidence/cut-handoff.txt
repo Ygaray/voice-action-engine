@@ -1,0 +1,5 @@
+handoff: 20-12
+from: 20-07
+outcome: red
+reason: FAIL  [contract-ledger-only] expected GREEN but exited 1: 'RELEASE GATE FAIL diff: 1 path(s) changed since the wiring SHA 95b0901ff4 outside the module api.txt files (scripts/modules.list) and .planning/ (the wiring pas' no run recorded a result
+at: 2026-10-08T00:05:43Z
