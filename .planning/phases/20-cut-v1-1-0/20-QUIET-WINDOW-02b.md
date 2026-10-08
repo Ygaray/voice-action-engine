@@ -160,6 +160,14 @@ $ scripts/release-cut.sh gate hygiene                                           
 
 `gate pushed` runs right after the push (plan 20-09 Task 3 step 3, the continuation).
 
+### Push (plan 20-09 Task 3 step 3, recorded after the window close)
+
+Master sent `quiet done` and `pushing main ec0e2a7cb45d78ff74e039dd6367179120155504`; answer `push ok ec0e2a7cb45d78ff74e039dd6367179120155504
+relayed_by=yahir-gsd-control-plane-3b` (verbatim in `evidence/relay-log.md`, Relay 5). Push by the orchestrating layer 2026-10-08T01:27Z, plain:
+`git push origin main` -> `26dcd10..ec0e2a7  main -> main`. Right after: `scripts/release-cut.sh gate pushed` -> `GATE OK pushed`; `git ls-remote origin
+refs/heads/main` = `ec0e2a7cb45d78ff74e039dd6367179120155504`; origin tags: v1.0.0 and v1.0.1 only. The eight cheap gates above were re-run by the
+executor on HEAD ec0e2a7 at 2026-10-08T01:28Z with the same GATE OK lines.
+
 ## Close
 
 closed: 2026-10-08T01:23:20Z, heavy_gates green (C4 PASS on W10 `4bdb663b4c`); MemAvailable at close 12204624 kB. The cheap gates and the

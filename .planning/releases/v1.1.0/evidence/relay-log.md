@@ -158,3 +158,36 @@ time_utc: 2026-10-08T01:12:35Z (grant), recorded 2026-10-08T01:23Z
 `scripts/agent-wiring-test.sh verify /tmp/vae-wiring-20 4bdb663b4c`, 2026-10-08T01:19:34Z..01:21:03Z, exit 0); the agent's own build
 `./gradlew :jvmconsumer:test :app:compileDebugKotlin` green, 6 WireTest tests pass. The push handshake for this plan is appended after the
 push.
+
+## Relay 5: pushing main (plan 20-09 Task 3, window 20-09 close)
+
+relayed_by: yahir-gsd-control-plane-3b
+time_utc: 2026-10-08T01:27Z (push performed by the orchestrating layer; recorded 2026-10-08T01:29Z)
+
+**Messages sent by the master (verbatim):**
+
+`quiet done`
+
+`pushing main ec0e2a7cb45d78ff74e039dd6367179120155504`
+
+**Answer received (resume signal, verbatim):**
+
+`push ok ec0e2a7cb45d78ff74e039dd6367179120155504 relayed_by=yahir-gsd-control-plane-3b`
+
+**Orchestrator text (verbatim):**
+
+> PUSH OK for main ec0e2a7cb4, verified myself: local main == ec0e2a7, ff from origin, no non-.planning diff since W, no v1.1* tag on origin, /tmp/vae-wiring-20 gone. Lock released (51c175f). Plain push, then `gate pushed`. Then send "tag ready v1.1.0 <W or tag-target sha>" with the evidence index (the gate lines from 20-07b, 20-02 and 20-09, plus the waiver file paths). The 3 new doc stumbles are fine as later patches; list them as a known follow-up in the ledger evidence.
+
+**Push performed** (by the orchestrating layer, 2026-10-08T01:27Z, plain, no force, no tag): `git push origin main` -> `26dcd10..ec0e2a7  main -> main`.
+Immediately after the push: `scripts/release-cut.sh gate pushed` printed `GATE OK pushed`. `git ls-remote origin refs/heads/main` =
+`ec0e2a7cb45d78ff74e039dd6367179120155504	refs/heads/main`. Tags on origin: only v1.0.0 and v1.0.1 (plus their peeled lines).
+
+**Read-only re-verification by the executor, 2026-10-08T01:28Z** (no re-push): `git fetch origin main` rc 0; HEAD = origin/main =
+`ec0e2a7cb45d78ff74e039dd6367179120155504`; `scripts/release-cut.sh gate pushed` -> `GATE OK pushed` (rc 0); `git diff --name-only 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 HEAD`
+lists no path outside `.planning/`; the WIRING-RERUN.md commit is an ancestor of origin/main; the cheap gates on HEAD ec0e2a7 (each its own
+command, real exit status 0): `GATE OK wiring`, `GATE OK diff`, `GATE OK waiver`, `GATE OK tags-absent`, `GATE OK create-tag`, `GATE OK clean`,
+`GATE OK leak` (`content_check=skipped(no local fixture)`), `GATE OK hygiene`.
+
+**Follow-up instruction recorded:** the master sends "tag ready v1.1.0 <W or tag-target sha>" later, in plan 20-10 Task 3, with the evidence index
+(gate lines from windows 20-07b, 20-02 and 20-09, plus the waiver file paths); the three clarity-only wiring stumbles S1-S3 (WIRING-RERUN.md
+triage, evidence/wiring-stumbles-p20.txt) are a known follow-up for a later docs patch and are listed in the ledger row notes (plan 20-11).

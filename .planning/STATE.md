@@ -4,18 +4,18 @@ milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 current_phase: 20
 current_phase_name: Cut v1.1.0
-current_plan: 9
+current_plan: 10
 status: executing
-stopped_at: Completed 20-08-PLAN.md (C2 PASS, D-02 waived per RT-12); next 20-09 in new window 20-02b (pending grant)
-last_updated: "2026-10-08T01:08:58.233Z"
+stopped_at: Completed 20-09-PLAN.md (pushed ec0e2a7); next 20-10 window request
+last_updated: "2026-10-08T01:30:05.874Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 20 execution started
-state_head: d9ee4f5d568852f7e43af6c7b6f0aaab19d74f51
+state_head: ec0e2a7cb45d78ff74e039dd6367179120155504
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 88
-  completed_plans: 84
+  completed_plans: 85
   percent: 0
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md 
 ## Current Position
 
 Phase: 20 (Cut v1.1.0) — EXECUTING
-Current Plan: 9
+Current Plan: 10
 Total Plans in Phase: 12
 Status: Ready to execute
 Last activity: 2026-10-07 — Phase 20 execution started
@@ -180,6 +180,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20 P13 | 14min | 1 tasks | 3 files |
 | Phase 20 P07 | 57min | 3 tasks | 4 files |
 | Phase 20 P08 | 26min | 3 tasks | 9 files |
+| Phase 20 P09 | 20min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -243,6 +244,7 @@ Recent decisions affecting current work:
 - [Phase 20]: 20-13: contract_append_row inserts after the last ledger_range row; stale 20-12 hand-off superseded (RT-11); new W candidate is 4bdb663b
 - [Phase 20]: 20-07: W fixed at 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 after window 20-07b green (selftest all OK negatives=40 positives=7); window 20-01 red superseded
 - [Phase 20]: [Phase 20] 20-08: D-02 core removed=12 waived per RT-12 (11 internal-constructor members + 1 synthetic accessor access$submitAll; tool false positive); W 4bdb663b4c unchanged; plan 20-09 runs in new window 20-02b
+- [Phase 20]: 20-09: wiring stumbles S1-S3 are clarity-only; known follow-up for a later docs patch, listed in the 20-11 LEDGER-ROW notes, not fixed before the cut (a docs edit would void the pass on W)
 
 ### Pending Todos
 
@@ -272,8 +274,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-08T01:08:58.096Z
-Stopped at: Completed 20-08-PLAN.md (C2 PASS, D-02 waived per RT-12); next 20-09 in new window 20-02b (pending grant)
+Last session: 2026-10-08T01:30:05.737Z
+Stopped at: Completed 20-09-PLAN.md (pushed ec0e2a7); next 20-10 window request
 Resume file: None
 
 ## Operator Next Steps
