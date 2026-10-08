@@ -79,5 +79,24 @@ SwapFree:         231336 kB   (about 11%; accepted under the standing swap rulin
 
 ## Results
 
-(empty until the window is open; plan 20-09 Tasks 1 to 3 record Step 1 prepare, Step 2 dispatch, Step 3 verify, then the Close with
-`grant: consumed`, `closed:`, `heavy_gates:` and "quiet done")
+Plan 20-09's verify blocks read `20-QUIET-WINDOW-02.md`; that file stays closed red (D-02, waived by RT-12) and is not edited now. The
+Step 2 record below is written here, and `20-QUIET-WINDOW-02.md` is reconciled at close (as 01 was with 01b). Plan 20-09 Tasks 2 and 3
+record Step 3 verify, then the Close with `grant: consumed`, `closed:`, `heavy_gates:` and "quiet done".
+
+### Step 2 - C4 prepare
+
+WIRING PREPARED dir=/tmp/vae-wiring-20 version=4bdb663b4c
+
+- taken: 2026-10-08T01:14Z by the plan 20-09 Task 1 executor (prepare half), no Gradle, no model call
+- `bash scripts/agent-wiring-test.sh selftest-source`: exit 0, `WIRING SOURCE SELFTEST OK` (the tightened source checks W5, W6, W10-W13)
+- command: `WIRING_DIR=/tmp/vae-wiring-20 scripts/agent-wiring-test.sh prepare 4bdb663b4c` (JitPack path; not prepare-local); rc 0; `/tmp/vae-wiring-20` did not exist beforehand
+- version printed (`4bdb663b4c`) equals w10 of this window and of the 20-08 probe
+- ancestors_clean: yes (no `CLAUDE.md` and no `.claude` in `/tmp/vae-wiring-20`, `/tmp` or `/`; no `.credentials.json` in the workspace)
+- workspace contents (docs, skeleton, TASK.md only; no engine or sample source, no `.kt`/`.java`, no planning tree): `TASK.md`,
+  `docs/{README,INTEGRATION,API,ECOSYSTEM}.md`, `settings.gradle.kts` (repositories: google, mavenCentral, `https://jitpack.io`),
+  `build.gradle.kts`, `gradle.properties`, `gradlew`, `gradle/wrapper/*`, `jvmconsumer/build.gradle.kts`, `app/build.gradle.kts`,
+  `app/src/main/AndroidManifest.xml`, `local.properties` (only `sdk.dir=/home/yahir/Android/Sdk`, the skeleton's Android SDK pointer)
+- TASK.md length: 4101 bytes (`wc -c`); the dispatch prompt is TASK.md verbatim plus one line naming the working directory
+- the workspace is left in place for the agent run and the empty-cache verify (removed in plan 20-09 Task 2); no throwaway
+  `CLAUDE_CONFIG_DIR` has been created yet (the dispatch is the orchestrating layer's job; it must never be the real `~/.claude`, and is
+  removed afterwards with a plain `rm`)
