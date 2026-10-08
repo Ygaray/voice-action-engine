@@ -1148,11 +1148,59 @@ first_c_id() {
   awk -F'|' '/^\| W[0-9][0-9] \|/ { id = $2; c = $3; gsub(/ /, "", id); gsub(/ /, "", c); if (c == "C") { print id; exit } }' "$C/$WAIVER_PACKET"
 }
 
-# A synthetic dated row appended at the end of the section 11 table (the last line of the contract).
+# A synthetic dated row inserted directly after the last row of the section 11 table, found with ledger_range in the clone's
+# committed contract (the working file must still equal it). It is NOT appended at the end of the file: since eef5cb9 the
+# contract ends in an "- **Erratum**" bullet after the table, and a row after that bullet lies outside the table.
 contract_append_row() {
+  local rng last
   plant_path "$CONTRACT"
-  printf '| 2026-10-02 | sandbox-peer | v0.0.1 | 0000000000000000000000000000000000000000 | sandbox:none:v0.0.1 | SANDBOX SYNTHETIC ledger row | none | %s |\n' "$DASH" >>"$PP"
+  git -C "$C" diff --quiet -- "$CONTRACT" || sf "[$CTL_LABEL] the contract is already modified, so ledger_range HEAD would not match the working file"
+  rng="$(cd "$C" && ledger_range HEAD)" || sf "[$CTL_LABEL] no well-formed section 11 ledger table in the sandbox contract"
+  last="${rng#* }"
+  under_root "$PP.new"
+  awk -v last="$last" -v dash="$DASH" '
+    { print }
+    NR == last { print "| 2026-10-02 | sandbox-peer | v0.0.1 | 0000000000000000000000000000000000000000 | sandbox:none:v0.0.1 | SANDBOX SYNTHETIC ledger row | none | " dash " |" }
+  ' "$PP" >"$PP.new"
+  mv "$PP.new" "$PP"
   assert_planted "$CONTRACT"
+}
+
+# Shared body of the two row-placement controls. Reshapes the clone's contract so the section 11 table is followed by
+# nothing (table-last) or by a blank line and an "- **Erratum**" bullet (prose-after), plants the row with
+# contract_append_row, then asserts it is the new last row of the table (a new last line for table-last, or directly before
+# the blank line for prose-after) and that contract_change_is_ledger_only accepts the change against the reshaped commit.
+contract_row_fixture() { # <table-last|prose-after>
+  local shape="$1" rng last base nrng nlast total
+  plant_path "$CONTRACT"
+  rng="$(cd "$C" && ledger_range HEAD)" || sf "[$CTL_LABEL] no well-formed section 11 ledger table in the sandbox contract"
+  last="${rng#* }"
+  under_root "$PP.shape"
+  head -n "$last" "$PP" >"$PP.shape"
+  mv "$PP.shape" "$PP"
+  if [ "$shape" = prose-after ]; then
+    printf '\n- **Erratum** 2026-10-04 - sandbox trailing bullet after the table\n' >>"$PP"
+  fi
+  ccommit "sandbox: contract reshaped ($shape)" "$CONTRACT"
+  base="$(git -C "$C" rev-parse HEAD)"
+  contract_append_row
+  ccommit "sandbox: ledger row planted ($shape)" "$CONTRACT"
+  nrng="$(cd "$C" && ledger_range HEAD)" || sf "[$CTL_LABEL] the contract has no well-formed ledger table after the plant"
+  nlast="${nrng#* }"
+  total="$(git -C "$C" show "HEAD:$CONTRACT" | wc -l)"
+  if [ "$nlast" -ne $((last + 1)) ]; then
+    CTL_BAD+=("the planted row is not the new last row of the table (last row line $last before, $nlast after)")
+  elif ! git -C "$C" show "HEAD:$CONTRACT" | sed -n "${nlast}p" | grep -q '^| 2026-10-02 | sandbox-peer |'; then
+    CTL_BAD+=("line $nlast of the table is not the planted row")
+  elif [ "$shape" = table-last ] && [ "$total" -ne "$nlast" ]; then
+    CTL_BAD+=("table-last: the planted row is not the last line of the file ($nlast of $total)")
+  elif [ "$shape" = prose-after ] && [ "$total" -ne $((nlast + 2)) ]; then
+    CTL_BAD+=("prose-after: the blank line and the trailing bullet no longer follow the table ($nlast of $total)")
+  elif ! (cd "$C" && contract_change_is_ledger_only "$base") >/dev/null; then
+    CTL_BAD+=("$shape: contract_change_is_ledger_only rejected a row planted inside the table")
+  else
+    CTL_MARKS+=("'planted row is the last row of the table'")
+  fi
 }
 
 # A one-word edit of a non-table line under the section 10 heading.
@@ -1348,6 +1396,20 @@ ctl_contract-ledger-only() {
   ccommit "sandbox: last cell of an existing ledger row edited" "$CONTRACT"
   run_case green diff "DIFF NOTE: ledger-only contract change" -- "$SELF" gate diff "$GREEN_W"
   ctl_done green diff
+}
+
+# The synthetic ledger row must land INSIDE the section 11 table whatever follows it (window 20-01 red: it landed after the
+# trailing erratum bullet, so the ledger-only gate rightly refused it).
+ctl_contract-row-in-table-last() {
+  ctl_clone "$CTL_LABEL"
+  contract_row_fixture table-last
+  ctl_done green ledger-row-placement
+}
+
+ctl_contract-row-in-table-prose() {
+  ctl_clone "$CTL_LABEL"
+  contract_row_fixture prose-after
+  ctl_done green ledger-row-placement
 }
 
 ctl_waiver-not-accepted() {
@@ -1674,6 +1736,7 @@ CONTROL_ORDER=(
   wiring-status-fail wiring-sha-mismatch wiring-not-ancestor
   diff-readme diff-core-main diff-jitpack-yml
   contract-non-ledger contract-mixed contract-row-outside-11 contract-ledger-only
+  contract-row-in-table-last contract-row-in-table-prose
   waiver-not-accepted waiver-needs-fix waiver-id-missing waiver-c-rows-vanished waiver-no-waiver-statement
   waiver-statement-invalid waiver-statement-other-tag
   prefreeze-c-row-open prefreeze-c-rows-answered
