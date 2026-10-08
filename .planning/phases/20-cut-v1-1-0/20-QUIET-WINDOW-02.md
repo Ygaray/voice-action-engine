@@ -1,6 +1,9 @@
 # 20-08 host quiet-window request 20-02 (written by plan 20-08 Task 1 preparation)
 
-grant: pending
+grant: open
+relayed_by: yahir-gsd-control-plane-3b
+date: 2026-10-08T00:47:19Z
+opened: 2026-10-08T00:47:19Z
 timebox_s: 7200
 requested: 2026-10-08T00:45Z
 wiring_sha: 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
@@ -53,4 +56,24 @@ open and before the probe.
 
 ## Relay log (verbatim)
 
-(none yet: waiting for the relayed answers to "quiet window 20-02" and "pushing main <sha>")
+relayed_by: yahir-gsd-control-plane-3b
+
+Strings sent by the master (verbatim): `quiet window 20-02` and `pushing main 26dcd10bb53a55693819e10649da2e165d85ab9c`.
+
+**Resume signal received:**
+
+`window 20-02 open 2026-10-08 (UTC now) relayed_by=yahir-gsd-control-plane-3b; push ok 26dcd10bb53a55693819e10649da2e165d85ab9c`
+
+**Orchestrator text (verbatim):**
+
+"(2) PUSH OK for main 26dcd10bb5, verified myself: local main == 26dcd10, origin/main ancestor (ff, 36 ahead), no non-.planning diff after W 4bdb663, no fixtures/keys tracked, no tag at the sha. Plain `git push origin main` only, then `gate pushed`.
+(1) open 20-02 (plans 20-08 + 20-09, one grant, <=2 h). I hold the lock (45a494f). Swap ruling restated verbatim for this window: "Orchestrator 3b, 2026-10-07: swap-full or low swap is accepted for the P20 quiet windows provided MemAvailable >= 8 GiB at window open. In-window: pause a gate below 5 GiB, single daemon, one retry per earlyoom kill." MemAvailable is 13.3 GiB, so it's met. Run the C2 probe only after the push shows GATE OK pushed. Send "quiet done" with the C2/D-02/C4 lines."
+
+**Push performed** (by the orchestrating layer, about 2026-10-08T00:46Z, plain, no force, no tag): `git push origin main` -> `9780113..26dcd10  main -> main`.
+Immediately after the push (before this file was committed): `scripts/release-cut.sh gate pushed` printed `GATE OK pushed`; `git merge-base --is-ancestor 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 origin/main` succeeded; `git ls-remote origin refs/heads/main` = `26dcd10bb53a55693819e10649da2e165d85ab9c refs/heads/main`; origin lists no tag other than v1.0.0 and v1.0.1.
+
+**Read-only re-verification by the executor, 2026-10-08T00:47Z** (no re-push): `git fetch origin main` rc=0; HEAD = origin/main = `26dcd10bb53a55693819e10649da2e165d85ab9c`; `scripts/release-cut.sh gate pushed` -> `GATE OK pushed` (rc=0); W is an ancestor of origin/main (rc=0); `git ls-remote --tags origin`: only v1.0.0 and v1.0.1 (and their peeled lines).
+
+**Readings at open (2026-10-08T00:47Z):** MemAvailable 13610916 kB (13.0 GiB, at least 8 GiB, so the relayed swap ruling applies); Swap 2.0 GiB total, 224 MiB free (accepted by the relayed ruling); no Gradle process running (`pgrep -af '[G]radle'` empty).
+
+The window is NOT closed by plan 20-08: it also covers plan 20-09, which closes it.
