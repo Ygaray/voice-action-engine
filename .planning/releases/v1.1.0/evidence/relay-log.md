@@ -236,3 +236,16 @@ time_utc: 2026-10-08T01:48Z (relayed answer received before the cut; recorded 20
 **Task 2 verify record (never edited into an OK):** the plan's verify expects 3 `BINARY DIFF OK` lines; the file holds 2 `BINARY DIFF OK` (providers, keystore) and core's `BINARY DIFF FAIL: removed=12`, waived per RT-12. Recorded as "2 x BINARY DIFF OK + core FAIL waived per RT-12", which the orchestrator ruled satisfies the verify. The tag-ready file was not edited.
 
 **Master authorization to the executor (verbatim summary):** run `scripts/release-cut.sh cut v1.1.0 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 2e677a604f472f10e11062509f933cd25e1be79c` once; push only refs/tags/v1.1.0 (no force, no --tags, no branch push); then plan 20-11 up to but not including the push of main; no section 11 commit.
+
+## Relay 8: ledger row v1.1.0, pushing the planning record, and "quiet done" (plan 20-11 Task 3) - PREPARED, delivered by the orchestrating layer
+
+relayed_by: pending (the stage executor has no message tool; the milestone master delivers these on return and appends the answers verbatim below)
+prepared_utc: 2026-10-08T02:20Z
+
+**Messages for the master to send, in this order (exact strings):**
+
+1. `pushing main <40-hex sha of HEAD after the 20-11 record commit>` (context: planning-only commits after the tag; plain `git push origin main`, no force, no tag; the tag v1.1.0 is not pushed again). After the OK, the plain push is performed by the orchestrating layer, then `scripts/release-cut.sh gate pushed`.
+2. `ledger row v1.1.0` followed by the full text of `.planning/releases/v1.1.0/LEDGER-ROW.md` verbatim, with: the orchestrator is the sole ledger writer (A14), nothing was committed to section 11 here, jitpack_tag is green, and SB 176 and CT 75 may repin to v1.1.0.
+3. `quiet done` for window 20-03 (20-QUIET-WINDOW-03.md is closed: grant consumed, heavy_gates green), so the orchestrator releases the VAE build lock and unfreezes its section 11 commits.
+
+**Answers received:** (to be appended verbatim by the master)

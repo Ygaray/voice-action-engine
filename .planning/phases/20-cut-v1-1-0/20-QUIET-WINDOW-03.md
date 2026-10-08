@@ -1,9 +1,11 @@
 # 20-10 host quiet-window request 20-10 (file 03; written at the completion of plan 20-09, pre-handshake part of plan 20-10 Task 1)
 
-grant: open
+grant: consumed
 relayed_by: yahir-gsd-control-plane-3b
 date: 2026-10-08
 opened: 2026-10-08T01:32:51Z
+closed: 2026-10-08T02:12:00Z
+heavy_gates: green
 gates_started: 2026-10-08T01:34:03Z
 timebox_s: 14400
 requested: 2026-10-08T01:31Z
@@ -163,3 +165,25 @@ The tool pushed only refs/tags/v1.1.0 itself (`* [new tag] v1.1.0 -> v1.1.0`); n
 cut_result: ok
 tag_object: 6ea5ede973291cde5ddb9941bfbf32ff997d798c
 cut_commit: 2e677a604f472f10e11062509f933cd25e1be79c
+
+### Step - post-tag proofs (plan 20-11 Task 1)
+
+Recorded by the stage executor from the evidence on disk; the probe and the real C11 were NOT re-run (they ran once, before the milestone master reset, and are on file).
+
+- Live probe: `EVIDENCE_FILE=.planning/releases/v1.1.0/evidence/live-probe-v1.1.0.txt TIMEOUT_S=2400 scripts/jitpack-live-probe.sh v1.1.0`, one run, no retry, 2026-10-08T02:00:01Z to 02:05:15Z, exit status 0 (R2 recipe, no other Gradle process). Last line (verbatim): `LIVE PROBE PASS ref=v1.1.0  (workdir removed on exit)`. The api line shows `"status":"ok"`, `"isTag":true`, commit `2e677a604f472f10e11062509f933cd25e1be79c` and exactly the five modules core, keystore, providers, undo, voice-adapter; every module pom 200 and module 200; providers, keystore and voice-adapter depend on core v1.1.0, undo has no core dependency; aggregator clean; the empty-cache consumer resolution ends `PROBE OK (com.github.Ygaray.voice-action-engine:*:v1.1.0 from https://jitpack.io)`, with undo and voice-adapter each resolved on their own line of the consumer tree. Full output: `evidence/live-probe-v1.1.0.txt`.
+- Real C11: `VAE_DOCS_REQUIRE_PINNED_TAG=1 bash scripts/verify-docs-coverage.sh` in the real repository against the pushed tag, 2026-10-08T02:00:15Z, exit status 0, last line (verbatim) `DOC COVERAGE OK checks=32 types=119`, stderr empty (no C23 note). Read-only.
+- `git cat-file -p refs/tags/v1.1.0` (object, type, tag, tagger lines): `object 2e677a604f472f10e11062509f933cd25e1be79c`, `type commit`, `tag v1.1.0`, `tagger Yahir <yahir.acts@gmail.com> 1791424739 -0600` (2026-10-08T01:58:59Z). tag_object `6ea5ede973291cde5ddb9941bfbf32ff997d798c`.
+- `git ls-remote --tags origin`: v1.0.0 (343fd3f2..., peeled efc060f8...), v1.0.1 (5d8dde4b..., peeled b32840e7...), v1.1.0 (6ea5ede9..., peeled 2e677a60...) and nothing else.
+- Note on the Task 1 verify: it greps `undoalone` / `adapteralone` literally in the evidence; the probe prints the undo and voice-adapter consumer-tree lines (lines `consumer: \--- ...voice-action-engine-undo:v1.1.0` and `...-voice-adapter:v1.1.0`) but not those project names, so that literal grep cannot match. The substantive criterion (each coordinate resolves from an empty cache) is met by those lines; recorded as is, evidence not edited.
+
+jitpack_tag: green
+
+## Close (plan 20-11 Task 2)
+
+closed: 2026-10-08T02:12:00Z
+grant: consumed
+heavy_gates: green
+MemAvailable at close 10456636 kB; SwapFree 212 kB (strict R2 swap check red, accepted under the standing relayed ruling).
+The "quiet done" message to the orchestrator is sent in Task 3 (see evidence/relay-log.md).
+
+quiet done

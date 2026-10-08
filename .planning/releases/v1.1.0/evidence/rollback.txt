@@ -1,0 +1,20 @@
+scenario: none
+rollback: not needed
+
+decided by plan 20-12 Task 1 entry guard, 2026-10-08T02:15Z, from facts on disk:
+
+last hand-off block of evidence/cut-handoff.txt (quoted):
+  handoff: none
+  from: 20-11
+  outcome: ok
+  at: 2026-10-08T02:12:00Z
+
+git ls-remote --tags origin refs/tags/v1.1.0
+  6ea5ede973291cde5ddb9941bfbf32ff997d798c	refs/tags/v1.1.0
+git tag -l v1.1.0
+  v1.1.0
+
+20-QUIET-WINDOW-03.md: cut_result: ok, jitpack_tag: green, grant: consumed, heavy_gates: green
+(windows 01, 01b, 02, 02b: grant consumed, heavy_gates green)
+
+Facts agree with scenario none (tag on origin, cut_result ok, jitpack_tag green). The tag is never moved, deleted or re-created.

@@ -1,0 +1,45 @@
+== JitPack live probe  ref=v1.1.0  repo=Ygaray/voice-action-engine  2026-10-08T02:00:01Z
+   status=none
+   status=ok
+   api: {"version":"v1.1.0","status":"ok","commit":"2e677a604f472f10e11062509f933cd25e1be79c","isTag":true,"modules":["voice-action-engine-core","voice-action-engine-keystore","voice-action-engine-providers","voice-action-engine-undo","voice-action-engine-voice-adapter"]}
+   log: Running install command:
+   log: ./gradlew :core:publishReleasePublicationToMavenLocal :providers:publishReleasePublicationToMavenLocal :keystore:publishReleasePublicationToMavenLocal :undo:publishReleasePublicationToMavenLocal :voice-adapter:publishReleasePublicationToMavenLocal
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.1.0
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.1.0
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.1.0
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:v1.1.0
+   log: Found artifact: com.github.Ygaray.voice-action-engine:voice-action-engine-undo:v1.1.0
+   served coordinates:
+     com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.1.0
+     com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.1.0
+     com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:v1.1.0
+     com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.1.0
+     com.github.Ygaray.voice-action-engine:voice-action-engine-undo:v1.1.0
+   voice-action-engine-core: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers -> core dependency version line: <version>v1.1.0</version>
+   voice-action-engine-keystore: pom 200, module 200 <packaging>aar</packaging>
+   voice-action-engine-keystore -> core dependency version line: <version>v1.1.0</version>
+   voice-action-engine-undo: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-undo -> no core dependency (dependsOnCore=no)
+   voice-action-engine-voice-adapter: pom 200, module 200 <packaging>aar</packaging>
+   voice-action-engine-voice-adapter -> core dependency version line: <version>v1.1.0</version>
+   aggregator pom: 200, lists all expected modules, no forbidden artifact
+   running consumer probe (empty Gradle cache)...
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.1.0
+   consumer:      +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.1.0
+   consumer: +--- com.github.Ygaray.voice-action-engine:voice-action-engine-providers:v1.1.0
+   consumer: |    +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.1.0
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-keystore:v1.1.0
+   consumer:      +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.1.0 (*)
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-undo:v1.1.0
+   consumer: \--- com.github.Ygaray.voice-action-engine:voice-action-engine-voice-adapter:v1.1.0
+   consumer:      +--- com.github.Ygaray.voice-action-engine:voice-action-engine-core:v1.1.0
+   consumer: PROBE OK (com.github.Ygaray.voice-action-engine:*:v1.1.0 from https://jitpack.io) workdir removed on exit
+LIVE PROBE PASS ref=v1.1.0  (workdir removed on exit)
+
+-- executor annotation (plan 20-11 Task 1 step 1; NOT probe output, the probe lines above are verbatim) --
+probe exit status: 0 (one run, no retry), run 2026-10-08T02:00:01Z..02:05:15Z, R2 recipe, no other Gradle process.
+Real C11 (step 2) also ran before the master's STOP: 2026-10-08T02:00:15Z, `VAE_DOCS_REQUIRE_PINNED_TAG=1 bash scripts/verify-docs-coverage.sh`,
+exit 0, last line `DOC COVERAGE OK checks=32 types=119`, stderr empty (no C23 note). Read-only; it is not re-run.
+Stopped here at the milestone master's instruction: window file step 3, jitpack_tag line, ledger row, closes and commits NOT done (uncommitted).

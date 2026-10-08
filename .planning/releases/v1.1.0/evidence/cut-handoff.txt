@@ -21,3 +21,9 @@ from: 20-08
 outcome: superseded
 reason: RT-12 orchestrator ruling A: D-02 core removed=12 is a tool false positive (internal constructors + synthetic accessor); waiver recorded; W unchanged; no restart
 at: 2026-10-08T01:06:30Z
+
+handoff: none
+from: 20-11
+outcome: ok
+reason: tag v1.1.0 pushed, jitpack_tag green (LIVE PROBE PASS ref=v1.1.0, all five coordinates from an empty cache), real strict docs gate DOC COVERAGE OK checks=32 types=119; plan 20-12 is a recorded no-op
+at: 2026-10-08T02:12:00Z

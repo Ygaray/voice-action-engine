@@ -1,0 +1,86 @@
+# v1.1.0 release-cut evidence: preflight (plan 20-10 Task 2) and cut (plan 20-10 Task 3)
+# window 20-10 (file 20-QUIET-WINDOW-03.md), grant open 2026-10-08T01:32:51Z relayed_by yahir-gsd-control-plane-3b
+# Rule C0: this file stays uncommitted until plan 20-11.
+
+## PREFLIGHT (one run, no retry, no earlyoom kill)
+
+command: GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m" scripts/release-cut.sh preflight v1.1.0 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 > <scratch log> 2>&1   (not piped; exit status = $? of the run itself)
+HEAD = origin/main = 2e677a604f472f10e11062509f933cd25e1be79c ; W = 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
+start_utc: 2026-10-08T01:34:06Z
+end_utc: 2026-10-08T01:43:45Z
+exit_status: 0
+MemAvailable_before_kB: 13828736 (read 2026-10-08T01:32:51Z; 5 GiB guard re-checked passing at 01:34:03Z)  SwapTotal_kB: 2097148  SwapFree_kB: 232016
+MemAvailable_after_kB: 14525956  SwapFree_after_kB: 232108
+gradle processes before: none (pgrep '[G]radle' empty; VAE wrapper count 0)
+
+--- preflight log (verbatim, whole) ---
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+API NOTE: new in this release (no baseline): undo voice-adapter
+API NOTE: api.txt compared with the baseline released in v1.0.1 (additive only)
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.1.0 commit=2e677a604f472f10e11062509f933cd25e1be79c wiring=4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+--- end of preflight log ---
+
+=== CUT (plan 20-10 Task 3, after the orchestrator's OK on 'tag ready v1.1.0 2e677a604f472f10e11062509f933cd25e1be79c', relay 7) ===
+command: GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx1536m" scripts/release-cut.sh cut v1.1.0 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 2e677a604f472f10e11062509f933cd25e1be79c > <scratch log> 2>&1   (not piped; exit status = $? of the run itself)
+HEAD = origin/main = 2e677a604f472f10e11062509f933cd25e1be79c before the run; git tag -l 'v1.1*' empty; origin listed v1.0.0 and v1.0.1 only
+start_utc: 2026-10-08T01:50:06Z
+end_utc: 2026-10-08T01:59:01Z
+exit_status: 0
+attempts: 1 (no earlyoom kill, no retry)
+MemAvailable_before_kB: 10688972 (2026-10-08T01:50:00Z; 5 GiB guard passed)  SwapTotal_kB: 2097148  SwapFree_kB: 128 (strict R2 swap check red; accepted under the standing relayed ruling, MemAvailable >= 8 GiB)
+MemAvailable_after_kB: 10681304  SwapFree_after_kB: 188
+gradle processes before: none (pgrep '[G]radle' empty)
+
+--- cut log (verbatim, whole) ---
+GATE OK tag-format
+GATE OK tags-absent
+GATE OK create-tag
+GATE OK clean
+GATE OK pushed
+GATE OK wiring
+GATE OK diff
+GATE OK waiver
+GATE OK check
+GATE OK api-dump
+GATE OK hygiene
+API NOTE: new in this release (no baseline): undo voice-adapter
+API NOTE: api.txt compared with the baseline released in v1.0.1 (additive only)
+GATE OK api-check
+GATE OK dry-run
+content_check=skipped(no local fixture)
+GATE OK leak
+GATE OK version
+PREFLIGHT OK tag=v1.1.0 commit=2e677a604f472f10e11062509f933cd25e1be79c wiring=4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 gates=tag-format,tags-absent,create-tag,clean,pushed,wiring,diff,waiver,check,api-dump,hygiene,api-check,dry-run,leak,version
+GATE OK tags-absent
+To https://github.com/Ygaray/voice-action-engine.git
+ * [new tag]         v1.1.0 -> v1.1.0
+CUT OK tag=v1.1.0 commit=2e677a604f472f10e11062509f933cd25e1be79c tag_object=6ea5ede973291cde5ddb9941bfbf32ff997d798c pushed=refs/tags/v1.1.0
+--- end of cut log ---
+
+post-cut verification (2026-10-08T01:59:09Z):
+git cat-file -t refs/tags/v1.1.0 -> tag
+git rev-parse refs/tags/v1.1.0 -> 6ea5ede973291cde5ddb9941bfbf32ff997d798c
+git rev-parse refs/tags/v1.1.0^{commit} -> 2e677a604f472f10e11062509f933cd25e1be79c (= HEAD = approved commit)
+tagger date: 2026-10-08T01:58:59Z
+git ls-remote --tags origin:
+343fd3f28676f4bf4bfb76a1b6ad0cb23b59bfaa	refs/tags/v1.0.0
+efc060f8fe462b71af2e4586b75a97db119ebabd	refs/tags/v1.0.0^{}
+5d8dde4b0115c8907a457fd2d21d294db270b5f5	refs/tags/v1.0.1
+b32840e7ebe7066bfe8432b71ddb9e0eaca8e5f3	refs/tags/v1.0.1^{}
+6ea5ede973291cde5ddb9941bfbf32ff997d798c	refs/tags/v1.1.0
+2e677a604f472f10e11062509f933cd25e1be79c	refs/tags/v1.1.0^{}
