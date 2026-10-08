@@ -60,7 +60,7 @@ documents them so an agent can wire them. Phase 20 cuts the tag.
 - [x] **Phase 17: Run-Level Undo** - A18: standalone `:undo` journal (entity adapters, compensators, refuse-loudly check) + pipeline integration for "Undo all (N)" (completed 2026-10-06)
 - [x] **Phase 18: Voice Adapter** - §6.2 step 12: `:stt` v0.7.0 final segment → `CommandInput`, `:core` still hub-free (completed 2026-10-06)
 - [x] **Phase 19: Sample Gate-1 & Docs** - grammar, plan, router and undo-all proven end to end on the TESTER; docs an agent can wire from (completed 2026-10-07)
-- [ ] **Phase 20: Cut v1.1.0** - §6.2 step 13 / §11: gated release, JitPack for every published module, ledger row to the orchestrator
+- [x] **Phase 20: Cut v1.1.0** - §6.2 step 13 / §11: gated release, JitPack for every published module, ledger row to the orchestrator (completed 2026-10-07)
 
 #### Dependencies & Parallelism
 
@@ -568,15 +568,15 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 20-10-PLAN.md — non-autonomous: quiet window 20-03, 15-gate preflight, C11 clone simulation, "tag ready v1.1.0 <sha>", the cut (RT-09(2), RT-09(4), C11)
+- [x] 20-10-PLAN.md — non-autonomous: quiet window 20-03, 15-gate preflight, C11 clone simulation, "tag ready v1.1.0 <sha>", the cut (RT-09(2), RT-09(4), C11)
 
 **Wave 10** *(blocked on Wave 9 completion)*
 
-- [ ] 20-11-PLAN.md — non-autonomous: live probe of the tag, strict docs gate, LEDGER-ROW.md relayed to the orchestrator (never committed to section 11), record pushed, windows closed (SC2, SC3, RT-09(2))
+- [x] 20-11-PLAN.md — non-autonomous: live probe of the tag, strict docs gate, LEDGER-ROW.md relayed to the orchestrator (never committed to section 11), record pushed, windows closed (SC2, SC3, RT-09(2))
 
 **Wave 11** *(blocked on Wave 10 completion)*
 
-- [ ] 20-12-PLAN.md — non-autonomous, conditional: scenario decision and, only if no tag exists, revert of the v1.1.0 announcement in README and ECOSYSTEM (RT-09(3))
+- [x] 20-12-PLAN.md — non-autonomous, conditional: scenario decision and, only if no tag exists, revert of the v1.1.0 announcement in README and ECOSYSTEM (RT-09(3))
 
 **Host note**: five v1.0.1 cut attempts were earlyoom-killed. Run the cut in a quiet window with swap headroom and a single-use Gradle daemon.
 
@@ -595,7 +595,7 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 17. Run-Level Undo | v1.1 | 10/10 | Complete    | 2026-10-06 |
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
 | 19. Sample Gate-1 & Docs | v1.1 | 14/14 | Complete    | 2026-10-07 |
-| 20. Cut v1.1.0 | v1.1 | 10/13 | In Progress|  |
+| 20. Cut v1.1.0 | v1.1 | 13/13 | Complete    | 2026-10-07 |
 
 ## Backlog
 

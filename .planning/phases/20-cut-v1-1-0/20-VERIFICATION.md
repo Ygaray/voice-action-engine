@@ -5,13 +5,38 @@ status: passed
 goal_met: true
 score: 3/3 success criteria verified
 covered_files:
-  - .planning/REQUIREMENTS.md
-  - .planning/ROADMAP.md
+  - .planning/phases/20-cut-v1-1-0/20-01-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-01-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-02-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-02-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-03-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-03-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-04-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-04-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-05-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-05-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-06-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-06-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-07-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-07-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-08-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-08-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-09-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-09-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-10-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-10-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-11-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-11-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-12-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-12-SUMMARY.md
+  - .planning/phases/20-cut-v1-1-0/20-13-PLAN.md
+  - .planning/phases/20-cut-v1-1-0/20-13-SUMMARY.md
   - .planning/releases/v1.1.0/LEDGER-ROW.md
   - .planning/releases/v1.1.0/WIRING-RERUN.md
   - .planning/releases/v1.1.0/evidence/cut-v1.1.0.txt
   - .planning/releases/v1.1.0/evidence/live-probe-v1.1.0.txt
-covered_digest: "v1:sha256:7b5083db113f76baf11e6f42c0254740b67e3a71bad949e3865ba186bee940b6"
+  - scripts/verify-binary-diff.sh
+covered_digest: "v1:sha256:2a97880e40ef6ecd7e4ea9659aaafa3c5bf2b18ff48c70531cc1388f5a2a2923"
 behavior_unverified: 0
 overrides_applied: 1
 overrides:
