@@ -125,3 +125,36 @@ time_utc: 2026-10-08T00:47Z (recording time; the push was performed about 00:46Z
 (1) open 20-02 (plans 20-08 + 20-09, one grant, <=2 h). I hold the lock (45a494f). Swap ruling restated verbatim for this window: "Orchestrator 3b, 2026-10-07: swap-full or low swap is accepted for the P20 quiet windows provided MemAvailable >= 8 GiB at window open. In-window: pause a gate below 5 GiB, single daemon, one retry per earlyoom kill." MemAvailable is 13.3 GiB, so it's met. Run the C2 probe only after the push shows GATE OK pushed. Send "quiet done" with the C2/D-02/C4 lines."
 
 **Push performed:** `git push origin main` -> `9780113..26dcd10  main -> main`. Immediately after (before this log was committed): `scripts/release-cut.sh gate pushed` printed `GATE OK pushed`; `git merge-base --is-ancestor 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 origin/main` succeeded. `git ls-remote origin refs/heads/main` = `26dcd10bb53a55693819e10649da2e165d85ab9c refs/heads/main`. Tags on origin: only v1.0.0 and v1.0.1 (plus peeled lines).
+
+## Relay 4: quiet window 20-09 and the C4 dispatch (plan 20-09 Tasks 1 and 2)
+
+relayed_by: yahir-gsd-control-plane-3b
+time_utc: 2026-10-08T01:12:35Z (grant), recorded 2026-10-08T01:23Z
+
+**Message sent by the master (verbatim):**
+
+`quiet window 20-09`
+
+**Answer received (resume signal, verbatim):**
+
+`quiet window 20-09 open 2026-10-08 (UTC now) relayed_by=yahir-gsd-control-plane-3b`
+
+**Orchestrator text (verbatim):**
+
+> open 20-09. I hold the lock (069bfb1) and MemAvailable is 13.7 GiB; the standing swap ruling applies. The throwaway CLAUDE_CONFIG_DIR must never be your real ~/.claude, and delete it afterwards with a plain rm. Send "quiet done" with the WIRING TEST line and the empty-cache verify line, then the push handshake.
+> Ledger: put ONE short clause in contents, e.g. "core binary diff vs v1.0.1: 12 non-API lines (internal ctors + synthetics) waived, RT-12", and keep the full mapping in evidence. Consumers read contents; the detail lives in evidence.
+
+**Dispatch facts (reported by the orchestrating layer, which ran the headless agent):**
+
+- dispatched_by: the milestone master / orchestrating layer
+- command: headless `claude -p --model sonnet --permission-mode bypassPermissions --no-session-persistence`, cwd `/tmp/vae-wiring-20`,
+  `CLAUDE_CONFIG_DIR` = a throwaway directory under the session scratchpad (`wiring-cfg-20-09`) holding only a copy of the credentials file;
+  prompt = TASK.md verbatim plus one working-directory line
+- start 2026-10-08T01:16:18Z, end 2026-10-08T01:18:42Z, exit 0; final message 1151 bytes
+- cfg_removed=yes (plain `rm`); `find /tmp/vae-wiring-20 -name .credentials.json` finds nothing
+- resume form: `agent done dir=/tmp/vae-wiring-20 start=2026-10-08T01:16:18Z end=2026-10-08T01:18:42Z cfg_removed=yes`
+
+**Lines for "quiet done" (window 20-09):** the WIRING TEST line `WIRING TEST: PASS checks=13` (empty-cache verify
+`scripts/agent-wiring-test.sh verify /tmp/vae-wiring-20 4bdb663b4c`, 2026-10-08T01:19:34Z..01:21:03Z, exit 0); the agent's own build
+`./gradlew :jvmconsumer:test :app:compileDebugKotlin` green, 6 WireTest tests pass. The push handshake for this plan is appended after the
+push.

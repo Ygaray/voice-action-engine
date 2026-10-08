@@ -6,11 +6,16 @@ date: 2026-10-08T00:47:19Z
 opened: 2026-10-08T00:47:19Z
 gates_started: 2026-10-08T00:47:54Z
 closed: 2026-10-08T00:57:48Z
-heavy_gates: red
+heavy_gates: green
+first_attempt: red (D-02 core binary diff, waived per RT-12; superseded by window 20-09, see 20-QUIET-WINDOW-02b.md)
 timebox_s: 7200
 requested: 2026-10-08T00:45Z
 wiring_sha: 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
 w10: 4bdb663b4c
+
+Header updated 2026-10-08T01:23Z at the close of window 20-09: the header `heavy_gates` reflects the final green result. The C2 live probe
+passed here, the D-02 core binary diff was waived by RT-12 (`d02: waived (RT-12)` below), and the C4 wiring rerun passed in
+`20-QUIET-WINDOW-02b.md` (`WIRING TEST: PASS checks=13`). The body below is the unchanged red record of this window's first attempt.
 
 Only the orchestrator relay may change the `grant` line (RT-09(4), D-07, rule R5). Until a relayed answer to "quiet window 20-02" is
 quoted below, the grant is pending and no Gradle or JitPack step runs. The timebox clock (7200 s) starts at `gates_started:`, written

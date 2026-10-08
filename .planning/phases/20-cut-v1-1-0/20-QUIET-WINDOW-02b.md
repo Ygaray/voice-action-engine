@@ -1,12 +1,12 @@
 # 20-09 host quiet-window request 20-09 (file 02b; written at the completion of plan 20-08)
 
-grant: open
+grant: consumed
 relayed_by: yahir-gsd-control-plane-3b
 date: 2026-10-08
 opened: 2026-10-08T01:12:35Z
-gates_started:
-closed:
-heavy_gates:
+gates_started: 2026-10-08T01:16:18Z
+closed: 2026-10-08T01:23:20Z
+heavy_gates: green
 timebox_s: 7200
 requested: 2026-10-08T01:09Z
 wiring_sha: 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
@@ -100,3 +100,50 @@ WIRING PREPARED dir=/tmp/vae-wiring-20 version=4bdb663b4c
 - the workspace is left in place for the agent run and the empty-cache verify (removed in plan 20-09 Task 2); no throwaway
   `CLAUDE_CONFIG_DIR` has been created yet (the dispatch is the orchestrating layer's job; it must never be the real `~/.claude`, and is
   removed afterwards with a plain `rm`)
+
+### Step 2b - C4 dispatch (the orchestrating layer)
+
+- Headless `claude -p --model sonnet --permission-mode bypassPermissions --no-session-persistence`, cwd `/tmp/vae-wiring-20`,
+  `CLAUDE_CONFIG_DIR` = a throwaway directory under the session scratchpad (`wiring-cfg-20-09`) holding only a copy of the credentials file
+  (never the real `~/.claude`); the prompt was TASK.md verbatim plus one working-directory line
+- dispatched_by: the milestone master / orchestrating layer; start 2026-10-08T01:16:18Z, end 2026-10-08T01:18:42Z, exit 0
+  (`gates_started:` = the start, the agent's own Gradle build being the first heavy step)
+- cfg_removed=yes (plain `rm`); `find /tmp/vae-wiring-20 -name .credentials.json` finds nothing
+- agent result (its own words): `./gradlew :jvmconsumer:test :app:compileDebugKotlin` green, 6 `WireTest` tests pass, 3 stumbles in STUMBLES.md
+
+### Step 3 - C4 verify and record
+
+Pre-check (2026-10-08T01:19:26Z): MemAvailable 12279972 kB (11.7 GiB, at least 5 GiB); SwapFree 231520 kB (standing swap ruling); the only
+Gradle process was the agent's own idle daemon (pid 1039601, started 01:17:46Z), not touched (never killed, no `--stop`); the verify runs
+`--no-daemon` with its own empty cache, so it was the one active Gradle build.
+
+Command (one run, R2 low-memory recipe in GRADLE_OPTS, not piped):
+`scripts/agent-wiring-test.sh verify /tmp/vae-wiring-20 4bdb663b4c`
+
+start: 2026-10-08T01:19:34Z  end: 2026-10-08T01:21:03Z  exit status: 0
+MemAvailable before 12319880 kB, after 12305772 kB. No earlyoom kill, no retry.
+
+Final lines (verbatim, the whole output):
+
+```
+WIRING TEST: PASS checks=13
+```
+
+- Isolation audit: ancestors_clean yes; CONSULTED.md workspace-relative only (consulted_only_workspace true); no URL in the final message or
+  CONSULTED.md; no engine or sample source path; no `.credentials.json`; key/URL/home-path scan of STUMBLES.md, CONSULTED.md and the final
+  message: no hit
+- Stumbles: none of the five Phase 19 stumbles recurred; the three new ones are all clarity-only (missing reference-table entries, every
+  name and shape correct against W's source); none blocks the tag (triage table in WIRING-RERUN.md)
+- Evidence: `evidence/wiring-stumbles-p20.txt`, `evidence/wiring-consulted-p20.txt` (verbatim copies), `evidence/gate1-delta-final.txt`
+- Workspace `/tmp/vae-wiring-20` removed with a plain `rm -rf` at 2026-10-08T01:21Z after the copy
+- Record: WIRING-RERUN.md rewritten for W (commit 35015085c8a36143b2eb14d46321de336810a509);
+  `scripts/release-cut.sh gate wiring 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1` -> `GATE OK wiring` (rc 0)
+- Sync before close: `git fetch origin main` rc 0, origin/main = `26dcd10bb53a55693819e10649da2e165d85ab9c`, an ancestor of HEAD (no new
+  commits, no merge)
+
+## Close
+
+closed: 2026-10-08T01:23:20Z, heavy_gates green (C4 PASS on W10 `4bdb663b4c`); MemAvailable at close 12204624 kB. The cheap gates and the
+push handshake (`pushing main <sha>`) follow outside the heavy part of the window; plan 20-09 Task 3 records them.
+
+quiet done
