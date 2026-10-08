@@ -4,6 +4,7 @@ grant: open
 relayed_by: yahir-gsd-control-plane-3b
 date: 2026-10-08T00:47:19Z
 opened: 2026-10-08T00:47:19Z
+gates_started: 2026-10-08T00:47:54Z
 timebox_s: 7200
 requested: 2026-10-08T00:45Z
 wiring_sha: 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
@@ -77,3 +78,40 @@ Immediately after the push (before this file was committed): `scripts/release-cu
 **Readings at open (2026-10-08T00:47Z):** MemAvailable 13610916 kB (13.0 GiB, at least 8 GiB, so the relayed swap ruling applies); Swap 2.0 GiB total, 224 MiB free (accepted by the relayed ruling); no Gradle process running (`pgrep -af '[G]radle'` empty).
 
 The window is NOT closed by plan 20-08: it also covers plan 20-09, which closes it.
+
+## Results
+
+### Step 1 - C2 live probe
+
+Pre-check before the probe (2026-10-08T00:47:54Z): MemAvailable 13660244 kB (13.0 GiB, at least 5 GiB); swap per the relayed ruling;
+no Gradle process running. `gates_started: 2026-10-08T00:47:54Z`.
+
+Command (one run, low-memory recipe R2 in GRADLE_OPTS, not piped):
+`EVIDENCE_FILE=.planning/releases/v1.1.0/evidence/live-probe-W.txt TIMEOUT_S=2400 scripts/jitpack-live-probe.sh 4bdb663b4c`
+
+start: 2026-10-08T00:47:57Z  end: about 2026-10-08T00:53Z (completion read at 00:53:28Z)  exit status: 0
+MemAvailable after: 13934180 kB (13.3 GiB). No earlyoom kill, no retry.
+
+Final lines (verbatim):
+
+```
+   api: {"version":"4bdb663b4c","status":"ok","commit":"4bdb663b4c7c1bf02d4588751705dfcc8b356ef1","isTag":false,"modules":["voice-action-engine-core","voice-action-engine-keystore","voice-action-engine-providers","voice-action-engine-undo","voice-action-engine-voice-adapter"]}
+   voice-action-engine-core: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-providers -> core dependency version line: <version>4bdb663b4c</version>
+   voice-action-engine-keystore: pom 200, module 200 <packaging>aar</packaging>
+   voice-action-engine-keystore -> core dependency version line: <version>4bdb663b4c</version>
+   voice-action-engine-undo: pom 200, module 200 <packaging>jar(default)</packaging>
+   voice-action-engine-undo -> no core dependency (dependsOnCore=no)
+   voice-action-engine-voice-adapter: pom 200, module 200 <packaging>aar</packaging>
+   voice-action-engine-voice-adapter -> core dependency version line: <version>4bdb663b4c</version>
+   aggregator pom: 200, lists all expected modules, no forbidden artifact
+   consumer: PROBE OK (com.github.Ygaray.voice-action-engine:*:4bdb663b4c from https://jitpack.io) workdir removed on exit
+LIVE PROBE PASS ref=4bdb663b4c  (workdir removed on exit)
+```
+
+JitPack reports commit 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 (= W), status ok, exactly the five manifest artifacts, no sample.
+The consumer probe ran :jvmconsumer, :app, :undoalone and :adapteralone on an empty Gradle cache (see the executor annotation at
+the end of live-probe-W.txt for why the :undoalone/:adapteralone header lines are not in the filtered output).
+
+C2 discharged on W10 (4bdb663b4c).
