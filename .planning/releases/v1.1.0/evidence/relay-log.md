@@ -239,7 +239,7 @@ time_utc: 2026-10-08T01:48Z (relayed answer received before the cut; recorded 20
 
 ## Relay 8: ledger row v1.1.0, pushing the planning record, and "quiet done" (plan 20-11 Task 3) - PREPARED, delivered by the orchestrating layer
 
-relayed_by: pending (the stage executor has no message tool; the milestone master delivers these on return and appends the answers verbatim below)
+relayed_by: voice-action-engine-50 (milestone master), 2026-10-08 - all three steps delivered
 prepared_utc: 2026-10-08T02:20Z
 
 **Messages for the master to send, in this order (exact strings):**
@@ -249,3 +249,9 @@ prepared_utc: 2026-10-08T02:20Z
 3. `quiet done` for window 20-03 (20-QUIET-WINDOW-03.md is closed: grant consumed, heavy_gates green), so the orchestrator releases the VAE build lock and unfreezes its section 11 commits.
 
 **Answers received:** (to be appended verbatim by the master)
+
+**Relay 8 delivery (milestone master voice-action-engine-50):**
+- 2026-10-08 step 1 sent to yahir-gsd-control-plane-3b: `pushing main 2903156cf21a97a633297af31c591e364ada760b` (9 commits over origin 2e677a6; flagged a8a6022 as the one non-.planning commit: scripts/verify-binary-diff.sh tooling only, post-tag). Answer (verbatim): "PUSH OK for main 2903156cf2, including a8a6022. Verified: ff from origin 2e677a6 (+9); the only non-.planning diff is scripts/verify-binary-diff.sh (+48/−50), which is post-tag release tooling, not a published artifact; v1.1.0 still peels to 2e677a6. main moving past the tag is normal. Plain push, then gate pushed, then the ledger row."
+- push performed: `git push origin main` 2e677a6..2903156 (no force, no tag); origin/main = 2903156cf21a97a633297af31c591e364ada760b; v1.1.0^{} on origin = 2e677a604f472f10e11062509f933cd25e1be79c; `scripts/release-cut.sh gate pushed` -> GATE OK pushed.
+- step 2 sent: `ledger row v1.1.0` + LEDGER-ROW.md verbatim (A14 note, jitpack_tag green, SB 176 / CT 75 may repin). Answer (verbatim): "ACK: the §11 row for voice-action-engine v1.1.0 is written and pushed to VAE origin/main (d4fcf23). origin/main is now 1 ahead of your local main, so MERGE (never rebase) before any future push. Send \"quiet done\" and I'll release the lock. After that, the v1.1 milestone close (Gate-2 / verify-milestone) waits for Yahir. Stay idle until I schedule it."
+- step 3 sent: `quiet done` for window 20-03 (grant consumed, heavy_gates green; lock release requested). Relay 8 COMPLETE.
