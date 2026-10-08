@@ -7,10 +7,10 @@ current_phase_name: Cut v1.1.0
 current_plan: 8
 status: executing
 stopped_at: Completed 20-07-PLAN.md (window 20-07b green, W fixed); next plan 20-08 not started
-last_updated: "2026-10-08T00:43:37.551Z"
+last_updated: "2026-10-08T00:57:56.700Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 20 execution started
-state_head: 929e48fcde7923dface3792fb3b4bf8623c862ed
+state_head: 5247a85f7fc25229761ddb9bc1ecee87d3ffb742
 progress:
   total_phases: 9
   completed_phases: 0
@@ -258,6 +258,7 @@ None yet.
 - **§11:** always `git pull --rebase` before committing; peers commit contract changes to this repo.
 - 19-12 (resolved): detekt MaxLineLength at DocSnippetAdapterTest.kt:14 fixed in 090fd8e; all autonomous gates green; wiring SHA candidate is 090fd8ec761178d5922523faaf24dc3ffb7b686b (only .planning changes after it)
 - 20-07 red: selftest all control contract-ledger-only fails (stale fixture: contract_append_row appends at EOF, contract tail changed at eef5cb9); gap plan on scripts/release-cut.sh, then a new quiet window; no W fixed
+- P20 20-08: D-02 core BINARY DIFF FAIL removed=12 (default-valued ctor params dropped v1.0.1 signatures); window 20-02 closed red; gap fix pending orchestrator ruling; cut not failed/abandoned
 
 ## Deferred Items
 

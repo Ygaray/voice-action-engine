@@ -1,10 +1,12 @@
 # 20-08 host quiet-window request 20-02 (written by plan 20-08 Task 1 preparation)
 
-grant: open
+grant: consumed
 relayed_by: yahir-gsd-control-plane-3b
 date: 2026-10-08T00:47:19Z
 opened: 2026-10-08T00:47:19Z
 gates_started: 2026-10-08T00:47:54Z
+closed: 2026-10-08T00:57:48Z
+heavy_gates: red
 timebox_s: 7200
 requested: 2026-10-08T00:45Z
 wiring_sha: 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
@@ -132,3 +134,10 @@ and their `$default` synthetics are gone), plus 1 ACC_SYNTHETIC accessor (`Singl
 must_have-5 red result: a binary break Metalava missed, which blocks the tag. The executor stops at recording. The window stays
 `grant: open` (no `closed:`, no `heavy_gates`, no "quiet done"), and no rule H1 block is appended. The milestone master decides on
 closing the window red, H1 / plan 20-12 and the gap plan.
+
+## Close
+
+quiet done
+
+Closed red at the master's instruction after the D-02 core BINARY DIFF FAIL (removed=12). The C2 live probe PASSED on W10 (4bdb663b4c) earlier in
+the window. Plan 20-09 (C4 wiring rerun) was NOT run. The window is closed so the orchestrator can release the lock. The step results above are unchanged.

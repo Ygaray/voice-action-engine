@@ -9,3 +9,9 @@ from: 20-07
 outcome: superseded
 reason: RT-11 orchestrator GO-fix; cut neither failed nor abandoned; gap plan 20-13 fixes contract_append_row
 at: 2026-10-08T00:12:59Z
+
+handoff: gap-fix-pending-orchestrator-ruling
+from: 20-08
+outcome: red
+reason: BINARY DIFF FAIL: removed=12 (core; default-valued constructors dropped v1.0.1 signatures); gap fix pending orchestrator ruling; the cut is neither failed nor abandoned
+at: 2026-10-08T00:57:48Z
