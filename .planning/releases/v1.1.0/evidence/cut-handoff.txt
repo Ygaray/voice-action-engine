@@ -3,3 +3,9 @@ from: 20-07
 outcome: red
 reason: FAIL  [contract-ledger-only] expected GREEN but exited 1: 'RELEASE GATE FAIL diff: 1 path(s) changed since the wiring SHA 95b0901ff4 outside the module api.txt files (scripts/modules.list) and .planning/ (the wiring pas' no run recorded a result
 at: 2026-10-08T00:05:43Z
+
+handoff: none
+from: 20-07
+outcome: superseded
+reason: RT-11 orchestrator GO-fix; cut neither failed nor abandoned; gap plan 20-13 fixes contract_append_row
+at: 2026-10-08T00:12:59Z
