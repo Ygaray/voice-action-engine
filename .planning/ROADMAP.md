@@ -596,3 +596,14 @@ Phases execute in numeric order: 12 → 13 → 14 → 15 → 16 → 17 → 18 �
 | 18. Voice Adapter | v1.1 | 8/8 | Complete    | 2026-10-06 |
 | 19. Sample Gate-1 & Docs | v1.1 | 14/14 | Complete    | 2026-10-07 |
 | 20. Cut v1.1.0 | v1.1 | 8/13 | In Progress|  |
+
+## Backlog
+
+### Phase 999.1: binary-diff helper should read Kotlin metadata visibility (skip internal ctors + synthetic access$ members) (BACKLOG)
+
+**Goal:** Target milestone v1.2 (tooling only, no library code change). `scripts/verify-binary-diff.sh` lists JVM-public members of the v1.0.1 artifacts that are missing from the new artifacts, but it reads javap flags, not Kotlin metadata. Kotlin emits an `internal constructor(` as a public JVM `<init>` (plus its `$default` and DefaultConstructorMarker synthetics), and the compiler emits `access$...` synthetic accessors for private members, so a refactor that only touches internal constructors reads as a removal. At the v1.1.0 cut this made the core diff report `removed=12` (11 members of internal constructors + 1 synthetic accessor `access$submitAll`), waived by RT-12 (orchestrator 3b): see `.planning/releases/v1.1.0/evidence/binary-diff.txt` (section D-02 WAIVER) and `.planning/releases/v1.1.0/evidence/binary-diff-waiver.txt`. Wanted: the helper reads the `kotlin.Metadata` visibility (or skips ACC_SYNTHETIC members and constructors that Kotlin marks internal) and counts those under `internal_removed`-style reporting instead of `removed`, with selftest cases for an internal-ctor parameter change and a synthetic accessor, so a clean run needs no waiver. Not a code change in the engine; do not touch the helper before the v1.1.0 cut (W is frozen).
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
