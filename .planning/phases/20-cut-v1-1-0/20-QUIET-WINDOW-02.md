@@ -115,3 +115,20 @@ The consumer probe ran :jvmconsumer, :app, :undoalone and :adapteralone on an em
 the end of live-probe-W.txt for why the :undoalone/:adapteralone header lines are not in the filtered output).
 
 C2 discharged on W10 (4bdb663b4c).
+
+### Step 2 - D-02 binary diff (RED, recorded only)
+
+Run 2026-10-08T00:54Z..00:55Z; no Gradle (curl from jitpack.io + javap). Evidence: .planning/releases/v1.1.0/evidence/binary-diff.txt.
+MemAvailable:   13928168 kB at 2026-10-08T00:56:02Z.
+
+```
+core:      BINARY DIFF FAIL: removed=12     (exit status 1)
+providers: BINARY DIFF OK classes=14 removed=0 internal_removed=0 added=0   (exit status 0)
+keystore:  BINARY DIFF OK classes=9 removed=0 internal_removed=0 added=1    (exit status 0)
+```
+
+core: 11 real public-constructor removals across 8 classes (a defaulted parameter was added in v1.1.0, so the v1.0.1 JVM constructors
+and their `$default` synthetics are gone), plus 1 ACC_SYNTHETIC accessor (`SingleShotStrategy.access$submitAll`). This is the
+must_have-5 red result: a binary break Metalava missed, which blocks the tag. The executor stops at recording. The window stays
+`grant: open` (no `closed:`, no `heavy_gates`, no "quiet done"), and no rule H1 block is appended. The milestone master decides on
+closing the window red, H1 / plan 20-12 and the gap plan.

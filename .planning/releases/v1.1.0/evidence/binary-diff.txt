@@ -1,0 +1,75 @@
+# D-02 binary diff: v1.0.1 artifacts vs the JitPack-built W10 (4bdb663b4c) artifacts
+# plan 20-08 Task 3, quiet window 20-02, recorded 2026-10-08T00:55:48Z
+# RESULT: RED. core shows removed=12 (11 real public-constructor removals + 1 synthetic accessor). providers and keystore are OK.
+
+sources (curl -fsS, all six rc=0): https://jitpack.io/com/github/Ygaray/voice-action-engine/voice-action-engine-<m>/<v>/voice-action-engine-<m>-<v>.<jar|aar>
+  core jar, providers jar, keystore aar; v = v1.0.1 and 4bdb663b4c. Old api.txt: git show v1.0.1:<module>/api.txt
+command: scripts/verify-binary-diff.sh --old <v1.0.1 artifact> --new <4bdb663b4c artifact> --api <v1.0.1 api.txt> --out <file>
+
+## core (exit status 1)
+
+REMOVED io.github.ygaray.voiceactionengine.core.commit.ActionEvent: public io.github.ygaray.voiceactionengine.core.commit.ActionEvent(java.lang.String, java.lang.String, io.github.ygaray.voiceactionengine.core.commit.ExecutedAction); descriptor: (Ljava/lang/String;Ljava/lang/String;Lio/github/ygaray/voiceactionengine/core/commit/ExecutedAction;)V
+REMOVED io.github.ygaray.voiceactionengine.core.commit.ExecutedAction: public io.github.ygaray.voiceactionengine.core.commit.ExecutedAction(int, java.lang.String, boolean, java.lang.String, java.lang.String, java.util.Map, java.lang.Object, boolean, int, kotlin.jvm.internal.DefaultConstructorMarker); descriptor: (ILjava/lang/String;ZLjava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Object;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+REMOVED io.github.ygaray.voiceactionengine.core.commit.ExecutedAction: public io.github.ygaray.voiceactionengine.core.commit.ExecutedAction(int, java.lang.String, boolean, java.lang.String, java.lang.String, java.util.Map, java.lang.Object, boolean, kotlin.jvm.internal.DefaultConstructorMarker); descriptor: (ILjava/lang/String;ZLjava/lang/String;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Object;ZLkotlin/jvm/internal/DefaultConstructorMarker;)V
+REMOVED io.github.ygaray.voiceactionengine.core.commit.HeldProposal: public io.github.ygaray.voiceactionengine.core.commit.HeldProposal(java.lang.String, java.lang.String, java.util.List<? extends io.github.ygaray.voiceactionengine.core.commit.PendingMutation>, java.lang.Object, java.lang.String); descriptor: (Ljava/lang/String;Ljava/lang/String;Ljava/util/List;Ljava/lang/Object;Ljava/lang/String;)V
+REMOVED io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome$Completed: public io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome$Completed(io.github.ygaray.voiceactionengine.core.pipeline.RunEffects, java.lang.String, io.github.ygaray.voiceactionengine.core.strategy.TerminalCall, boolean); descriptor: (Lio/github/ygaray/voiceactionengine/core/pipeline/RunEffects;Ljava/lang/String;Lio/github/ygaray/voiceactionengine/core/strategy/TerminalCall;Z)V
+REMOVED io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome$Unhandled: public io.github.ygaray.voiceactionengine.core.pipeline.CommandOutcome$Unhandled(io.github.ygaray.voiceactionengine.core.pipeline.RunEffects, io.github.ygaray.voiceactionengine.core.failure.EscalationReason); descriptor: (Lio/github/ygaray/voiceactionengine/core/pipeline/RunEffects;Lio/github/ygaray/voiceactionengine/core/failure/EscalationReason;)V
+REMOVED io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy: public io.github.ygaray.voiceactionengine.core.pipeline.TierPolicy(boolean, java.lang.String, java.util.Set, int, long, int, java.lang.Long, kotlin.jvm.internal.DefaultConstructorMarker); descriptor: (ZLjava/lang/String;Ljava/util/Set;IJILjava/lang/Long;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+REMOVED io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy: public static final java.lang.Object access$submitAll(io.github.ygaray.voiceactionengine.core.strategy.singleshot.SingleShotStrategy, io.github.ygaray.voiceactionengine.core.strategy.CommandSession, io.github.ygaray.voiceactionengine.core.strategy.Resolution$Steps, kotlin.coroutines.Continuation); descriptor: (Lio/github/ygaray/voiceactionengine/core/strategy/singleshot/SingleShotStrategy;Lio/github/ygaray/voiceactionengine/core/strategy/CommandSession;Lio/github/ygaray/voiceactionengine/core/strategy/Resolution$Steps;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+REMOVED io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace: public io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace(java.lang.String, java.lang.String, java.lang.String, int, long, long, java.util.List, java.util.List, int, kotlin.jvm.internal.DefaultConstructorMarker); descriptor: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJLjava/util/List;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+REMOVED io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace: public io.github.ygaray.voiceactionengine.core.telemetry.CommandTrace(java.lang.String, java.lang.String, java.lang.String, int, long, long, java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt>, java.util.List<io.github.ygaray.voiceactionengine.core.telemetry.TraceCode>); descriptor: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IJJLjava/util/List;Ljava/util/List;)V
+REMOVED io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt: public io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt(java.lang.String, java.lang.String, io.github.ygaray.voiceactionengine.core.failure.EscalationReason, io.github.ygaray.voiceactionengine.core.failure.EscalationReason, io.github.ygaray.voiceactionengine.core.failure.FailureReason, long, java.util.List, int, kotlin.jvm.internal.DefaultConstructorMarker); descriptor: (Ljava/lang/String;Ljava/lang/String;Lio/github/ygaray/voiceactionengine/core/failure/EscalationReason;Lio/github/ygaray/voiceactionengine/core/failure/EscalationReason;Lio/github/ygaray/voiceactionengine/core/failure/FailureReason;JLjava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+REMOVED io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt: public io.github.ygaray.voiceactionengine.core.telemetry.TierAttempt(java.lang.String, java.lang.String, io.github.ygaray.voiceactionengine.core.failure.EscalationReason, io.github.ygaray.voiceactionengine.core.failure.EscalationReason, io.github.ygaray.voiceactionengine.core.failure.FailureReason, long, java.util.List, kotlin.jvm.internal.DefaultConstructorMarker); descriptor: (Ljava/lang/String;Ljava/lang/String;Lio/github/ygaray/voiceactionengine/core/failure/EscalationReason;Lio/github/ygaray/voiceactionengine/core/failure/EscalationReason;Lio/github/ygaray/voiceactionengine/core/failure/FailureReason;JLjava/util/List;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+BINARY DIFF FAIL: removed=12
+
+## providers (exit status 0)
+
+BINARY DIFF OK classes=14 removed=0 internal_removed=0 added=0
+
+## keystore (exit status 0, AAR reduced to classes.jar)
+
+BINARY DIFF OK classes=9 removed=0 internal_removed=0 added=1
+
+## Counts
+
+- core: removed=12, so the helper exited before the OK line (no classes/internal_removed/added counts printed on FAIL).
+- providers: classes=14 removed=0 internal_removed=0 added=0.
+- keystore: classes=9 removed=0 internal_removed=0 added=1.
+- internal_removed members: none in any module (providers 0, keystore 0; core printed no internal_removed line, and none of the 12
+  REMOVED names carries a Kotlin internal-visibility `$core` suffix).
+
+## Analysis of the 12 core REMOVED lines (executor, from javap of the W10 jar)
+
+Eleven are real binary breaks. v1.1.0 added one parameter with a default value to eight public constructors. Source callers still
+compile, so Metalava's signature compatibility check passes. But the old JVM constructor, and its synthetic `$default` constructor
+taking a DefaultConstructorMarker, no longer exist. Code compiled against v1.0.1 that calls them fails with NoSuchMethodError on
+v1.1.0. The new constructors in the W10 jar:
+
+| class | v1.0.1 ctor removed | W10 ctor adds |
+|---|---|---|
+| core.commit.ActionEvent | (String, String, ExecutedAction) | trailing String |
+| core.commit.ExecutedAction | 2 synthetic $default ctors (int, String, boolean, String, String, Map, Object, boolean, [int,] DCM) | a String before the trailing boolean |
+| core.commit.HeldProposal | (String, String, List, Object, String) | trailing String |
+| core.pipeline.CommandOutcome$Completed | (RunEffects, String, TerminalCall, boolean) | trailing List<String> |
+| core.pipeline.CommandOutcome$Unhandled | (RunEffects, EscalationReason) | trailing boolean |
+| core.pipeline.TierPolicy | synthetic $default (boolean, String, Set, int, long, int, Long, DCM) | a long |
+| core.telemetry.CommandTrace | full ctor (..., List<TierAttempt>, List<TraceCode>) + its $default | trailing StartTierSelection |
+| core.telemetry.TierAttempt | 2 synthetic $default ctors (..., long, List, [int,] DCM) | a boolean after the long |
+
+(DCM = kotlin.jvm.internal.DefaultConstructorMarker; package prefix io.github.ygaray.voiceactionengine omitted.)
+
+One is not a consumer-facing break: `SingleShotStrategy.access$submitAll(...)` has flags `ACC_PUBLIC, ACC_STATIC, ACC_FINAL,
+ACC_SYNTHETIC` in the v1.0.1 jar (`javap -p -v`). It is a compiler-generated accessor for a private member. No consumer source can
+reference it, and the W10 jar has replaced it with other `access$...` accessors after the strategy refactor.
+
+Per plan 20-08 Task 3 and must_have 5, a removed public member is a binary break that Metalava missed and blocks the tag. This
+evidence file records the red result. The executor did NOT close window 20-02, did NOT append a rule H1 block to cut-handoff.txt and
+did NOT route to a gap plan. Those decisions were handed to the milestone master per its dispatch instruction (report a red result,
+act no further than recording). A fix (for example @JvmOverloads, or explicit secondary constructors keeping the v1.0.1
+signatures) changes code. It is therefore a new commit and a new W, and plans 20-07 onward restart.
+
+## New modules
+
+undo and voice-adapter are new in v1.1.0, so there is no v1.0.1 artifact to diff against. Their baseline guarantee is the gate-12
+new-module branch plus the reviewed dumps. The D-02 reviewed seam artifact is .planning/releases/v1.1.0/evidence/api-surface-final.txt
+(plan 20-02); the sealed allowlist needed no edit for these modules.
