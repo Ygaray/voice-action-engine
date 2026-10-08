@@ -104,28 +104,27 @@ member_lines() { # <jar> <class-file> (one binary name per line)
 
 run_diff() { # <old> <new> <api> <out or empty>
   local old="$1" new="$2" api="$3" out="$4" report="" line n
-  local classes missing gone present removed added internal=0 hard=0 added_n
+  local missing gone removed internal=0 hard=0 added_n
   WORK="$(mktemp -d)"
-  work="$WORK"
-  to_jar "$old" "$work/old.jar"
-  to_jar "$new" "$work/new.jar"
+  to_jar "$old" "$WORK/old.jar"
+  to_jar "$new" "$WORK/new.jar"
   [ -f "$api" ] || err "$api does not exist"
-  api_classes "$api" >"$work/api.classes"
-  [ -s "$work/api.classes" ] || err "$api declares no class"
-  jar_classes "$work/old.jar" >"$work/old.classes"
-  jar_classes "$work/new.jar" >"$work/new.classes"
-  missing="$(comm -23 "$work/api.classes" "$work/old.classes")"
+  api_classes "$api" >"$WORK/api.classes"
+  [ -s "$WORK/api.classes" ] || err "$api declares no class"
+  jar_classes "$WORK/old.jar" >"$WORK/old.classes"
+  jar_classes "$WORK/new.jar" >"$WORK/new.classes"
+  missing="$(comm -23 "$WORK/api.classes" "$WORK/old.classes")"
   if [ -n "$missing" ]; then
     echo "BINARY DIFF ERROR: $api names class(es) the old artifact does not hold (api file and artifact disagree): $(printf '%s' "$missing" | tr '\n' ' ')" >&2
     exit 2
   fi
-  gone="$(comm -23 "$work/api.classes" "$work/new.classes")"
-  comm -12 "$work/api.classes" "$work/new.classes" >"$work/present.classes"
-  member_lines "$work/old.jar" "$work/present.classes" >"$work/old.members"
-  member_lines "$work/new.jar" "$work/present.classes" >"$work/new.members"
-  removed="$(comm -23 "$work/old.members" "$work/new.members")"
-  added_n="$(comm -13 "$work/old.members" "$work/new.members" | wc -l)"
-  n="$(wc -l <"$work/api.classes")"
+  gone="$(comm -23 "$WORK/api.classes" "$WORK/new.classes")"
+  comm -12 "$WORK/api.classes" "$WORK/new.classes" >"$WORK/present.classes"
+  member_lines "$WORK/old.jar" "$WORK/present.classes" >"$WORK/old.members" || err "javap failed on the old artifact"
+  member_lines "$WORK/new.jar" "$WORK/present.classes" >"$WORK/new.members" || err "javap failed on the new artifact"
+  removed="$(comm -23 "$WORK/old.members" "$WORK/new.members")"
+  added_n="$(comm -13 "$WORK/old.members" "$WORK/new.members" | wc -l)"
+  n="$(wc -l <"$WORK/api.classes")"
 
   if [ -n "$gone" ]; then
     while IFS= read -r line; do
@@ -153,7 +152,7 @@ run_diff() { # <old> <new> <api> <out or empty>
     report+="BINARY DIFF OK classes=$n removed=0 internal_removed=$internal added=$added_n"$'\n'
   fi
   printf '%s' "$report"
-  if [ -n "$out" ]; then printf '%s' "$report" >"$out"; fi
+  if [ -n "$out" ]; then printf '%s' "$report" >"$out" || err "cannot write $out"; fi
   [ "$hard" -eq 0 ]
 }
 
@@ -161,13 +160,12 @@ run_diff() { # <old> <new> <api> <out or empty>
 selftest() {
   local cases=0 rc out
   WORK="$(mktemp -d)"
-  work="$WORK"
   command -v javac >/dev/null && command -v jar >/dev/null && command -v javap >/dev/null || { echo "BINARY DIFF SELFTEST FAIL: javac, jar and javap are required" >&2; exit 1; }
   sfail() { echo "BINARY DIFF SELFTEST FAIL: $*" >&2; exit 1; }
 
   # The old tree: a class with constructors, a protected and a static method, a $default-shaped synthetic name, an internal-
   # mangled name and a nested class; a second listed class; and a public class the api file does not list.
-  local old="$work/old-src"
+  local old="$WORK/old-src"
   mkdir -p "$old/t"
   cat >"$old/t/A.java" <<'EOF'
 package t;
@@ -190,7 +188,7 @@ EOF
 package t;
 public class Hidden { public void h() {} }
 EOF
-  cat >"$work/api.txt" <<'EOF'
+  cat >"$WORK/api.txt" <<'EOF'
 // Signature format: 4.0
 package t {
 
@@ -210,7 +208,7 @@ package t {
 
 }
 EOF
-  cat >"$work/api-missing.txt" <<'EOF'
+  cat >"$WORK/api-missing.txt" <<'EOF'
 // Signature format: 4.0
 package t {
 
@@ -220,23 +218,23 @@ package t {
 }
 EOF
 
-  # build <name> : compiles the tree $work/<name>-src into $work/<name>.jar and $work/<name>.aar
+  # build <name> : compiles the tree $WORK/<name>-src into $WORK/<name>.jar and $WORK/<name>.aar
   build() {
     local n="$1"
-    mkdir -p "$work/$n-classes" "$work/$n-aar"
-    javac -d "$work/$n-classes" $(find "$work/$n-src" -name '*.java') || sfail "javac failed for $n"
-    jar cf "$work/$n.jar" -C "$work/$n-classes" . || sfail "jar failed for $n"
-    cp "$work/$n.jar" "$work/$n-aar/classes.jar"
-    (cd "$work/$n-aar" && jar cf "$work/$n.aar" classes.jar) || sfail "aar packaging failed for $n"
+    mkdir -p "$WORK/$n-classes" "$WORK/$n-aar"
+    javac -d "$WORK/$n-classes" $(find "$WORK/$n-src" -name '*.java') || sfail "javac failed for $n"
+    jar cf "$WORK/$n.jar" -C "$WORK/$n-classes" . || sfail "jar failed for $n"
+    cp "$WORK/$n.jar" "$WORK/$n-aar/classes.jar"
+    (cd "$WORK/$n-aar" && jar cf "$WORK/$n.aar" classes.jar) || sfail "aar packaging failed for $n"
   }
   # variant <name> : a copy of the old tree for the caller to edit
   variant() {
-    rm -rf "$work/$1-src"
-    cp -a "$old" "$work/$1-src"
+    rm -rf "$WORK/$1-src"
+    cp -a "$old" "$WORK/$1-src"
   }
   # expect <label> <want-rc> <new-artifact> <regex or empty> [<api file>] [<old artifact>]
   expect() {
-    local label="$1" want="$2" new="$3" pat="$4" api="${5:-$work/api.txt}" oldart="${6:-$work/old.jar}"
+    local label="$1" want="$2" new="$3" pat="$4" api="${5:-$WORK/api.txt}" oldart="${6:-$WORK/old.jar}"
     rc=0
     out="$("$SELF" --old "$oldart" --new "$new" --api "$api" 2>&1)" || rc=$?
     [ "$rc" -eq "$want" ] || sfail "[$label] exit $rc, wanted $want: $out"
@@ -249,51 +247,51 @@ EOF
   build old
 
   # 1. identical artifacts (jar against jar, and aar against aar)
-  expect identical-jar 0 "$work/old.jar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=0 added=0$'
-  expect identical-aar 0 "$work/old.aar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=0 added=0$' "$work/api.txt" "$work/old.aar"
+  expect identical-jar 0 "$WORK/old.jar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=0 added=0$'
+  expect identical-aar 0 "$WORK/old.aar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=0 added=0$' "$WORK/api.txt" "$WORK/old.aar"
   # 2. an added method is counted, never failing
   variant add
-  sed -i 's/public void m() {}/public void m() {}\n  public void extra() {}/' "$work/add-src/t/A.java"
+  sed -i 's/public void m() {}/public void m() {}\n  public void extra() {}/' "$WORK/add-src/t/A.java"
   build add
-  expect added-method 0 "$work/add.jar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=0 added=1$'
+  expect added-method 0 "$WORK/add.jar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=0 added=1$'
   # 3. a removed public constructor fails and is named
   variant noctor
-  sed -i '/public A(int x) {}/d' "$work/noctor-src/t/A.java"
+  sed -i '/public A(int x) {}/d' "$WORK/noctor-src/t/A.java"
   build noctor
-  expect removed-constructor 1 "$work/noctor.jar" 't\.A\(int\)'
+  expect removed-constructor 1 "$WORK/noctor.jar" 't\.A\(int\)'
   grep -q 'BINARY DIFF FAIL: removed=1' <<<"$out" || sfail "[removed-constructor] no FAIL line with removed=1: $out"
   # 4. a removed class that the api file lists fails
   variant nob
-  rm -f "$work/nob-src/t/B.java"
+  rm -f "$WORK/nob-src/t/B.java"
   build nob
-  expect removed-listed-class 1 "$work/nob.jar" 'REMOVED class t\.B '
+  expect removed-listed-class 1 "$WORK/nob.jar" 'REMOVED class t\.B '
   # 5. a removed class that the api file does not list (internal) stays ok
   variant nohidden
-  rm -f "$work/nohidden-src/t/Hidden.java"
+  rm -f "$WORK/nohidden-src/t/Hidden.java"
   build nohidden
-  expect removed-unlisted-class 0 "$work/nohidden.jar" '^BINARY DIFF OK classes=3 removed=0 '
+  expect removed-unlisted-class 0 "$WORK/nohidden.jar" '^BINARY DIFF OK classes=3 removed=0 '
   # 6. an api file that names a class the old artifact lacks is an error (exit 2)
-  expect api-names-missing-class 2 "$work/old.jar" 'names class\(es\) the old artifact does not hold.*t/Missing' "$work/api-missing.txt"
+  expect api-names-missing-class 2 "$WORK/old.jar" 'names class\(es\) the old artifact does not hold.*t/Missing' "$WORK/api-missing.txt"
   # 7. a removed Kotlin-internal mangled member is reported, not failing
   variant nointernal
-  sed -i '/foo\$core/d' "$work/nointernal-src/t/A.java"
+  sed -i '/foo\$core/d' "$WORK/nointernal-src/t/A.java"
   build nointernal
-  expect removed-internal-member 0 "$work/nointernal.jar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=1 added=0$'
+  expect removed-internal-member 0 "$WORK/nointernal.jar" '^BINARY DIFF OK classes=3 removed=0 internal_removed=1 added=0$'
   grep -q 'INTERNAL-REMOVED' <<<"$out" || sfail "[removed-internal-member] the internal removal was not reported: $out"
   # 8. a removed $default-shaped synthetic member is a real removal
   variant nodefault
-  sed -i '/m\$default/d' "$work/nodefault-src/t/A.java"
+  sed -i '/m\$default/d' "$WORK/nodefault-src/t/A.java"
   build nodefault
-  expect removed-default-member 1 "$work/nodefault.jar" 'm\$default'
+  expect removed-default-member 1 "$WORK/nodefault.jar" 'm\$default'
   # 9. a removed nested class that the api file lists fails
   variant non
-  sed -i '/public static class N/d' "$work/non-src/t/A.java"
+  sed -i '/public static class N/d' "$WORK/non-src/t/A.java"
   build non
-  expect removed-nested-class 1 "$work/non.jar" 'REMOVED class t\.A\$N '
+  expect removed-nested-class 1 "$WORK/non.jar" 'REMOVED class t\.A\$N '
   # 10. the report also goes to --out
   rc=0
-  "$SELF" --old "$work/old.jar" --new "$work/noctor.jar" --api "$work/api.txt" --out "$work/report.txt" >/dev/null 2>&1 || rc=$?
-  [ "$rc" -eq 1 ] && grep -q 'BINARY DIFF FAIL: removed=1' "$work/report.txt" || sfail "[out-file] the report file lacks the FAIL line"
+  "$SELF" --old "$WORK/old.jar" --new "$WORK/noctor.jar" --api "$WORK/api.txt" --out "$WORK/report.txt" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 1 ] && grep -q 'BINARY DIFF FAIL: removed=1' "$WORK/report.txt" || sfail "[out-file] the report file lacks the FAIL line"
   cases=$((cases + 1))
   # 11. usage errors exit 2
   rc=0
@@ -301,7 +299,7 @@ EOF
   [ "$rc" -eq 2 ] || sfail "[usage] no arguments exited $rc, wanted 2"
   cases=$((cases + 1))
   rc=0
-  "$SELF" --old "$work/old.jar" --new "$work/old.txt" --api "$work/api.txt" >/dev/null 2>&1 || rc=$?
+  "$SELF" --old "$WORK/old.jar" --new "$WORK/old.txt" --api "$WORK/api.txt" >/dev/null 2>&1 || rc=$?
   [ "$rc" -eq 2 ] || sfail "[usage] a missing artifact exited $rc, wanted 2"
   cases=$((cases + 1))
 
