@@ -6,11 +6,11 @@ current_phase: 20
 current_phase_name: Cut v1.1.0
 current_plan: 7
 status: executing
-stopped_at: Completed 20-06-PLAN.md
-last_updated: "2026-10-07T23:26:31.055Z"
+stopped_at: 20-07 closed red (quiet window 20-01), hand-off to 20-12 written
+last_updated: "2026-10-08T00:07:28.640Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 20 execution started
-state_head: d3cb44ee9dc6d76e95d69bbe14f7dab9a035e0e1
+state_head: 4914d35bdd0b255f169ad780d6be6f2eb5d63260
 progress:
   total_phases: 9
   completed_phases: 0
@@ -253,6 +253,7 @@ None yet.
 - **Release-cut host OOM:** the `v1.1.0` cut (Phase 20) needs a quiet window, swap headroom and a single-use Gradle daemon (five v1.0.1 attempts were earlyoom-killed).
 - **§11:** always `git pull --rebase` before committing; peers commit contract changes to this repo.
 - 19-12 (resolved): detekt MaxLineLength at DocSnippetAdapterTest.kt:14 fixed in 090fd8e; all autonomous gates green; wiring SHA candidate is 090fd8ec761178d5922523faaf24dc3ffb7b686b (only .planning changes after it)
+- 20-07 red: selftest all control contract-ledger-only fails (stale fixture: contract_append_row appends at EOF, contract tail changed at eef5cb9); gap plan on scripts/release-cut.sh, then a new quiet window; no W fixed
 
 ## Deferred Items
 
@@ -265,9 +266,9 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-07T23:26:25.468Z
-Stopped at: Completed 20-06-PLAN.md
-Resume file: None
+Last session: 2026-10-08T00:07:28.500Z
+Stopped at: 20-07 closed red (quiet window 20-01), hand-off to 20-12 written
+Resume file: .planning/phases/20-cut-v1-1-0/20-07-SUMMARY.md
 
 ## Operator Next Steps
 
