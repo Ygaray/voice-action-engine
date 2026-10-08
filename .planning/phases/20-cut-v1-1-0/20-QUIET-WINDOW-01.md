@@ -7,9 +7,14 @@ opened: 2026-10-07T23:34:36Z
 requested: 2026-10-07T23:28Z
 timebox_s: 14400
 gates_started: 2026-10-07T23:34:59Z
-heavy_gates: red
-wiring_sha:
+heavy_gates: green
+first_attempt: red (contract_append_row fixture, fixed by 20-13; superseded by window 20-07b, see 20-QUIET-WINDOW-01b.md)
+wiring_sha: 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1
 closed: 2026-10-08T00:05:43Z
+
+Header updated 2026-10-08 after window 20-07b: the header `heavy_gates` and `wiring_sha` reflect the final green result of the re-run in
+`20-QUIET-WINDOW-01b.md`; the body below is the unchanged red record of the first attempt (steps 1 to 3 stand: plan 20-13 touched only
+`contract_append_row` and the selftest controls, and window 20-07b re-ran steps 1 to 3 green anyway).
 
 Only the orchestrator relay may change the `grant` line (RT-09(4), D-07). Until a relayed answer to "quiet window 20-01" is quoted below,
 the grant is pending and no heavy gate runs. The timebox clock (14400 s) starts at `gates_started:`, written when the first heavy gate
