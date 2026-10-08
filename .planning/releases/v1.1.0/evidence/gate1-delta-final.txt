@@ -1,0 +1,79 @@
+# gate1-delta-final (carry register C10; plan 20-09 Task 2; waiver W03)
+# written 2026-10-08T01:22Z by the plan 20-09 executor; read-only git, no Gradle
+# Gate-1 build head B = 1869950dca (19-QUIET-WINDOW.md "Gate-1 build delta": the head= of the TESTER build-install that the
+# Phase 19 Gate-1 legs ran on). Final SHA W = 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 (wiring_sha, 20-QUIET-WINDOW-01.md).
+
+$ git diff --stat 1869950dca 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 -- sample
+ .../voiceactionengine/sample/SampleViewModel.kt    |   7 +-
+ .../voiceactionengine/sample/keys/KeyVault.kt      |  34 +-
+ .../voiceactionengine/sample/ui/HeaderText.kt      |   9 +-
+ .../ygaray/voiceactionengine/sample/ui/UiTags.kt   |   6 +
+ .../sample/undo/ItemToolExecutor.kt                |   4 +-
+ .../voiceactionengine/sample/KeyVaultTest.kt       |  13 +-
+ .../ygaray/voiceactionengine/sample/PlanLegTest.kt |  14 +
+ .../sample/SampleViewModelTest.kt                  |  15 +-
+ .../ygaray/voiceactionengine/sample/UiTagsTest.kt  |  10 +
+ .../sample/docs/DocSnippetsTest.kt                 | 512 +++++++++++++++++++++
+ 10 files changed, 609 insertions(+), 15 deletions(-)
+
+$ git diff --name-only 1869950dca 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 -- . ':!.planning'
+API.md
+CROSS-REPO-SCOPE-CONTRACT.md
+ECOSYSTEM.md
+INTEGRATION.md
+README.md
+core/api.txt
+core/src/main/kotlin/io/github/ygaray/voiceactionengine/core/commit/CommitSink.kt
+core/src/test/kotlin/io/github/ygaray/voiceactionengine/core/PlanSchemaTest.kt
+keystore/api.txt
+sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/SampleViewModel.kt
+sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/keys/KeyVault.kt
+sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/HeaderText.kt
+sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/ui/UiTags.kt
+sample/src/main/kotlin/io/github/ygaray/voiceactionengine/sample/undo/ItemToolExecutor.kt
+sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/KeyVaultTest.kt
+sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/PlanLegTest.kt
+sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/SampleViewModelTest.kt
+sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/UiTagsTest.kt
+sample/src/test/kotlin/io/github/ygaray/voiceactionengine/sample/docs/DocSnippetsTest.kt
+scripts/agent-wiring-test.sh
+scripts/release-cut.sh
+scripts/review-api-surface.sh
+scripts/run-sample-gate1.sh
+scripts/verify-binary-diff.sh
+scripts/verify-docs-coverage.sh
+scripts/verify-sample-device-guard.sh
+undo/api.txt
+undo/src/test/kotlin/io/github/ygaray/voiceactionengine/undo/JournalStoreTest.kt
+voice-adapter/api.txt
+voice-adapter/src/test/kotlin/io/github/ygaray/voiceactionengine/voiceadapter/DocSnippetAdapterTest.kt
+
+# The installed-APK part of the sample delta (sample/src/main, sample/build.gradle.kts) and the commits that make it:
+$ git diff --stat 1869950dca 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 -- sample/src/main sample/build.gradle.kts
+ .../voiceactionengine/sample/SampleViewModel.kt    |  7 +++--
+ .../voiceactionengine/sample/keys/KeyVault.kt      | 34 +++++++++++++++++++---
+ .../voiceactionengine/sample/ui/HeaderText.kt      |  9 ++++--
+ .../ygaray/voiceactionengine/sample/ui/UiTags.kt   |  6 ++++
+ .../sample/undo/ItemToolExecutor.kt                |  4 ++-
+ 5 files changed, 50 insertions(+), 10 deletions(-)
+$ git log --format='%h %s' 1869950dca..4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 -- sample/src/main sample/build.gradle.kts
+9d4a5b0 feat(20-03): neverEchoed tag list, its test and the runbook no-echo line (RT-07)
+a0b5f25 feat(20-03): sample key row shows a SHA-256 fingerprint, never key characters (RT-07)
+d6647a1 fix(19-review): WR-04 treat an explicit parent_id null as absent in ItemToolExecutor
+
+## Statements (C10, W03)
+
+- The sample delta that reaches the installed APK is exactly two changes: the WR-04 ItemToolExecutor change (d6647a1, an explicit
+  parent_id null is treated as absent) and the RT-07 fingerprint change (a0b5f25 + 9d4a5b0: KeyVault, SampleViewModel, HeaderText and
+  UiTags; the key row shows a six-hex SHA-256 fingerprint plus Ready or Missing, never key characters, and the Gate-1 UI helper never echoes
+  it). The remaining sample changes are under sample/src/test (unit tests and DocSnippetsTest) and are not in the APK.
+- Both changes are JVM-proven only (unit tests in sample/src/test; the evidenced Gate-1 plan, router and undo legs pass a non-null parent
+  id). The sample was not re-driven on the TESTER for v1.1.0, per the orchestrator ruling "JVM-only is enough for RT-07 / W03. No device
+  window." (relay-log.md), accepted by Yahir as waiver W03 (accept).
+- The library-side changes after B are docs, api.txt dumps, tests, scripts and one core main file (CommitSink.kt, the RT-03 ActionEvent
+  toString redaction). The section-11 contract file changes only by ledger rows. All of it is covered by the JVM gates and the binary-diff
+  record, not by a device leg.
+- No further TESTER window is planned for v1.1.0.
+- Before any later live window on the TESTER (Gate-2 fragments or a future milestone), rebuild and reinstall the sample from the final SHA
+  (W = 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1, or the tag's commit) first. The APK installed at Gate-1 is head 1869950dca and lacks both
+  changes above (carry C10).
