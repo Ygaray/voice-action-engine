@@ -6,15 +6,15 @@ current_phase: 20
 current_phase_name: Cut v1.1.0
 current_plan: 7
 status: executing
-stopped_at: 20-07 closed red (quiet window 20-01), hand-off to 20-12 written
-last_updated: "2026-10-08T00:07:28.640Z"
+stopped_at: Completed 20-13-PLAN.md (RT-11 gap fix); awaiting quiet window 20-07b to re-run 20-07 Task 3
+last_updated: "2026-10-08T00:13:49.957Z"
 last_activity: 2026-10-07
 last_activity_desc: Phase 20 execution started
-state_head: 4914d35bdd0b255f169ad780d6be6f2eb5d63260
+state_head: 8f51a69c82765b598184caa90a523c852936138c
 progress:
   total_phases: 9
   completed_phases: 0
-  total_plans: 87
+  total_plans: 88
   completed_plans: 81
   percent: 0
 ---
@@ -177,6 +177,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 20 P04 | 10 min | 2 tasks | 2 files |
 | Phase 20 P05 | n/a | 3 tasks | 4 files |
 | Phase 20 P06 | ~25 min | 3 tasks | 3 files |
+| Phase 20 P13 | 14min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -237,6 +238,7 @@ Recent decisions affecting current work:
 - [Phase 19]: 19-13: all six heavy gates green on wiring SHA candidate beside the mempalace mine (3b ruling); window left open for 19-14 (kept_m2 /tmp/tmp.iRiTqYvCWA/m2/repository, dryrun-ec24a19786)
 - [Phase 20]: 20-06: gate 12 new-module rule keyed on the module directory in the previous tag; patch releases cannot add a module; real-dump test required
 - [Phase 20]: 20-06: :stt confinement runs inside gate 11 (hygiene); gate list and preflight gates= line unchanged
+- [Phase 20]: 20-13: contract_append_row inserts after the last ledger_range row; stale 20-12 hand-off superseded (RT-11); new W candidate is 4bdb663b
 
 ### Pending Todos
 
@@ -266,9 +268,9 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-08T00:07:28.500Z
-Stopped at: 20-07 closed red (quiet window 20-01), hand-off to 20-12 written
-Resume file: .planning/phases/20-cut-v1-1-0/20-07-SUMMARY.md
+Last session: 2026-10-08T00:13:49.824Z
+Stopped at: Completed 20-13-PLAN.md (RT-11 gap fix); awaiting quiet window 20-07b to re-run 20-07 Task 3
+Resume file: None
 
 ## Operator Next Steps
 
