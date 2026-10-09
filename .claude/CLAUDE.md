@@ -6,7 +6,7 @@
 
 A generic, STT-agnostic Android/JitPack library (per-module coordinates `com.github.Ygaray.voice-action-engine:<artifactId>`, erratum E5) that turns a spoken command — `CommandInput(transcript, language "en"|"es"|null, context)` — into an app action. Each consumer app composes its own **tier ladder** of strategies (LocalGrammar / SingleShot / PlanThenExecute / AgenticLoop) running over pluggable providers (Anthropic / OpenAI / OpenRouter / on-device), cheap-first and escalating only when needed. It is the shared hub for Yahir's personal apps (SecondBrain, CalTracker, and every future one); it names no app domain.
 
-**This milestone (v1.0 → tag `v1.0.0`)** = contract §6.2 steps 1–7: scaffold + contract types + pipeline + provider transports + `:keystore` + SingleShot + provider-neutral AgenticLoop + PreApplyGate/CommitSink hooks. It unblocks the Wave-1 migrations of SecondBrain and CalTracker.
+**This milestone (v1.1 → tag `v1.1.0`)** = contract §6.2 steps 8–13 + A18, plus the Wave-1 additive seams: LocalGrammar + bilingual GrammarPack, PlanThenExecute, `TierSelector.Custom` / Router, `:undo`, the on-device spike (red verdict, nothing shipped), `:voice-adapter`, and the W04 fix. v1.0 (steps 1–7, tags `v1.0.0`/`v1.0.1`) is closed.
 
 **Core Value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself — with the cloud agentic path working on-device (Anthropic, prompt cache hitting) and every failure surfaced as a specific, loud reason, never a silent or opaque one.
 
