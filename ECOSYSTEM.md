@@ -49,8 +49,8 @@ on `:stt`, so an app that does not add it never pulls `:stt`. The app keeps its 
 <!-- repin-matrix:begin -->
 | Consumer | Pinned | Latest | Status |
 |---|---|---|---|
-| CalTracker_Android | v1.0.1 | v1.0.1 | current |
-| SecondBrain | v1.0.1 | v1.0.1 | current |
+| CalTracker_Android | v1.1.0 | v1.1.0 | current |
+| SecondBrain | v1.1.0 | v1.1.0 | current |
 <!-- repin-matrix:end -->
 
 **Repo:** public at `github.com/Ygaray/voice-action-engine` (created 2026-09-29).
