@@ -53,8 +53,8 @@
     "ui_review": true,
     "use_worktrees": true,
     "run_lessons_enabled": true,
-    "_milestone_run_active": true,
-    "_milestone_run_id": "v1.1-1791232824",
+    "_milestone_run_active": false,
+    "_milestone_run_id": "",
     "_auto_chain_active": false
   },
   "ship": {

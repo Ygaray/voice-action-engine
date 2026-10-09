@@ -16,43 +16,43 @@
     {
       "number": "14",
       "name": "LocalGrammar & Bilingual GrammarPack",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "15",
       "name": "PlanThenExecute Strategy",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "16",
       "name": "Start-Tier Selection",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "17",
       "name": "Run-Level Undo",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "18",
       "name": "Voice Adapter",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "19",
       "name": "Sample Gate-1 & Docs",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "20",
       "name": "Cut v1.1.0",
-      "status": "pending"
+      "status": "complete"
     }
   ],
   "next": {
-    "command": "/gsd:progress --next",
-    "label": "Advance to the next step (plan phase 14)",
-    "reason": "Phase 14 of 9 — needs a plan"
+    "command": "/gsd:new-milestone",
+    "label": "Start a new milestone",
+    "reason": "All phases complete — start a new milestone"
   },
-  "updated_at": "2026-10-06T06:31:15.490Z"
+  "updated_at": "2026-10-08T02:32:10.726Z"
 }
