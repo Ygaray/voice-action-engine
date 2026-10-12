@@ -1,6 +1,6 @@
 ### Phase 13 — on-device-model-spike (v1.1)
 
-- **Status:** `pending`
+- **Status:** `signed-off-with-gap — Yahir, 2026-10-12`
 - **Milestone:** v1.1 (Grammar, Plan, Router, Undo, Spike, Adapter)
 - **Gate 1 self-UAT log:** [`.planning/phases/13-on-device-model-spike/13-SELF-UAT.md`](phases/13-on-device-model-spike/13-SELF-UAT.md) — Verdict: **ALL 4 criteria PASS, evidence-audited** (no fresh device drive: the one TESTER window R5CT10XNKQN, SM-S908U, was consumed 2026-10-06T05:52:07Z; harness APK md5 `445264d6594096eec71d08a47032e9c1` @ `08ada3366b`, verdict code `e362fb228b`, 2026-10-06). Outcome is the measured RED branch: small RED (measured fail), sb RED (unmeasured, 4 h time-box ended at screen trial 28/80); nothing ships; `v1.1.0` not blocked (L10). `scripts/verify-spike-verdict.sh --check` prints `SPIKE_VERDICT_CHECK: OK lines=4`; small aggregates independently recomputed from the raw committed rows.
 - **Items covered (4 ROADMAP success criteria):**

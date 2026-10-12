@@ -1,6 +1,6 @@
 ### Phase 12 — wave-1-seams-w04-fix (v1.1)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-12`
 - **Milestone:** v1.1 (Grammar, Plan, Router, Undo, Spike, Adapter)
 - **Gate 1 self-UAT log:** [`.planning/phases/12-wave-1-seams-w04-fix/12-SELF-UAT.md`](phases/12-wave-1-seams-w04-fix/12-SELF-UAT.md) — Verdict: **ALL 5 criteria PASS** (headless pure-JVM harness, device none this run, no live call by this run; HEAD `2d5b57b`, 2026-10-05). SC1-SC4 re-observed from a forced fresh run: core 694, providers 609 on each of OkHttp 4.12.0 / 5.2.1 / 5.5.0, keystore 105, sample 147 tests, 0 failures, 0 errors, 0 skipped; Metalava compat green for core/providers/keystore; detekt green; `verify-keyaccess-opt-in.sh` and `verify-docs-coverage.sh` green. SC5 audited from the committed live evidence of the earlier TESTER run (not re-driven).
 - **Items covered (5 ROADMAP success criteria):**

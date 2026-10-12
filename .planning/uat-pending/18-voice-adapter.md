@@ -1,6 +1,6 @@
 ### Phase 18 — voice-adapter (v1.1)
 
-- **Status:** `pending`
+- **Status:** `signed-off — Yahir, 2026-10-12`
 - **Milestone:** v1.1 (Grammar, Plan, Router, Undo, Spike, Adapter)
 - **Gate 1 self-UAT log:** [`.planning/phases/18-voice-adapter/18-SELF-UAT.md`](phases/18-voice-adapter/18-SELF-UAT.md) — Verdict: **ALL 2 criteria PASS** (headless JVM harness, device none this run, no live call, no key read; release AAR md5 `530fe5aec28f25e966bb2a087815bc7d` @ `99fa8ff`, 2026-10-07). Re-observed from a forced fresh run: `:voice-adapter` 33 tests and `:core` 1112 tests, 0 failures, 0 errors, 0 skipped; detekt, `verifyModuleGraph` (all five published modules), `verifyCoreDependencyAllowlist`, `verifySttConfined` (core, providers, keystore, undo), `verifyAdapterSttCompileOnly`, Metalava compat green; `verify-stt-confinement.sh` (+ selftest), `verify-docs-coverage.sh`, `verify-repo-hygiene.sh`, `verify-module-manifest.sh` green. Heavy gates (negative controls, API dump proof, JitPack dry run) were not re-run by this tester; their green results are in `18-QUIET-WINDOW.md`.
 - **Items covered (2 ROADMAP success criteria):**
