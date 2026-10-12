@@ -1,1 +1,1 @@
-No external API integration: Phase 12 adjusts the existing OpenAI Chat Completions wire rules and error classifier and the existing Anthropic capability table, adds internal and additive library seams, and runs one bounded live smoke of the already-integrated OpenAI endpoint; it integrates no new external API capability surface.
+No external API integration: Phase 12 tunes existing OpenAI/Anthropic wire rules and error mapping, adds additive library seams, and runs one bounded live smoke of an already-integrated endpoint.
