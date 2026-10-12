@@ -2,40 +2,36 @@
 gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
-current_phase: 20
-current_plan: Not started
-status: completed
+status: Awaiting next milestone
 stopped_at: Phase 20 complete — all phases complete
-last_updated: "2026-10-08T02:32:10.707Z"
-last_activity: 2026-10-07
-last_activity_desc: Phase 20 complete
-state_head: 83d8d213537fde109144ea225a362780ba4ca4fb
+last_updated: "2026-10-12T00:50:07.551Z"
+last_activity: 2026-10-11
+last_activity_desc: Milestone v1.1 completed and archived
+state_head: c72b254daadc3db67047c2144d0588ea43ddde52
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 9
   total_plans: 88
   completed_plans: 88
-  percent: 11
+  percent: 100
+current_phase: 20
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-10-06) · Roadmap: .planning/ROADMAP.md · v1.0 archive: .planning/milestones/v1.0-*
+See: .planning/PROJECT.md (updated 2026-10-11) · Roadmap: .planning/ROADMAP.md · archives: .planning/milestones/v1.0-*, v1.1-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Phase 20 — Cut v1.1.0
+**Current focus:** Planning next milestone (await orchestrator GO; then /gsd-new-milestone)
 
 ## Current Position
 
-Phase: 20
-Current Plan: Not started
-Total Plans in Phase: 12
-Status: All phases complete
-Last activity: 2026-10-07 — Phase 20 complete
-
-Progress: [█░░░░░░░░░] 11%
+Phase: Milestone v1.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-10-11 — Milestone v1.1 completed and archived
 
 ## Performance Metrics
 
@@ -186,65 +182,9 @@ Progress: [█░░░░░░░░░] 11%
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table. v1.0 phase-level decisions live in the phase summaries under
-`.planning/milestones/v1.0-phases/` (and in git history of this file).
-Recent decisions affecting current work:
-
-- [Roadmap v1.1]: The approved R-v1.1 brief §4 phase list is kept as-is (Phases 12-20), one contract step or one published module per phase. That is nine phases against standard granularity's 4-6; the split is what allows 12 ‖ 13 and 14 ‖ 15 ‖ 17 ‖ 18.
-- [Roadmap v1.1]: Critical path 12 → 14 → 16 → 19 → 20. 16 depends on 14 only for the real-grammar pre-pass proof. 17's standalone module has no dependency; only UNDO-04 (pipeline integration) needs 12. 18 has no in-milestone dependency.
-- [Roadmap v1.1]: SPIKE-03 (ship `@Experimental` if green) maps to Phase 13. If productizing overruns the time-box, it moves to an inserted Phase 13.1; the verdict message (SPIKE-02) is never delayed for it.
-- [Roadmap v1.1]: DOC-01 (the three v1.0.1 stumbles + the Haiku/OpenAI cache note) lands early in Phase 12; DOC-02 (full docs + wiring test) in Phase 19, re-run on the final SHA in Phase 20.
-- [Roadmap v1.1]: When 17, 18 and (green) 13 run in parallel, Phase 17 owns the shared "add a published module" plumbing (settings, `jitpack.yml`, module-graph and classpath gates, ECOSYSTEM coordinates).
-- [Roadmap v1.1]: No phase carries a UI hint (library milestone; `:sample` is a debug harness).
-- [Phase 12]: [12-01] Deny-list only for OpenAI wire rules; pro/codex exclusion is direct-only, routed ids keep today's rules
-- [Phase 12]: [12-01] reasoning_effort 400 classifier keys on status 400 + param + code, never reads the message
-- [Phase 12]: 12-02: ReasoningMode OFF and PROVIDER_DEFAULT are both the v1.0 wire; onFailed fires from the provider-failure else arm only
-- [Phase 12]: 12-03: cappedByPolicy = PolicyPreCheck dropped any tier (both skip sites, offline-only included); carryIn = walk carry non-null at tier start
-- [Phase 12]: 12-06: provider call id travels only via internal submit(step, providerCallId) + ActionDetails + HeldProposal field; public submit records null
-- [Phase 13]: 13-01: litertlm 0.17.1 builds on the pinned toolchain (no D-02 fallback); 13-THRESHOLDS.md locked sha256 ec4933fb (commit c793a3b)
-- [Phase 13]: 13-02: ML denial is a module-name-scoped verifyNoMlArtifacts (core/providers/keystore), never a shared rule, so a later :ondevice module is not blocked
-- [Phase 13]: 13-03: verdict is a pure function of closed-grammar evidence; unmeasured gating metric is always red; 13-VERDICT reproducible via scripts/verify-spike-verdict.sh --check (worktree fallback at recorded code SHA) — SPIKE-02 reproducibility; time-box expiry becomes a code path, not a judgment
-- [Phase 13]: 13-04: constrained-decoding flag follows the ON/OFF arm; Route B keeps Required as offered-tools; no :core change — Pitfall 1: an unset engine flag could make the ON arm silently unconstrained; JNI behavior is verified only on the TESTER
-- [Phase 13]: 13-05: SchemaSubset supports the SB fixture keywords (bounds, pattern, uuid format, default); SB gold positives cover only speakable-argument tools; any provider failure scores a miss, never a decline
-- [Phase 13]: 13-07: only a measured not_reused KV disposition can end the sb envelope early; BackendRequest.engineFlag lets rf_matrix learn whether the engine constrained-decoding flag is needed; a screen with no startable cell is an error, never a quiet done 0/0
-- [Phase 13]: 13-08: RT-02 raw sb answers kept host-private via PrivateRawSink + runner pull-private-raw; 4h time-box expired inside screen_sb, confirm_sb/sustained/exit_reasons unmeasured (runner refused)
-- [Phase 13]: 13-10: spike disposition branch red (both envelopes red); spike module removed, SPIKE-03 N/A-deferred, v1.1.0 not blocked
-- [Phase 14]: Phase 14-01: D-01 submit path lives in StepSubmission.kt; grammar tier has no try/catch (resolver throws handled by TierWalk strategy_error); Extraction.matchedLanguage via internal 4-arg ctor
-- [Phase 14]: 14-02: D-12 grant gate reads only the first key block; runner is USB-only; RAE read via Wayback (all 11 ES rules confirmed)
-- [Phase 14]: 14-03: Spanish cien is a complete group wherever nothing numeric follows (mil cien = 1100) so all of 0..999,999 round-trips; RAE rules R01-R11 confirmed, none contradicted
-- [Phase 14]: 14-03: longestPhrase derived from lexicon structure (EN 18, ES 16 tokens); word fraction digits bounded to the digit count of 999,999
-- [Phase 14]: Phase 14-04: no slots inside sub-rules (build-time IAE); keeps slot parity per intent checkable in 14-05
-- [Phase 14]: 14-05: same tool with different arguments from both packs under a null label is grammar_ambiguous; different tools stay no-code rejected (14-06 owns the final table)
-- [Phase 14]: 14-06: different tools across EN and ES packs report grammar_ambiguous; sentence break is checked before the input cap; cap is the larger of the two languages' longest rule span
-- [Phase 14]: 14-07: normalize hook answers replace the slot value; null/blank rejects, throw = grammar_normalize_error; ambiguity is decided before hooks run
-- [Phase 14]: 14-07: terminal intents end handled with Completed(null, TerminalCall) before resolver and gate; resolver optional only for all-terminal packs
-- [Phase 14]: Phase 14-08: frozen grammar surface reviewed against the real Metalava dump; all members additive-safe; open items OI-1..OI-8 relayed via 14-SURFACE-REVIEW.md
-- [Phase 14]: 14-09: capture tool uses the on-device recognizer at 16 kHz segmented; prompts pushed into the app-owned files dir (adb-made subdir is unreadable by the app); D-12 window consumed, 88/88 fixtures
-- [Phase 14]: 14-10: no recognizer form promoted (space groups, ES 21.000, ES 100 mil fail D-08); GrammarSttFixturesTest pins 88 rows
-- [Phase 16]: 16-04: picker timeout is withTimeoutOrNull inside guarded; expiry is a router_fallback, caller/command cancellation still propagates
-- [Phase 16]: 16-06: Router model comes only from the app's selection for start_tier_router; single-model-tier skip lives in StartTierPicking (skipsSingleTier), no call, no record
-- [Phase 17]: 17-01: :undo scaffold lands with stdlib-only gates; module list is data in scripts/modules.list read by verify-module-manifest.sh
-- [Phase 17]: 17-02: compositeSink runs all children then throws one fixed-text counts-only fault (sink_error visible, outcome unchanged); heldRunId set only by commitHeld
-- [Phase 17]: 17-06: compensators are independent of each other (one failing never stops the rest); effects of an action run in reverse declaration order; an unrestored action's effects are SKIPPED_AFTER_FAILURE
-- [Phase 17]: 17-06: JournalState.claim is the single place deciding group refusal reasons (unknown, in progress, withheld); the undoing flag is released in finally
-- [Phase 17]: [17-07] undoEntry for isolated entries only (ENTANGLED otherwise); JournalStore is a save/delete mirror with no loadAll; applied nothing-written and failed entries count in N
-- [Phase 17]: [17-07] A late record into a group mid-undo is appended and pending, not withheld; eviction by count or age skips groups being undone
-- [Phase 17]: 17-08: bridge is :sample glue only; a confirmed child's parent group is parents[heldRunId], never the held run itself
-- [Phase 17]: 17-09: :undo carries two suppressions (file-level TooGenericExceptionCaught in Guard.kt, one-line MaxLineLength on record); recorded as OI-5, not changed
-- [Phase 17]: 17-10: UNDO-01 heavy gates ran green in the relayed quiet window (negative controls 0 failures, API DUMP PROOF OK, DRY RUN OK + PROBE OK with :undoalone free of :core)
-- [Phase 18]: PD-04: voice-adapter public names frozen: toCommandInput (2 overloads), commandInputOf (2), normalizeSttLanguageLabel; facades FinalSegmentCommandInput and SttLanguageLabels; explicit overloads only — Names freeze at v1.1.0; explicit overloads keep API additive-only; stt-free facade kept in its own file
-- [Phase 19]: 19-01: Gate-1 runner decision file/evidence dir are env overrides (VAE_GATE1_DECISION_FILE, VAE_GATE1_EVIDENCE_DIR) with derived <NN>-LIVE-LEG-DECISION.md default; Phase 19 decision file created pending
-- [Phase 19]: 19-06: undo_all is two presses (run_undo_all counts N, undo_all runs the whole undo, the changed_since refusal and the partial case); verdict FAIL codes undo_incomplete, refusal_missing, wrong_refusal_reason, not_partial, wrong_count
-- [Phase 19]: [Phase 19] 19-08: frozen-surface review of all five modules from one isolated dump; removals 0 vs baselines, verdict no shape fix needed; review-api-surface.sh gained --module/--dump
-- [Phase 19]: 19-09: undo-wiring snippet matches UndoResult exhaustively (no else) and keeps its else on the open UndoReason; adapter-wiring region compiled in :voice-adapter's own tests
-- [Phase 19]: 19-10: API.md documents ASCII-only plan reference whitespace as it really behaves (NBSP joins the key and fails closed as plan_binding_unresolved)
-- [Phase 19]: 19-13: all six heavy gates green on wiring SHA candidate beside the mempalace mine (3b ruling); window left open for 19-14 (kept_m2 /tmp/tmp.iRiTqYvCWA/m2/repository, dryrun-ec24a19786)
-- [Phase 20]: 20-06: gate 12 new-module rule keyed on the module directory in the previous tag; patch releases cannot add a module; real-dump test required
-- [Phase 20]: 20-06: :stt confinement runs inside gate 11 (hygiene); gate list and preflight gates= line unchanged
-- [Phase 20]: 20-13: contract_append_row inserts after the last ledger_range row; stale 20-12 hand-off superseded (RT-11); new W candidate is 4bdb663b
-- [Phase 20]: 20-07: W fixed at 4bdb663b4c7c1bf02d4588751705dfcc8b356ef1 after window 20-07b green (selftest all OK negatives=40 positives=7); window 20-01 red superseded
-- [Phase 20]: [Phase 20] 20-08: D-02 core removed=12 waived per RT-12 (11 internal-constructor members + 1 synthetic accessor access$submitAll; tool false positive); W 4bdb663b4c unchanged; plan 20-09 runs in new window 20-02b
-- [Phase 20]: 20-09: wiring stumbles S1-S3 are clarity-only; known follow-up for a later docs patch, listed in the 20-11 LEDGER-ROW notes, not fixed before the cut (a docs edit would void the pass on W)
+Decisions are logged in the PROJECT.md Key Decisions table. Phase-level decisions for each closed milestone live in the
+phase summaries under `.planning/milestones/v1.0-phases/` and `.planning/milestones/v1.1-phases/` (and in git history
+of this file). None are recorded yet for the next milestone.
 
 ### Pending Todos
 
@@ -252,16 +192,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- **Orchestrator:** the current name is in `xrepo/vae-bilingual/effort.json` (`yahir-gsd-control-plane-6e` since 2026-10-05). It is the only writer of the §11 ledger: message it tag rows and the spike verdict, never commit ledger rows here.
-- **Sequencing (A13):** research-milestone → discuss-milestone → message the orchestrator "VAE v1.1 discussed" once CONTEXT is written, before planning Phase 12.
-- **Spike verdict is time-critical (Phase 13):** SB 179 and CT 75 plan against it; message it as soon as it exists.
-- **E8 / §6.2 renumber:** `:undo` (A18) isn't yet in §6.2's step list (brief §6 drift 1). The erratum goes through the orchestrator; Phase 17 doesn't wait for it.
-- **Keys:** PROV-16 (Phase 12) and the plan/router Gate-1 legs (Phase 19) need the spend-capped test keys (test-keys workflow, bounded request count).
-- **Devices:** Phases 12 (PROV-16 smoke), 13 (spike) and 19 (Gate-1) use the wired TESTER `…-s22-ultra-2` only, never the personal phone, and never overlap on the device.
-- **Release-cut host OOM:** the `v1.1.0` cut (Phase 20) needs a quiet window, swap headroom and a single-use Gradle daemon (five v1.0.1 attempts were earlyoom-killed).
+- **Orchestrator:** the current name is in `xrepo/vae-bilingual/effort.json`. It is the only writer of the §11 ledger and owns sequencing: wait for its GO before `/gsd-new-milestone` (A13).
 - **§11:** always `git pull --rebase` before committing; peers commit contract changes to this repo.
-- 19-12 (resolved): detekt MaxLineLength at DocSnippetAdapterTest.kt:14 fixed in 090fd8e; all autonomous gates green; wiring SHA candidate is 090fd8ec761178d5922523faaf24dc3ffb7b686b (only .planning changes after it)
-- 20-07 red: selftest all control contract-ledger-only fails (stale fixture: contract_append_row appends at EOF, contract tail changed at eef5cb9); gap plan on scripts/release-cut.sh, then a new quiet window; no W fixed
+- **Devices:** Gate-1 work uses the wired TESTER `…-s22-ultra-2` only, never the personal phone.
+- **Release-cut host OOM:** any future cut needs a quiet window, swap headroom and a single-use Gradle daemon.
+- **Open technician seeds from the v1.1 Gate-2:** S-033 (COVERAGE.md 200-char reason cap enforced only at verify:pre) and S-034 (early phases read permanently stale because VERIFICATION fingerprints shared files).
 
 ## Deferred Items
 
@@ -269,6 +204,7 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 | Category | Item | Status | Deferred At | Milestone |
 |----------|------|--------|-------------|-----------|
+| verification_gaps | phases 12-19 VERIFICATION.md fingerprint-stale (shared files edited by later phases; technician seed S-034); all status passed, superseded by v1.1.0 cut gate; override_closeout by Yahir | stale (override) | 2026-10-11 | v1.1 |
 | uat_gaps | 10/10-SELF-UAT.md (G1-09 C5 OpenRouter omit-optionals INCONCLUSIVE; accepted by evidence W02) | partial (acknowledged) | 2026-10-05 | v1.0 |
 | verification_gaps | phases 1-11 VERIFICATION.md fingerprint-stale (post-verification edits incl. v1.0.1 patch + REQUIREMENTS.md ticks); superseded by v1.0.1 cut gate @b32840e; override_closeout by Yahir | stale (override) | 2026-10-05 | v1.0 |
 
@@ -280,4 +216,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Run /gsd-research-milestone for v1.1, then /gsd-discuss-milestone; message the orchestrator "VAE v1.1 discussed" once CONTEXT is written, then plan Phase 12 (and Phase 13 in parallel).
+- Start the next milestone with /gsd-new-milestone

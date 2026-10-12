@@ -4,9 +4,9 @@
 
 A generic, STT-agnostic Android/JitPack library (per-module coordinates `com.github.Ygaray.voice-action-engine:<artifactId>`, erratum E5) that turns a spoken command — `CommandInput(transcript, language "en"|"es"|null, context)` — into an app action. Each consumer app composes its own **tier ladder** of strategies (LocalGrammar / SingleShot / PlanThenExecute / AgenticLoop) running over pluggable providers (Anthropic / OpenAI / OpenRouter / on-device), cheap-first and escalating only when needed. It is the shared hub for Yahir's personal apps (SecondBrain, CalTracker, and every future one); it names no app domain.
 
-**Current state (2026-10-05):** v1.0 shipped. Tags `v1.0.0` (2026-10-02) and patch `v1.0.1` (2026-10-04) are in §11, JitPack builds core/providers/keystore, and SecondBrain + CalTracker run on v1.0.1 (Wave-1 done). The v1.0 milestone was closed 2026-10-05 (Gate-2 signed off, archived to `milestones/v1.0-*`).
+**Current state (2026-10-11):** v1.1 shipped and closed. Tag `v1.1.0` (2026-10-07, @ `2e677a6`) is in §11 (ledger row `d4fcf23`). JitPack builds all five published modules (core, providers, keystore, undo, voice-adapter), and SecondBrain + CalTracker are repinned to v1.1.0. Contract §6.2 steps 1–13 + A18 are delivered. The milestone was closed 2026-10-11 (Gate-2 signed off, archived to `milestones/v1.1-*`); v1.0 (`v1.0.0`/`v1.0.1`) is archived in `milestones/v1.0-*`.
 
-**Next milestone (v1.1 → tag `v1.1.0`)** = contract §6.2 steps 8–13 + A18, plus the Wave-1 additive seams (R-v1.1 GO, 2026-10-05): LocalGrammar + bilingual GrammarPack, PlanThenExecute, `TierSelector.Custom` / Router, `:undo`, the on-device spike, `:voice-adapter`, and the W04 fix.
+**Next milestone:** not yet scoped; sequencing goes through the orchestrator. Known candidates: a v1.1.x docs patch (the three Phase 20 wiring stumbles, the sample-undo note, documenting `ExecutedAction.providerCallId`), backlog 999.1 (binary-diff helper reads Kotlin metadata), and the `submit_plan` cache-prefix measurement SB 177 wants (waived for v1.1.0).
 
 ## Core Value
 
@@ -16,19 +16,9 @@ A consumer app can hand the engine a transcript and get back a correct, typed ou
 
 **`CROSS-REPO-SCOPE-CONTRACT.md`** (repo root) — FROZEN v1.0 + amendments A1–A14 and errata E1–E6. This slice is **§6.2** (v1.0 = steps 1–7); the engine seams are **§5.1–5.2**; the tag protocol and ledger are **§11**. It is never edited by this session: changes are proposed to the control plane (yahir-gsd-control-plane-f2, orchestrator) and recorded as numbered §10 amendments / errata. Other sessions commit contract-only changes here, so always `git pull --rebase` before committing.
 
-## Current Milestone: v1.1 Grammar, Plan, Router, Undo, Spike, Adapter
+## Current Milestone
 
-**Goal:** Give consumers the cheap and offline tiers (grammar, plan), app-controlled tier selection and run-level undo,
-and fold in the Wave-1 additive seams SB 176–179 and CT 75 are blocked on. Cuts one `v1.1.0` (A4).
-
-**Target features:**
-- Wave-1 additive seams + the W04 fix + the open doc stumbles
-- `LocalGrammarStrategy` + bilingual EN/ES `GrammarPack` (optional per-slot `normalize`)
-- `PlanThenExecuteStrategy` with write-output step binding
-- `TierSelector.Custom(StartTierPicker)` + `TierSelector.Router` (default off)
-- Bundled on-device model spike (verdict early, never blocks the tag)
-- `:undo` standalone module + pipeline integration
-- `:voice-adapter` (`:stt` v0.7.0 → `CommandInput`)
+None active. v1.1 (Grammar, Plan, Router, Undo, Spike, Adapter) shipped as `v1.1.0` and closed 2026-10-11; see `MILESTONES.md`. Start the next with `/gsd-new-milestone` once the orchestrator sends a GO.
 
 ## Requirements
 
@@ -80,25 +70,30 @@ and fold in the Wave-1 additive seams SB 176–179 and CT 75 are blocked on. Cut
 - ✓ The library never reads app settings storage directly. — v1.0
 - ✓ No app planning IDs (T-68-05, WR-02, "Phase 70 D-01") in library comments. — v1.0
 
+**v1.1 (contract §6.2 steps 8–13 + A18, tag `v1.1.0`)**
+- ✓ Wave-1 additive seams: SingleShot/Plan `onFailed`, `ReasoningMode` knob, `claude-sonnet-5` capability row, `TierAttempt.carryIn`, `Unhandled.cappedByPolicy`, `Extraction.callId` / `ExecutedAction.providerCallId`, opt-in `@DelicateKeyAccess` `KeyAccess`. — v1.1
+- ✓ W04 fix: a direct Responses-only model never gets `reasoning_effort: "none"`; the `unsupported_value` 400 maps to `ModelUnsupported` (proven live). — v1.1
+- ✓ `LocalGrammarStrategy` + bilingual EN/ES `GrammarPack` DSL with typed slots, strict number words and an optional per-slot `normalize` hook (V11-01). Fixture-proven; real-speech coverage is untested (Gate-2 gap). — v1.1
+- ✓ `PlanThenExecuteStrategy` with write-output step binding and at most one replan (V11-02). — v1.1
+- ✓ `TierSelector.Custom(StartTierPicker)` + opt-in `TierSelector.Router` (grammar pre-pass, loud fallback to Linear) (V11-03). — v1.1
+- ✓ On-device model spike measured, verdict relayed early (V11-04): RED (small measured fail; SB-sized unmeasured, time-boxed), so nothing shipped and SPIKE-03 is N/A. — v1.1
+- ✓ Standalone `:undo` module + pipeline integration for "Undo all (N)" (A18/E7, V11-05). — v1.1
+- ✓ `:voice-adapter` (`:stt` v0.7.0 → `CommandInput`, `:stt` compileOnly, `:core` still hub-free) (V11-06). — v1.1
+- ✓ Tag `v1.1.0` per §11: preflight 15/15, strictly additive API vs v1.0.1 (D-02 binary-diff waiver for 12 internal/synthetic members), five modules on JitPack, isolated wiring PASS on the final SHA. — v1.1
+
 **Keep deliberately (good disciplines from both ports)**
 - ✓ Never-throw outcome collapse (cancellation always propagates). — v1.0
 - ✓ No logging interceptor on provider HTTP clients; keys never reach any sink; redacted `toString()` on request types. — v1.0
 - ✓ Cancellation-safe OkHttp `Call.await()` bridge (CT); HTTPS-only fixed base URLs, overridable only for tests. — v1.0
 
-### Active (v1.1)
+### Active
 
-- [ ] Wave-1 additive seams: SingleShot/Plan `onFailed`, `ReasoningMode` knob, `claude-sonnet-5` capability row, `TierAttempt.carryIn`, `Unhandled.cappedByPolicy`, `Extraction.callId` / `ExecutedAction.providerCallId`, opt-in `@DelicateKeyAccess` `KeyAccess` (XR-171-03(1), XR-172-02, XR-173-01, XR-175-02(f)).
-- [ ] W04 fix: a direct Responses-only model never gets `reasoning_effort: "none"`, and the `unsupported_value` 400 maps to `ModelUnsupported`.
-- [x] `LocalGrammarStrategy` + bilingual EN/ES `GrammarPack` DSL, with an optional per-slot `normalize` hook (V11-01). Shipped in Phase 14.
-- [x] `PlanThenExecuteStrategy` with write-output step binding (V11-02). Shipped in Phase 15 (RT-01: a hold after a commit ends a partial Completed with `remainingStepIds`; D-04 binding syntax confirmed by the live probe).
-- [x] `TierSelector.Custom(StartTierPicker)` + `TierSelector.Router` (default off; grammar is a free pre-pass) (V11-03). Shipped in Phase 16 (a picker or fallback always leaves the walk on Linear with a `router_fallback` trace code; offline-only never pays for a picker call; `trace.selection` records the pick; the Router prompt wording is live-checked in the Phase 19 Gate-1 router leg).
-- [ ] Bundled on-device model spike; verdict to the orchestrator (V11-04).
-- [ ] Standalone `:undo` module + pipeline integration (A18/E7, V11-05).
-- [ ] `:voice-adapter` (`:stt` v0.7.0 → `CommandInput`) (V11-06).
+None until the next milestone is scoped (see the candidates under "What This Is").
 
 ### Out of Scope
 
 - Gemini Nano / AICore implementation — later version on a Pixel 10 (L10); S22s have no AICore.
+- A bundled on-device LLM tier on the S22s — the v1.1 spike measured Gemma 4 E2B at a 20 s warm p50 and 2.3 GB peak for a 4-tool prompt (bar: 3 s / 2 GB). Any revisit needs other hardware or a much better small model, as a new milestone. The `ON_DEVICE` seam stays.
 - Any dependency on `:stt` or YAT from `:core` (L7).
 - UI of any kind in the library (YAT owns presentational AI-voice UI; apps map outcomes → YAT props).
 - Telemetry as a `Flow` API — consumers can wrap the callback themselves.
@@ -108,6 +103,8 @@ and fold in the Wave-1 additive seams SB 176–179 and CT 75 are blocked on. Cut
 ## Context
 
 - **Ecosystem:** hub + spokes (see `ECOSYSTEM.md`). Sibling hubs: `stt-engine` (`:stt`, bilingual capture, §6.1) and `yahirandroidtaste` (YAT, §6.3). Consumers in Wave 1: SecondBrain (§6.4, OkHttp 5.2.1) and CalTracker (§6.5, moving to OkHttp 5.2.1 per A11; its v1.13 consumes both engine tags).
+- **Codebase (v1.1.0):** ~20.8k lines of Kotlin main source and ~54.7k lines of tests across `:core`, `:providers`, `:keystore`, `:undo`, `:voice-adapter` and `:sample`; v1.1 added ~26k Kotlin lines over 9 phases / 88 plans.
+- **Known tech debt (v1.1 audit):** `verify-negative-controls.sh` Part 1 stale since v1.0.0; `:sample`'s main graph doesn't compose undo (only `UndoLeg` does); three clarity-only doc stumbles; backlog 999.1. See `milestones/v1.1-MILESTONE-AUDIT.md`.
 - **Peers (cross-session):** **The orchestrator (`yahir-gsd-control-plane-6e` since 2026-10-05; the current name is in `xrepo/vae-bilingual/effort.json`) for this effort and the ONLY writer of the §11 ledger** (message it tag rows + the v1.1 spike verdict; never commit ledger rows here). secondbrain-2c (SB), stt-engine-46, yahirandroidtaste-99, caltracker-android-9a. Handoff file: `.planning/cross-repo/HANDOFF.md`.
 - **Port sources (read-only):**
   - SB `~/Projects/AndroidApps/Personal/SecondBrain/app/src/main/java/com/example/secondbrain/core/agent/`: `AnthropicAgentLoop.kt` (loop, `buildRequestBody`, `SYSTEM_PROMPT`), `AgentLoopResult.kt` (typed `UnavailableReason`, `BudgetBound`), `MutationGate.kt` + `VoiceConfirmGate.kt` (→ PreApplyGate shape, E1; `MutationTierPolicy.kt` only classifies risk and is consulted by the gate), `VoiceUndoOperations.kt` + `PreMutationSnapshot.kt` (→ CommitSink), `SecondBrainToolFacade.kt` + `RoomToolFacade.kt` (→ ToolExecutor), `KeystoreCrypto.kt` + `KeystoreCryptoSeam.kt` (→ `:keystore`). The A10 fixture is NOT taken from `ToolSchemas.kt`; SB hands over `{system, tools}` JSON (E2).
@@ -144,8 +141,12 @@ and fold in the Wave-1 additive seams SB 176–179 and CT 75 are blocked on. Cut
 | Tag cuts waived, agent-owned via §11 (A12) | Yahir waived; peers jointly own correctness | ✓ Good (v1.0) |
 | Gate fault = error result + strike, never a hold (XR-171-03 ruling a) | A hold would double-apply via commitHeld; matches SB v5.0 parity | ✓ Good (v1.0.1) |
 | Version-to-pin named once in the README; patch tags for fixes only | Tags immutable; consumers repin from §11 rows | ✓ Good (v1.0.1) |
-| W04 Responses-only 400 mismatch fixed in v1.1 phase 12, no v1.0.2 | Reachable only under an app supportsTools override; no consumer uses it | — Pending (v1.1) |
-| One `v1.1.0` tag (A4 kept); KeyAccess = opt-in `@DelicateKeyAccess` seam | Yahir, R-v1.1 GO 2026-10-05 | — Pending (v1.1) |
+| W04 Responses-only 400 mismatch fixed in v1.1 phase 12, no v1.0.2 | Reachable only under an app supportsTools override; no consumer uses it | ✓ Good (v1.1, proven live) |
+| One `v1.1.0` tag (A4 kept); KeyAccess = opt-in `@DelicateKeyAccess` seam | Yahir, R-v1.1 GO 2026-10-05 | ✓ Good (v1.1) |
+| On-device spike red → ship nothing, keep the `ON_DEVICE` seam (L10) | Small envelope 7× over the latency bar; spike must never block the tag | ✓ Good (v1.1) |
+| `:undo` and `:voice-adapter` as separate published modules | `:core` stays hub-free; apps without them never pull `:stt` | ✓ Good (v1.1) |
+| Grammar refuses on ambiguity; unknown language labels map to null, never a default | Loud, specific outcomes over guessing | ✓ Good (v1.1) |
+| v1.1 Gate-2 as an evidence read-through per phase, two signed off with gap | Library phases; device evidence already committed at Gate-1 | ✓ Good |
 | v1.0 Gate-2 as one sign-off per phase (library, Gate-1 evidence) | ~80 per-test prompts about unobservable internals added nothing | ✓ Good |
 
 ## Evolution
@@ -166,4 +167,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-10-06 after Phase 16*
+*Last updated: 2026-10-11 after v1.1 milestone*
