@@ -3,10 +3,10 @@ gsd_state_version: "1.0"
 milestone: v1.1
 milestone_name: Grammar, Plan, Router, Undo, Spike, Adapter
 status: Awaiting next milestone
-stopped_at: Phase 20 complete — all phases complete
-last_updated: "2026-10-12T00:50:07.551Z"
-last_activity: 2026-10-11
-last_activity_desc: Milestone v1.1 completed and archived
+stopped_at: Parked for the night (director) — v1.1 closed; Yahir retakes the v1.1 Gate-2 in the morning
+last_updated: "2026-10-13T06:00:00.000Z"
+last_activity: 2026-10-13
+last_activity_desc: Parked; handoff refreshed for the morning v1.1 Gate-2 retake
 state_head: c72b254daadc3db67047c2144d0588ea43ddde52
 progress:
   total_phases: 9
@@ -24,14 +24,18 @@ current_phase: 20
 See: .planning/PROJECT.md (updated 2026-10-11) · Roadmap: .planning/ROADMAP.md · archives: .planning/milestones/v1.0-*, v1.1-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** Planning next milestone (await orchestrator GO; then /gsd-new-milestone)
+**Current focus:** PARKED. Yahir retakes the v1.1 Gate-2 in the morning (items: `.planning/cross-repo/HANDOFF.md` "Current state"); then await orchestrator GO for /gsd-new-milestone
 
 ## Current Position
 
 Phase: Milestone v1.1 complete
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-10-11 — Milestone v1.1 completed and archived
+Status: Parked (director, 2026-10-13); v1.1 closed and pushed; morning Gate-2 retake by Yahir pending
+Last activity: 2026-10-13 — Park handoff written (local commit, not pushed)
+
+- **v1.1 close/push:** close commits `7a6344c..54f11da` are on origin. `origin/main` (`2917bdf`) is 7 orchestrator §11 commits ahead and not merged locally; the park commit is local only.
+- **Morning Gate-2 retake needs from Yahir:** P10 C5 (OpenRouter omit-optionals, accepted by evidence, not a PASS), the W02 fragments (P18 adapter fragment, router wording, real-speech grammar), carry-register C10 (rebuild/reinstall `:sample` before any live TESTER window), and the 3 unconfirmed advisories (ADPT-01 no `:sample` consumer; `ExecutedAction.providerCallId` never read by `:undo`; sample `AppGraph` uses `InMemoryCommitSink`, not `UndoCommitSink`). Detail: HANDOFF.md "Current state".
+- **Personal phone:** the Gate-2 debug `:sample` APK is still installed on the PERSONAL phone.
 
 ## Performance Metrics
 
@@ -193,9 +197,9 @@ None yet.
 ### Blockers/Concerns
 
 - **Orchestrator:** the current name is in `xrepo/vae-bilingual/effort.json`. It is the only writer of the §11 ledger and owns sequencing: wait for its GO before `/gsd-new-milestone` (A13).
-- **§11:** always `git pull --rebase` before committing; peers commit contract changes to this repo.
+- **§11:** peers/orchestrator commit contract changes to origin/main. `git merge origin/main` (never rebase) before any push, and push only after a `pushing main <sha>` handshake.
 - **Devices:** Gate-1 work uses the wired TESTER `…-s22-ultra-2` only, never the personal phone.
-- **Release-cut host OOM:** any future cut needs a quiet window, swap headroom and a single-use Gradle daemon.
+- **Release-cut host OOM:** any future cut needs a quiet window, swap headroom and a single-use Gradle daemon. Never `./gradlew --stop` (director rule): kill only this repo's daemon by PID or use `--no-daemon`.
 - **Open technician seeds from the v1.1 Gate-2:** S-033 (COVERAGE.md 200-char reason cap enforced only at verify:pre) and S-034 (early phases read permanently stale because VERIFICATION fingerprints shared files).
 
 ## Deferred Items
@@ -210,10 +214,11 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-08T01:30:05.737Z
-Stopped at: Phase 20 complete — all phases complete
-Resume file: None
+Last session: 2026-10-13
+Stopped at: Parked for the night after the v1.1 close; nothing in flight
+Resume file: .planning/cross-repo/HANDOFF.md ("Current state")
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Morning: Yahir retakes the v1.1 Gate-2 items listed in HANDOFF.md "Current state" (P10 C5, W02 fragments, C10, 3 advisories). A finding that changes behaviour or wording = a v1.1.x patch tag.
+- Then, on the orchestrator's GO: start the next milestone with /gsd-new-milestone
