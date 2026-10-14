@@ -24,16 +24,16 @@ current_phase: 20
 See: .planning/PROJECT.md (updated 2026-10-11) · Roadmap: .planning/ROADMAP.md · archives: .planning/milestones/v1.0-*, v1.1-*
 
 **Core value:** A consumer app can hand the engine a transcript and get back a correct, typed outcome through a tier ladder it composed itself. The cloud agentic path works on-device (Anthropic, prompt cache hitting), and every failure is surfaced as a specific, loud reason, never a silent or opaque one.
-**Current focus:** PARKED. Yahir retakes the v1.1 Gate-2 in the morning (items: `.planning/cross-repo/HANDOFF.md` "Current state"); then await orchestrator GO for /gsd-new-milestone
+**Current focus:** v1.1 Gate-2 retake DONE 2026-10-14 (PASS with accepted gaps; `.planning/v1.1-GATE2-RETAKE.md`). Next: docs patch backlog 999.2 or /gsd-new-milestone, on the orchestrator's GO
 
 ## Current Position
 
 Phase: Milestone v1.1 complete
 Plan: —
-Status: Parked (director, 2026-10-13); v1.1 closed and pushed; morning Gate-2 retake by Yahir pending
-Last activity: 2026-10-13 — Park handoff written (local commit, not pushed)
+Status: v1.1 closed; Gate-2 retake DONE 2026-10-14 (PASS with accepted gaps)
+Last activity: 2026-10-14 — v1.1 Gate-2 retake recorded (local commits, not pushed)
 
-- **v1.1 close/push:** close commits `7a6344c..54f11da` are on origin. `origin/main` (`2917bdf`) is 7 orchestrator §11 commits ahead and not merged locally; the park commit is local only.
+- **v1.1 close/push:** close commits `7a6344c..54f11da` are on origin. Local main is rebased onto `origin/main` `2917bdf`: 4 planning-only commits ahead, 0 behind, not pushed.
 - **Morning Gate-2 retake needs from Yahir:** P10 C5 (OpenRouter omit-optionals, accepted by evidence, not a PASS), the W02 fragments (P18 adapter fragment, router wording, real-speech grammar), carry-register C10 (rebuild/reinstall `:sample` before any live TESTER window), and the 3 unconfirmed advisories (ADPT-01 no `:sample` consumer; `ExecutedAction.providerCallId` never read by `:undo`; sample `AppGraph` uses `InMemoryCommitSink`, not `UndoCommitSink`). Detail: HANDOFF.md "Current state".
 - **Personal phone:** the Gate-2 debug `:sample` APK is still installed on the PERSONAL phone.
 

@@ -216,6 +216,7 @@
 ### Phase 18 — voice-adapter (v1.1)
 
 - **Status:** `signed-off — Yahir, 2026-10-12`
+- **Gate-2 retake 2026-10-14:** RE-CONFIRMED signed-off by yahir (W02 a). See `v1.1-GATE2-RETAKE.md`.
 - **Milestone:** v1.1 (Grammar, Plan, Router, Undo, Spike, Adapter)
 - **Gate 1 self-UAT log:** [`.planning/phases/18-voice-adapter/18-SELF-UAT.md`](phases/18-voice-adapter/18-SELF-UAT.md) — Verdict: **ALL 2 criteria PASS** (headless JVM harness, device none this run, no live call, no key read; release AAR md5 `530fe5aec28f25e966bb2a087815bc7d` @ `99fa8ff`, 2026-10-07). Re-observed from a forced fresh run: `:voice-adapter` 33 tests and `:core` 1112 tests, 0 failures, 0 errors, 0 skipped; detekt, `verifyModuleGraph` (all five published modules), `verifyCoreDependencyAllowlist`, `verifySttConfined` (core, providers, keystore, undo), `verifyAdapterSttCompileOnly`, Metalava compat green; `verify-stt-confinement.sh` (+ selftest), `verify-docs-coverage.sh`, `verify-repo-hygiene.sh`, `verify-module-manifest.sh` green. Heavy gates (negative controls, API dump proof, JitPack dry run) were not re-run by this tester; their green results are in `18-QUIET-WINDOW.md`.
 - **Items covered (2 ROADMAP success criteria):**
@@ -231,6 +232,7 @@
 ### Phase 19 — sample-gate-1-docs (v1.1)
 
 - **Status:** `signed-off-with-gap — Yahir, 2026-10-12`
+- **Gate-2 retake 2026-10-14 (by yahir):** C10 CLOSED; router wording accepted on the sample, real-tier check carried to the first consumer enabling the router (SB G2-C); real-speech grammar accepted as gap until SB/CT voice wiring. See `v1.1-GATE2-RETAKE.md`.
 - **Milestone:** v1.1 (Grammar, Plan, Router, Undo, Spike, Adapter)
 - **Gate 1 self-UAT log:** [`.planning/phases/19-sample-gate-1-docs/19-SELF-UAT.md`](phases/19-sample-gate-1-docs/19-SELF-UAT.md) — Verdict: **ALL 3 criteria PASS** (device SM-S908U TESTER R5CT10XNKQN, APK md5 `662317322d5b804ab0016958770a8927` @ `1869950dca`, 2026-10-07). Observed from the committed plan 19-07 TESTER evidence plus the light static gates and the committed isolated wiring record; not re-driven in the audit run. Caveats C10 (WR-04 source delta) and C11 (wiring judge tightened) are carried to Phase 20. C10 Gate-2 retake 2026-10-14: CLOSED by yahir. grammar_offline, undo_all, plan_live and router_live all PASS on the personal phone, on the final v1.1 tree (installed 2026-10-11, no non-planning commits since), which includes the WR-04 delta.
 - **Items covered (3 ROADMAP success criteria):**

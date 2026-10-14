@@ -57,3 +57,13 @@ Full detail: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md). Phase art
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: v1.1.x docs patch: wiring stumbles S1-S3, providerCallId docs, sample AppGraph undo composition (BACKLOG)
+
+**Goal:** Target a v1.1.x patch tag. From the v1.1 Gate-2 retake (2026-10-14, decisions by yahir, `.planning/v1.1-GATE2-RETAKE.md`): (1) fix the sample `AppGraph` to compose `compositeSink(UndoCommitSink(journal), …)` per INTEGRATION.md instead of `InMemoryCommitSink` (certify advisory iii); (2) document `ExecutedAction.providerCallId` as a consumer correlation field (advisory ii); (3) the three clarity-only wiring doc stumbles from the Phase 20 run (S1 StepResult constructors, S2 Resolution.Escalate / EscalationReason.Other constructors, S3 UndoCommitSink copy-in and the PendingMutation.context / ExecutedAction.position rows; `evidence/wiring-stumbles-p20.txt`). Doc edits void the wiring pass, so the isolated wiring test must be rerun on the patch SHA. Do not start before an orchestrator GO.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
