@@ -71,6 +71,7 @@ C10 Gate-1 build delta from review fix WR-04 (sample/src/main)
   disposition: CARRIED: rebuild and reinstall the sample from the final SHA before any further live TESTER window (Phase 20's Gate-1 delta check against gate1_build_head 1869950dca will show this file).
   owner: Phase 20
   evidence pointer: 19-REVIEW.md WR-04; 19-REVIEW-FIX.md
+  Gate-2 retake 2026-10-14: CLOSED by yahir. grammar_offline, undo_all, plan_live and router_live all PASS on the personal phone, on the final v1.1 tree (installed 2026-10-11, no non-planning commits since), which includes the WR-04 delta.
 
 C11 Wiring judge tightened after the pass (WR-03) and docs/tag wording (WR-02)
   source: 19-REVIEW-FIX.md (commits 9a47c71, 2b694e8)

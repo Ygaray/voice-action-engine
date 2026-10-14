@@ -44,5 +44,5 @@ blocked: 0
   - Three clarity-only doc stumbles from the Phase 20 wiring run (S1 StepResult constructors, S2 Resolution.Escalate / EscalationReason.Other constructors, S3 UndoCommitSink copy-in and the PendingMutation.context / ExecutedAction.position rows) are deferred to a v1.1.x/v1.2 docs patch (orchestrator-accepted; evidence/wiring-stumbles-p20.txt).
 - Item 3 (submit_plan cache-prefix number, carry C1) was already waived pre-cut (WAIVER-PACKET.md W01).
 - Item 4 (router wording) is moot post-tag; any change is v1.1.x behavior.
-- C10: the sample delta since gate1 build 1869950dca is JVM-proven only. The final tree was installed on the personal phone at Gate-2, but no leg was driven.
+- C10: the sample delta since gate1 build 1869950dca is JVM-proven only. The final tree was installed on the personal phone at Gate-2, but no leg was driven. Gate-2 retake 2026-10-14: CLOSED by yahir. grammar_offline, undo_all, plan_live and router_live all PASS on the personal phone, on the final v1.1 tree (installed 2026-10-11, no non-planning commits since), which includes the WR-04 delta.
 - Reviewed via evidence read-through with the operator.
