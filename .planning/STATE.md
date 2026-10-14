@@ -33,7 +33,7 @@ Plan: —
 Status: v1.1 closed; Gate-2 retake DONE 2026-10-14 (PASS with accepted gaps)
 Last activity: 2026-10-14 — v1.1 Gate-2 retake recorded (local commits, not pushed)
 
-- **v1.1 close/push:** close commits `7a6344c..54f11da` are on origin. Local main is rebased onto `origin/main` `2917bdf`: 4 planning-only commits ahead, 0 behind, not pushed.
+- **v1.1 close/push:** all pushed; `origin/main` at `4f3f7cd` includes the Gate-2 retake record (teamlead push, 2026-10-14).
 - **Morning Gate-2 retake needs from Yahir:** P10 C5 (OpenRouter omit-optionals, accepted by evidence, not a PASS), the W02 fragments (P18 adapter fragment, router wording, real-speech grammar), carry-register C10 (rebuild/reinstall `:sample` before any live TESTER window), and the 3 unconfirmed advisories (ADPT-01 no `:sample` consumer; `ExecutedAction.providerCallId` never read by `:undo`; sample `AppGraph` uses `InMemoryCommitSink`, not `UndoCommitSink`). Detail: HANDOFF.md "Current state".
 - **Personal phone:** the Gate-2 debug `:sample` APK is still installed on the PERSONAL phone.
 
