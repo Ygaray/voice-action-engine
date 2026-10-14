@@ -265,6 +265,14 @@ Version deltas resolved by Wave-1 repins: OkHttp: engine floor stays 4.12 (A1); 
 - **UI:** YAT v2.4.0 adds a generic, props-driven "clarification choices" component (question plus option buttons). Selecting an option completes the command, dismissing it cancels, and it is visually informational, never an error. A Material snackbar holds only one action, so this is a compact choice surface.
 - **VAE mapping:** Phase 2 (`Completed.terminalCall`, `CommandInput.parentRunId`, `Clarification`), Phase 3 (`ToolSpec.terminal`), Phases 7 and 9 (strategy handling and tests), and the README.
 
+**A20 — `:stt` v3.2 may add public surface, strictly additively (2026-10-14, Yahir, in the teamlead pane).** This lifts the R-v1.1 HOLD on stt-engine v3.2 and the §6.1 "byte-identical `apiCheck`" posture for this milestone only. It cuts **`:stt v0.8.0`**. Every change is additive: new symbols or trailing defaulted parameters only, existing signatures unchanged (`stop(): Unit` stays), and `apiDump` is regenerated and reviewed. Scope (all five seed items, from stt's `RECONVENE-BRIEF-R-v1.1.md` plus its ROADMAP):
+1. **Shorter commit pause:** tune the ~2 s inter-utterance commit pause internally. An optional `SttConfig(commitSilenceMs)` knob is allowed. A real-mic feel check by Yahir is required.
+2. **Language-pack preflight + download:** `enum LanguageAvailability`, `SttEngineFactory.checkLanguageAvailability(langs)` and `requestLanguagePackDownload(lang)` for `{en, es}`. SB (XR-174-01b) confirms the shape it will call.
+3. **`lastFinal` accessor:** read-only `val SttEngine.lastFinal: FinalSegment?` for the final that `stop()` flushes (XR-174-01c).
+4. **Detected-vs-fallback signal:** an additive, defaulted `FinalSegment` field (e.g. `languageSource: LanguageSource?` = `DETECTED`/`FALLBACK`), covering the server fallback-to-`en` and the sub-34 default stamp (VAE Q9). The server segment frame carries the detected flag.
+5. **Configurable server-try timeout:** an additive, trailing, defaulted `SttConfig` knob for the `tryServer` window (today `DEFAULT_TRY_SERVER_TIMEOUT_MS = 2_500`, shorter than the ~3 s `stt-server` cold start), with a fast-fail on an unreachable host vs. slow-accept while the server cold-starts.
+- **Consumers:** SB and CT repin `v0.7.0 → v0.8.0` after the §11 row. No consumer is forced to call the new API. VAE passes labels through unchanged (item 4 is optional for it).
+
 ## 11. Tag protocol & ledger (A12)
 
 **Before cutting a tag, all must hold:**
